@@ -22,7 +22,9 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None
 
-ROOT = Path.home() / ".origin" / "projects"
+from .paths import DATA_DIR
+
+ROOT = DATA_DIR / "projects"
 
 
 def slugify(name: str) -> str:

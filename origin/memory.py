@@ -17,7 +17,9 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-MEM_DB = Path.home() / ".origin" / "memory.db"
+from .paths import DATA_DIR
+
+MEM_DB = DATA_DIR / "memory.db"
 KINDS = ("preference", "fact", "goal", "lesson", "profile", "result")
 
 

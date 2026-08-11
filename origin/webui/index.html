@@ -111,8 +111,26 @@
   </div>
 
 <script>
-let STATE=null, ACTIVE=null, BUSY=false;
-const TOKEN=new URLSearchParams(location.search).get('token')||'';
+let STATE=null, ACTIVE=null, BUSY=false, autoOpenTried=false;
+
+// Token: read from URL once, then remember it in this browser (log in once).
+let TOKEN='';
+(function initToken(){
+  const fromUrl=new URLSearchParams(location.search).get('token');
+  if(fromUrl){
+    TOKEN=fromUrl;
+    try{ localStorage.setItem('origin_token', TOKEN); }catch(e){}
+    // clean the token out of the address bar
+    try{ history.replaceState({}, '', location.pathname); }catch(e){}
+  } else {
+    try{ TOKEN=localStorage.getItem('origin_token')||''; }catch(e){ TOKEN=''; }
+  }
+  if(!TOKEN){
+    const t=prompt('Enter your Origin access token to sign in:');
+    if(t){ TOKEN=t.trim(); try{ localStorage.setItem('origin_token', TOKEN); }catch(e){} }
+  }
+})();
+function signOut(){ try{ localStorage.removeItem('origin_token'); localStorage.removeItem('origin_last_project'); }catch(e){} location.reload(); }
 
 async function api(path, opts){
   opts = opts || {};
@@ -163,7 +181,13 @@ async function refresh(){
       pb.appendChild(b);
     });
   } else { pb.style.display='none'; }
-  if(!ACTIVE) renderEmpty();
+  if(!ACTIVE){
+    let last=null; try{ last=localStorage.getItem('origin_last_project'); }catch(e){}
+    if(!autoOpenTried && last && (STATE.projects||[]).some(p=>p.slug===last)){
+      autoOpenTried=true; openProject(last); return;
+    }
+    renderEmpty();
+  }
 }
 
 function renderEmpty(){
@@ -178,7 +202,9 @@ function renderEmpty(){
 
 async function openProject(slug){
   const r=await api('/api/projects/'+slug+'/open',{method:'POST'});
+  if(!r || !r.opened){ renderEmpty(); return; }
   ACTIVE=r.opened;
+  try{ localStorage.setItem('origin_last_project', slug); }catch(e){}
   document.getElementById('active-name').innerHTML='<b>'+ACTIVE.name+'</b>';
   document.getElementById('sharebtn').style.display='';
   const chat=document.getElementById('chat'); chat.innerHTML='';

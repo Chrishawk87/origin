@@ -25,7 +25,9 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-DB_PATH = Path.home() / ".origin" / "knowledge.db"
+from .paths import DATA_DIR
+
+DB_PATH = DATA_DIR / "knowledge.db"
 DAY = 86400.0
 
 
