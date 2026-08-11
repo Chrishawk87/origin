@@ -1,9 +1,0 @@
-{
-  "$schema": "https://railway.com/railway.schema.json",
-  "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
-  "deploy": {
-    "startCommand": "python -m origin.serve --host 0.0.0.0 --port $PORT --token $ORIGIN_TOKEN",
-    "healthcheckPath": "/healthz",
-    "restartPolicyType": "ON_FAILURE"
-  }
-}
