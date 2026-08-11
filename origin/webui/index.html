@@ -286,7 +286,7 @@ function openNew(){
 }
 function closeModal(){document.getElementById('modal').style.display='none';}
 
-function shareProj(){ if(ACTIVE) window.location='/api/projects/'+ACTIVE.slug+'/export'; }
+function shareProj(){ if(ACTIVE) window.location='/api/projects/'+ACTIVE.slug+'/export'+(TOKEN?('?token='+encodeURIComponent(TOKEN)):''); }
 function importProj(){ document.getElementById('importfile').click(); }
 async function doImport(ev){
   const f=ev.target.files[0]; if(!f)return;
