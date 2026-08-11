@@ -1,0 +1,53 @@
+# Config used when Origin runs on a cloud host (Railway/Render/etc.).
+# The brain is a cloud model via API key set as a host environment variable.
+# Set ANTHROPIC_API_KEY and/or OPENAI_API_KEY in your host; Origin uses
+# whichever is present (coordinator prefers Claude, falls back to GPT).
+
+llm:
+  provider: anthropic
+  anthropic:
+    model: claude-sonnet-4-5
+    api_key_env: ANTHROPIC_API_KEY
+    max_tokens: 4096
+  openai:
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    max_tokens: 4096
+
+workers:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-5
+    api_key_env: ANTHROPIC_API_KEY
+    role: "reasoning, writing, review"
+  gpt:
+    provider: openai
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    role: "fast drafts, brainstorming"
+  grok:
+    provider: grok
+    model: grok-2-latest
+    api_key_env: XAI_API_KEY
+    role: "real-time takes, contrarian angles"
+  gemini:
+    provider: gemini
+    model: gemini-2.0-flash
+    api_key_env: GEMINI_API_KEY
+    role: "long-context, multimodal, fast"
+
+orchestrator:
+  # Prefers Claude; automatically falls back to whichever key is actually set.
+  coordinator: claude
+  collab_workers: [claude, gpt, grok, gemini]
+  synthesizer: claude
+
+# The hosted container has no display/browser; keep those off.
+web:
+  enabled: true
+  search_backend: ddg
+  browser: false
+
+research:
+  default_ttl_hours: 24
+  daily_refresh: false

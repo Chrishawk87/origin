@@ -1,0 +1,11 @@
+# Slim dependency set for cloud hosting (Railway/Render/etc.).
+# No llama.cpp / pywebview / playwright — a hosted Origin uses a cloud brain
+# (Claude/GPT via API key) and skips the native desktop/browser pieces.
+rich>=13.7
+PyYAML>=6.0
+requests>=2.31
+python-dotenv>=1.0
+fastapi>=0.110
+uvicorn>=0.29
+anthropic>=0.39
+openai>=1.40

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "origin"
+version = "0.1.0"
+description = "A terminal-based autonomous agent that unifies shell, MCP servers, and REST APIs into one system."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "rich>=13.7",
+    "PyYAML>=6.0",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.39"]
+openai = ["openai>=1.40"]
+mcp = ["mcp>=1.2"]
+web = ["trafilatura>=1.6"]
+browser = ["playwright>=1.44"]
+app = ["fastapi>=0.110", "uvicorn>=0.29", "pywebview>=5.0"]
+all = [
+  "anthropic>=0.39", "openai>=1.40", "mcp>=1.2",
+  "trafilatura>=1.6", "playwright>=1.44",
+  "fastapi>=0.110", "uvicorn>=0.29", "pywebview>=5.0",
+]
+
+[project.scripts]
+origin = "origin.cli:main"
+origin-app = "origin.desktop:main"
+origin-serve = "origin.serve:main"
+
+[tool.setuptools.packages.find]
+include = ["origin*"]
+
+[tool.setuptools.package-data]
+origin = ["webui/*.html"]

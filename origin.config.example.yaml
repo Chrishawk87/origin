@@ -1,0 +1,223 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Origin configuration
+#
+# Copy this file to `origin.config.yaml` (same folder) or `~/.origin/config.yaml`
+# and edit. Any ${VAR} is expanded from the environment (or a .env file).
+# ─────────────────────────────────────────────────────────────────────────
+
+llm:
+  # Which brain powers the agent: anthropic | openai | ollama
+  provider: anthropic
+
+  anthropic:
+    model: claude-sonnet-4-5
+    api_key_env: ANTHROPIC_API_KEY   # reads the key from this env var
+    max_tokens: 4096
+
+  openai:
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    max_tokens: 4096
+
+  ollama:
+    # Requires a local Ollama server running (https://ollama.com).
+    model: llama3.1
+    base_url: http://localhost:11434/v1
+    max_tokens: 4096
+
+agent:
+  max_iterations: 25       # max tool-use rounds per user turn
+  autonomous: true         # full autonomous — no confirmation prompts
+  shell_timeout: 300       # seconds per shell command
+  profile: operator        # which behavior profile to start in
+  verbosity: normal        # quiet | normal | verbose (tool-activity display)
+  # tool_allow: [shell, read_file, http_request]   # if set, ONLY these tools
+  # tool_deny:  [write_file]                        # blocked tools
+  # system_prompt: |       # global override of the persona (beats profile prompts)
+  #   You are my personal ops agent. Do exactly what I say, the best way you can.
+
+# ─── Behavior profiles ───────────────────────────────────────────────────
+# Switch at runtime with /profile <name>. system_prompt: null uses the
+# built-in prompt of the same name (operator | assistant | planner). Give a
+# string to write your own. provider/model optionally swap the brain per
+# profile — e.g. a local uncensored Ollama model for one profile.
+profiles:
+  operator:
+    description: "Lean, do-what-I-say operator. No hedging. (default)"
+    system_prompt: null
+  assistant:
+    description: "Explains its reasoning and plan as it works."
+    system_prompt: null
+  planner:
+    description: "Inspects and plans first; prefers non-destructive ops."
+    system_prompt: null
+  # Example: a fully custom persona on a local model (no server-side policy)
+  # raw-local:
+  #   description: "My own persona, running on a local Ollama model."
+  #   provider: ollama
+  #   model: llama3.1
+  #   system_prompt: |
+  #     You are my private ops agent. Follow my instructions exactly.
+  # Built-in ROLES Origin transforms into (switch with /role or the app):
+  #   researcher · marketer · product_designer · analyst · assistant
+
+# ─── Research / self-updating knowledge ──────────────────────────────────
+# Origin answers by gathering live from the web and caches findings with a
+# timestamp + sources. Re-asking re-checks for changes; watched topics refresh
+# daily. This is what keeps answers grounded in *today's* world.
+research:
+  default_ttl_hours: 24     # cached answers older than this are re-gathered on ask
+  daily_refresh: true       # background daily refresh of watched topics (desktop app)
+
+# ─── One-click task presets (shown as buttons in the desktop app) ────────
+presets:
+  - label: "TikTok top ads"
+    prompt: >
+      Open TikTok Creative Center Top Ads
+      (https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en)
+      with the browser and gather the current top-performing ads for [MY TOPIC].
+      For each, capture the brand, the hook, the format, and any visible metrics,
+      then summarize the patterns I should copy.
+  - label: "Organize this folder"
+    prompt: >
+      Inspect every file in this project's working folder, then organize it:
+      group files into clearly named subfolders by type and topic, rename messy
+      filenames, and summarize exactly what you moved and why.
+  - label: "Competitor scan"
+    prompt: >
+      Search the web for the top competitors and their current marketing angles
+      for [MY TOPIC]. Summarize each one's positioning, channels, and gaps I can
+      exploit.
+
+# ─── Web + browser (token-free, any worker can use) ──────────────────────
+# These are TOOLS, not model intelligence: they let even a local model search
+# the web, read pages, and click through sites. They cost no LLM tokens.
+web:
+  enabled: true
+  search_backend: ddg      # ddg (no key) | tavily | brave | searxng
+  # tavily_api_key_env: TAVILY_API_KEY
+  # brave_api_key_env: BRAVE_API_KEY
+  # searxng_url: http://localhost:8888
+  browser: true            # Playwright click-and-retrieve (pip install playwright
+                           # && playwright install chromium)
+  headless: true
+
+# ─── Model workers + the brain ───────────────────────────────────────────
+# The BRAIN is the coordinator below — a coordination layer, NOT any single
+# model. These workers are the models it can consult and make collaborate.
+# All are available at once; define as many as you like. `llm:` above is the
+# fallback when no workers are set.
+workers:
+  builtin:
+    provider: llamacpp            # SELF-CONTAINED: llama.cpp, no external app
+    repo_id: bartowski/Qwen2.5-3B-Instruct-GGUF
+    filename: Qwen2.5-3B-Instruct-Q4_K_M.gguf
+    n_ctx: 8192
+    role: "free built-in brain — conversation, routing, legwork"
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-5
+    api_key_env: ANTHROPIC_API_KEY
+    role: "careful reasoning, code review, long-form writing"
+  gpt:
+    provider: openai
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    role: "fast drafts, broad knowledge, brainstorming"
+  grok:
+    provider: grok                 # xAI — OpenAI-compatible
+    model: grok-2-latest
+    api_key_env: XAI_API_KEY
+    role: "real-time takes, contrarian angles"
+  gemini:
+    provider: gemini               # Google — OpenAI-compatible
+    model: gemini-2.0-flash
+    api_key_env: GEMINI_API_KEY
+    role: "long-context, multimodal, fast"
+  # Optional alternative local brain via the Ollama app (if you prefer it):
+  # local:
+  #   provider: ollama
+  #   model: llama3.1
+  #   role: "local brain via Ollama"
+
+orchestrator:
+  # The brain's 'seat'. DEFAULT = builtin: the self-contained llama.cpp model
+  # runs Origin out of the box with NO external app and no API cost. It does the
+  # legwork and calls consult()/collaborate() to Claude/GPT only for the hard
+  # reasoning (when you've added their keys). Switch anytime with /coordinator.
+  coordinator: builtin
+  collab_workers: [claude, gpt, grok, gemini]   # all four collaborate on hard problems
+  synthesizer: claude             # worker that merges collaboration results
+
+# ─── MCP servers ─────────────────────────────────────────────────────────
+# Each entry is launched over stdio; all its tools appear as
+# mcp__<name>__<tool>. Requires the `mcp` python package.
+mcp_servers:
+  filesystem:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}"]
+    enabled: false          # flip to true once you've installed Node/npx
+
+  # git:
+  #   command: uvx
+  #   args: ["mcp-server-git", "--repository", "${HOME}/myrepo"]
+  #   enabled: true
+
+  # Example with env vars passed to the server:
+  # github:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-github"]
+  #   env:
+  #     GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+  #   enabled: true
+
+  # ── Popular app connectors via MCP (the same ecosystem GPT plugs into).
+  #    Any of these expose their app's actions as tools ALL workers can use.
+  # slack:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-slack"]
+  #   env: { SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}" }
+  #   enabled: true
+  # google_drive:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-gdrive"]
+  #   enabled: true
+  # notion:
+  #   command: npx
+  #   args: ["-y", "@notionhq/notion-mcp-server"]
+  #   env: { NOTION_TOKEN: "${NOTION_TOKEN}" }
+  #   enabled: true
+
+# ─── REST / HTTP APIs ────────────────────────────────────────────────────
+# Wire in ANY HTTP API here — no code needed. The agent calls them through
+# the `http_request` tool by their name.
+rest_apis:
+  github:
+    base_url: https://api.github.com
+    description: "GitHub REST API v3"
+    headers:
+      Authorization: "Bearer ${GITHUB_TOKEN}"
+      Accept: "application/vnd.github+json"
+
+  # ── App connectors: wire in dozens of apps here. ANY worker (Claude AND
+  #    GPT) can use them, because all tools are shared. Ad platforms, CRMs,
+  #    analytics — anything with an HTTP API. Uncomment and add your keys.
+  # meta_ads:            # run/report Facebook & Instagram ad campaigns
+  #   base_url: https://graph.facebook.com/v20.0
+  #   description: "Meta Marketing API (campaigns, ad sets, insights)"
+  #   headers: { Authorization: "Bearer ${META_ACCESS_TOKEN}" }
+  # tiktok_ads:
+  #   base_url: https://business-api.tiktok.com/open_api/v1.3
+  #   description: "TikTok Ads API (campaigns, reporting)"
+  #   headers: { "Access-Token": "${TIKTOK_ACCESS_TOKEN}" }
+  # google_ads:
+  #   base_url: https://googleads.googleapis.com/v17
+  #   description: "Google Ads API"
+  #   headers: { Authorization: "Bearer ${GOOGLE_ADS_TOKEN}", "developer-token": "${GOOGLE_DEV_TOKEN}" }
+  # stripe:
+  #   base_url: https://api.stripe.com/v1
+  #   description: "Payments & revenue data"
+  #   headers: { Authorization: "Bearer ${STRIPE_KEY}" }
+  # openweather:
+  #   base_url: https://api.openweathermap.org/data/2.5
+  #   description: "Current weather + forecasts"

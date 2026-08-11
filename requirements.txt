@@ -1,0 +1,31 @@
+# Core
+rich>=13.7
+PyYAML>=6.0
+requests>=2.31
+python-dotenv>=1.0
+
+# LLM providers (install what you use; all are optional at runtime)
+anthropic>=0.39
+openai>=1.40
+
+# MCP client support (optional — omit if you won't connect MCP servers)
+mcp>=1.2
+
+# Web search + fetch work with just `requests` (above) using the free
+# DuckDuckGo backend. Optional niceties:
+trafilatura>=1.6         # better readable-text extraction for web_fetch (optional)
+
+# Browser click-and-retrieve (optional). After installing, run:
+#   playwright install chromium
+playwright>=1.44
+
+# Desktop app (optional — needed for `origin-app`, the native window UI)
+fastapi>=0.110
+uvicorn>=0.29
+pywebview>=5.0          # native app window; falls back to browser if absent
+
+# Built-in self-contained local brain (llama.cpp) — no external app needed.
+# On install this fetches a prebuilt wheel where available, else compiles
+# (needs Xcode Command Line Tools on macOS). The model auto-downloads on setup.
+llama-cpp-python>=0.2.80
+huggingface_hub>=0.23
