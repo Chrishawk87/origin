@@ -4,4 +4,4 @@ RUN pip install --no-cache-dir fastapi uvicorn anthropic openai rich PyYAML requ
 COPY . .
 ENV ORIGIN_CONFIG=/app/origin.config.railway.yaml
 ENV PYTHONUNBUFFERED=1
-CMD ["sh","-c","python -m origin.serve --host 0.0.0.0 --port $PORT --token $ORIGIN_TOKEN"]
+CMD ["sh","-c","python -m origin.serve --host 0.0.0.0 --port ${PORT:-8000}"]
