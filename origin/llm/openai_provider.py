@@ -67,6 +67,7 @@ class OpenAIProvider(LLMProvider):
                 out.append({
                     "role": "tool",
                     "tool_call_id": m["tool_call_id"],
+                    "name": m.get("name") or "tool",  # gemini needs non-empty function name
                     "content": m["content"],
                 })
         return out
