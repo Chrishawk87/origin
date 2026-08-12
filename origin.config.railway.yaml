@@ -60,4 +60,4 @@ media:
 
 enhancer:
   enabled: true
-  worker: gemini   # free-tier model rewrites the prompt
+  worker: gemini   # free-tier model does the prompt rewriting

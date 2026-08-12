@@ -125,6 +125,7 @@
       <input id="attachinput" type="file" multiple style="display:none" onchange="doAttach(event)">
       <textarea id="input" placeholder="Open a project, then tell Origin what to do…  (＋ to attach a photo/file as reference)"
                 onkeydown="onKey(event)"></textarea>
+      <button id="refinebtn" onclick="doRefine()" title="Rewrite your draft into a sharper instruction (then review & send)">✨ Refine</button>
       <button id="missionbtn" onclick="mission()" title="Executive loop: plan → act → critique → deliver">🎯 Mission</button>
       <button id="sendbtn" class="primary" onclick="send()">Send</button>
     </div>
@@ -517,9 +518,22 @@ async function openAccounts(){
 }
 function closeAccounts(){ document.getElementById('accounts').style.display='none'; }
 
-// ── Prompt enhancer toggle ──
-function enhOn(){ try{ return localStorage.getItem('origin_enhance')!=='0'; }catch(e){ return true; } }
+// ── Prompt enhancer ──
+// Default OFF so normal sends are fast; use the ✨ Refine button on demand,
+// or flip the ✨ Enhance toggle to auto-refine every send.
+function enhOn(){ try{ return localStorage.getItem('origin_enhance')==='1'; }catch(e){ return false; } }
 function saveEnh(){ try{ localStorage.setItem('origin_enhance', document.getElementById('enhtoggle').checked?'1':'0'); }catch(e){} }
+async function doRefine(){
+  const inp=document.getElementById('input'); const t=inp.value.trim();
+  if(!t){ inp.focus(); return; }
+  if(!ACTIVE){ alert('Open a project first.'); return; }
+  const b=document.getElementById('refinebtn'); const old=b.textContent; b.disabled=true; b.textContent='refining…';
+  try{
+    const r=await api('/api/enhance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})});
+    if(r && r.enhanced){ inp.value=r.enhanced; inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,180)+'px'; inp.focus(); }
+  }catch(e){}
+  b.disabled=false; b.textContent=old;
+}
 async function testAll(){
   const t=document.getElementById('acct-test'); if(t) t.innerHTML='<span class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> testing…';
   const r=await api('/api/workers/test');

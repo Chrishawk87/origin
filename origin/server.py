@@ -461,6 +461,16 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     def coordinator(body: dict = Body(...)):
         return eng.set_coordinator(body.get("worker", ""))
 
+    @app.post("/api/enhance")
+    def enhance_ep(body: dict = Body(...)):
+        text = (body.get("message") or "").strip()
+        if not text:
+            return {"enhanced": text}
+        try:
+            return {"enhanced": eng._enhance(text)}
+        except Exception as e:
+            return {"enhanced": text, "error": str(e)}
+
     @app.post("/api/role")
     def role(body: dict = Body(...)):
         return eng.set_role(body.get("role", ""))
