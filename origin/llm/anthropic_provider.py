@@ -35,10 +35,14 @@ class AnthropicProvider(LLMProvider):
 
     def _convert_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
-        for m in messages:
+        i = 0
+        n = len(messages)
+        while i < n:
+            m = messages[i]
             role = m["role"]
             if role == "user":
                 out.append({"role": "user", "content": m["content"]})
+                i += 1
             elif role == "assistant":
                 blocks: List[Dict[str, Any]] = []
                 if m.get("content"):
@@ -51,15 +55,24 @@ class AnthropicProvider(LLMProvider):
                         "input": tc.arguments,
                     })
                 out.append({"role": "assistant", "content": blocks or ""})
+                i += 1
             elif role == "tool":
-                out.append({
-                    "role": "user",
-                    "content": [{
+                # Coalesce ALL consecutive tool results into ONE user message.
+                # Anthropic requires every tool_result to sit in the single user
+                # message right after the assistant message that made the calls —
+                # emitting one user message per result breaks that pairing.
+                results: List[Dict[str, Any]] = []
+                while i < n and messages[i]["role"] == "tool":
+                    tm = messages[i]
+                    results.append({
                         "type": "tool_result",
-                        "tool_use_id": m["tool_call_id"],
-                        "content": m["content"],
-                    }],
-                })
+                        "tool_use_id": tm["tool_call_id"],
+                        "content": tm["content"],
+                    })
+                    i += 1
+                out.append({"role": "user", "content": results})
+            else:
+                i += 1
         return out
 
     def complete(
