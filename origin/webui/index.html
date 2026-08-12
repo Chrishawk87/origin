@@ -46,6 +46,13 @@
   summary{cursor:pointer;color:var(--dim);font-size:12px}
   pre{white-space:pre-wrap;background:var(--panel2);padding:8px;border-radius:8px;font-size:12px;color:var(--dim);
       max-height:240px;overflow:auto}
+  .thinking{display:inline-block;vertical-align:middle}
+  .thinking .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:4px;animation:blink 1.4s infinite both}
+  .thinking .dot:nth-child(2){animation-delay:.2s}
+  .thinking .dot:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+  .tmr{color:var(--dim);font-size:13px;margin-left:6px}
+  button:disabled{opacity:.5;cursor:default}
   #composer{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line);background:var(--panel)}
   #input{flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;
          padding:12px 14px;font-size:14.5px;resize:none;min-height:46px;max-height:180px;font-family:inherit}
@@ -94,8 +101,8 @@
     <div id="composer">
       <textarea id="input" placeholder="Open a project, then tell Origin what to do…  (e.g. “find top-performing TikTok ads for eco skincare” or “organize this folder by file type”)"
                 onkeydown="onKey(event)"></textarea>
-      <button onclick="mission()" title="Executive loop: plan → act → critique → deliver">🎯 Mission</button>
-      <button class="primary" onclick="send()">Send</button>
+      <button id="missionbtn" onclick="mission()" title="Executive loop: plan → act → critique → deliver">🎯 Mission</button>
+      <button id="sendbtn" class="primary" onclick="send()">Send</button>
     </div>
   </div>
 
@@ -224,21 +231,45 @@ function scrollDown(){const c=document.getElementById('chat');c.scrollTop=c.scro
 
 function onKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }
 
+function setBusy(b){
+  BUSY=b;
+  ['sendbtn','missionbtn'].forEach(id=>{const el=document.getElementById(id); if(el) el.disabled=b;});
+}
+function startThinking(label){
+  const chat=document.getElementById('chat');
+  const w=document.createElement('div'); w.className='msg assistant';
+  w.innerHTML='<div class="bubble"><span class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>'+
+              '<span class="tmr">'+(label||'Origin is thinking')+'… 0s</span></div>';
+  chat.appendChild(w); scrollDown();
+  const t0=Date.now(); const tmr=w.querySelector('.tmr');
+  const iv=setInterval(()=>{ const s=Math.round((Date.now()-t0)/1000); tmr.textContent=(label||'Origin is thinking')+'… '+s+'s'; },1000);
+  return {el:w, stop:()=>clearInterval(iv)};
+}
+async function apiTimed(path, opts, ms){
+  opts=opts||{}; const ctrl=new AbortController(); opts.signal=ctrl.signal;
+  const id=setTimeout(()=>ctrl.abort(), ms||240000);
+  try{ return await api(path, opts); } finally{ clearTimeout(id); }
+}
+
 async function send(){
   if(BUSY) return;
   const inp=document.getElementById('input'); const text=inp.value.trim();
   if(!text) return;
   if(!ACTIVE){alert('Open or create a project first.');return;}
   inp.value=''; addBubble('user',text);
-  const thinking=addBubble('assistant','…'); BUSY=true; scrollDown();
+  const think=startThinking('Origin is thinking'); setBusy(true);
   try{
-    const r=await api('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:text})});
-    thinking.remove();
+    const r=await apiTimed('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text})}, 240000);
+    think.stop(); think.el.remove();
     if(r && r.error){ addBubble('assistant','⚠️ '+r.error); }
     else { renderTurn(r); }
-  }catch(e){ thinking.querySelector('.bubble').textContent='⚠️ '+e; }
-  BUSY=false; scrollDown();
+  }catch(e){
+    think.stop(); think.el.remove();
+    addBubble('assistant','⚠️ '+(e && e.name==='AbortError'
+      ? 'That took too long and timed out — try again, or a simpler request.' : e));
+  }
+  setBusy(false); scrollDown();
   refresh();
 }
 
@@ -278,19 +309,26 @@ async function mission(){
   if(!goal){alert('Type a goal for the mission.');return;}
   if(!ACTIVE){alert('Open a project first.');return;}
   inp.value=''; addBubble('user','🎯 Mission: '+goal);
-  const thinking=addBubble('assistant','Planning…'); BUSY=true; scrollDown();
+  const think=startThinking('Working the mission (plan → act → verify)'); setBusy(true);
   try{
-    const r=await api('/api/mission',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal})});
-    thinking.remove();
-    const chat=document.getElementById('chat');
-    const w=document.createElement('div'); w.className='msg assistant';
-    let html='<div class="bubble">';
-    if(r.plan&&r.plan.length){html+='<div class="role">Plan</div><div class="tools">'+
-      r.plan.map((s,i)=>`<div class="tool">${i+1}. ${escapeHtml(s)}</div>`).join('')+'</div>';}
-    html+='<div style="margin-top:8px">'+escapeHtml(r.final||'(done)')+'</div></div>';
-    w.innerHTML=html; chat.appendChild(w);
-  }catch(e){ thinking.querySelector('.bubble').textContent='Error: '+e; }
-  BUSY=false; scrollDown(); refresh();
+    const r=await apiTimed('/api/mission',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal})}, 300000);
+    think.stop(); think.el.remove();
+    if(r && r.error){ addBubble('assistant','⚠️ '+r.error); }
+    else {
+      const chat=document.getElementById('chat');
+      const w=document.createElement('div'); w.className='msg assistant';
+      let html='<div class="bubble">';
+      if(r.plan&&r.plan.length){html+='<div class="role">Plan</div><div class="tools">'+
+        r.plan.map((s,i)=>`<div class="tool">${i+1}. ${escapeHtml(s)}</div>`).join('')+'</div>';}
+      html+='<div style="margin-top:8px">'+escapeHtml(r.final||'(done)')+'</div></div>';
+      w.innerHTML=html; chat.appendChild(w);
+    }
+  }catch(e){
+    think.stop(); think.el.remove();
+    addBubble('assistant','⚠️ '+(e && e.name==='AbortError'
+      ? 'The mission took too long and timed out — try a smaller goal.' : e));
+  }
+  setBusy(false); scrollDown(); refresh();
 }
 
 // ── new project modal ──
