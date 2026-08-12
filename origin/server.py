@@ -227,6 +227,25 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             results[w] = {"ok": ok, "model": model, "response": r[:400]}
         return results
 
+    @app.get("/api/workers/models")
+    def workers_models():
+        """List the model names each provider actually offers right now, so you
+        can pick a valid one if a configured model name is out of date."""
+        out = {}
+        for w in eng.pool.names():
+            wcfg = (eng.config.workers.get(w) or {})
+            prov = wcfg.get("provider")
+            if prov in ("openai", "grok", "gemini", "ollama"):
+                try:
+                    p = eng.pool.provider(w)
+                    ids = sorted(m.id for m in p.client.models.list().data)
+                    out[w] = {"provider": prov, "available_models": ids}
+                except Exception as e:
+                    out[w] = {"provider": prov, "error": str(e)[:300]}
+            else:
+                out[w] = {"provider": prov, "note": "listing not supported (Anthropic/builtin)"}
+        return out
+
     @app.get("/api/diagnostics")
     def diagnostics():
         import platform

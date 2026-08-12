@@ -133,7 +133,7 @@ class GrokProvider(OpenAIProvider):
         cfg = dict(cfg)
         cfg.setdefault("base_url", "https://api.x.ai/v1")
         cfg.setdefault("api_key_env", "XAI_API_KEY")
-        cfg.setdefault("model", "grok-2-latest")
+        cfg.setdefault("model", "grok-4")
         super().__init__(cfg)
 
 
@@ -146,5 +146,5 @@ class GeminiProvider(OpenAIProvider):
         cfg = dict(cfg)
         cfg.setdefault("base_url", "https://generativelanguage.googleapis.com/v1beta/openai/")
         cfg.setdefault("api_key_env", "GEMINI_API_KEY")
-        cfg.setdefault("model", "gemini-2.0-flash")
+        cfg.setdefault("model", "gemini-2.5-flash")
         super().__init__(cfg)

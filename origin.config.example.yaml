@@ -126,12 +126,12 @@ workers:
     role: "fast drafts, broad knowledge, brainstorming"
   grok:
     provider: grok                 # xAI — OpenAI-compatible
-    model: grok-2-latest
+    model: grok-4
     api_key_env: XAI_API_KEY
     role: "real-time takes, contrarian angles"
   gemini:
     provider: gemini               # Google — OpenAI-compatible
-    model: gemini-2.0-flash
+    model: gemini-2.5-flash
     api_key_env: GEMINI_API_KEY
     role: "long-context, multimodal, fast"
   # Optional alternative local brain via the Ollama app (if you prefer it):
