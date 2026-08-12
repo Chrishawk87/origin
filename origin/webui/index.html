@@ -61,7 +61,19 @@
   .empty h2{color:var(--text);font-weight:600}
   .chip{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:20px;
         padding:3px 10px;font-size:11px;margin:3px;color:var(--dim)}
-  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center}
+  #files{width:300px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column}
+  .files-h{display:flex;align-items:center;gap:6px;padding:12px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+  .mini{padding:4px 9px;font-size:12px}
+  #filelist{flex:1;overflow:auto;padding:6px}
+  .fitem{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px}
+  .fitem:hover{background:var(--panel2)}
+  .fitem .ic{width:18px;text-align:center}
+  .fitem .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fitem .sz{margin-left:auto;color:var(--dim);font-size:11px;white-space:nowrap}
+  .fempty{color:var(--dim);font-size:13px;padding:16px;text-align:center;line-height:1.5}
+  #v-body img,#v-body video{max-width:100%;border-radius:8px}
+  #v-body pre{max-height:70vh;overflow:auto;background:var(--panel2);padding:10px;border-radius:8px;font-size:12px}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:20}
   .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:420px}
   .modal h3{margin:0 0 14px}
   .modal label{display:block;font-size:12px;color:var(--dim);margin:10px 0 4px}
@@ -103,6 +115,28 @@
                 onkeydown="onKey(event)"></textarea>
       <button id="missionbtn" onclick="mission()" title="Executive loop: plan → act → critique → deliver">🎯 Mission</button>
       <button id="sendbtn" class="primary" onclick="send()">Send</button>
+    </div>
+  </div>
+
+  <div id="files">
+    <div class="files-h">Workspace
+      <span style="flex:1"></span>
+      <button class="mini" onclick="document.getElementById('uploadfiles').click()">Files</button>
+      <button class="mini" onclick="document.getElementById('uploadfolder').click()">Folder</button>
+    </div>
+    <input id="uploadfiles" type="file" multiple style="display:none" onchange="doUpload(event,false)">
+    <input id="uploadfolder" type="file" webkitdirectory style="display:none" onchange="doUpload(event,true)">
+    <div id="filelist"><div class="fempty">Open a project to see its files.</div></div>
+  </div>
+
+  <div class="modal-bg" id="viewer">
+    <div class="modal" style="width:min(880px,92vw);max-height:90vh;overflow:auto">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <b id="v-name"></b><span style="flex:1"></span>
+        <button class="primary" id="v-dl">Download</button>
+        <button onclick="closeViewer()">Close</button>
+      </div>
+      <div id="v-body"></div>
     </div>
   </div>
 
@@ -217,6 +251,7 @@ async function openProject(slug){
   const chat=document.getElementById('chat'); chat.innerHTML='';
   (r.transcript||[]).forEach(m=>addBubble(m.role,m.text));
   await refresh();
+  loadFiles();
   scrollDown();
 }
 
@@ -270,7 +305,7 @@ async function send(){
       ? 'That took too long and timed out — try again, or a simpler request.' : e));
   }
   setBusy(false); scrollDown();
-  refresh();
+  refresh(); loadFiles();
 }
 
 function renderTurn(r){
@@ -328,7 +363,7 @@ async function mission(){
     addBubble('assistant','⚠️ '+(e && e.name==='AbortError'
       ? 'The mission took too long and timed out — try a smaller goal.' : e));
   }
-  setBusy(false); scrollDown(); refresh();
+  setBusy(false); scrollDown(); refresh(); loadFiles();
 }
 
 // ── new project modal ──
@@ -359,6 +394,53 @@ async function doImport(ev){
   const p=await api('/api/projects/import',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({data_b64:b64})});
   await refresh(); openProject(p.slug);
+}
+
+// ── Files / Workspace ──
+function fileUrl(path, dl){
+  return '/api/projects/'+ACTIVE.slug+'/file?path='+encodeURIComponent(path)+
+    (dl?'&download=1':'')+(TOKEN?('&token='+encodeURIComponent(TOKEN)):'');
+}
+function fmtSize(n){ if(n==null)return''; if(n<1024)return n+' B'; if(n<1048576)return (n/1024).toFixed(0)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
+async function loadFiles(){
+  const fl=document.getElementById('filelist');
+  if(!ACTIVE){ fl.innerHTML='<div class="fempty">Open a project to see its files.</div>'; return; }
+  const r=await api('/api/projects/'+ACTIVE.slug+'/files');
+  const files=((r&&r.files)||[]).filter(f=>!f.dir);
+  fl.innerHTML='';
+  if(!files.length){ fl.innerHTML='<div class="fempty">No files yet.<br>Upload files/a folder above, or ask Origin to create or gather content — it shows up here.</div>'; return; }
+  const icons={image:'🖼️',video:'🎬',audio:'🎵',pdf:'📄',text:'📃'};
+  files.forEach(f=>{
+    const d=document.createElement('div'); d.className='fitem';
+    d.innerHTML='<span class="ic">'+(icons[f.kind]||'📎')+'</span><span class="nm">'+escapeHtml(f.path)+'</span><span class="sz">'+fmtSize(f.size)+'</span>';
+    d.onclick=()=>previewFile(f); fl.appendChild(d);
+  });
+}
+function previewFile(f){
+  document.getElementById('v-name').textContent=f.path;
+  document.getElementById('v-dl').onclick=()=>{ window.location=fileUrl(f.path,true); };
+  const body=document.getElementById('v-body'); const url=fileUrl(f.path,false);
+  if(f.kind==='image'){ body.innerHTML='<img src="'+url+'">'; }
+  else if(f.kind==='video'){ body.innerHTML='<video src="'+url+'" controls></video>'; }
+  else if(f.kind==='audio'){ body.innerHTML='<audio src="'+url+'" controls style="width:100%"></audio>'; }
+  else if(f.kind==='pdf'){ body.innerHTML='<iframe src="'+url+'" style="width:100%;height:70vh;border:0"></iframe>'; }
+  else if(f.kind==='text'){ body.innerHTML='<div class="fempty">loading…</div>';
+    fetch(url,{headers:TOKEN?{'X-Origin-Token':TOKEN}:{}}).then(r=>r.text()).then(t=>{ body.innerHTML='<pre>'+escapeHtml(t)+'</pre>'; }); }
+  else { body.innerHTML='<div class="fempty">No inline preview for this type — click Download.</div>'; }
+  document.getElementById('viewer').style.display='flex';
+}
+function closeViewer(){ document.getElementById('viewer').style.display='none'; }
+async function doUpload(ev, isFolder){
+  const files=ev.target.files; if(!files||!files.length) return;
+  if(!ACTIVE){ alert('Open a project first.'); ev.target.value=''; return; }
+  const fd=new FormData(); const paths=[];
+  for(const f of files){ fd.append('files', f); paths.push(isFolder?(f.webkitRelativePath||f.name):f.name); }
+  fd.append('paths', JSON.stringify(paths));
+  document.getElementById('filelist').innerHTML='<div class="fempty">Uploading '+files.length+' file(s)…</div>';
+  try{
+    await fetch('/api/projects/'+ACTIVE.slug+'/upload',{method:'POST',headers:TOKEN?{'X-Origin-Token':TOKEN}:{},body:fd});
+  }catch(e){}
+  ev.target.value=''; loadFiles();
 }
 
 refresh();

@@ -15,7 +15,7 @@ llm:
     max_tokens: 4096
 
   openai:
-    model: gpt-4o
+    model: gpt-4.1
     api_key_env: OPENAI_API_KEY
     max_tokens: 4096
 
@@ -121,7 +121,7 @@ workers:
     role: "careful reasoning, code review, long-form writing"
   gpt:
     provider: openai
-    model: gpt-4o
+    model: gpt-4.1
     api_key_env: OPENAI_API_KEY
     role: "fast drafts, broad knowledge, brainstorming"
   grok:
@@ -131,7 +131,7 @@ workers:
     role: "real-time takes, contrarian angles"
   gemini:
     provider: gemini               # Google — OpenAI-compatible
-    model: gemini-2.5-flash
+    model: gemini-flash-latest
     api_key_env: GEMINI_API_KEY
     role: "long-context, multimodal, fast"
   # Optional alternative local brain via the Ollama app (if you prefer it):

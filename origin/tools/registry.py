@@ -12,6 +12,7 @@ from ..roles import resolve_persona
 from .base import Tool
 from .browser import BrowserManager, build_browser_tools
 from .mcp_client import MCPManager
+from .media import build_media_tools
 from .models import build_model_tools
 from .research_tools import build_research_tools
 from .rest import build_rest_tools
@@ -66,6 +67,9 @@ class Registry:
             self.tools[t.name] = t
         # 8. memory (gets better over time)
         for t in build_memory_tools(self.memory):
+            self.tools[t.name] = t
+        # 8b. media generation (image now)
+        for t in build_media_tools(self.config):
             self.tools[t.name] = t
         # 9. become-any-expert (self-specialization)
         self.tools["become"] = Tool(

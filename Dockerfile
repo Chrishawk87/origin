@@ -1,7 +1,7 @@
 # Origin — hosted server image (Railway / Render / any Docker host).
 FROM python:3.12-slim
 WORKDIR /app
-RUN pip install --no-cache-dir fastapi uvicorn anthropic openai rich PyYAML requests python-dotenv
+RUN pip install --no-cache-dir fastapi uvicorn python-multipart anthropic openai rich PyYAML requests python-dotenv
 COPY . .
 ENV ORIGIN_CONFIG=/app/origin.config.railway.yaml
 ENV PYTHONUNBUFFERED=1

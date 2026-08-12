@@ -163,7 +163,7 @@ class ProjectManager:
         base, i = slug, 2
         while (self.root / slug).exists():
             slug = f"{base}-{i}"; i += 1
-        wd = str(Path(workdir).expanduser()) if workdir else str(Path.home() / "Origin" / slug)
+        wd = str(Path(workdir).expanduser()) if workdir else str(DATA_DIR / "workspaces" / slug)
         Path(wd).mkdir(parents=True, exist_ok=True)
         proj = Project(name=name, slug=slug, workdir=wd, created=created_ts or time.time(),
                        notes=notes, root=self.root)

@@ -17,6 +17,13 @@ from .llm.base import AssistantTurn, LLMProvider
 from .projects import Project, ProjectManager
 from .tools import Registry
 
+# Imported at module scope so FastAPI can resolve the `Request` annotation
+# (needed because `from __future__ import annotations` makes annotations strings).
+try:
+    from starlette.requests import Request
+except Exception:  # pragma: no cover
+    Request = None  # type: ignore
+
 
 class _NullProvider(LLMProvider):
     """Stands in when no LLM brain is configured, so the app still runs."""
@@ -186,12 +193,32 @@ class Engine:
 def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                token: Optional[str] = None):
     try:
-        from fastapi import Body, FastAPI
-        from fastapi.responses import HTMLResponse, JSONResponse, Response
+        from fastapi import Body, FastAPI, Request
+        from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
     except ImportError as e:  # pragma: no cover
         raise SystemExit("The desktop app needs fastapi + uvicorn:\n  pip install fastapi uvicorn") from e
 
+    import json as _json
     from pathlib import Path
+
+    _KIND = {
+        "png": "image", "jpg": "image", "jpeg": "image", "gif": "image", "webp": "image", "svg": "image",
+        "mp4": "video", "webm": "video", "mov": "video", "m4v": "video",
+        "mp3": "audio", "wav": "audio", "m4a": "audio", "ogg": "audio",
+        "pdf": "pdf",
+        "txt": "text", "md": "text", "csv": "text", "json": "text", "py": "text", "js": "text",
+        "html": "text", "yaml": "text", "yml": "text", "log": "text",
+    }
+
+    def _kind(name: str) -> str:
+        return _KIND.get(name.rsplit(".", 1)[-1].lower() if "." in name else "", "other")
+
+    def _safe_join(workdir: str, rel: str) -> Path:
+        base = Path(workdir).resolve()
+        target = (base / (rel or "").lstrip("/")).resolve()
+        if base != target and base not in target.parents:
+            raise ValueError("path escapes workspace")
+        return target
 
     eng = engine or Engine(config or load_config())
     app = FastAPI(title="Origin")
@@ -310,6 +337,77 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         raw = base64.b64decode(body.get("data_b64", ""))
         proj = eng.projects.import_bytes(raw, new_name=body.get("name"))
         return proj.to_dict()
+
+    # ── files / workspace ────────────────────────────────────────────────
+    @app.get("/api/projects/{slug}/files")
+    def list_files(slug: str):
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        base = Path(proj.workdir)
+        base.mkdir(parents=True, exist_ok=True)
+        items = []
+        for p in sorted(base.rglob("*")):
+            rel_parts = p.relative_to(base).parts
+            if any(part.startswith(".") for part in rel_parts):
+                continue
+            rel = "/".join(rel_parts)
+            if p.is_dir():
+                items.append({"path": rel, "dir": True})
+            else:
+                try:
+                    size = p.stat().st_size
+                except OSError:
+                    size = 0
+                items.append({"path": rel, "dir": False, "size": size, "kind": _kind(p.name)})
+            if len(items) >= 3000:
+                break
+        return {"workdir": str(base), "files": items}
+
+    @app.get("/api/projects/{slug}/file")
+    def get_file(slug: str, path: str, download: int = 0):
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        try:
+            target = _safe_join(proj.workdir, path)
+        except ValueError:
+            return JSONResponse({"error": "bad path"}, status_code=400)
+        if not target.is_file():
+            return JSONResponse({"error": "no such file"}, status_code=404)
+        disp = "attachment" if download else "inline"
+        return FileResponse(str(target), filename=target.name,
+                            headers={"Content-Disposition": f'{disp}; filename="{target.name}"'})
+
+    @app.post("/api/projects/{slug}/upload")
+    async def upload(slug: str, request: Request):
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        form = await request.form()
+        uploads = form.getlist("files")
+        try:
+            rels = _json.loads(form.get("paths") or "[]")
+        except Exception:
+            rels = []
+        saved = 0
+        for i, f in enumerate(uploads):
+            if not hasattr(f, "filename"):
+                continue
+            rel = (rels[i] if i < len(rels) and rels[i] else f.filename) or f.filename
+            try:
+                target = _safe_join(proj.workdir, rel)
+            except ValueError:
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "wb") as out:
+                while True:
+                    chunk = await f.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    out.write(chunk)
+            saved += 1
+        return {"saved": saved}
 
     @app.post("/api/chat")
     def chat(body: dict = Body(...)):

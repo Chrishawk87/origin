@@ -146,5 +146,5 @@ class GeminiProvider(OpenAIProvider):
         cfg = dict(cfg)
         cfg.setdefault("base_url", "https://generativelanguage.googleapis.com/v1beta/openai/")
         cfg.setdefault("api_key_env", "GEMINI_API_KEY")
-        cfg.setdefault("model", "gemini-2.5-flash")
+        cfg.setdefault("model", "gemini-flash-latest")
         super().__init__(cfg)
