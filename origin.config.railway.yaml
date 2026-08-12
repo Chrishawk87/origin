@@ -10,7 +10,7 @@ llm:
     api_key_env: ANTHROPIC_API_KEY
     max_tokens: 4096
   openai:
-    model: gpt-4o
+    model: gpt-4.1
     api_key_env: OPENAI_API_KEY
     max_tokens: 4096
 
@@ -22,7 +22,7 @@ workers:
     role: "reasoning, writing, review"
   gpt:
     provider: openai
-    model: gpt-4o
+    model: gpt-4.1
     api_key_env: OPENAI_API_KEY
     role: "fast drafts, brainstorming"
   grok:
@@ -32,7 +32,7 @@ workers:
     role: "real-time takes, contrarian angles"
   gemini:
     provider: gemini
-    model: gemini-2.5-flash
+    model: gemini-flash-latest
     api_key_env: GEMINI_API_KEY
     role: "long-context, multimodal, fast"
 
