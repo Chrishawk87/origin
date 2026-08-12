@@ -108,6 +108,9 @@
       <span>Brain:
         <select id="coord" onchange="setCoord()"></select>
       </span>
+      <label style="cursor:pointer" title="Rewrite your message into a stronger instruction before acting">
+        <input type="checkbox" id="enhtoggle" onchange="saveEnh()" style="vertical-align:middle"> ✨ Enhance
+      </label>
       <span id="toolinfo"></span>
       <span style="flex:1"></span>
       <span id="active-name"></span>
@@ -224,6 +227,7 @@ async function refresh(){
   if(STATE.role && !(STATE.roles||[]).includes(STATE.role)){
     const o=document.createElement('option');o.value=STATE.role;o.textContent=STATE.role+' ★';o.selected=true;rs.appendChild(o);}
   const cust=document.createElement('option');cust.value='__custom__';cust.textContent='＋ any expert…';rs.appendChild(cust);
+  const et=document.getElementById('enhtoggle'); if(et) et.checked=enhOn();
   // tool info
   const t=STATE.tools||{}; const total=Object.values(t).reduce((a,b)=>a+b.length,0);
   document.getElementById('toolinfo').innerHTML=`<b>${total}</b> tools · `+
@@ -315,15 +319,20 @@ async function send(){
   if(PENDING.length){
     msg=(text?text+'\n\n':'')+'📎 Attached to this message (in this project\'s workspace — read/use them as reference): '+PENDING.join(', ');
   }
-  inp.value=''; addBubble('user', msg);
+  inp.value=''; const ub=addBubble('user', msg);
   PENDING=[]; renderAttachBar();
-  const think=startThinking('Origin is thinking'); setBusy(true);
+  const think=startThinking(enhOn()?'Refining your request, then working':'Origin is thinking'); setBusy(true);
   try{
     const r=await apiTimed('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:msg})}, 240000);
+      body:JSON.stringify({message:msg, enhance:enhOn()})}, 240000);
     think.stop(); think.el.remove();
     if(r && r.error){ addBubble('assistant','⚠️ '+r.error); }
-    else { renderTurn(r); }
+    else {
+      if(r.enhanced){ ub.querySelector('.bubble').insertAdjacentHTML('beforeend',
+        '<details style="margin-top:6px"><summary>✨ refined for a better result</summary>'+
+        '<div style="color:var(--dim);font-size:12.5px;margin-top:5px;white-space:pre-wrap">'+escapeHtml(r.enhanced)+'</div></details>'); }
+      renderTurn(r);
+    }
   }catch(e){
     think.stop(); think.el.remove();
     addBubble('assistant','⚠️ '+(e && e.name==='AbortError'
@@ -507,6 +516,10 @@ async function openAccounts(){
   document.getElementById('accounts').style.display='flex';
 }
 function closeAccounts(){ document.getElementById('accounts').style.display='none'; }
+
+// ── Prompt enhancer toggle ──
+function enhOn(){ try{ return localStorage.getItem('origin_enhance')!=='0'; }catch(e){ return true; } }
+function saveEnh(){ try{ localStorage.setItem('origin_enhance', document.getElementById('enhtoggle').checked?'1':'0'); }catch(e){} }
 async function testAll(){
   const t=document.getElementById('acct-test'); if(t) t.innerHTML='<span class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> testing…';
   const r=await api('/api/workers/test');

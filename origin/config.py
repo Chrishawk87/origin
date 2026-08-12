@@ -88,6 +88,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "default_ttl_hours": 24,     # cached answers older than this are re-gathered on ask
         "daily_refresh": True,       # background refresh of watched topics (desktop app)
     },
+    # Prompt enhancer: rewrite the user's raw message into a stronger instruction
+    # before acting. worker: null uses the coordinator brain; set to a cheap/free
+    # model (e.g. "gemini") to cut cost.
+    "enhancer": {"enabled": True, "worker": None},
     # Media generation models (need a funded account with access).
     "media": {
         "image_model": "gpt-image-1",

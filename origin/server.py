@@ -142,17 +142,38 @@ class Engine:
         return self.projects.create(name, workdir=workdir, notes=notes)
 
     # ── chat ────────────────────────────────────────────────────────────────
-    def chat(self, text: str) -> Dict[str, Any]:
+    def _enhance(self, text: str) -> str:
+        """Rewrite the raw message into a stronger instruction (or return it)."""
+        from .enhancer import enhance_prompt
+        enh = self.config.data.get("enhancer", {}) or {}
+        worker = enh.get("worker")
+
+        def ask(prompt: str, system: str = "") -> str:
+            if worker and self.pool.has(worker):
+                return self.pool.ask(worker, prompt, system)
+            return self._ask(prompt, system)
+
+        ctx = f"Project: {self.active.name}." if self.active else ""
+        return enhance_prompt(ask, text, ctx)
+
+    def chat(self, text: str, enhance: bool = True) -> Dict[str, Any]:
+        enhanced = None
+        enh_cfg = self.config.data.get("enhancer", {}) or {}
+        if enhance and enh_cfg.get("enabled", True) and not self.brain_error:
+            improved = self._enhance(text)
+            if improved and improved.strip() and improved.strip() != text.strip():
+                enhanced = improved.strip()
+        run_text = enhanced or text
         events: List[Dict[str, Any]] = []
         final = self.agent.run(
-            text,
+            run_text,
             on_text=lambda t: events.append({"type": "text", "text": t}),
             on_tool_start=lambda n, a: events.append({"type": "tool", "name": n, "args": a}),
             on_tool_result=lambda n, r: events.append({"type": "result", "name": n, "result": r[:4000]}),
         )
         if self.active:
             self.active.save_history(self.agent.history)
-        return {"events": events, "final": final, "calls": self.pool.stats()}
+        return {"events": events, "final": final, "enhanced": enhanced, "calls": self.pool.stats()}
 
     def set_coordinator(self, name: str) -> Dict[str, Any]:
         if not self.pool.has(name):
@@ -434,7 +455,7 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         text = (body.get("message") or "").strip()
         if not text:
             return JSONResponse({"error": "empty message"}, status_code=400)
-        return eng.chat(text)
+        return eng.chat(text, enhance=bool(body.get("enhance", True)))
 
     @app.post("/api/coordinator")
     def coordinator(body: dict = Body(...)):
