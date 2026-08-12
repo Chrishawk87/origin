@@ -57,3 +57,7 @@ media:
   video_provider: sora     # sora | veo
   video_model: sora-2
   veo_model: veo-3.1-generate-preview
+
+enhancer:
+  enabled: true
+  worker: gemini   # free-tier model rewrites the prompt
