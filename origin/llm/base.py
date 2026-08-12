@@ -58,3 +58,32 @@ def split_system(messages: List[Dict[str, Any]]) -> tuple[str, List[Dict[str, An
     system_parts = [m["content"] for m in messages if m["role"] == "system"]
     rest = [m for m in messages if m["role"] != "system"]
     return "\n\n".join(p for p in system_parts if p), rest
+
+
+def sanitize_history(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Repair a possibly-corrupted conversation so no provider hard-fails."""
+    called_ids = set()
+    for m in messages:
+        if m.get("role") == "assistant":
+            for tc in m.get("tool_calls", []) or []:
+                called_ids.add(tc.id)
+    result_ids = {m.get("tool_call_id") for m in messages if m.get("role") == "tool"}
+    cleaned = []
+    for m in messages:
+        role = m.get("role")
+        if role == "tool":
+            if m.get("tool_call_id") in called_ids:
+                cleaned.append(m)
+            continue
+        if role == "assistant":
+            calls = m.get("tool_calls", []) or []
+            kept = [tc for tc in calls if tc.id in result_ids]
+            has_text = bool((m.get("content") or "").strip())
+            if not kept and not has_text:
+                continue
+            if len(kept) != len(calls):
+                m = dict(m); m["tool_calls"] = kept
+            cleaned.append(m)
+            continue
+        cleaned.append(m)
+    return cleaned

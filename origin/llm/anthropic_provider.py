@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from .base import AssistantTurn, LLMProvider, ToolCall, split_system
+from .base import AssistantTurn, LLMProvider, ToolCall, sanitize_history, split_system
 
 
 class AnthropicProvider(LLMProvider):
@@ -80,7 +80,7 @@ class AnthropicProvider(LLMProvider):
         messages: List[Dict[str, Any]],
         tools: List[Dict[str, Any]],
     ) -> AssistantTurn:
-        system, rest = split_system(messages)
+        system, rest = split_system(sanitize_history(messages))
         anthropic_tools = [
             {
                 "name": t["name"],

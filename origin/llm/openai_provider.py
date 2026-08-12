@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from .base import AssistantTurn, LLMProvider, ToolCall
+from .base import AssistantTurn, LLMProvider, ToolCall, sanitize_history
 
 
 class OpenAIProvider(LLMProvider):
@@ -91,7 +91,7 @@ class OpenAIProvider(LLMProvider):
 
         kwargs: Dict[str, Any] = {
             "model": self.model,
-            "messages": self._convert_messages(messages),
+            "messages": self._convert_messages(sanitize_history(messages)),
             "max_tokens": self.max_tokens,
         }
         if openai_tools:
