@@ -151,7 +151,12 @@ class ResearchEngine:
             f"accurate, up-to-date answer. Cite sources inline as [n]. If sources conflict or "
             f"are thin, say so. End with a one-line 'Confidence:' note.\n\nSOURCES:\n{context}"
         )
-        answer = self.ask_fn(prompt, "You are a rigorous research analyst. Ground every claim in the provided sources.")
+        from .util import today_str
+        answer = self.ask_fn(
+            prompt,
+            f"Today is {today_str()}. You are a rigorous research analyst. Ground every claim in the "
+            f"provided sources and report the present-day situation, not outdated information.",
+        )
         return {"answer": answer, "sources": sources}
 
     def research(self, question: str, max_age_hours: Optional[float] = None,

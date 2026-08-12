@@ -215,6 +215,18 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     def healthz():
         return {"ok": True, "app": "Origin"}
 
+    @app.get("/api/workers/test")
+    def workers_test():
+        """Ping every model worker so you can see exactly which ones work and, for
+        the ones that don't, the real API error (quota vs wrong model name, etc.)."""
+        results = {}
+        for w in eng.pool.names():
+            r = eng.pool.ask(w, "Reply with exactly the word: OK")
+            ok = bool(r) and not r.startswith("ERROR") and not r.startswith("(")
+            model = eng.pool.workers[w].model if eng.pool.has(w) else "?"
+            results[w] = {"ok": ok, "model": model, "response": r[:400]}
+        return results
+
     @app.get("/api/diagnostics")
     def diagnostics():
         import platform

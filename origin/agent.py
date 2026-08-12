@@ -20,6 +20,7 @@ from .config import Config
 from .llm import LLMProvider
 from .roles import ROLES
 from .tools import Registry
+from .util import today_str
 
 # Lean, obedient operator. Does what it's told, the best way it can, without
 # unsolicited commentary. Keeps only usefulness guards.
@@ -116,7 +117,12 @@ class Agent:
     # --- persona / control -------------------------------------------------
     def _rebuild_system(self) -> None:
         """Recompute the system message from base prompt + standing instructions."""
-        system = self.base_system
+        system = (
+            f"Today's date is {today_str()}. Treat this as the current date — do NOT assume an "
+            f"earlier year. For anything that could have changed since your training (prices, "
+            f"trends, tools, news, 'as of today' questions), call the research/web tools for "
+            f"present-day facts instead of answering from memory.\n\n"
+        ) + self.base_system
         if self.standing_instructions:
             joined = "\n".join(f"- {s}" for s in self.standing_instructions)
             system += (

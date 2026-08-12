@@ -147,6 +147,8 @@ def run_collaboration(
     rounds: int = 2,
     synthesizer: Optional[str] = None,
 ) -> Collaboration:
+    from .util import today_str
+    task = f"(Current date: {today_str()}. Base your answer on present-day information, not outdated assumptions.)\n\n{task}"
     workers = [w for w in workers if pool.has(w)]
     if not workers:
         return Collaboration(answer="ERROR: no valid workers for collaboration.")

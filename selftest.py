@@ -99,7 +99,7 @@ def main() -> int:
 
     # 8. Custom system prompt fully replaces the persona
     agent.set_system_prompt("You are RAW-OPS. Do exactly as told.")
-    assert agent.history[0]["content"].startswith("You are RAW-OPS")
+    assert "You are RAW-OPS" in agent.history[0]["content"]
     print("[pass] custom system prompt replaces persona live")
 
     # 9. Tool deny/allow controls what the agent can see and run
