@@ -103,7 +103,7 @@
   <div id="main">
     <div id="top">
       <span>Role:
-        <select id="role" onchange="setRole()"></select>
+        <button id="rolesbtn" onclick="openRoles()" title="Choose one or more roles Origin should embody">🎭 <span id="roleschips">operator</span></button>
       </span>
       <span>Brain:
         <select id="coord" onchange="setCoord()"></select>
@@ -220,14 +220,10 @@ async function refresh(){
   (STATE.workers||[]).forEach(w=>{const o=document.createElement('option');o.value=w;o.textContent=w;
     if(w===STATE.coordinator)o.selected=true;cs.appendChild(o);});
   if(!STATE.workers||!STATE.workers.length){const o=document.createElement('option');o.textContent='(single llm brain)';cs.appendChild(o);}
-  // role select
-  const rs=document.getElementById('role'); rs.innerHTML='';
-  const dfl=document.createElement('option');dfl.value='';dfl.textContent='auto (operator)';rs.appendChild(dfl);
-  (STATE.roles||[]).forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;
-    if(r===STATE.role)o.selected=true;rs.appendChild(o);});
-  if(STATE.role && !(STATE.roles||[]).includes(STATE.role)){
-    const o=document.createElement('option');o.value=STATE.role;o.textContent=STATE.role+' ★';o.selected=true;rs.appendChild(o);}
-  const cust=document.createElement('option');cust.value='__custom__';cust.textContent='＋ any expert…';rs.appendChild(cust);
+  // roles chips (active role(s))
+  const active=STATE.active_roles||[];
+  const chips=document.getElementById('roleschips');
+  chips.textContent = active.length ? active.join(' + ') : 'operator';
   const et=document.getElementById('enhtoggle'); if(et) et.checked=enhOn();
   // tool info
   const t=STATE.tools||{}; const total=Object.values(t).reduce((a,b)=>a+b.length,0);
@@ -302,13 +298,29 @@ function startThinking(label){
               '<span class="tmr">'+(label||'Origin is thinking')+'… 0s</span></div>';
   chat.appendChild(w); scrollDown();
   const t0=Date.now(); const tmr=w.querySelector('.tmr');
-  const iv=setInterval(()=>{ const s=Math.round((Date.now()-t0)/1000); tmr.textContent=(label||'Origin is thinking')+'… '+s+'s'; },1000);
+  tmr.dataset.label=label||'Origin is thinking';
+  const iv=setInterval(()=>{ const s=Math.round((Date.now()-t0)/1000); tmr.textContent=(tmr.dataset.label||'Origin is thinking')+'… '+s+'s'; },1000);
   return {el:w, stop:()=>clearInterval(iv)};
 }
 async function apiTimed(path, opts, ms){
   opts=opts||{}; const ctrl=new AbortController(); opts.signal=ctrl.signal;
   const id=setTimeout(()=>ctrl.abort(), ms||240000);
   try{ return await api(path, opts); } finally{ clearTimeout(id); }
+}
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+// Human-readable label for the current step, so the thinking bubble shows life.
+function stepLabel(events){
+  const last=(events||[]).slice().reverse().find(e=>e.type==='tool'||e.type==='enhanced');
+  if(!last) return 'Origin is thinking';
+  if(last.type==='enhanced') return 'Refined — now working';
+  const n=last.name||'';
+  const map={research:'Researching live',deep_research:'Deep research',web_search:'Searching the web',
+    web_fetch:'Reading a page',browse:'Browsing',shell:'Running a command',read_file:'Reading a file',
+    write_file:'Writing a file',generate_image:'Generating an image',generate_video:'Generating video',
+    consult:'Consulting another model',collaborate:'Collaborating with the other models',
+    youtube_transcript:'Reading a YouTube transcript',http_request:'Calling an API',remember:'Saving to memory'};
+  return (map[n]||('Using '+n))+'…';
 }
 
 async function send(){
@@ -323,21 +335,39 @@ async function send(){
   inp.value=''; const ub=addBubble('user', msg);
   PENDING=[]; renderAttachBar();
   const think=startThinking(enhOn()?'Refining your request, then working':'Origin is thinking'); setBusy(true);
+  let enhancedShown=false;
   try{
-    const r=await apiTimed('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:msg, enhance:enhOn()})}, 240000);
-    think.stop(); think.el.remove();
-    if(r && r.error){ addBubble('assistant','⚠️ '+r.error); }
-    else {
-      if(r.enhanced){ ub.querySelector('.bubble').insertAdjacentHTML('beforeend',
-        '<details style="margin-top:6px"><summary>✨ refined for a better result</summary>'+
-        '<div style="color:var(--dim);font-size:12.5px;margin-top:5px;white-space:pre-wrap">'+escapeHtml(r.enhanced)+'</div></details>'); }
-      renderTurn(r);
+    // 1) start the turn as a background job (short request — can't time out)
+    const start=await apiTimed('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg, enhance:enhOn()})}, 30000);
+    if(start && start.error){ think.stop(); think.el.remove(); addBubble('assistant','⚠️ '+start.error); setBusy(false); return; }
+    const jid=start.job_id;
+    // 2) poll for progress until done/error (no hard cap — a big task can take minutes)
+    let r=null;
+    while(true){
+      await sleep(1500);
+      let s;
+      try{ s=await apiTimed('/api/chat/status/'+encodeURIComponent(jid),{}, 20000); }
+      catch(e){ continue; } // transient poll hiccup — keep waiting
+      // live label + show the refined prompt as soon as it exists
+      const lbl=stepLabel(s.events);
+      const tmr=think.el.querySelector('.tmr'); if(tmr) tmr.dataset.label=lbl;
+      const enh=(s.events||[]).find(e=>e.type==='enhanced');
+      if(enh && !enhancedShown){
+        enhancedShown=true;
+        ub.querySelector('.bubble').insertAdjacentHTML('beforeend',
+          '<details style="margin-top:6px"><summary>✨ refined for a better result</summary>'+
+          '<div style="color:var(--dim);font-size:12.5px;margin-top:5px;white-space:pre-wrap">'+escapeHtml(enh.text)+'</div></details>');
+      }
+      if(s.status==='done'||s.status==='error'){ r=s; break; }
     }
+    think.stop(); think.el.remove();
+    if(r.status==='error'){ addBubble('assistant','⚠️ '+(r.error||'Something went wrong.')); }
+    else { renderTurn(r); }
   }catch(e){
     think.stop(); think.el.remove();
     addBubble('assistant','⚠️ '+(e && e.name==='AbortError'
-      ? 'That took too long and timed out — try again, or a simpler request.' : e));
+      ? 'Couldn’t start that request — check your connection and try again.' : e));
   }
   setBusy(false); scrollDown();
   refresh(); loadFiles();
@@ -365,12 +395,37 @@ async function setCoord(){
   await api('/api/coordinator',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({worker:w})});
   refresh();
 }
-async function setRole(){
-  let r=document.getElementById('role').value;
-  if(r==='__custom__'){ r=prompt('Become a world-class expert in… (any domain)'); if(!r){refresh();return;} }
-  if(!r) return;
-  await api('/api/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:r})});
-  refresh();
+// ── roles modal: pick one OR several roles, plus any custom expert domains ──
+function openRoles(){
+  const known=STATE.roles||[]; const active=STATE.active_roles||[];
+  const custom=active.filter(r=>!known.includes(r));
+  document.getElementById('modal-title').textContent='Choose Origin’s role(s)';
+  const boxes=known.map(r=>{
+    const on=active.includes(r)?'checked':'';
+    return `<label style="display:flex;align-items:center;gap:8px;margin:6px 0;color:var(--text);text-transform:capitalize">
+      <input type="checkbox" class="rolechk" value="${r}" ${on} style="width:auto;margin:0"> ${r.replace(/_/g,' ')}</label>`;
+  }).join('');
+  document.getElementById('modal-body').innerHTML=
+    `<p style="color:var(--dim);font-size:12.5px;margin:0 0 8px">Pick any number. Origin becomes them, and is told the best tools for that work.</p>`+
+    boxes+
+    `<label>Any other expert(s) — comma separated (e.g. "growth marketer, tax attorney")</label>
+     <input id="m-customroles" placeholder="type any domain(s)…" value="${custom.join(', ').replace(/"/g,'&quot;')}">`;
+  const ok=document.getElementById('modal-ok'); ok.textContent='Apply';
+  ok.onclick=async()=>{
+    const picked=Array.from(document.querySelectorAll('.rolechk')).filter(c=>c.checked).map(c=>c.value);
+    const extra=(document.getElementById('m-customroles').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const roles=picked.concat(extra);
+    const res=await api('/api/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roles})});
+    closeModal();
+    if(res && res.recommended_tools && res.recommended_tools.length){
+      addBubble('assistant','🎭 Now acting as: '+(roles.length?roles.join(' + '):'operator')+
+        '. Best tools for this: '+res.recommended_tools.join(', ')+'.');
+    } else {
+      addBubble('assistant','🎭 Role reset to operator.');
+    }
+    refresh();
+  };
+  document.getElementById('modal').style.display='flex';
 }
 
 async function mission(){

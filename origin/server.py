@@ -54,6 +54,11 @@ class Engine:
         self.coordinator: Optional[str] = None
         self.brain_error: Optional[str] = None
         self.role: Optional[str] = None
+        self.roles: List[str] = []
+        import threading as _threading
+        self._jobs: Dict[str, Dict[str, Any]] = {}
+        self._jobs_lock = _threading.Lock()
+        self._chat_lock = _threading.Lock()
         self.agent = Agent(self._resolve_provider(), self.registry, config, verbosity="normal")
         self.registry.set_research_brain(self.agent.llm)
         self.agent.memory = self.registry.memory
@@ -90,15 +95,37 @@ class Engine:
                     pass
         threading.Thread(target=loop, daemon=True).start()
 
-    def set_role(self, name: str) -> Dict[str, Any]:
-        """Adopt a known role OR become a world-class expert in ANY domain."""
-        from .roles import resolve_persona
-        name = (name or "").strip()
-        if not name:
-            return {"ok": False, "error": "empty role"}
-        self.agent.set_system_prompt(resolve_persona(name))
-        self.role = name
-        return {"ok": True, "role": name}
+    def _tool_names(self) -> List[str]:
+        try:
+            return [t["name"] for t in self.registry.schemas()]
+        except Exception:
+            return []
+
+    def set_role(self, names) -> Dict[str, Any]:
+        """Adopt one OR several roles/expert domains at once.
+
+        `names` may be a string ("marketer"), a comma-separated string
+        ("marketer, growth hacker"), or a list. Each may be a known role or ANY
+        domain (Origin composes a world-class expert on the fly). The persona
+        explicitly tells the model which role(s) it is AND which of the
+        currently-loaded tools to lean on for that work.
+        """
+        from .roles import compose_persona
+        if isinstance(names, str):
+            names = [p.strip() for p in names.split(",")]
+        names = [n.strip() for n in (names or []) if n and str(n).strip()]
+        if not names:
+            # Clearing roles → back to the plain operator brain.
+            from .agent import OPERATOR_PROMPT
+            self.agent.set_system_prompt(OPERATOR_PROMPT)
+            self.roles = []
+            self.role = None
+            return {"ok": True, "roles": [], "recommended_tools": []}
+        persona, recommended = compose_persona(names, self._tool_names())
+        self.agent.set_system_prompt(persona)
+        self.roles = names
+        self.role = ", ".join(names)
+        return {"ok": True, "roles": names, "recommended_tools": recommended}
 
     def _resolve_provider(self) -> LLMProvider:
         """Prefer the configured coordinator; if its key/engine is missing, fall
@@ -156,24 +183,96 @@ class Engine:
         ctx = f"Project: {self.active.name}." if self.active else ""
         return enhance_prompt(ask, text, ctx)
 
-    def chat(self, text: str, enhance: bool = True) -> Dict[str, Any]:
+    def chat(self, text: str, enhance: bool = True, on_event=None) -> Dict[str, Any]:
+        events: List[Dict[str, Any]] = []
+
+        def emit(ev: Dict[str, Any]) -> None:
+            events.append(ev)
+            if on_event:
+                try:
+                    on_event(ev)
+                except Exception:
+                    pass
+
         enhanced = None
         enh_cfg = self.config.data.get("enhancer", {}) or {}
         if enhance and enh_cfg.get("enabled", True) and not self.brain_error:
             improved = self._enhance(text)
             if improved and improved.strip() and improved.strip() != text.strip():
                 enhanced = improved.strip()
+                emit({"type": "enhanced", "text": enhanced})
         run_text = enhanced or text
-        events: List[Dict[str, Any]] = []
         final = self.agent.run(
             run_text,
-            on_text=lambda t: events.append({"type": "text", "text": t}),
-            on_tool_start=lambda n, a: events.append({"type": "tool", "name": n, "args": a}),
-            on_tool_result=lambda n, r: events.append({"type": "result", "name": n, "result": r[:4000]}),
+            on_text=lambda t: emit({"type": "text", "text": t}),
+            on_tool_start=lambda n, a: emit({"type": "tool", "name": n, "args": a}),
+            on_tool_result=lambda n, r: emit({"type": "result", "name": n, "result": r[:4000]}),
         )
         if self.active:
             self.active.save_history(self.agent.history)
         return {"events": events, "final": final, "enhanced": enhanced, "calls": self.pool.stats()}
+
+    # ── background chat jobs (so long turns never hit a request timeout) ─────
+    def start_chat(self, text: str, enhance: bool = True) -> Dict[str, Any]:
+        """Kick off a chat turn in the background and return a job id to poll.
+
+        A hard question can run many model + tool calls in a row and take
+        minutes. Holding one HTTP request open that whole time invites browser
+        and proxy timeouts (the 'times out without answering' bug). Instead we
+        run the turn on a worker thread and let the UI poll for progress."""
+        import threading
+        import uuid
+
+        jid = uuid.uuid4().hex[:12]
+        job: Dict[str, Any] = {
+            "status": "running", "events": [], "final": None,
+            "enhanced": None, "error": None, "calls": None,
+        }
+        with self._jobs_lock:
+            self._jobs[jid] = job
+            if len(self._jobs) > 40:  # keep the store small
+                for k in list(self._jobs.keys())[:-40]:
+                    self._jobs.pop(k, None)
+
+        def work() -> None:
+            if not self._chat_lock.acquire(blocking=False):
+                job["status"] = "error"
+                job["error"] = ("Origin is still finishing your previous message — "
+                                "give it a moment, then try again.")
+                return
+            try:
+                def on_event(ev: Dict[str, Any]) -> None:
+                    job["events"].append(ev)
+                    if ev.get("type") == "enhanced":
+                        job["enhanced"] = ev.get("text")
+
+                result = self.chat(text, enhance=enhance, on_event=on_event)
+                job["final"] = result.get("final")
+                job["enhanced"] = result.get("enhanced")
+                job["calls"] = result.get("calls")
+                job["status"] = "done"
+            except Exception as e:  # never let the thread die silently
+                job["status"] = "error"
+                job["error"] = str(e)
+            finally:
+                self._chat_lock.release()
+
+        threading.Thread(target=work, daemon=True).start()
+        return {"job_id": jid, "status": "running"}
+
+    def job_status(self, jid: str) -> Dict[str, Any]:
+        with self._jobs_lock:
+            job = self._jobs.get(jid)
+        if not job:
+            return {"status": "error", "error": "unknown or expired job", "events": []}
+        return {
+            "status": job["status"],
+            "events": job["events"],
+            "final": job["final"],
+            "enhanced": job["enhanced"],
+            "error": job["error"],
+            "calls": job["calls"],
+        }
 
     def set_coordinator(self, name: str) -> Dict[str, Any]:
         if not self.pool.has(name):
@@ -197,6 +296,7 @@ class Engine:
             "worker_roles": self.pool.roles(),
             "coordinator": self.coordinator,
             "role": self.role,
+            "active_roles": self.roles,
             "roles": __import__("origin.roles", fromlist=["role_names"]).role_names(),
             "memory_count": len(self.registry.memory.all()),
             "tools": self.registry.by_source(),
@@ -455,7 +555,15 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         text = (body.get("message") or "").strip()
         if not text:
             return JSONResponse({"error": "empty message"}, status_code=400)
-        return eng.chat(text, enhance=bool(body.get("enhance", True)))
+        # Start in the background and hand back a job id to poll — this is what
+        # stops long turns from timing out. (Pass sync=1 to block, for scripts.)
+        if body.get("sync"):
+            return eng.chat(text, enhance=bool(body.get("enhance", True)))
+        return eng.start_chat(text, enhance=bool(body.get("enhance", True)))
+
+    @app.get("/api/chat/status/{jid}")
+    def chat_status(jid: str):
+        return eng.job_status(jid)
 
     @app.post("/api/coordinator")
     def coordinator(body: dict = Body(...)):
@@ -473,7 +581,11 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
 
     @app.post("/api/role")
     def role(body: dict = Body(...)):
-        return eng.set_role(body.get("role", ""))
+        # Accepts either {"role": "marketer"} or {"roles": ["marketer","analyst"]}.
+        names = body.get("roles")
+        if names is None:
+            names = body.get("role", "")
+        return eng.set_role(names)
 
     @app.post("/api/mission")
     def mission(body: dict = Body(...)):

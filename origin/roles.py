@@ -78,3 +78,92 @@ def compose_expert(domain: str) -> str:
 def resolve_persona(name: str) -> str:
     """A known role, or a freshly composed expert for any domain."""
     return ROLES.get(name) or compose_expert(name)
+
+
+# ── role → the tools that role should lean on ──────────────────────────────
+# Canonical Origin tool names. compose_persona() intersects these with the
+# tools ACTUALLY loaded, so a role never recommends something unavailable.
+KNOWN_ROLE_TOOLS = {
+    "researcher": ["research", "deep_research", "web_search", "web_fetch",
+                   "browse", "recall", "consult", "collaborate"],
+    "marketer": ["research", "web_search", "browse", "youtube_transcript",
+                 "generate_image", "generate_video", "collaborate", "remember"],
+    "product_designer": ["research", "web_search", "browse", "generate_image",
+                         "write_file", "consult", "collaborate"],
+    "analyst": ["research", "deep_research", "web_search", "http_request",
+                "shell", "read_file", "write_file", "collaborate"],
+    "assistant": ["shell", "read_file", "write_file", "http_request",
+                  "research", "web_search", "remember"],
+}
+
+# What an on-demand domain expert should reach for by default.
+DEFAULT_EXPERT_TOOLS = ["research", "deep_research", "web_search", "browse",
+                        "consult", "collaborate", "remember", "shell",
+                        "read_file", "write_file", "generate_image"]
+
+
+def _role_body(name: str) -> str:
+    """The directive for one role, without the shared tail (added once)."""
+    body = ROLES.get(name)
+    if body:
+        return body.replace(_COMMON_TAIL, "").strip()
+    return compose_expert(name).replace(_COMMON_TAIL, "").strip()
+
+
+def compose_persona(names, available_tools=None):
+    """Build ONE system persona from one or many chosen roles.
+
+    Tells the model exactly which role(s) it is, has it fully embody them, and
+    names the best tools for that work (only those currently loaded).
+
+    Returns (persona_text, recommended_tool_names).
+    """
+    if isinstance(names, str):
+        names = [names]
+    names = [n.strip() for n in names if n and n.strip()]
+    if not names:
+        return OPERATOR_LABEL, []
+    available = set(available_tools or [])
+
+    # Which tools this combination should lean on (union, order-preserving).
+    wanted: list = []
+    for n in names:
+        for t in KNOWN_ROLE_TOOLS.get(n, DEFAULT_EXPERT_TOOLS):
+            if t not in wanted:
+                wanted.append(t)
+    recommended = [t for t in wanted if not available or t in available]
+
+    pretty = [n.replace("_", " ") for n in names]
+    if len(pretty) == 1:
+        head = (
+            f"You are Origin, and for this work you ARE a {pretty[0]}. That is your role. "
+            f"Fully embody it: adopt its mindset, standards, vocabulary, and priorities, and "
+            f"hold yourself to a top-1% practitioner's bar."
+        )
+    else:
+        joined = ", ".join(pretty[:-1]) + f", and {pretty[-1]}"
+        head = (
+            f"You are Origin, and for this work you wear SEVERAL hats at once: {joined}. "
+            f"These are your roles. Combine them — bring each one's mindset, standards, and "
+            f"priorities, switch between them as the task demands, and hold yourself to a "
+            f"top-1% practitioner's bar in every one. When they suggest different approaches, "
+            f"weigh the trade-offs openly and pick what best serves the user's goal."
+        )
+
+    blocks = [head, ""]
+    for n, p in zip(names, pretty):
+        blocks.append(f"[As a {p}] {_role_body(n)}")
+        blocks.append("")
+
+    if recommended:
+        blocks.append(
+            "PRIMARY TOOLS for this work — reach for these first, in roughly this order:\n"
+            + ", ".join(recommended) + ".\n"
+            "You still have your FULL toolset; these are just the ones that will move this "
+            "particular work fastest. Use them proactively rather than answering from memory."
+        )
+
+    return "\n".join(blocks).strip() + _COMMON_TAIL, recommended
+
+
+OPERATOR_LABEL = "You are Origin, the user's operator brain. Do what the user asks, the best way you can."

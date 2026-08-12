@@ -207,10 +207,47 @@ def main() -> int:
         assert client.get("/api/state").json()["app"] == "Origin"
         p = client.post("/api/projects", json={"name": "AppTest", "workdir": tempfile.mkdtemp()}).json()
         client.post(f"/api/projects/{p['slug']}/open")
-        turn = client.post("/api/chat", json={"message": "do it"}).json()
+        # synchronous path (for scripts) still returns the full turn
+        turn = client.post("/api/chat", json={"message": "do it", "sync": True}).json()
         assert turn["final"] == "Done." and any(e["type"] == "tool" for e in turn["events"])
         eng.shutdown()
         print("[pass] desktop app backend (server + chat + projects API) works")
+
+        # 16b. Background chat job: start → poll status until done (the anti-timeout path)
+        import time as _time
+        eng2 = Engine(cfg)
+        eng2.projects = pm
+        eng2.agent.llm = ScriptedLLM([
+            AssistantTurn(text="ok", tool_calls=[ToolCall(id="c", name="shell", arguments={"command": "echo hi"})]),
+            AssistantTurn(text="Async done."),
+        ])
+        client2 = TestClient(create_app(engine=eng2))
+        p2 = client2.post("/api/projects", json={"name": "JobTest", "workdir": tempfile.mkdtemp()}).json()
+        client2.post(f"/api/projects/{p2['slug']}/open")
+        jid = client2.post("/api/chat", json={"message": "do it"}).json()["job_id"]
+        final = None
+        for _ in range(100):
+            st = client2.get(f"/api/chat/status/{jid}").json()
+            if st["status"] in ("done", "error"):
+                final = st
+                break
+            _time.sleep(0.05)
+        assert final and final["status"] == "done" and final["final"] == "Async done.", final
+        eng2.shutdown()
+        print("[pass] background chat job (start + poll, never blocks) works")
+
+        # 16c. Multiple roles at once + role-aware tool recommendations
+        eng3 = Engine(cfg)
+        r = eng3.set_role(["researcher", "growth marketer"])
+        assert r["ok"] and r["roles"] == ["researcher", "growth marketer"], r
+        assert r["recommended_tools"], "expected recommended tools"
+        persona = eng3.agent.base_system
+        assert "researcher" in persona and "growth marketer" in persona and "SEVERAL hats" in persona
+        assert "PRIMARY TOOLS" in persona
+        # clearing returns to operator
+        assert eng3.set_role([])["roles"] == []
+        eng3.shutdown()
+        print("[pass] multiple roles + role-aware tool recommendations work")
     except ImportError:
         print("[skip] fastapi not installed — app backend test skipped")
 
