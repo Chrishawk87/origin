@@ -18,6 +18,7 @@ from .research_tools import build_research_tools
 from .rest import build_rest_tools
 from .shell import build_shell_tools
 from .web import build_web_tools, fetch_url, run_search
+from .youtube import build_youtube_tools
 
 
 class Registry:
@@ -70,6 +71,9 @@ class Registry:
             self.tools[t.name] = t
         # 8b. media generation (image now)
         for t in build_media_tools(self.config):
+            self.tools[t.name] = t
+        # 8c. youtube (read transcripts)
+        for t in build_youtube_tools():
             self.tools[t.name] = t
         # 9. become-any-expert (self-specialization)
         self.tools["become"] = Tool(

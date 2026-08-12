@@ -56,6 +56,11 @@
   #composer{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line);background:var(--panel)}
   #input{flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;
          padding:12px 14px;font-size:14.5px;resize:none;min-height:46px;max-height:180px;font-family:inherit}
+  .attach{font-size:20px;line-height:1;padding:0 13px;font-weight:700}
+  #attachbar{padding:8px 18px 0;display:flex;gap:6px;flex-wrap:wrap}
+  .achip{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:4px 10px;font-size:12px;color:var(--text)}
+  .achip b{color:var(--dim);cursor:pointer;margin-left:5px}
+  .achip b:hover{color:var(--warn)}
   .banner{background:#2a2015;color:var(--warn);padding:8px 18px;font-size:13px;border-bottom:1px solid var(--line)}
   .empty{margin:auto;text-align:center;color:var(--dim);max-width:440px}
   .empty h2{color:var(--text);font-weight:600}
@@ -110,8 +115,11 @@
     <div id="warn" class="banner" style="display:none"></div>
     <div id="chat"></div>
     <div id="presets" style="display:none;padding:8px 18px 0"></div>
+    <div id="attachbar" style="display:none"></div>
     <div id="composer">
-      <textarea id="input" placeholder="Open a project, then tell Origin what to do…  (e.g. “find top-performing TikTok ads for eco skincare” or “organize this folder by file type”)"
+      <button class="attach" onclick="document.getElementById('attachinput').click()" title="Attach photos or files to this message">＋</button>
+      <input id="attachinput" type="file" multiple style="display:none" onchange="doAttach(event)">
+      <textarea id="input" placeholder="Open a project, then tell Origin what to do…  (＋ to attach a photo/file as reference)"
                 onkeydown="onKey(event)"></textarea>
       <button id="missionbtn" onclick="mission()" title="Executive loop: plan → act → critique → deliver">🎯 Mission</button>
       <button id="sendbtn" class="primary" onclick="send()">Send</button>
@@ -289,13 +297,18 @@ async function apiTimed(path, opts, ms){
 async function send(){
   if(BUSY) return;
   const inp=document.getElementById('input'); const text=inp.value.trim();
-  if(!text) return;
+  if(!text && !PENDING.length) return;
   if(!ACTIVE){alert('Open or create a project first.');return;}
-  inp.value=''; addBubble('user',text);
+  let msg=text;
+  if(PENDING.length){
+    msg=(text?text+'\n\n':'')+'📎 Attached to this message (in this project\'s workspace — read/use them as reference): '+PENDING.join(', ');
+  }
+  inp.value=''; addBubble('user', msg);
+  PENDING=[]; renderAttachBar();
   const think=startThinking('Origin is thinking'); setBusy(true);
   try{
     const r=await apiTimed('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:text})}, 240000);
+      body:JSON.stringify({message:msg})}, 240000);
     think.stop(); think.el.remove();
     if(r && r.error){ addBubble('assistant','⚠️ '+r.error); }
     else { renderTurn(r); }
@@ -442,6 +455,28 @@ async function doUpload(ev, isFolder){
   }catch(e){}
   ev.target.value=''; loadFiles();
 }
+
+// ── Attach files to a chat message (the ＋ button) ──
+let PENDING=[];
+async function doAttach(ev){
+  const files=ev.target.files; if(!files||!files.length){ return; }
+  if(!ACTIVE){ alert('Open a project first.'); ev.target.value=''; return; }
+  const fd=new FormData(); const paths=[];
+  for(const f of files){ fd.append('files', f); paths.push(f.name); }
+  fd.append('paths', JSON.stringify(paths));
+  renderAttachBar(true);
+  try{ await fetch('/api/projects/'+ACTIVE.slug+'/upload',{method:'POST',headers:TOKEN?{'X-Origin-Token':TOKEN}:{},body:fd}); }catch(e){}
+  for(const p of paths){ if(!PENDING.includes(p)) PENDING.push(p); }
+  ev.target.value=''; renderAttachBar(); loadFiles();
+}
+function renderAttachBar(loading){
+  const bar=document.getElementById('attachbar');
+  if(loading){ bar.style.display='flex'; bar.innerHTML='<span class="achip">uploading…</span>'; return; }
+  if(!PENDING.length){ bar.style.display='none'; bar.innerHTML=''; return; }
+  bar.style.display='flex';
+  bar.innerHTML=PENDING.map((p,i)=>'<span class="achip">📎 '+escapeHtml(p)+' <b onclick="removeAttach('+i+')">✕</b></span>').join('');
+}
+function removeAttach(i){ PENDING.splice(i,1); renderAttachBar(); }
 
 refresh();
 </script>
