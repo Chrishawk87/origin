@@ -254,6 +254,26 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             results[w] = {"ok": ok, "model": model, "response": r[:400]}
         return results
 
+    @app.get("/api/accounts")
+    def accounts():
+        provs = [
+            {"id": "claude", "label": "Claude — Anthropic", "key_env": "ANTHROPIC_API_KEY",
+             "manage": "https://console.anthropic.com/settings/billing", "use": "chat / reasoning"},
+            {"id": "gpt", "label": "GPT — OpenAI", "key_env": "OPENAI_API_KEY",
+             "manage": "https://platform.openai.com/settings/organization/billing", "use": "chat + images"},
+            {"id": "grok", "label": "Grok — xAI", "key_env": "XAI_API_KEY",
+             "manage": "https://console.x.ai", "use": "chat"},
+            {"id": "gemini", "label": "Gemini — Google", "key_env": "GEMINI_API_KEY",
+             "manage": "https://aistudio.google.com/app/apikey", "use": "chat"},
+            {"id": "sora", "label": "Sora video — OpenAI", "key_env": "OPENAI_API_KEY",
+             "manage": "https://platform.openai.com/settings/organization/billing", "use": "video generation"},
+            {"id": "veo", "label": "Veo video — Google", "key_env": "GEMINI_API_KEY",
+             "manage": "https://aistudio.google.com/app/apikey", "use": "video generation"},
+        ]
+        out = [{**p, "connected": bool(os.environ.get(p["key_env"]))} for p in provs]
+        return {"accounts": out,
+                "note": "Live balances aren't exposed by these APIs — click Manage to view or top up on each provider's page. Sora shares your OpenAI account; Veo shares your Google/Gemini account."}
+
     @app.get("/api/workers/models")
     def workers_models():
         """List the model names each provider actually offers right now, so you

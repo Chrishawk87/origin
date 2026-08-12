@@ -88,6 +88,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "default_ttl_hours": 24,     # cached answers older than this are re-gathered on ask
         "daily_refresh": True,       # background refresh of watched topics (desktop app)
     },
+    # Media generation models (need a funded account with access).
+    "media": {
+        "image_model": "gpt-image-1",
+        "video_model": "sora-2",
+        "video_provider": "sora",   # sora | veo
+        "veo_model": "veo-3.1-generate-preview",
+    },
     # Network serving (see `python -m origin.serve`). Token is REQUIRED for any
     # non-localhost access because Origin can run commands on this machine.
     "server": {

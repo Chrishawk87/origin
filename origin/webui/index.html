@@ -95,6 +95,7 @@
     <div class="side-actions">
       <button class="primary" onclick="openNew()">＋ New</button>
       <button onclick="importProj()">Import</button>
+      <button onclick="openAccounts()">🔌 Connectors</button>
       <input id="importfile" type="file" accept=".originproj,.zip" style="display:none" onchange="doImport(event)">
     </div>
   </div>
@@ -145,6 +146,17 @@
         <button onclick="closeViewer()">Close</button>
       </div>
       <div id="v-body"></div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="accounts">
+    <div class="modal" style="width:min(560px,92vw);max-height:88vh;overflow:auto">
+      <h3>Connectors &amp; accounts</h3>
+      <div id="acct-list"></div>
+      <div class="row">
+        <button onclick="testAll()">Test all models</button>
+        <button class="primary" onclick="closeAccounts()">Close</button>
+      </div>
     </div>
   </div>
 
@@ -477,6 +489,34 @@ function renderAttachBar(loading){
   bar.innerHTML=PENDING.map((p,i)=>'<span class="achip">📎 '+escapeHtml(p)+' <b onclick="removeAttach('+i+')">✕</b></span>').join('');
 }
 function removeAttach(i){ PENDING.splice(i,1); renderAttachBar(); }
+
+// ── Connectors / accounts ──
+async function openAccounts(){
+  const r=await api('/api/accounts');
+  const el=document.getElementById('acct-list'); el.innerHTML='';
+  (r.accounts||[]).forEach(a=>{
+    const dot=a.connected?'<span style="color:var(--accent2)">●</span>':'<span style="color:var(--dim)">○</span>';
+    const d=document.createElement('div');
+    d.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line)';
+    d.innerHTML=dot+' <div style="flex:1"><b>'+escapeHtml(a.label)+'</b>'+
+      '<div style="color:var(--dim);font-size:12px">'+(a.connected?'connected':'no key set')+' · '+escapeHtml(a.use||'')+'</div></div>'+
+      '<button class="mini" onclick="window.open(\''+a.manage+'\',\'_blank\')">Manage / Top&nbsp;up</button>';
+    el.appendChild(d);
+  });
+  el.insertAdjacentHTML('beforeend','<div style="color:var(--dim);font-size:12px;margin-top:12px;line-height:1.5">'+escapeHtml(r.note||'')+'</div><div id="acct-test" style="margin-top:10px"></div>');
+  document.getElementById('accounts').style.display='flex';
+}
+function closeAccounts(){ document.getElementById('accounts').style.display='none'; }
+async function testAll(){
+  const t=document.getElementById('acct-test'); if(t) t.innerHTML='<span class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> testing…';
+  const r=await api('/api/workers/test');
+  if(!t) return;
+  t.innerHTML=Object.entries(r||{}).map(([k,v])=>{
+    const ok=v&&v.ok;
+    return '<div style="font-size:12px;margin:4px 0">'+(ok?'✅':'❌')+' <b>'+k+'</b> ('+escapeHtml((v&&v.model)||'')+')'+
+      (ok?'':' — '+escapeHtml(((v&&v.response)||'').slice(0,140)))+'</div>';
+  }).join('');
+}
 
 refresh();
 </script>

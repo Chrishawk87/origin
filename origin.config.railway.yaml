@@ -51,3 +51,9 @@ web:
 research:
   default_ttl_hours: 24
   daily_refresh: false
+
+media:
+  image_model: gpt-image-1
+  video_provider: sora     # sora | veo
+  video_model: sora-2
+  veo_model: veo-3.1-generate-preview
