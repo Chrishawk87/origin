@@ -14,6 +14,17 @@ from typing import Any, Dict, List
 from .base import Tool
 
 
+def _dest(filename: str) -> str:
+    """Put bare filenames into a visible 'outputs/' folder in the workspace and
+    make sure the parent directory exists, so products always have a home."""
+    if "/" not in filename and os.sep not in filename:
+        filename = os.path.join("outputs", filename)
+    parent = os.path.dirname(filename)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    return filename
+
+
 def _openai_client(key_env: str):
     import os
     key = os.environ.get(key_env)
@@ -62,6 +73,7 @@ def build_media_tools(config) -> List[Tool]:
         filename = args.get("filename") or "image.png"
         if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
             filename += ".png"
+        filename = _dest(filename)
         key = os.environ.get(key_env)
         if not key:
             return f"ERROR: image generation needs a funded image model — set ${key_env}."
@@ -135,6 +147,7 @@ def build_media_tools(config) -> List[Tool]:
         filename = args.get("filename") or "video.mp4"
         if not filename.lower().endswith((".mp4", ".mov", ".webm")):
             filename += ".mp4"
+        filename = _dest(filename)
         engine = (args.get("engine") or media_cfg.get("video_provider", "sora")).lower()
         if engine in ("veo", "google", "gemini"):
             return _veo_generate(prompt, filename, args)
@@ -170,7 +183,7 @@ def build_media_tools(config) -> List[Tool]:
         vid_id = (args.get("id") or "").strip()
         if not vid_id:
             return "ERROR: 'id' is required (from a previous generate_video call)."
-        filename = args.get("filename") or f"{vid_id}.mp4"
+        filename = _dest(args.get("filename") or f"{vid_id}.mp4")
         client = _openai_client(key_env)
         if client is None:
             return f"ERROR: needs ${key_env}."

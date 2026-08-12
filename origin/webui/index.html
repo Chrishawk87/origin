@@ -42,6 +42,19 @@
   .tools{margin:6px 0 0;border-left:2px solid var(--line);padding-left:10px}
   .tool{font-size:12px;color:var(--dim);font-family:ui-monospace,Menlo,monospace;margin:3px 0}
   .tool .n{color:var(--accent2)}
+  .produced{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--panel2)}
+  .produced-h{font-size:12px;color:var(--dim);margin-bottom:8px;font-weight:600}
+  .produced .art{margin-bottom:10px}
+  .produced .art img,.produced .art video{max-width:100%;max-height:340px;border-radius:8px;display:block;border:1px solid var(--line)}
+  .produced .art-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+  .produced .art-file{display:flex;align-items:center;gap:8px;padding:6px 4px;border-top:1px solid var(--line)}
+  .produced .art-file:first-of-type{border-top:0}
+  .produced .ic{font-size:16px}
+  .produced .nm{flex:1;font-size:12.5px;word-break:break-all}
+  .produced .sz{font-size:11px;color:var(--dim)}
+  .produced .dlbtn{font-size:12px;padding:3px 10px;border-radius:7px;background:var(--accent);color:#fff;
+    text-decoration:none;white-space:nowrap}
+  .produced .dlbtn:hover{opacity:.9}
   details{margin-top:6px}
   summary{cursor:pointer;color:var(--dim);font-size:12px}
   pre{white-space:pre-wrap;background:var(--panel2);padding:8px;border-radius:8px;font-size:12px;color:var(--dim);
@@ -386,8 +399,36 @@ function renderTurn(r){
     });
     html+='</div>';
   }
-  html+='<div>'+escapeHtml(r.final||'(done)')+'</div></div>';
+  html+='<div>'+escapeHtml(r.final||'(done)')+'</div>';
+  html+=artifactsHtml(r.artifacts);
+  html+='</div>';
   w.innerHTML=html; chat.appendChild(w);
+}
+
+// Show exactly what this turn produced — inline previews + view/download.
+function artifactsHtml(arts){
+  if(!arts || !arts.length || !ACTIVE) return '';
+  const icons={image:'🖼️',video:'🎬',audio:'🎵',pdf:'📄',text:'📃',doc:'📝'};
+  let h='<div class="produced"><div class="produced-h">📦 Produced this turn — click to view or download</div>';
+  arts.forEach(a=>{
+    const url=fileUrl(a.path,false), dl=fileUrl(a.path,true);
+    if(a.kind==='image'){
+      h+=`<div class="art"><a href="${url}" target="_blank"><img src="${url}" alt="${escapeHtml(a.name)}"></a>`+
+         `<div class="art-row"><span class="nm">${escapeHtml(a.path)}</span><a class="dlbtn" href="${dl}">Download</a></div></div>`;
+    } else if(a.kind==='video'){
+      h+=`<div class="art"><video src="${url}" controls></video>`+
+         `<div class="art-row"><span class="nm">${escapeHtml(a.path)}</span><a class="dlbtn" href="${dl}">Download</a></div></div>`;
+    } else if(a.kind==='audio'){
+      h+=`<div class="art"><audio src="${url}" controls style="width:100%"></audio>`+
+         `<div class="art-row"><span class="nm">${escapeHtml(a.path)}</span><a class="dlbtn" href="${dl}">Download</a></div></div>`;
+    } else {
+      h+=`<div class="art-file"><span class="ic">${icons[a.kind]||'📎'}</span>`+
+         `<span class="nm">${escapeHtml(a.path)}</span><span class="sz">${fmtSize(a.size)}</span>`+
+         `<a class="dlbtn" href="${url}" target="_blank">Open</a><a class="dlbtn" href="${dl}">Download</a></div>`;
+    }
+  });
+  h+='</div>';
+  return h;
 }
 
 async function setCoord(){

@@ -218,7 +218,9 @@ def main() -> int:
         eng2 = Engine(cfg)
         eng2.projects = pm
         eng2.agent.llm = ScriptedLLM([
-            AssistantTurn(text="ok", tool_calls=[ToolCall(id="c", name="shell", arguments={"command": "echo hi"})]),
+            AssistantTurn(text="ok", tool_calls=[ToolCall(
+                id="c", name="write_file",
+                arguments={"path": "outputs/note.txt", "content": "hello"})]),
             AssistantTurn(text="Async done."),
         ])
         client2 = TestClient(create_app(engine=eng2))
@@ -233,8 +235,11 @@ def main() -> int:
                 break
             _time.sleep(0.05)
         assert final and final["status"] == "done" and final["final"] == "Async done.", final
+        # the turn should report the file it produced, with a viewable/downloadable path
+        arts = final.get("artifacts") or []
+        assert any(a["path"] == "outputs/note.txt" and a["kind"] == "text" for a in arts), arts
         eng2.shutdown()
-        print("[pass] background chat job (start + poll, never blocks) works")
+        print("[pass] background chat job + produced-file reporting works")
 
         # 16c. Multiple roles at once + role-aware tool recommendations
         eng3 = Engine(cfg)

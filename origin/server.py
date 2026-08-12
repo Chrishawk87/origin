@@ -8,7 +8,21 @@ from __future__ import annotations
 
 import base64
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+_KIND_MAP = {
+    "png": "image", "jpg": "image", "jpeg": "image", "gif": "image", "webp": "image", "svg": "image",
+    "mp4": "video", "webm": "video", "mov": "video", "m4v": "video",
+    "mp3": "audio", "wav": "audio", "m4a": "audio", "ogg": "audio",
+    "pdf": "pdf",
+    "txt": "text", "md": "text", "csv": "text", "json": "text", "py": "text", "js": "text",
+    "html": "text", "yaml": "text", "yml": "text", "log": "text", "docx": "doc", "xlsx": "doc", "pptx": "doc",
+}
+
+
+def file_kind(name: str) -> str:
+    return _KIND_MAP.get(name.rsplit(".", 1)[-1].lower() if "." in name else "", "other")
 
 from .agent import Agent
 from .config import Config, load_config
@@ -183,8 +197,49 @@ class Engine:
         ctx = f"Project: {self.active.name}." if self.active else ""
         return enhance_prompt(ask, text, ctx)
 
+    def _workspace_files(self) -> Dict[str, tuple]:
+        """Map of relative path -> (mtime, size) for the open project's files.
+
+        Used to diff before/after a turn so we can show the user EXACTLY what
+        Origin just produced, instead of only saying 'it's in a folder'."""
+        snap: Dict[str, tuple] = {}
+        if not self.active:
+            return snap
+        base = Path(self.active.workdir)
+        if not base.exists():
+            return snap
+        for p in base.rglob("*"):
+            parts = p.relative_to(base).parts
+            if any(x.startswith(".") for x in parts):
+                continue
+            if p.is_file():
+                try:
+                    st = p.stat()
+                    snap["/".join(parts)] = (st.st_mtime, st.st_size)
+                except OSError:
+                    pass
+        return snap
+
+    def _diff_artifacts(self, before: Dict[str, tuple], after: Dict[str, tuple]) -> List[Dict[str, Any]]:
+        """New or changed files, newest first — the products of this turn."""
+        changed = []
+        for path, meta in after.items():
+            if path not in before or before[path] != meta:
+                changed.append((path, meta))
+        changed.sort(key=lambda kv: kv[1][0], reverse=True)  # by mtime desc
+        out = []
+        for path, (_mtime, size) in changed[:24]:
+            out.append({
+                "path": path,
+                "name": path.rsplit("/", 1)[-1],
+                "kind": file_kind(path),
+                "size": size,
+            })
+        return out
+
     def chat(self, text: str, enhance: bool = True, on_event=None) -> Dict[str, Any]:
         events: List[Dict[str, Any]] = []
+        before_files = self._workspace_files()
 
         def emit(ev: Dict[str, Any]) -> None:
             events.append(ev)
@@ -210,7 +265,10 @@ class Engine:
         )
         if self.active:
             self.active.save_history(self.agent.history)
-        return {"events": events, "final": final, "enhanced": enhanced, "calls": self.pool.stats()}
+        artifacts = self._diff_artifacts(before_files, self._workspace_files())
+        return {"events": events, "final": final, "enhanced": enhanced,
+                "artifacts": artifacts, "slug": self.active.slug if self.active else None,
+                "calls": self.pool.stats()}
 
     # ── background chat jobs (so long turns never hit a request timeout) ─────
     def start_chat(self, text: str, enhance: bool = True) -> Dict[str, Any]:
@@ -227,6 +285,7 @@ class Engine:
         job: Dict[str, Any] = {
             "status": "running", "events": [], "final": None,
             "enhanced": None, "error": None, "calls": None,
+            "artifacts": [], "slug": None,
         }
         with self._jobs_lock:
             self._jobs[jid] = job
@@ -250,6 +309,8 @@ class Engine:
                 job["final"] = result.get("final")
                 job["enhanced"] = result.get("enhanced")
                 job["calls"] = result.get("calls")
+                job["artifacts"] = result.get("artifacts") or []
+                job["slug"] = result.get("slug")
                 job["status"] = "done"
             except Exception as e:  # never let the thread die silently
                 job["status"] = "error"
@@ -272,6 +333,8 @@ class Engine:
             "enhanced": job["enhanced"],
             "error": job["error"],
             "calls": job["calls"],
+            "artifacts": job.get("artifacts") or [],
+            "slug": job.get("slug"),
         }
 
     def set_coordinator(self, name: str) -> Dict[str, Any]:
