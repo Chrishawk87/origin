@@ -155,6 +155,43 @@ def add_master(title: str, html: Optional[str] = None,
     return {"id": mid, "trade": trade, "num": "", "title": title}
 
 
+# ── Ingest uploaded files (HTML or Word .docx) ───────────────────────────────
+def html_from_docx(raw: bytes) -> str:
+    """Convert a Word .docx (raw bytes) into an HTML fragment."""
+    import io
+    import mammoth  # added to Dockerfile pip line
+    result = mammoth.convert_to_html(io.BytesIO(raw))
+    return result.value or ""
+
+
+def ingest_upload(filename: str, raw: bytes) -> Dict[str, Any]:
+    """Add an uploaded file to the library. Supports .docx and .html/.htm.
+
+    For files named like "Trucking - Corporate - 07 Hazard Communication
+    Program.docx" the first two segments become the library group (trade) so
+    related programs cluster together; the remainder becomes the title.
+    """
+    name = filename or "Uploaded document"
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    stem = name.rsplit(".", 1)[0]
+    parts = [x.strip() for x in stem.split(" - ")]
+    trade, title = "My Library", stem
+    if len(parts) >= 3:
+        trade = f"{parts[0]} — {parts[1]}"
+        title = " - ".join(parts[2:])
+    elif len(parts) == 2:
+        trade, title = parts[0], parts[1]
+    if ext == "docx":
+        try:
+            inner = html_from_docx(raw)
+        except Exception as e:  # pragma: no cover
+            inner = (f"<h1>{_esc(title)}</h1>"
+                     f"<p>Could not read this Word file: {_esc(str(e))}</p>")
+    else:
+        inner = raw.decode("utf-8", errors="replace")
+    return add_master(title, inner, trade=trade)
+
+
 # ── Assign master -> customer project (copy-on-assign) ───────────────────────
 def safe_filename(title: str) -> str:
     name = re.sub(r'[<>:"/\\|?*]+', "", title).strip() or "Compliance Document"

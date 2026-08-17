@@ -206,7 +206,7 @@
       <button class="mini" onclick="newMaster()">＋ New</button>
       <button class="mini" onclick="document.getElementById('libuploadinput').click()">Upload</button>
     </div>
-    <input id="libuploadinput" type="file" multiple accept=".html,.htm" style="display:none" onchange="doLibUpload(event)">
+    <input id="libuploadinput" type="file" multiple accept=".docx,.html,.htm" style="display:none" onchange="doLibUpload(event)">
     <div id="filelist"><div class="fempty">Open a project to see its files.</div></div>
     <div id="librarylist"><div class="fempty">Loading templates…</div></div>
   </div>
@@ -836,7 +836,7 @@ async function newMaster(){
 async function doLibUpload(ev){
   const files=ev.target.files; if(!files||!files.length) return;
   const fd=new FormData(); for(const f of files) fd.append('files', f);
-  document.getElementById('librarylist').innerHTML='<div class="fempty">Uploading…</div>';
+  document.getElementById('librarylist').innerHTML='<div class="fempty">Uploading &amp; converting… (Word files become editable pages)</div>';
   try{ await fetch('/api/compliance/upload',{method:'POST',headers:TOKEN?{'X-Origin-Token':TOKEN}:{},body:fd}); }
   catch(e){ alert('Upload failed.'); }
   ev.target.value=''; LIB_LOADED=false; loadLibrary();

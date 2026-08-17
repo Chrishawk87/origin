@@ -33,3 +33,4 @@ huggingface_hub>=0.23
 # Compliance feature — HTML->PDF rendering for document dispatch (pure-Python,
 # no system libraries, deploys cleanly on Railway).
 xhtml2pdf>=0.2.11
+mammoth

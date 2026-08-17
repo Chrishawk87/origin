@@ -9,3 +9,5 @@ fastapi>=0.110
 uvicorn>=0.29
 anthropic>=0.39
 openai>=1.40
+mammoth
+xhtml2pdf

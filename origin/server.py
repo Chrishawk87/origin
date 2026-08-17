@@ -697,9 +697,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         for f in uploads:
             if not hasattr(f, "filename"):
                 continue
-            raw = (await f.read()).decode("utf-8", errors="replace")
-            title = (f.filename or "Uploaded document").rsplit(".", 1)[0]
-            added.append(_cmp.add_master(title, raw))
+            raw = await f.read()
+            added.append(_cmp.ingest_upload(f.filename, raw))
         return {"added": added}
 
     @app.get("/api/compliance/master/{mid}/pdf")
