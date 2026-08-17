@@ -128,6 +128,16 @@
   #ed-status{font-size:12px;color:var(--accent2);margin-left:auto;align-self:center}
   #sendmodal .modal{width:min(500px,94vw)}
 
+
+  /* ── Edit/Chat mode + assign ─────────────────────────────────── */
+  .modeswitch{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .modeswitch button{border:0;border-radius:0;padding:5px 12px;font-size:12.5px;background:var(--panel2)}
+  .modeswitch button.on{background:var(--accent);color:#0e0f13;font-weight:600}
+  .modebadge{background:#151a24;color:var(--accent);padding:7px 18px;font-size:12.5px;border-bottom:1px solid var(--line)}
+  .proj.drop{outline:2px dashed var(--accent);background:var(--panel2)}
+  .jobrow{padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin:6px 0;cursor:pointer;font-size:13.5px}
+  .jobrow:hover{border-color:var(--accent);background:var(--panel2)}
+
 </style>
 </head>
 <body>
@@ -154,11 +164,16 @@
       <label style="cursor:pointer" title="Rewrite your message into a stronger instruction before acting">
         <input type="checkbox" id="enhtoggle" onchange="saveEnh()" style="vertical-align:middle"> ✨ Enhance
       </label>
+      <span class="modeswitch" title="Edit = work on documents yourself (no AI, no tokens). Chat = bring in Claude.">
+        <button id="mode-edit" onclick="setMode('edit')">✎ Edit</button>
+        <button id="mode-chat" onclick="setMode('chat')">💬 Chat</button>
+      </span>
       <span id="toolinfo"></span>
       <span style="flex:1"></span>
       <span id="active-name"></span>
       <button id="sharebtn" onclick="shareProj()" style="display:none">Share ⇪</button>
     </div>
+    <div id="modebadge" class="modebadge" style="display:none"></div>
     <div id="warn" class="banner" style="display:none"></div>
     <div id="chat"></div>
     <div id="presets" style="display:none;padding:8px 18px 0"></div>
@@ -186,6 +201,12 @@
     </div>
     <input id="uploadfiles" type="file" multiple style="display:none" onchange="doUpload(event,false)">
     <input id="uploadfolder" type="file" webkitdirectory style="display:none" onchange="doUpload(event,true)">
+    <div class="files-h" id="library-h" style="display:none">Master documents
+      <span style="flex:1"></span>
+      <button class="mini" onclick="newMaster()">＋ New</button>
+      <button class="mini" onclick="document.getElementById('libuploadinput').click()">Upload</button>
+    </div>
+    <input id="libuploadinput" type="file" multiple accept=".html,.htm" style="display:none" onchange="doLibUpload(event)">
     <div id="filelist"><div class="fempty">Open a project to see its files.</div></div>
     <div id="librarylist"><div class="fempty">Loading templates…</div></div>
   </div>
@@ -240,8 +261,10 @@
         </div>
         <div style="display:flex;gap:8px">
           <button onclick="closeEditor()">Close</button>
-          <button onclick="saveDoc()">Save</button>
-          <button class="primary" onclick="openSend()">Save &amp; Send ▸</button>
+          <button id="ed-btn-savemaster" onclick="saveDoc()">Save master</button>
+          <button id="ed-btn-usejob" class="primary" onclick="openJobPick()">Use in customer job ▸</button>
+          <button id="ed-btn-save" onclick="saveDoc()">Save</button>
+          <button id="ed-btn-send" class="primary" onclick="openSend()">Save &amp; Send ▸</button>
         </div>
       </div>
     </div>
@@ -261,6 +284,15 @@
         <button onclick="closeSend()">Cancel</button>
         <button class="primary" id="send-go" onclick="doSend()">Render PDF &amp; Send</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="jobpick">
+    <div class="modal">
+      <h3>Use in a customer job</h3>
+      <div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">Pick the customer to copy this master into. Your master stays untouched.</div>
+      <div id="jobpick-list"></div>
+      <div class="row"><button onclick="closeJobPick()">Cancel</button></div>
     </div>
   </div>
 
@@ -313,7 +345,14 @@ async function refresh(){
   STATE.projects.forEach(p=>{
     const d=document.createElement('div'); d.className='proj'+(ACTIVE&&ACTIVE.slug===p.slug?' active':'');
     d.innerHTML=`${p.name}<small>${p.workdir}</small>`;
-    d.onclick=()=>openProject(p.slug); pc.appendChild(d);
+    d.onclick=()=>openProject(p.slug);
+    // Drag a master from the Asset Library onto a customer to use it in their job
+    d.addEventListener('dragover',e=>{ if(!Array.from(e.dataTransfer.types||[]).includes('text/origin-master'))return;
+      e.preventDefault(); e.dataTransfer.dropEffect='copy'; d.classList.add('drop'); });
+    d.addEventListener('dragleave',()=>d.classList.remove('drop'));
+    d.addEventListener('drop',e=>{ const mid=e.dataTransfer.getData('text/origin-master');
+      if(!mid)return; e.preventDefault(); d.classList.remove('drop'); assignMasterToProject(mid, p.slug); });
+    pc.appendChild(d);
   });
   // coordinator select
   const cs=document.getElementById('coord'); cs.innerHTML='';
@@ -729,14 +768,33 @@ async function testAll(){
 }
 
 
-// ── Compliance: Asset Library, drag-drop assign, editor, send ──────────────
-let LIB_LOADED=false, EDIT_PATH=null, EDIT_HEAD='';
+// ── Compliance v2: mode toggle, Asset Library, edit master, assign to job ────
+let LIB_LOADED=false, EDIT_KIND=null, EDIT_ID=null, EDIT_PATH=null, EDIT_HEAD='', EDIT_TITLE='';
 
+/* ---- Edit / Chat mode (Edit = AI off, no tokens; Chat = Claude active) ---- */
+function currentMode(){ try{ return localStorage.getItem('origin_mode')||'edit'; }catch(e){ return 'edit'; } }
+function setMode(m){ try{ localStorage.setItem('origin_mode', m); }catch(e){} applyMode(); }
+function applyMode(){
+  const m=currentMode();
+  const be=document.getElementById('mode-edit'), bc=document.getElementById('mode-chat');
+  if(be) be.classList.toggle('on', m==='edit');
+  if(bc) bc.classList.toggle('on', m==='chat');
+  const comp=document.getElementById('composer'); if(comp) comp.style.display = m==='chat' ? 'flex' : 'none';
+  const badge=document.getElementById('modebadge');
+  if(badge){
+    if(m==='edit'){ badge.style.display='block';
+      badge.textContent='✎ Edit mode — AI is off, no tokens used. Work on documents yourself. Switch to 💬 Chat to bring in Claude.'; }
+    else { badge.style.display='none'; }
+  }
+}
+
+/* ---- Files / Asset Library tabs ---- */
 function switchFilesTab(tab){
   const wsOn = tab==='workspace';
   document.getElementById('tab-workspace').classList.toggle('active',wsOn);
   document.getElementById('tab-library').classList.toggle('active',!wsOn);
   document.getElementById('workspace-h').style.display=wsOn?'':'none';
+  document.getElementById('library-h').style.display=wsOn?'none':'';
   document.getElementById('filelist').style.display=wsOn?'':'none';
   document.getElementById('librarylist').style.display=wsOn?'none':'';
   if(!wsOn && !LIB_LOADED) loadLibrary();
@@ -744,68 +802,79 @@ function switchFilesTab(tab){
 
 async function loadLibrary(){
   const el=document.getElementById('librarylist');
+  el.innerHTML='<div class="fempty">Loading…</div>';
   const r=await api('/api/compliance/library');
   const items=(r&&r.templates)||[];
-  if(!items.length){ el.innerHTML='<div class="fempty">No templates found.</div>'; return; }
+  if(!items.length){ el.innerHTML='<div class="fempty">No master documents yet. Use ＋ New or Upload to add one.</div>'; return; }
   LIB_LOADED=true;
   const groups={};
-  items.forEach(t=>{ (groups[t.trade]=groups[t.trade]||[]).push(t); });
+  items.forEach(t=>{ const k=t.trade||'My Library'; (groups[k]=groups[k]||[]).push(t); });
   el.innerHTML='';
   Object.keys(groups).forEach(trade=>{
     const g=document.createElement('div'); g.className='libgroup'; g.textContent=trade; el.appendChild(g);
     groups[trade].forEach(t=>{
       const d=document.createElement('div'); d.className='libitem'; d.draggable=true;
-      d.innerHTML='<span class="ic">📄</span><span class="nm">'+escapeHtml(t.num+'  '+t.title)+'</span>';
-      d.title='Drag onto the chat to add to '+(ACTIVE?ACTIVE.name:'a project')+', or double-click';
-      d.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/origin-template',t.id);
+      const label=(t.num?(t.num+'  '):'')+t.title;
+      d.innerHTML='<span class="ic">📄</span><span class="nm">'+escapeHtml(label)+'</span>';
+      d.title='Click to edit this master. Drag onto a customer on the left to use it in their job.';
+      d.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/origin-master',t.id);
         e.dataTransfer.effectAllowed='copy'; });
-      d.ondblclick=()=>assignTemplate(t.id);
+      d.onclick=()=>openMaster(t.id);
       el.appendChild(d);
     });
   });
 }
 
-function initDrop(){
-  const main=document.getElementById('main'); if(!main||main.dataset.dropInit) return;
-  main.dataset.dropInit='1';
-  let ov=document.getElementById('dropoverlay');
-  if(!ov){ ov=document.createElement('div'); ov.id='dropoverlay';
-    ov.innerHTML='<div class="box">Drop to add this template to <b id="drop-proj"></b></div>';
-    document.body.appendChild(ov); }
-  const show=on=>{ ov.style.display=on?'flex':'none';
-    const dp=document.getElementById('drop-proj'); if(dp) dp.textContent=ACTIVE?ACTIVE.name:'your project'; };
-  const hasTpl=e=>Array.from(e.dataTransfer.types||[]).includes('text/origin-template');
-  main.addEventListener('dragover',e=>{ if(!hasTpl(e))return; e.preventDefault();
-    e.dataTransfer.dropEffect='copy'; show(true); });
-  main.addEventListener('dragleave',e=>{ if(e.target===main) show(false); });
-  main.addEventListener('drop',e=>{ const tid=e.dataTransfer.getData('text/origin-template');
-    if(!tid)return; e.preventDefault(); show(false); assignTemplate(tid); });
+async function newMaster(){
+  const title=prompt('Name for the new master document:'); if(!title||!title.trim()) return;
+  const r=await api('/api/compliance/master/new',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title.trim()})});
+  if(!r||!r.id){ alert('Could not create: '+((r&&r.error)||'unknown')); return; }
+  LIB_LOADED=false; await loadLibrary(); openMaster(r.id);
 }
 
-async function assignTemplate(tid){
-  if(!ACTIVE){ alert('Open a project (customer folder) first, then add a template.'); return; }
-  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/assign',
-    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({template_id:tid})});
-  if(!r||r.error){ alert('Could not add template: '+((r&&r.error)||'unknown')); return; }
-  switchFilesTab('workspace'); await loadFiles();
-  openEditor(r.path, r.title);
+async function doLibUpload(ev){
+  const files=ev.target.files; if(!files||!files.length) return;
+  const fd=new FormData(); for(const f of files) fd.append('files', f);
+  document.getElementById('librarylist').innerHTML='<div class="fempty">Uploading…</div>';
+  try{ await fetch('/api/compliance/upload',{method:'POST',headers:TOKEN?{'X-Origin-Token':TOKEN}:{},body:fd}); }
+  catch(e){ alert('Upload failed.'); }
+  ev.target.value=''; LIB_LOADED=false; loadLibrary();
 }
 
-function onFileClick(f){
-  const isCompliance = /^Compliance\//.test(f.path) && /\.html$/i.test(f.path);
-  if(isCompliance){ openEditor(f.path, f.path.split('/').pop().replace(/\.html$/i,'')); }
-  else previewFile(f);
+/* ---- Editor: master mode (edits the library master) ---- */
+async function openMaster(mid){
+  const r=await api('/api/compliance/master/'+encodeURIComponent(mid));
+  if(!r||r.error){ alert('Could not open: '+((r&&r.error)||'unknown')); return; }
+  EDIT_KIND='master'; EDIT_ID=mid; EDIT_PATH=null;
+  setEditorButtons('master');
+  loadIntoEditor(r.html||'', r.title||mid);
 }
 
-async function openEditor(path, title){
-  EDIT_PATH=path;
+/* ---- Editor: project mode (edits a customer copy) ---- */
+async function openProjectDoc(path, title){
+  if(!ACTIVE){ alert('Open a customer project first.'); return; }
   const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/content?path='+encodeURIComponent(path));
-  const html=(r&&r.html)||'';
+  if(!r||r.error){ alert('Could not open: '+((r&&r.error)||'unknown')); return; }
+  EDIT_KIND='project'; EDIT_PATH=path; EDIT_ID=null;
+  setEditorButtons('project');
+  loadIntoEditor(r.html||'', title||path);
+}
+
+function setEditorButtons(kind){
+  const show=(id,on)=>{ const e=document.getElementById(id); if(e) e.style.display=on?'':'none'; };
+  show('ed-btn-savemaster', kind==='master');
+  show('ed-btn-usejob',     kind==='master');
+  show('ed-btn-save',       kind==='project');
+  show('ed-btn-send',       kind==='project');
+}
+
+function loadIntoEditor(html, title){
   const doc=new DOMParser().parseFromString(html,'text/html');
-  EDIT_HEAD=doc.head?doc.head.innerHTML:'';
-  document.getElementById('ed-title').textContent=title||path;
+  EDIT_HEAD=doc.head?doc.head.innerHTML:''; EDIT_TITLE=title;
+  document.getElementById('ed-title').textContent=title;
   document.getElementById('ed-body').innerHTML=doc.body?doc.body.innerHTML:html;
-  document.getElementById('ed-status').textContent='';
+  document.getElementById('ed-status').textContent = EDIT_KIND==='master' ? 'Editing master' : 'Customer copy';
   document.getElementById('editor').style.display='flex';
 }
 function closeEditor(){ document.getElementById('editor').style.display='none'; }
@@ -817,24 +886,67 @@ function currentDocHtml(){
   return '<!doctype html><html><head>'+EDIT_HEAD+'</head><body>'+inner+'</body></html>';
 }
 async function saveDoc(){
-  if(!EDIT_PATH) return;
   const st=document.getElementById('ed-status'); st.textContent='Saving…';
-  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/save',
-    {method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({path:EDIT_PATH,html:currentDocHtml()})});
-  st.textContent=(r&&r.saved)?'Saved ✓':'Save failed';
-  loadFiles();
-  return r&&r.saved;
+  let r;
+  if(EDIT_KIND==='master'){
+    r=await api('/api/compliance/master/'+encodeURIComponent(EDIT_ID)+'/save',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html:currentDocHtml()})});
+    if(r&&r.saved){ st.textContent='Master saved ✓'; LIB_LOADED=false; }
+    else st.textContent='Save failed';
+  } else {
+    r=await api('/api/projects/'+ACTIVE.slug+'/compliance/save',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:EDIT_PATH,html:currentDocHtml()})});
+    if(r&&r.saved){ st.textContent='Saved ✓'; loadFiles(); }
+    else st.textContent='Save failed';
+  }
+  return !!(r&&r.saved);
 }
 async function downloadDocPdf(){
-  const ok=await saveDoc(); if(ok===false) return;
+  const ok=await saveDoc(); if(!ok) return;
   const st=document.getElementById('ed-status'); st.textContent='Rendering PDF…';
-  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/render',
-    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:EDIT_PATH})});
-  if(r&&r.rendered){ st.textContent='PDF ready'; window.location=fileUrl(r.path,true); loadFiles(); }
-  else { st.textContent=''; alert((r&&r.error)||'Could not render PDF.'); }
+  if(EDIT_KIND==='master'){
+    window.location='/api/compliance/master/'+encodeURIComponent(EDIT_ID)+'/pdf'+(TOKEN?('?token='+encodeURIComponent(TOKEN)):'');
+    st.textContent='PDF ready';
+  } else {
+    const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/render',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:EDIT_PATH})});
+    if(r&&r.rendered){ st.textContent='PDF ready'; window.location=fileUrl(r.path,true); loadFiles(); }
+    else { st.textContent=''; alert((r&&r.error)||'Could not render PDF.'); }
+  }
 }
 
+/* ---- Use a master in a customer job (copy-on-assign) ---- */
+function openJobPick(){
+  const list=document.getElementById('jobpick-list'); list.innerHTML='';
+  const projs=(STATE&&STATE.projects)||[];
+  if(!projs.length){ list.innerHTML='<div class="fempty">No customer projects yet. Create one on the left first.</div>'; }
+  projs.forEach(p=>{
+    const row=document.createElement('div'); row.className='jobrow';
+    row.textContent=p.name; row.onclick=()=>useInJob(p.slug);
+    list.appendChild(row);
+  });
+  document.getElementById('jobpick').style.display='flex';
+}
+function closeJobPick(){ document.getElementById('jobpick').style.display='none'; }
+async function useInJob(slug){ closeJobPick(); await assignMasterToProject(EDIT_ID, slug); }
+
+async function assignMasterToProject(mid, slug){
+  const r=await api('/api/projects/'+slug+'/compliance/assign',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({master_id:mid})});
+  if(!r||r.error){ alert('Could not add to job: '+((r&&r.error)||'unknown')); return; }
+  await openProject(slug);
+  switchFilesTab('workspace'); await loadFiles();
+  openProjectDoc(r.path, r.title);
+}
+
+/* ---- Clicking a file in a project: compliance docs open in the editor ---- */
+function onFileClick(f){
+  const isCompliance = /^Compliance\//.test(f.path) && /\.html$/i.test(f.path);
+  if(isCompliance){ openProjectDoc(f.path, f.path.split('/').pop().replace(/\.html$/i,'')); }
+  else previewFile(f);
+}
+
+/* ---- Send a customer copy (project mode only) ---- */
 function openSend(){
   const t=document.getElementById('ed-title').textContent;
   document.getElementById('send-subject').value='Your completed compliance program — '+t;
@@ -854,16 +966,13 @@ async function doSend(){
        subject:document.getElementById('send-subject').value,
        message:document.getElementById('send-message').value })});
   btn.disabled=false;
-  if(r&&r.sent){ st.style.color='var(--accent2)'; st.textContent='Sent to '+to+' ✓ (PDF also saved to the project)';
-    loadFiles(); }
+  if(r&&r.sent){ st.style.color='var(--accent2)'; st.textContent='Sent to '+to+' ✓ (PDF also saved to the project)'; loadFiles(); }
   else { st.style.color='var(--warn)';
     st.textContent=(r&&r.error?r.error:'Send failed.')+(r&&r.pdf_path?' The PDF was saved to the project.':''); loadFiles(); }
 }
 
-function initCompliance(){ initDrop(); }
-
 refresh();
-initCompliance();
+applyMode();
 </script>
 </body>
 </html>

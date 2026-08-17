@@ -1,7 +1,15 @@
-"""Compliance document management — reusable master templates, assign-to-project
-(copy-on-assign so masters are never mutated), PDF rendering, and direct email
-dispatch. Built to fit Origin's projects-as-folders model: a template assigned
-into a project becomes an editable file inside that project's workdir.
+"""Compliance document management for Origin.
+
+Design (v2):
+- The Asset Library is a PERSISTENT, EDITABLE store of master documents kept in
+  the data dir (DATA_DIR/compliance_library) so edits survive restarts and the
+  user can add their own masters. It is seeded once from the 24 templates that
+  ship inside the package (compliance_library/ next to this file).
+- Editing a master edits the master itself (saved back to the library).
+- "Use in a customer job" copies a master into a project's workdir (copy-on-
+  assign) so the master is never touched by client-specific edits.
+- Documents are self-contained HTML (styled), editable inline in the browser and
+  renderable to PDF for dispatch.
 """
 from __future__ import annotations
 
@@ -13,49 +21,14 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-LIBRARY_DIR = Path(__file__).parent / "compliance_library"
-# Where assigned copies live inside a project's workdir.
-ASSIGN_SUBDIR = "Compliance"
+from .paths import DATA_DIR
+
+DEFAULTS_DIR = Path(__file__).parent / "compliance_library"   # shipped seeds
+LIBRARY_DIR = DATA_DIR / "compliance_library"                 # live, editable
+ASSIGN_SUBDIR = "Compliance"                                  # inside a project
 
 
-# ── Master template library (read-only) ─────────────────────────────────────
-def list_templates() -> List[Dict[str, Any]]:
-    idx = LIBRARY_DIR / "index.json"
-    if not idx.is_file():
-        return []
-    try:
-        data = json.loads(idx.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    # Never leak the on-disk filename to clients; expose id/title/trade/num only.
-    return [{"id": t["id"], "trade": t.get("trade", ""), "num": t.get("num", ""),
-             "title": t.get("title", t["id"])} for t in data]
-
-
-def _template_record(tid: str) -> Optional[Dict[str, Any]]:
-    idx = LIBRARY_DIR / "index.json"
-    if not idx.is_file():
-        return None
-    for t in json.loads(idx.read_text(encoding="utf-8")):
-        if t["id"] == tid:
-            return t
-    return None
-
-
-def read_template_html(tid: str) -> Optional[str]:
-    rec = _template_record(tid)
-    if not rec:
-        return None
-    f = LIBRARY_DIR / rec["file"]
-    return f.read_text(encoding="utf-8") if f.is_file() else None
-
-
-def template_title(tid: str) -> str:
-    rec = _template_record(tid)
-    return (rec or {}).get("title", tid)
-
-
-# ── HTML document wrapper (used for viewing/editing/printing) ────────────────
+# ── Styling / document wrapper ───────────────────────────────────────────────
 _DOC_CSS = """
 <style>
   body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;line-height:1.5;
@@ -71,30 +44,144 @@ _DOC_CSS = """
 """
 
 
+def _esc(s: str) -> str:
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def wrap_document(inner_html: str, title: str = "") -> str:
-    """Wrap raw template HTML into a standalone, styled document."""
+    if "<html" in (inner_html or "").lower():
+        return inner_html
     return (f"<!doctype html><html><head><meta charset='utf-8'>"
             f"<title>{_esc(title)}</title>{_DOC_CSS}</head>"
             f"<body>{inner_html}</body></html>")
 
 
-def _esc(s: str) -> str:
-    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+# ── Library persistence ──────────────────────────────────────────────────────
+def _index_path() -> Path:
+    return LIBRARY_DIR / "index.json"
 
 
-# ── PDF rendering (HTML -> PDF) ──────────────────────────────────────────────
+def ensure_library() -> None:
+    """Create the live library from shipped defaults on first use. Idempotent."""
+    LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
+    if _index_path().is_file():
+        return
+    seeds = []
+    seed_index = DEFAULTS_DIR / "index.json"
+    if seed_index.is_file():
+        seeds = json.loads(seed_index.read_text(encoding="utf-8"))
+    records = []
+    for s in seeds:
+        src = DEFAULTS_DIR / s["file"]
+        if not src.is_file():
+            continue
+        title = s.get("title", s["id"])
+        html = wrap_document(src.read_text(encoding="utf-8"), title)
+        fname = f"{s['id']}.html"
+        (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
+        records.append({"id": s["id"], "trade": s.get("trade", ""),
+                        "num": s.get("num", ""), "title": title, "file": fname})
+    _write_index(records)
+
+
+def _read_index() -> List[Dict[str, Any]]:
+    ensure_library()
+    try:
+        return json.loads(_index_path().read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _write_index(records: List[Dict[str, Any]]) -> None:
+    _index_path().write_text(json.dumps(records, indent=2), encoding="utf-8")
+
+
+def list_templates() -> List[Dict[str, Any]]:
+    return [{"id": t["id"], "trade": t.get("trade", ""), "num": t.get("num", ""),
+             "title": t.get("title", t["id"])} for t in _read_index()]
+
+
+def _record(mid: str) -> Optional[Dict[str, Any]]:
+    for t in _read_index():
+        if t["id"] == mid:
+            return t
+    return None
+
+
+def read_master_html(mid: str) -> Optional[str]:
+    rec = _record(mid)
+    if not rec:
+        return None
+    f = LIBRARY_DIR / rec["file"]
+    return f.read_text(encoding="utf-8", errors="replace") if f.is_file() else None
+
+
+def master_title(mid: str) -> str:
+    return (_record(mid) or {}).get("title", mid)
+
+
+def save_master_html(mid: str, html: str) -> bool:
+    rec = _record(mid)
+    if not rec:
+        return False
+    (LIBRARY_DIR / rec["file"]).write_text(html, encoding="utf-8")
+    return True
+
+
+def _slug(s: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9]+", "-", s or "").strip("-").lower() or "master"
+
+
+def add_master(title: str, html: Optional[str] = None,
+               trade: str = "My Library") -> Dict[str, Any]:
+    """Create a new master in the library (blank or from provided HTML)."""
+    ensure_library()
+    records = _read_index()
+    base = _slug(title)
+    mid = base
+    existing = {r["id"] for r in records}
+    n = 2
+    while mid in existing:
+        mid = f"{base}-{n}"
+        n += 1
+    body = html if (html and html.strip()) else (
+        f"<h1>{_esc(title)}</h1><p>Start writing your program here…</p>")
+    doc = wrap_document(body, title)
+    fname = f"{mid}.html"
+    (LIBRARY_DIR / fname).write_text(doc, encoding="utf-8")
+    rec = {"id": mid, "trade": trade, "num": "", "title": title, "file": fname}
+    records.append(rec)
+    _write_index(records)
+    return {"id": mid, "trade": trade, "num": "", "title": title}
+
+
+# ── Assign master -> customer project (copy-on-assign) ───────────────────────
+def safe_filename(title: str) -> str:
+    name = re.sub(r'[<>:"/\\|?*]+', "", title).strip() or "Compliance Document"
+    return f"{name}.html"
+
+
+def unique_path(directory: Path, filename: str) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    stem, suffix = Path(filename).stem, (Path(filename).suffix or ".html")
+    cand = directory / f"{stem}{suffix}"
+    n = 2
+    while cand.exists():
+        cand = directory / f"{stem} ({n}){suffix}"
+        n += 1
+    return cand
+
+
+# ── PDF rendering ────────────────────────────────────────────────────────────
 def render_pdf(html: str, out_path: Path, title: str = "") -> None:
-    """Render an HTML document to a PDF file. Uses xhtml2pdf (pure-Python, no
-    system libraries — deploys cleanly on Railway). Raises RuntimeError with a
-    clear message if the dependency is missing."""
     try:
         from xhtml2pdf import pisa  # type: ignore
     except Exception as e:  # pragma: no cover
         raise RuntimeError(
-            "PDF rendering needs the 'xhtml2pdf' package. Add it to requirements "
-            "and redeploy (pip install xhtml2pdf)."
+            "PDF rendering needs the 'xhtml2pdf' package. Add it to the "
+            "Dockerfile pip install line and redeploy."
         ) from e
-    doc = html if "<html" in html.lower() else wrap_document(html, title)
+    doc = wrap_document(html, title)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "wb") as fh:
         result = pisa.CreatePDF(src=doc, dest=fh)
@@ -110,11 +197,6 @@ def smtp_configured() -> bool:
 
 def send_email(to: str, subject: str, body: str,
                attachment: Optional[Path] = None) -> Dict[str, Any]:
-    """Send an email with an optional file attachment via configured SMTP.
-    Config comes from env vars so no credentials live in code:
-      ORIGIN_SMTP_HOST, ORIGIN_SMTP_PORT (default 587),
-      ORIGIN_SMTP_USER, ORIGIN_SMTP_PASS, ORIGIN_SMTP_FROM (default = user).
-    """
     if not smtp_configured():
         return {"sent": False,
                 "error": "Email isn't set up yet. Set ORIGIN_SMTP_HOST, "
@@ -125,7 +207,6 @@ def send_email(to: str, subject: str, body: str,
     user = os.environ["ORIGIN_SMTP_USER"]
     pw = os.environ["ORIGIN_SMTP_PASS"]
     sender = os.environ.get("ORIGIN_SMTP_FROM", user)
-
     msg = EmailMessage()
     msg["From"] = sender
     msg["To"] = to
@@ -134,8 +215,7 @@ def send_email(to: str, subject: str, body: str,
     if attachment and attachment.is_file():
         data = attachment.read_bytes()
         sub = "pdf" if attachment.suffix.lower() == ".pdf" else "octet-stream"
-        maintype = "application"
-        msg.add_attachment(data, maintype=maintype, subtype=sub,
+        msg.add_attachment(data, maintype="application", subtype=sub,
                            filename=attachment.name)
     try:
         with smtplib.SMTP(host, port, timeout=30) as s:
@@ -145,22 +225,3 @@ def send_email(to: str, subject: str, body: str,
         return {"sent": True, "to": to}
     except Exception as e:
         return {"sent": False, "error": f"SMTP send failed: {e}"}
-
-
-def unique_path(directory: Path, filename: str) -> Path:
-    """Return a non-colliding path in `directory` for `filename` so assigning a
-    template twice keeps both copies (adds ' (2)', ' (3)', …)."""
-    directory.mkdir(parents=True, exist_ok=True)
-    stem = Path(filename).stem
-    suffix = Path(filename).suffix or ".html"
-    cand = directory / f"{stem}{suffix}"
-    n = 2
-    while cand.exists():
-        cand = directory / f"{stem} ({n}){suffix}"
-        n += 1
-    return cand
-
-
-def safe_filename(title: str) -> str:
-    name = re.sub(r'[<>:"/\\|?*]+', "", title).strip() or "Compliance Document"
-    return f"{name}.html"

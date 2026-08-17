@@ -660,41 +660,83 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     # ── Compliance document management ──────────────────────────────────────
     from . import compliance as _cmp
 
+    # -- Asset Library: persistent, editable master documents ----------------
     @app.get("/api/compliance/library")
     def compliance_library():
-        """The reusable Asset Library — master compliance templates."""
         return {"templates": _cmp.list_templates()}
 
-    @app.get("/api/compliance/template/{tid}")
-    def compliance_template(tid: str):
-        html = _cmp.read_template_html(tid)
+    @app.get("/api/compliance/master/{mid}")
+    def compliance_master(mid: str):
+        html = _cmp.read_master_html(mid)
         if html is None:
-            return JSONResponse({"error": "template not found"}, status_code=404)
-        return {"id": tid, "title": _cmp.template_title(tid),
-                "html": _cmp.wrap_document(html, _cmp.template_title(tid))}
+            return JSONResponse({"error": "master not found"}, status_code=404)
+        return {"id": mid, "title": _cmp.master_title(mid), "html": html}
 
+    @app.post("/api/compliance/master/{mid}/save")
+    def compliance_master_save(mid: str, body: dict = Body(...)):
+        html = body.get("html")
+        if html is None:
+            return JSONResponse({"error": "html required"}, status_code=400)
+        if not _cmp.save_master_html(mid, html):
+            return JSONResponse({"error": "master not found"}, status_code=404)
+        return {"saved": True, "id": mid}
+
+    @app.post("/api/compliance/master/new")
+    def compliance_master_new(body: dict = Body(...)):
+        title = (body.get("title") or "").strip()
+        if not title:
+            return JSONResponse({"error": "title required"}, status_code=400)
+        return _cmp.add_master(title, body.get("html"))
+
+    @app.post("/api/compliance/upload")
+    async def compliance_upload(request: Request):
+        """Add uploaded HTML file(s) to the Asset Library as new masters."""
+        form = await request.form()
+        uploads = form.getlist("files")
+        added = []
+        for f in uploads:
+            if not hasattr(f, "filename"):
+                continue
+            raw = (await f.read()).decode("utf-8", errors="replace")
+            title = (f.filename or "Uploaded document").rsplit(".", 1)[0]
+            added.append(_cmp.add_master(title, raw))
+        return {"added": added}
+
+    @app.get("/api/compliance/master/{mid}/pdf")
+    def compliance_master_pdf(mid: str):
+        """Render a library master to PDF on the fly (for editor Download PDF)."""
+        html = _cmp.read_master_html(mid)
+        if html is None:
+            return JSONResponse({"error": "master not found"}, status_code=404)
+        title = _cmp.master_title(mid)
+        out = _cmp.LIBRARY_DIR / (mid + ".pdf")
+        try:
+            _cmp.render_pdf(html, out, title=title)
+        except RuntimeError as e:
+            return JSONResponse({"error": str(e)}, status_code=200)
+        dl = _cmp.safe_filename(title)[:-5] + ".pdf"
+        return FileResponse(str(out), filename=dl, media_type="application/pdf")
+
+    # -- Assign a master into a customer project (copy-on-assign) -------------
     @app.post("/api/projects/{slug}/compliance/assign")
     def compliance_assign(slug: str, body: dict = Body(...)):
-        """Copy a master template into this project as an editable copy. The
-        master is never modified (copy-on-assign)."""
         proj = eng.projects.get(slug)
         if not proj:
             return JSONResponse({"error": "not found"}, status_code=404)
-        tid = (body.get("template_id") or "").strip()
-        html = _cmp.read_template_html(tid)
+        mid = (body.get("master_id") or body.get("template_id") or "").strip()
+        html = _cmp.read_master_html(mid)
         if html is None:
-            return JSONResponse({"error": "template not found"}, status_code=404)
-        title = _cmp.template_title(tid)
-        doc = _cmp.wrap_document(html, title)
+            return JSONResponse({"error": "master not found"}, status_code=404)
+        title = _cmp.master_title(mid)
         base = _safe_join(proj.workdir, _cmp.ASSIGN_SUBDIR)
         target = _cmp.unique_path(base, _cmp.safe_filename(title))
-        target.write_text(doc, encoding="utf-8")
+        target.write_text(html, encoding="utf-8")
         rel = str(target.relative_to(Path(proj.workdir).resolve()))
         return {"assigned": True, "path": rel, "title": title}
 
+    # -- Edit / save / render / send a project copy --------------------------
     @app.get("/api/projects/{slug}/compliance/content")
     def compliance_content(slug: str, path: str):
-        """Return the editable HTML for an assigned document."""
         proj = eng.projects.get(slug)
         if not proj:
             return JSONResponse({"error": "not found"}, status_code=404)
@@ -708,7 +750,6 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
 
     @app.post("/api/projects/{slug}/compliance/save")
     def compliance_save(slug: str, body: dict = Body(...)):
-        """Save edited HTML back into the project's copy."""
         proj = eng.projects.get(slug)
         if not proj:
             return JSONResponse({"error": "not found"}, status_code=404)
@@ -726,7 +767,6 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
 
     @app.post("/api/projects/{slug}/compliance/render")
     def compliance_render(slug: str, body: dict = Body(...)):
-        """Render an assigned HTML document to PDF, saved beside the source."""
         proj = eng.projects.get(slug)
         if not proj:
             return JSONResponse({"error": "not found"}, status_code=404)
@@ -748,8 +788,6 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
 
     @app.post("/api/projects/{slug}/compliance/send")
     def compliance_send(slug: str, body: dict = Body(...)):
-        """Finalize + dispatch: render to PDF (saved to the project) and email it
-        to the recipient via configured SMTP."""
         proj = eng.projects.get(slug)
         if not proj:
             return JSONResponse({"error": "not found"}, status_code=404)
