@@ -176,9 +176,10 @@ def ingest_upload(filename: str, raw: bytes) -> Dict[str, Any]:
     stem = name.rsplit(".", 1)[0]
     parts = [x.strip() for x in stem.split(" - ")]
     trade, title = "My Library", stem
+    # "Industry - Style - NN Program"  ->  group by INDUSTRY, keep style in title
     if len(parts) >= 3:
-        trade = f"{parts[0]} — {parts[1]}"
-        title = " - ".join(parts[2:])
+        trade = parts[0]
+        title = " - ".join(parts[2:]) + f" — {parts[1]}"
     elif len(parts) == 2:
         trade, title = parts[0], parts[1]
     if ext == "docx":

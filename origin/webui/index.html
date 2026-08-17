@@ -795,8 +795,8 @@ function switchFilesTab(tab){
   document.getElementById('tab-library').classList.toggle('active',!wsOn);
   document.getElementById('workspace-h').style.display=wsOn?'':'none';
   document.getElementById('library-h').style.display=wsOn?'none':'';
-  document.getElementById('filelist').style.display=wsOn?'':'none';
-  document.getElementById('librarylist').style.display=wsOn?'none':'';
+  document.getElementById('filelist').style.display=wsOn?'block':'none';
+  document.getElementById('librarylist').style.display=wsOn?'none':'block';
   if(!wsOn && !LIB_LOADED) loadLibrary();
 }
 
