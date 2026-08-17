@@ -113,6 +113,9 @@
   .libitem .ic{width:16px;text-align:center}
   .libitem .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
   .libitem:active{cursor:grabbing}
+  .libitem .ed{opacity:0;padding:0 3px;cursor:pointer;font-size:13px}
+  .libitem:hover .ed{opacity:.55}
+  .libitem .ed:hover{opacity:1}
   #dropoverlay{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
     background:rgba(124,156,255,.14);border:3px dashed var(--accent);pointer-events:none}
   #dropoverlay .box{background:var(--panel);border:1px solid var(--accent);border-radius:14px;
@@ -135,6 +138,21 @@
   .modeswitch button.on{background:var(--accent);color:#0e0f13;font-weight:600}
   .modebadge{background:#151a24;color:var(--accent);padding:7px 18px;font-size:12.5px;border-bottom:1px solid var(--line)}
   .proj.drop{outline:2px dashed var(--accent);background:var(--panel2)}
+
+  /* ── Inline working document (lives in the chat) ─────────────── */
+  .doccard{max-width:820px;width:100%;align-self:center;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .doccard-head{display:flex;align-items:center;gap:10px;padding:10px 14px;
+    background:var(--panel2);border-bottom:1px solid var(--line);font-size:13px}
+  .doccard-head .dt{font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .doccard-head .badge{font-size:11px;color:var(--dim);white-space:nowrap}
+  .doccard .ed-toolbar{margin:0;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .docedit{background:#fff;color:#111;padding:26px;min-height:280px;max-height:60vh;
+    overflow:auto;line-height:1.6;font-size:14px}
+  .docedit:focus{outline:none}
+  .docfoot{display:flex;gap:8px;align-items:center;justify-content:flex-end;
+    padding:10px 12px;background:var(--panel2);border-top:1px solid var(--line)}
+  .docstatus{flex:1;font-size:12px;color:var(--dim)}
   .jobrow{padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin:6px 0;cursor:pointer;font-size:13.5px}
   .jobrow:hover{border-color:var(--accent);background:var(--panel2)}
 
@@ -471,14 +489,28 @@ async function send(){
   if(PENDING.length){
     msg=(text?text+'\n\n':'')+'📎 Attached to this message (in this project\'s workspace — read/use them as reference): '+PENDING.join(', ');
   }
+  // In Chat mode, hand Claude the current working document (no re-upload needed).
+  let apiMsg=msg, docIncluded=false;
+  if(WDOC && currentMode()==='chat'){
+    const dt=wdocText();
+    if(dt && dt!==WDOC.lastSent){
+      apiMsg='Working document “'+WDOC.title+'” — this is the CUSTOMER COPY saved at path "'+WDOC.path+
+        '" in this project\u2019s workspace. If I ask for changes, edit THAT file directly (keep it valid HTML) and never touch the master templates in the Asset Library. Current contents:\n\n"""\n'+
+        dt+'\n"""\n\n---\n\n'+msg;
+      WDOC.lastSent=dt; docIncluded=true;
+    }
+  }
   inp.value=''; const ub=addBubble('user', msg);
+  if(docIncluded){ ub.querySelector('.bubble').insertAdjacentHTML('beforeend',
+    '<div style="margin-top:6px;color:var(--dim);font-size:12px">📄 working document “'+escapeHtml(WDOC.title)+'” shared with Claude</div>'); }
   PENDING=[]; renderAttachBar();
+  if(docIncluded){ await saveWDoc(); }  // sync disk so Claude edits the same content it sees
   const think=startThinking(enhOn()?'Refining your request, then working':'Origin is thinking'); setBusy(true);
   let enhancedShown=false;
   try{
     // 1) start the turn as a background job (short request — can't time out)
     const start=await apiTimed('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:msg, enhance:enhOn()})}, 30000);
+      body:JSON.stringify({message:apiMsg, enhance:enhOn()})}, 30000);
     if(start && start.error){ think.stop(); think.el.remove(); addBubble('assistant','⚠️ '+start.error); setBusy(false); return; }
     const jid=start.job_id;
     // 2) poll for progress until done/error (no hard cap — a big task can take minutes)
@@ -773,7 +805,15 @@ let LIB_LOADED=false, EDIT_KIND=null, EDIT_ID=null, EDIT_PATH=null, EDIT_HEAD=''
 
 /* ---- Edit / Chat mode (Edit = AI off, no tokens; Chat = Claude active) ---- */
 function currentMode(){ try{ return localStorage.getItem('origin_mode')||'edit'; }catch(e){ return 'edit'; } }
-function setMode(m){ try{ localStorage.setItem('origin_mode', m); }catch(e){} applyMode(); }
+function setMode(m){
+  const prev=currentMode();
+  try{ localStorage.setItem('origin_mode', m); }catch(e){}
+  applyMode();
+  if(prev!=='chat' && m==='chat' && WDOC){
+    addBubble('assistant','💬 Chat is on. I can now see your working document “'+WDOC.title+'”. Tell me what to change and I\u2019ll edit it — your master template stays exactly as it is. (Click “↻ Claude\u2019s edits” on the document to pull in my changes.)');
+    WDOC.lastSent=null; scrollDown();
+  }
+}
 function applyMode(){
   const m=currentMode();
   const be=document.getElementById('mode-edit'), bc=document.getElementById('mode-chat');
@@ -815,11 +855,13 @@ async function loadLibrary(){
     groups[trade].forEach(t=>{
       const d=document.createElement('div'); d.className='libitem'; d.draggable=true;
       const label=(t.num?(t.num+'  '):'')+t.title;
-      d.innerHTML='<span class="ic">📄</span><span class="nm">'+escapeHtml(label)+'</span>';
-      d.title='Click to edit this master. Drag onto a customer on the left to use it in their job.';
+      d.innerHTML='<span class="ic">📄</span><span class="nm">'+escapeHtml(label)+'</span>'+
+                  '<span class="ed" title="Edit the master template itself">✎</span>';
+      d.title='Click to drop a copy into the open customer job (in the chat). Drag onto a customer on the left to do the same. ✎ edits the master template.';
       d.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/origin-master',t.id);
         e.dataTransfer.effectAllowed='copy'; });
-      d.onclick=()=>openMaster(t.id);
+      d.onclick=()=>useMasterInChat(t.id);
+      d.querySelector('.ed').addEventListener('click',e=>{ e.stopPropagation(); openMaster(t.id); });
       el.appendChild(d);
     });
   });
@@ -915,6 +957,104 @@ async function downloadDocPdf(){
   }
 }
 
+/* ---- Inline working document: lives in the chat, Claude can read it ---- */
+let WDOC=null;         // {path,title,head,body(el),status(el),lastSent}
+let SEND_FROM_CARD=false;
+
+function docToParts(html){
+  const doc=new DOMParser().parseFromString(html||'','text/html');
+  return { head: doc.head?doc.head.innerHTML:'', body: doc.body?doc.body.innerHTML:(html||'') };
+}
+function tbtn(cmd,inner,tip){
+  return '<button title="'+tip+'" onmousedown="return false" onclick="wfmt(this,\''+cmd+'\')">'+inner+'</button>';
+}
+function tblk(tag,inner,tip){
+  return '<button title="'+tip+'" onmousedown="return false" onclick="wfmtBlock(this,\''+tag+'\')">'+inner+'</button>';
+}
+function insertDocCard(path,title,html){
+  const parts=docToParts(html);
+  const chat=document.getElementById('chat');
+  const card=document.createElement('div'); card.className='doccard';
+  card.innerHTML=
+    '<div class="doccard-head"><span class="dt"></span>'+
+      '<span class="badge">Customer copy · master stays unchanged</span></div>'+
+    '<div class="ed-toolbar">'+
+      tbtn('bold','<b>B</b>','Bold')+tbtn('italic','<i>I</i>','Italic')+tbtn('underline','<u>U</u>','Underline')+
+      '<div class="sep"></div>'+tblk('H2','H','Heading')+tblk('H3','h','Sub-heading')+tblk('P','¶','Normal text')+
+      '<div class="sep"></div>'+tbtn('insertUnorderedList','• List','Bulleted list')+tbtn('insertOrderedList','1. List','Numbered list')+
+    '</div>'+
+    '<div class="docedit" contenteditable="true"></div>'+
+    '<div class="docfoot"><span class="docstatus"></span>'+
+      '<button onclick="reloadWDoc()" title="Pull in edits Claude made to this document">↻ Claude\u2019s edits</button>'+
+      '<button onclick="pdfWDoc()">Download PDF</button>'+
+      '<button onclick="saveWDoc()">Save</button>'+
+      '<button class="primary" onclick="openSendW()">Save &amp; Send \u25B8</button></div>';
+  card.querySelector('.dt').textContent=title;
+  const body=card.querySelector('.docedit'); body.innerHTML=parts.body;
+  chat.appendChild(card);
+  WDOC={ path:path, title:title, head:parts.head, body:body, status:card.querySelector('.docstatus'), lastSent:null };
+  scrollDown();
+  return card;
+}
+function wfmt(btn,cmd){ const b=btn.closest('.doccard').querySelector('.docedit'); b.focus(); document.execCommand(cmd,false,null); }
+function wfmtBlock(btn,tag){ const b=btn.closest('.doccard').querySelector('.docedit'); b.focus(); document.execCommand('formatBlock',false,tag); }
+function wdocHtml(){ return WDOC?('<!doctype html><html><head>'+WDOC.head+'</head><body>'+WDOC.body.innerHTML+'</body></html>'):''; }
+function wdocText(){ return WDOC?((WDOC.body.innerText||'').trim()):''; }
+
+async function saveWDoc(){
+  if(!WDOC) return false;
+  if(!ACTIVE){ alert('Open a customer project first.'); return false; }
+  WDOC.status.textContent='Saving…';
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/save',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:WDOC.path,html:wdocHtml()})});
+  if(r&&r.saved){ WDOC.status.textContent='Saved ✓'; loadFiles(); return true; }
+  WDOC.status.textContent='Save failed'; return false;
+}
+async function pdfWDoc(){
+  const ok=await saveWDoc(); if(!ok) return;
+  WDOC.status.textContent='Rendering PDF…';
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/render',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:WDOC.path})});
+  if(r&&r.rendered){ WDOC.status.textContent='PDF ready'; window.location=fileUrl(r.path,true); loadFiles(); }
+  else { WDOC.status.textContent=''; alert((r&&r.error)||'Could not render PDF.'); }
+}
+async function reloadWDoc(){
+  if(!WDOC||!ACTIVE) return;
+  WDOC.status.textContent='Loading Claude\u2019s edits…';
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/content?path='+encodeURIComponent(WDOC.path));
+  if(r&&r.html){ const p=docToParts(r.html); WDOC.head=p.head; WDOC.body.innerHTML=p.body; WDOC.lastSent=null; WDOC.status.textContent='Loaded Claude\u2019s latest ✓'; }
+  else WDOC.status.textContent='';
+}
+function openSendW(){
+  if(!WDOC) return;
+  document.getElementById('send-to').value='';
+  document.getElementById('send-message').value='';
+  document.getElementById('send-subject').value='Your completed compliance program — '+WDOC.title;
+  document.getElementById('send-status').textContent='';
+  SEND_FROM_CARD=true;
+  document.getElementById('sendmodal').style.display='flex';
+}
+
+/* Click a library master → copy into the OPEN customer job, open it inline in chat */
+async function useMasterInChat(mid){
+  if(!ACTIVE){ alert('Open or create a customer project on the left first — the copy is saved into that job.'); return; }
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/assign',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({master_id:mid})});
+  if(!r||r.error){ alert('Could not add to job: '+((r&&r.error)||'unknown')); return; }
+  const c=await api('/api/projects/'+ACTIVE.slug+'/compliance/content?path='+encodeURIComponent(r.path));
+  switchFilesTab('workspace'); loadFiles();
+  addBubble('assistant','📄 A copy of “'+(r.title||'document')+'” is now saved in this job and open below. Fill it in right here. In ✎ Edit mode you work privately (no AI). Flip to 💬 Chat and Claude can read this exact document to help you edit it — the master template never changes.');
+  insertDocCard(r.path, r.title||mid, (c&&c.html)||'');
+}
+
+/* Open an existing customer compliance file inline in the chat */
+async function openProjectDocInChat(path,title){
+  if(!ACTIVE){ alert('Open a customer project first.'); return; }
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/content?path='+encodeURIComponent(path));
+  if(!r||r.error){ alert('Could not open: '+((r&&r.error)||'unknown')); return; }
+  insertDocCard(path, title||path, r.html||'');
+}
+
 /* ---- Use a master in a customer job (copy-on-assign) ---- */
 function openJobPick(){
   const list=document.getElementById('jobpick-list'); list.innerHTML='';
@@ -936,13 +1076,16 @@ async function assignMasterToProject(mid, slug){
   if(!r||r.error){ alert('Could not add to job: '+((r&&r.error)||'unknown')); return; }
   await openProject(slug);
   switchFilesTab('workspace'); await loadFiles();
-  openProjectDoc(r.path, r.title);
+  addBubble('assistant','📄 A copy of “'+(r.title||'document')+'” is now saved in this job and open below. Fill it in here. Flip to 💬 Chat and Claude can read this exact document to help — the master never changes.');
+  insertDocCard(r.path, r.title||slug, '');
+  const c=await api('/api/projects/'+slug+'/compliance/content?path='+encodeURIComponent(r.path));
+  if(c&&c.html && WDOC && WDOC.path===r.path){ const p=docToParts(c.html); WDOC.head=p.head; WDOC.body.innerHTML=p.body; }
 }
 
-/* ---- Clicking a file in a project: compliance docs open in the editor ---- */
+/* ---- Clicking a file in a project: compliance docs open inline in the chat ---- */
 function onFileClick(f){
   const isCompliance = /^Compliance\//.test(f.path) && /\.html$/i.test(f.path);
-  if(isCompliance){ openProjectDoc(f.path, f.path.split('/').pop().replace(/\.html$/i,'')); }
+  if(isCompliance){ openProjectDocInChat(f.path, f.path.split('/').pop().replace(/\.html$/i,'')); }
   else previewFile(f);
 }
 
@@ -953,20 +1096,22 @@ function openSend(){
   document.getElementById('send-status').textContent='';
   document.getElementById('sendmodal').style.display='flex';
 }
-function closeSend(){ document.getElementById('sendmodal').style.display='none'; }
+function closeSend(){ document.getElementById('sendmodal').style.display='none'; SEND_FROM_CARD=false; }
 async function doSend(){
   const to=document.getElementById('send-to').value.trim();
   if(!to){ alert('Enter a recipient email.'); return; }
-  await saveDoc();
+  const usingCard = SEND_FROM_CARD && WDOC;
+  const path = usingCard ? WDOC.path : EDIT_PATH;
+  if(usingCard) await saveWDoc(); else await saveDoc();
   const btn=document.getElementById('send-go'); btn.disabled=true;
   const st=document.getElementById('send-status'); st.textContent='Rendering PDF and sending…';
   const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/send',
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-       path:EDIT_PATH, to:to,
+       path:path, to:to,
        subject:document.getElementById('send-subject').value,
        message:document.getElementById('send-message').value })});
   btn.disabled=false;
-  if(r&&r.sent){ st.style.color='var(--accent2)'; st.textContent='Sent to '+to+' ✓ (PDF also saved to the project)'; loadFiles(); }
+  if(r&&r.sent){ st.style.color='var(--accent2)'; st.textContent='Sent to '+to+' ✓ (PDF also saved to the project)'; loadFiles(); SEND_FROM_CARD=false; }
   else { st.style.color='var(--warn)';
     st.textContent=(r&&r.error?r.error:'Send failed.')+(r&&r.pdf_path?' The PDF was saved to the project.':''); loadFiles(); }
 }
