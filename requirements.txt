@@ -29,3 +29,7 @@ pywebview>=5.0          # native app window; falls back to browser if absent
 # (needs Xcode Command Line Tools on macOS). The model auto-downloads on setup.
 llama-cpp-python>=0.2.80
 huggingface_hub>=0.23
+
+# Compliance feature — HTML->PDF rendering for document dispatch (pure-Python,
+# no system libraries, deploys cleanly on Railway).
+xhtml2pdf>=0.2.11

@@ -98,6 +98,36 @@
   .modal input,.modal textarea{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);
        border-radius:8px;padding:9px 11px;font-size:13.5px;font-family:inherit}
   .modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+  /* ── Compliance feature ───────────────────────────────────────── */
+  .ftabs{display:flex;gap:4px;padding:8px 10px 0}
+  .ftab{flex:1;text-align:center;padding:6px 8px;font-size:12px;border-radius:8px 8px 0 0;
+        cursor:pointer;color:var(--dim);border:1px solid transparent}
+  .ftab.active{color:var(--text);background:var(--panel2);border-color:var(--line);border-bottom-color:var(--panel2)}
+  #librarylist{flex:1;overflow:auto;padding:6px;display:none}
+  .libgroup{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);
+            padding:12px 8px 4px;position:sticky;top:0;background:var(--panel)}
+  .libitem{display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:8px;cursor:grab;
+           font-size:12.5px;border:1px solid transparent}
+  .libitem:hover{background:var(--panel2);border-color:var(--line)}
+  .libitem .ic{width:16px;text-align:center}
+  .libitem .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+  .libitem:active{cursor:grabbing}
+  #dropoverlay{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
+    background:rgba(124,156,255,.14);border:3px dashed var(--accent);pointer-events:none}
+  #dropoverlay .box{background:var(--panel);border:1px solid var(--accent);border-radius:14px;
+    padding:20px 28px;font-size:15px;color:var(--text)}
+  /* Editor */
+  #editor .modal{width:min(940px,95vw)}
+  .ed-toolbar{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .ed-toolbar button{padding:6px 10px;font-size:13px;min-width:34px}
+  .ed-toolbar .sep{width:1px;background:var(--line);margin:0 4px}
+  #ed-body{background:#fff;color:#111;border-radius:8px;padding:26px;min-height:52vh;max-height:64vh;
+    overflow:auto;font-size:13px;line-height:1.5}
+  #ed-body:focus{outline:2px solid var(--accent)}
+  #ed-status{font-size:12px;color:var(--accent2);margin-left:auto;align-self:center}
+  #sendmodal .modal{width:min(500px,94vw)}
+
 </style>
 </head>
 <body>
@@ -145,7 +175,11 @@
   </div>
 
   <div id="files">
-    <div class="files-h">Workspace
+    <div class="ftabs">
+      <div id="tab-workspace" class="ftab active" onclick="switchFilesTab('workspace')">Workspace</div>
+      <div id="tab-library" class="ftab" onclick="switchFilesTab('library')">Asset Library</div>
+    </div>
+    <div class="files-h" id="workspace-h">Files
       <span style="flex:1"></span>
       <button class="mini" onclick="document.getElementById('uploadfiles').click()">Files</button>
       <button class="mini" onclick="document.getElementById('uploadfolder').click()">Folder</button>
@@ -153,6 +187,7 @@
     <input id="uploadfiles" type="file" multiple style="display:none" onchange="doUpload(event,false)">
     <input id="uploadfolder" type="file" webkitdirectory style="display:none" onchange="doUpload(event,true)">
     <div id="filelist"><div class="fempty">Open a project to see its files.</div></div>
+    <div id="librarylist"><div class="fempty">Loading templates…</div></div>
   </div>
 
   <div class="modal-bg" id="viewer">
@@ -173,6 +208,58 @@
       <div class="row">
         <button onclick="testAll()">Test all models</button>
         <button class="primary" onclick="closeAccounts()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="editor">
+    <div class="modal" style="max-height:92vh;overflow:auto">
+      <div style="display:flex;align-items:center;gap:10px">
+        <b id="ed-title"></b>
+        <span id="ed-status"></span>
+      </div>
+      <div class="ed-toolbar">
+        <button title="Bold" onclick="fmt('bold')"><b>B</b></button>
+        <button title="Italic" onclick="fmt('italic')"><i>I</i></button>
+        <button title="Underline" onclick="fmt('underline')"><u>U</u></button>
+        <div class="sep"></div>
+        <button title="Heading" onclick="fmtBlock('H2')">H</button>
+        <button title="Sub-heading" onclick="fmtBlock('H3')">h</button>
+        <button title="Normal text" onclick="fmtBlock('P')">¶</button>
+        <div class="sep"></div>
+        <button title="Bulleted list" onclick="fmt('insertUnorderedList')">• List</button>
+        <button title="Numbered list" onclick="fmt('insertOrderedList')">1. List</button>
+        <div class="sep"></div>
+        <button title="Undo" onclick="fmt('undo')">↶</button>
+        <button title="Redo" onclick="fmt('redo')">↷</button>
+      </div>
+      <div id="ed-body" contenteditable="true"></div>
+      <div class="row" style="justify-content:space-between">
+        <div style="display:flex;gap:8px">
+          <button onclick="downloadDocPdf()">Download PDF</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="closeEditor()">Close</button>
+          <button onclick="saveDoc()">Save</button>
+          <button class="primary" onclick="openSend()">Save &amp; Send ▸</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="sendmodal">
+    <div class="modal">
+      <h3>Send compliance document</h3>
+      <label>Recipient email</label>
+      <input id="send-to" type="email" placeholder="contractor@company.com">
+      <label>Subject</label>
+      <input id="send-subject" type="text" placeholder="Your completed compliance program">
+      <label>Message</label>
+      <textarea id="send-message" rows="4" placeholder="Attached is your finalized program. Let me know if you need anything."></textarea>
+      <div id="send-status" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
+      <div class="row">
+        <button onclick="closeSend()">Cancel</button>
+        <button class="primary" id="send-go" onclick="doSend()">Render PDF &amp; Send</button>
       </div>
     </div>
   </div>
@@ -544,7 +631,7 @@ async function loadFiles(){
   files.forEach(f=>{
     const d=document.createElement('div'); d.className='fitem';
     d.innerHTML='<span class="ic">'+(icons[f.kind]||'📎')+'</span><span class="nm">'+escapeHtml(f.path)+'</span><span class="sz">'+fmtSize(f.size)+'</span>';
-    d.onclick=()=>previewFile(f); fl.appendChild(d);
+    d.onclick=()=>onFileClick(f); fl.appendChild(d);
   });
 }
 function previewFile(f){
@@ -641,7 +728,142 @@ async function testAll(){
   }).join('');
 }
 
+
+// ── Compliance: Asset Library, drag-drop assign, editor, send ──────────────
+let LIB_LOADED=false, EDIT_PATH=null, EDIT_HEAD='';
+
+function switchFilesTab(tab){
+  const wsOn = tab==='workspace';
+  document.getElementById('tab-workspace').classList.toggle('active',wsOn);
+  document.getElementById('tab-library').classList.toggle('active',!wsOn);
+  document.getElementById('workspace-h').style.display=wsOn?'':'none';
+  document.getElementById('filelist').style.display=wsOn?'':'none';
+  document.getElementById('librarylist').style.display=wsOn?'none':'';
+  if(!wsOn && !LIB_LOADED) loadLibrary();
+}
+
+async function loadLibrary(){
+  const el=document.getElementById('librarylist');
+  const r=await api('/api/compliance/library');
+  const items=(r&&r.templates)||[];
+  if(!items.length){ el.innerHTML='<div class="fempty">No templates found.</div>'; return; }
+  LIB_LOADED=true;
+  const groups={};
+  items.forEach(t=>{ (groups[t.trade]=groups[t.trade]||[]).push(t); });
+  el.innerHTML='';
+  Object.keys(groups).forEach(trade=>{
+    const g=document.createElement('div'); g.className='libgroup'; g.textContent=trade; el.appendChild(g);
+    groups[trade].forEach(t=>{
+      const d=document.createElement('div'); d.className='libitem'; d.draggable=true;
+      d.innerHTML='<span class="ic">📄</span><span class="nm">'+escapeHtml(t.num+'  '+t.title)+'</span>';
+      d.title='Drag onto the chat to add to '+(ACTIVE?ACTIVE.name:'a project')+', or double-click';
+      d.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/origin-template',t.id);
+        e.dataTransfer.effectAllowed='copy'; });
+      d.ondblclick=()=>assignTemplate(t.id);
+      el.appendChild(d);
+    });
+  });
+}
+
+function initDrop(){
+  const main=document.getElementById('main'); if(!main||main.dataset.dropInit) return;
+  main.dataset.dropInit='1';
+  let ov=document.getElementById('dropoverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='dropoverlay';
+    ov.innerHTML='<div class="box">Drop to add this template to <b id="drop-proj"></b></div>';
+    document.body.appendChild(ov); }
+  const show=on=>{ ov.style.display=on?'flex':'none';
+    const dp=document.getElementById('drop-proj'); if(dp) dp.textContent=ACTIVE?ACTIVE.name:'your project'; };
+  const hasTpl=e=>Array.from(e.dataTransfer.types||[]).includes('text/origin-template');
+  main.addEventListener('dragover',e=>{ if(!hasTpl(e))return; e.preventDefault();
+    e.dataTransfer.dropEffect='copy'; show(true); });
+  main.addEventListener('dragleave',e=>{ if(e.target===main) show(false); });
+  main.addEventListener('drop',e=>{ const tid=e.dataTransfer.getData('text/origin-template');
+    if(!tid)return; e.preventDefault(); show(false); assignTemplate(tid); });
+}
+
+async function assignTemplate(tid){
+  if(!ACTIVE){ alert('Open a project (customer folder) first, then add a template.'); return; }
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/assign',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({template_id:tid})});
+  if(!r||r.error){ alert('Could not add template: '+((r&&r.error)||'unknown')); return; }
+  switchFilesTab('workspace'); await loadFiles();
+  openEditor(r.path, r.title);
+}
+
+function onFileClick(f){
+  const isCompliance = /^Compliance\//.test(f.path) && /\.html$/i.test(f.path);
+  if(isCompliance){ openEditor(f.path, f.path.split('/').pop().replace(/\.html$/i,'')); }
+  else previewFile(f);
+}
+
+async function openEditor(path, title){
+  EDIT_PATH=path;
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/content?path='+encodeURIComponent(path));
+  const html=(r&&r.html)||'';
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  EDIT_HEAD=doc.head?doc.head.innerHTML:'';
+  document.getElementById('ed-title').textContent=title||path;
+  document.getElementById('ed-body').innerHTML=doc.body?doc.body.innerHTML:html;
+  document.getElementById('ed-status').textContent='';
+  document.getElementById('editor').style.display='flex';
+}
+function closeEditor(){ document.getElementById('editor').style.display='none'; }
+function fmt(cmd){ document.execCommand(cmd,false,null); document.getElementById('ed-body').focus(); }
+function fmtBlock(tag){ document.execCommand('formatBlock',false,tag); document.getElementById('ed-body').focus(); }
+
+function currentDocHtml(){
+  const inner=document.getElementById('ed-body').innerHTML;
+  return '<!doctype html><html><head>'+EDIT_HEAD+'</head><body>'+inner+'</body></html>';
+}
+async function saveDoc(){
+  if(!EDIT_PATH) return;
+  const st=document.getElementById('ed-status'); st.textContent='Saving…';
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/save',
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({path:EDIT_PATH,html:currentDocHtml()})});
+  st.textContent=(r&&r.saved)?'Saved ✓':'Save failed';
+  loadFiles();
+  return r&&r.saved;
+}
+async function downloadDocPdf(){
+  const ok=await saveDoc(); if(ok===false) return;
+  const st=document.getElementById('ed-status'); st.textContent='Rendering PDF…';
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/render',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:EDIT_PATH})});
+  if(r&&r.rendered){ st.textContent='PDF ready'; window.location=fileUrl(r.path,true); loadFiles(); }
+  else { st.textContent=''; alert((r&&r.error)||'Could not render PDF.'); }
+}
+
+function openSend(){
+  const t=document.getElementById('ed-title').textContent;
+  document.getElementById('send-subject').value='Your completed compliance program — '+t;
+  document.getElementById('send-status').textContent='';
+  document.getElementById('sendmodal').style.display='flex';
+}
+function closeSend(){ document.getElementById('sendmodal').style.display='none'; }
+async function doSend(){
+  const to=document.getElementById('send-to').value.trim();
+  if(!to){ alert('Enter a recipient email.'); return; }
+  await saveDoc();
+  const btn=document.getElementById('send-go'); btn.disabled=true;
+  const st=document.getElementById('send-status'); st.textContent='Rendering PDF and sending…';
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/send',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+       path:EDIT_PATH, to:to,
+       subject:document.getElementById('send-subject').value,
+       message:document.getElementById('send-message').value })});
+  btn.disabled=false;
+  if(r&&r.sent){ st.style.color='var(--accent2)'; st.textContent='Sent to '+to+' ✓ (PDF also saved to the project)';
+    loadFiles(); }
+  else { st.style.color='var(--warn)';
+    st.textContent=(r&&r.error?r.error:'Send failed.')+(r&&r.pdf_path?' The PDF was saved to the project.':''); loadFiles(); }
+}
+
+function initCompliance(){ initDrop(); }
+
 refresh();
+initCompliance();
 </script>
 </body>
 </html>

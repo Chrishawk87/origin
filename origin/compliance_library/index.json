@@ -1,0 +1,194 @@
+[
+  {
+    "id": "general-construction-01",
+    "trade": "General Construction",
+    "num": "01",
+    "title": "Fall Protection Program",
+    "file": "general-construction-01.html",
+    "len": 6282
+  },
+  {
+    "id": "general-construction-02",
+    "trade": "General Construction",
+    "num": "02",
+    "title": "Excavation & Trenching Program",
+    "file": "general-construction-02.html",
+    "len": 6356
+  },
+  {
+    "id": "general-construction-03",
+    "trade": "General Construction",
+    "num": "03",
+    "title": "Scaffolding Program",
+    "file": "general-construction-03.html",
+    "len": 5792
+  },
+  {
+    "id": "general-construction-04",
+    "trade": "General Construction",
+    "num": "04",
+    "title": "Electrical Safety Program",
+    "file": "general-construction-04.html",
+    "len": 6089
+  },
+  {
+    "id": "general-construction-05",
+    "trade": "General Construction",
+    "num": "05",
+    "title": "Ladder Safety Program",
+    "file": "general-construction-05.html",
+    "len": 5598
+  },
+  {
+    "id": "general-construction-06",
+    "trade": "General Construction",
+    "num": "06",
+    "title": "Cranes & Rigging Program",
+    "file": "general-construction-06.html",
+    "len": 5829
+  },
+  {
+    "id": "general-construction-07",
+    "trade": "General Construction",
+    "num": "07",
+    "title": "Hazard Communication Program",
+    "file": "general-construction-07.html",
+    "len": 5938
+  },
+  {
+    "id": "general-construction-08",
+    "trade": "General Construction",
+    "num": "08",
+    "title": "Personal Protective Equipment (PPE) Program",
+    "file": "general-construction-08.html",
+    "len": 5423
+  },
+  {
+    "id": "oilfield-01",
+    "trade": "Oilfield",
+    "num": "01",
+    "title": "Hazard Communication Program",
+    "file": "oilfield-01.html",
+    "len": 6769
+  },
+  {
+    "id": "oilfield-02",
+    "trade": "Oilfield",
+    "num": "02",
+    "title": "Personal Protective Equipment (PPE) Program",
+    "file": "oilfield-02.html",
+    "len": 6414
+  },
+  {
+    "id": "oilfield-03",
+    "trade": "Oilfield",
+    "num": "03",
+    "title": "Control of Hazardous Energy (Lockout - Tagout) Program",
+    "file": "oilfield-03.html",
+    "len": 6068
+  },
+  {
+    "id": "oilfield-04",
+    "trade": "Oilfield",
+    "num": "04",
+    "title": "Permit-Required Confined Space Program",
+    "file": "oilfield-04.html",
+    "len": 6009
+  },
+  {
+    "id": "oilfield-05",
+    "trade": "Oilfield",
+    "num": "05",
+    "title": "Fall Protection Program",
+    "file": "oilfield-05.html",
+    "len": 5772
+  },
+  {
+    "id": "oilfield-06",
+    "trade": "Oilfield",
+    "num": "06",
+    "title": "Respiratory Protection Program",
+    "file": "oilfield-06.html",
+    "len": 5663
+  },
+  {
+    "id": "oilfield-07",
+    "trade": "Oilfield",
+    "num": "07",
+    "title": "Hydrogen Sulfide (H2S) Program",
+    "file": "oilfield-07.html",
+    "len": 6311
+  },
+  {
+    "id": "oilfield-08",
+    "trade": "Oilfield",
+    "num": "08",
+    "title": "Short Service Employee (SSE) Program",
+    "file": "oilfield-08.html",
+    "len": 5867
+  },
+  {
+    "id": "trucking-01",
+    "trade": "Trucking",
+    "num": "01",
+    "title": "Driver Qualification Program",
+    "file": "trucking-01.html",
+    "len": 6871
+  },
+  {
+    "id": "trucking-02",
+    "trade": "Trucking",
+    "num": "02",
+    "title": "Hours of Service & Fatigue Management Program",
+    "file": "trucking-02.html",
+    "len": 6051
+  },
+  {
+    "id": "trucking-03",
+    "trade": "Trucking",
+    "num": "03",
+    "title": "Vehicle Inspection, Repair & Maintenance Program",
+    "file": "trucking-03.html",
+    "len": 6121
+  },
+  {
+    "id": "trucking-04",
+    "trade": "Trucking",
+    "num": "04",
+    "title": "Controlled Substances & Alcohol Testing Program",
+    "file": "trucking-04.html",
+    "len": 6236
+  },
+  {
+    "id": "trucking-05",
+    "trade": "Trucking",
+    "num": "05",
+    "title": "Cargo Securement Program",
+    "file": "trucking-05.html",
+    "len": 5862
+  },
+  {
+    "id": "trucking-06",
+    "trade": "Trucking",
+    "num": "06",
+    "title": "Accident Reporting & Investigation Program",
+    "file": "trucking-06.html",
+    "len": 5947
+  },
+  {
+    "id": "trucking-07",
+    "trade": "Trucking",
+    "num": "07",
+    "title": "Hazard Communication Program",
+    "file": "trucking-07.html",
+    "len": 5937
+  },
+  {
+    "id": "trucking-08",
+    "trade": "Trucking",
+    "num": "08",
+    "title": "Personal Protective Equipment (PPE) Program",
+    "file": "trucking-08.html",
+    "len": 5536
+  }
+]

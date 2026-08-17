@@ -657,5 +657,124 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return JSONResponse({"error": "goal required"}, status_code=400)
         return eng.mission(goal)
 
+    # ── Compliance document management ──────────────────────────────────────
+    from . import compliance as _cmp
+
+    @app.get("/api/compliance/library")
+    def compliance_library():
+        """The reusable Asset Library — master compliance templates."""
+        return {"templates": _cmp.list_templates()}
+
+    @app.get("/api/compliance/template/{tid}")
+    def compliance_template(tid: str):
+        html = _cmp.read_template_html(tid)
+        if html is None:
+            return JSONResponse({"error": "template not found"}, status_code=404)
+        return {"id": tid, "title": _cmp.template_title(tid),
+                "html": _cmp.wrap_document(html, _cmp.template_title(tid))}
+
+    @app.post("/api/projects/{slug}/compliance/assign")
+    def compliance_assign(slug: str, body: dict = Body(...)):
+        """Copy a master template into this project as an editable copy. The
+        master is never modified (copy-on-assign)."""
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        tid = (body.get("template_id") or "").strip()
+        html = _cmp.read_template_html(tid)
+        if html is None:
+            return JSONResponse({"error": "template not found"}, status_code=404)
+        title = _cmp.template_title(tid)
+        doc = _cmp.wrap_document(html, title)
+        base = _safe_join(proj.workdir, _cmp.ASSIGN_SUBDIR)
+        target = _cmp.unique_path(base, _cmp.safe_filename(title))
+        target.write_text(doc, encoding="utf-8")
+        rel = str(target.relative_to(Path(proj.workdir).resolve()))
+        return {"assigned": True, "path": rel, "title": title}
+
+    @app.get("/api/projects/{slug}/compliance/content")
+    def compliance_content(slug: str, path: str):
+        """Return the editable HTML for an assigned document."""
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        try:
+            target = _safe_join(proj.workdir, path)
+        except ValueError:
+            return JSONResponse({"error": "bad path"}, status_code=400)
+        if not target.is_file():
+            return JSONResponse({"error": "no such file"}, status_code=404)
+        return {"path": path, "html": target.read_text(encoding="utf-8", errors="replace")}
+
+    @app.post("/api/projects/{slug}/compliance/save")
+    def compliance_save(slug: str, body: dict = Body(...)):
+        """Save edited HTML back into the project's copy."""
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        path = body.get("path") or ""
+        html = body.get("html")
+        if html is None:
+            return JSONResponse({"error": "html required"}, status_code=400)
+        try:
+            target = _safe_join(proj.workdir, path)
+        except ValueError:
+            return JSONResponse({"error": "bad path"}, status_code=400)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(html, encoding="utf-8")
+        return {"saved": True, "path": path}
+
+    @app.post("/api/projects/{slug}/compliance/render")
+    def compliance_render(slug: str, body: dict = Body(...)):
+        """Render an assigned HTML document to PDF, saved beside the source."""
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        path = body.get("path") or ""
+        try:
+            target = _safe_join(proj.workdir, path)
+        except ValueError:
+            return JSONResponse({"error": "bad path"}, status_code=400)
+        if not target.is_file():
+            return JSONResponse({"error": "no such file"}, status_code=404)
+        html = target.read_text(encoding="utf-8", errors="replace")
+        pdf_path = target.with_suffix(".pdf")
+        try:
+            _cmp.render_pdf(html, pdf_path, title=target.stem)
+        except RuntimeError as e:
+            return JSONResponse({"error": str(e)}, status_code=200)
+        rel = str(pdf_path.relative_to(Path(proj.workdir).resolve()))
+        return {"rendered": True, "path": rel}
+
+    @app.post("/api/projects/{slug}/compliance/send")
+    def compliance_send(slug: str, body: dict = Body(...)):
+        """Finalize + dispatch: render to PDF (saved to the project) and email it
+        to the recipient via configured SMTP."""
+        proj = eng.projects.get(slug)
+        if not proj:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        path = body.get("path") or ""
+        to = (body.get("to") or "").strip()
+        subject = (body.get("subject") or "").strip()
+        message = body.get("message") or ""
+        if not to:
+            return JSONResponse({"error": "recipient email required"}, status_code=400)
+        try:
+            target = _safe_join(proj.workdir, path)
+        except ValueError:
+            return JSONResponse({"error": "bad path"}, status_code=400)
+        if not target.is_file():
+            return JSONResponse({"error": "no such file"}, status_code=404)
+        html = target.read_text(encoding="utf-8", errors="replace")
+        pdf_path = target.with_suffix(".pdf")
+        try:
+            _cmp.render_pdf(html, pdf_path, title=target.stem)
+        except RuntimeError as e:
+            return JSONResponse({"error": str(e)}, status_code=200)
+        rel = str(pdf_path.relative_to(Path(proj.workdir).resolve()))
+        result = _cmp.send_email(to, subject or target.stem, message, attachment=pdf_path)
+        result["pdf_path"] = rel
+        return result
+
     app.state.engine = eng
     return app
