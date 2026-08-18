@@ -1,0 +1,154 @@
+{
+  "name": "Origin Compliance Letter & Document Templates",
+  "count": 6,
+  "note": "Placeholders use {{DOUBLE_BRACES}}. Each template's pulls_from lists the KB entry ids whose citations/fields the template must reference. Follow each template's grounding_rule.",
+  "templates": [
+    {
+      "template_id": "01-ravs-prequalification-submittal-cover-letter",
+      "purpose": "Cover letter transmitting a contractor's safety program package to a prequalification reviewer (ISN RAVS, Avetta, Veriforce, PEC) or a hiring client.",
+      "pulls_from": [
+        "isnetworld-ravs-isnetworld-ravs-review-process",
+        "avetta-avetta-prequalification-process",
+        "veriforce-pec-veriforce-pec-prequalification-process"
+      ],
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "CONTACT_NAME",
+        "CONTACT_TITLE",
+        "CONTACT_EMAIL",
+        "CONTACT_PHONE",
+        "DATE",
+        "PLATFORM",
+        "HIRING_CLIENT",
+        "PROGRAM_LIST",
+        "EMR_VALUE",
+        "TRIR_3YR",
+        "DART_3YR"
+      ],
+      "grounding_rule": "Every program in PROGRAM_LIST must exist as a KB entry and be cited by its exact citation. Never state an agency 'approved' a template; state the program 'meets the requirements of [citation].'",
+      "file": "01-ravs-prequalification-submittal-cover-letter.md"
+    },
+    {
+      "template_id": "02-written-program-certification-statement",
+      "purpose": "Signed management certification page attached to the front of any written safety program, affirming it is implemented and reviewed. Reviewers look for an accountable signature and a review date.",
+      "pulls_from": [
+        "29-cfr-1904-recording-and-reporting-occupational-injuries-and-illnesses"
+      ],
+      "placeholders": [
+        "COMPANY_NAME",
+        "PROGRAM_TITLE",
+        "CITATION",
+        "RESPONSIBLE_PERSON",
+        "RESPONSIBLE_TITLE",
+        "EFFECTIVE_DATE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE"
+      ],
+      "grounding_rule": "CITATION must be the exact citation of the matching KB entry. The certification must name a real accountable person and a review cadence; do not leave the responsible-person field generic.",
+      "file": "02-written-program-certification-statement.md"
+    },
+    {
+      "template_id": "03-emr-explanation-corrective-action-letter",
+      "purpose": "Letter explaining an elevated Experience Modification Rate to a hiring client and documenting the corrective actions in progress. Used when EMR exceeds the client's threshold (often 1.00).",
+      "pulls_from": [
+        "ncci-experience-rating-plan-manual-emr-experience-modification-rate"
+      ],
+      "placeholders": [
+        "COMPANY_NAME",
+        "CONTACT_NAME",
+        "CONTACT_TITLE",
+        "DATE",
+        "HIRING_CLIENT",
+        "EMR_VALUE",
+        "EMR_YEAR",
+        "DRIVING_CLAIMS_SUMMARY",
+        "CORRECTIVE_ACTIONS",
+        "RTW_PROGRAM_STATUS",
+        "PROJECTED_EMR"
+      ],
+      "grounding_rule": "Describe EMR mechanics exactly as in the EMR KB entry (primary/excess, 3-year lagged period, frequency drives primary losses). Do not fabricate a projected EMR figure; use the value the user supplies or a stated range.",
+      "file": "03-emr-explanation-corrective-action-letter.md"
+    },
+    {
+      "template_id": "04-insurance-coi-compliance-letter",
+      "purpose": "Letter from the contractor (or its broker) confirming the Certificate of Insurance and required endorsements meet the hiring client's contractual insurance requirements, naming the exact endorsement forms.",
+      "pulls_from": [
+        "acord-25-certificate-of-liability-insurance-certificate-of-insurance-coi-acord-25",
+        "iso-cg-00-01-occurrence-form-commercial-general-liability-cgl",
+        "iso-cg-20-10-ongoing-cg-20-37-completed-ops-additional-insured-endorsement-ai",
+        "iso-cg-20-01-primary-non-contributory-endorsement-p-nc",
+        "iso-cg-24-04-gl-wc-00-03-13-workers-comp-waiver-of-subrogation-wos"
+      ],
+      "placeholders": [
+        "COMPANY_NAME",
+        "BROKER_NAME",
+        "DATE",
+        "HIRING_CLIENT",
+        "PROJECT_NAME",
+        "CGL_LIMITS",
+        "AUTO_LIMITS",
+        "WC_EL_LIMITS",
+        "UMBRELLA_LIMITS",
+        "CARRIER_AMBEST",
+        "POLICY_PERIOD"
+      ],
+      "grounding_rule": "Name the exact ISO/WC endorsement form numbers from the Insurance KB entries. Enforce the rule that the certificate alone is not proof \u2014 the endorsements must be attached. Never state Additional Insured applies to Workers' Compensation.",
+      "file": "04-insurance-coi-compliance-letter.md"
+    },
+    {
+      "template_id": "05-incident-rate-summary-letter",
+      "purpose": "Letter presenting three-year TRIR/DART performance to a hiring client, showing the calculation and benchmarking against the applicable BLS/NAICS average.",
+      "pulls_from": [
+        "29-cfr-1904-recordability-bls-soii-benchmarks-trir-total-recordable-incident-rate",
+        "29-cfr-1904-7-bls-soii-benchmarks-dart-days-away-restricted-or-transferred-rate"
+      ],
+      "placeholders": [
+        "COMPANY_NAME",
+        "CONTACT_NAME",
+        "CONTACT_TITLE",
+        "DATE",
+        "HIRING_CLIENT",
+        "NAICS_CODE",
+        "NAICS_TRIR_BENCHMARK",
+        "YEAR1",
+        "Y1_CASES",
+        "Y1_DART",
+        "Y1_HOURS",
+        "Y1_TRIR",
+        "Y1_DARTRATE",
+        "YEAR2",
+        "Y2_TRIR",
+        "Y2_DARTRATE",
+        "YEAR3",
+        "Y3_TRIR",
+        "Y3_DARTRATE"
+      ],
+      "grounding_rule": "Use hours actually worked, not scheduled hours, and reconcile to the 300A. Pull the CURRENT BLS benchmark for the specific NAICS at generation time; do not hardcode a stale figure.",
+      "file": "05-incident-rate-summary-letter.md"
+    },
+    {
+      "template_id": "06-written-program-skeleton",
+      "purpose": "Fill-in skeleton for ANY OSHA/DOT written program. The agent inserts the matching KB entry's required_elements as section headers, then drafts company-specific content under each.",
+      "pulls_from": [
+        "<KB_ENTRY_ID>"
+      ],
+      "placeholders": [
+        "COMPANY_NAME",
+        "PROGRAM_TITLE",
+        "CITATION",
+        "RESPONSIBLE_PERSON",
+        "RESPONSIBLE_TITLE",
+        "SCOPE",
+        "REQUIRED_ELEMENTS (from KB entry)",
+        "TRAINING_REQ (from KB entry)",
+        "RECORDKEEPING_REQ (from KB entry)",
+        "EFFECTIVE_DATE"
+      ],
+      "grounding_rule": "REQUIRED_ELEMENTS, TRAINING_REQ, and RECORDKEEPING_REQ must be copied verbatim from the matching KB entry's required_elements, training, and recordkeeping fields. Every element in the KB entry must appear as a section; before returning, check the draft against the entry's failure_points.",
+      "file": "06-written-program-skeleton.md"
+    }
+  ]
+}

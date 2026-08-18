@@ -659,6 +659,50 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
 
     # ── Compliance document management ──────────────────────────────────────
     from . import compliance as _cmp
+    from . import compliance_kb as _kb
+
+    # -- Compliance Knowledge Base: codified OSHA/DOT/insurance standards -----
+    # These back the mandatory pre-send validation gate: every compliance
+    # document must pass the KB's required-elements checklist for the standard
+    # it invokes before it can be rendered/sent to a client.
+    @app.get("/api/compliance/kb/standards")
+    def compliance_kb_standards(category: str | None = None, q: str | None = None):
+        if q:
+            recs = _kb.search(q, limit=25)
+        else:
+            recs = _kb.all_records()
+            if category:
+                recs = [r for r in recs if r.get("category", "").startswith(category)]
+        return {"standards": [
+            {"id": r["id"], "title": r["title"], "citation": r["citation"],
+             "category": r.get("category", ""), "written_program": r.get("written_program", ""),
+             "agencies": r.get("agencies", {})}
+            for r in recs
+        ]}
+
+    @app.get("/api/compliance/kb/standards/{entry_id}")
+    def compliance_kb_standard(entry_id: str):
+        r = _kb.get(entry_id)
+        if not r:
+            return JSONResponse({"error": "unknown standard"}, status_code=404)
+        return r
+
+    @app.get("/api/compliance/kb/templates")
+    def compliance_kb_templates():
+        return _kb.templates()
+
+    @app.post("/api/compliance/kb/validate")
+    def compliance_kb_validate(body: dict = Body(...)):
+        """Run the OSHA/KB checklist against a document (HTML or entry ids).
+
+        This is the same gate enforced on /compliance/send — exposed so the UI
+        and the agent can pre-check a draft while editing, before a client send.
+        """
+        html = body.get("html")
+        if html is None:
+            return JSONResponse({"error": "html required"}, status_code=400)
+        entry_ids = body.get("entry_ids") or body.get("standards") or None
+        return _kb.validate_document(html, entry_ids=entry_ids)
 
     # -- Asset Library: persistent, editable master documents ----------------
     @app.get("/api/compliance/library")
@@ -803,6 +847,23 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         if not target.is_file():
             return JSONResponse({"error": "no such file"}, status_code=404)
         html = target.read_text(encoding="utf-8", errors="replace")
+
+        # ── HARD COMPLIANCE GATE ────────────────────────────────────────────
+        # No compliance document leaves Origin for a client until it passes the
+        # KB's OSHA/DOT required-elements checklist for the standard it invokes.
+        # A reviewer can override only by explicitly acknowledging the gate
+        # (override=true) after reading the report — never silently.
+        entry_ids = body.get("entry_ids") or body.get("standards") or None
+        report = _kb.validate_document(html, entry_ids=entry_ids)
+        if not report.get("passed") and not body.get("override"):
+            return JSONResponse({
+                "error": "blocked_by_compliance_gate",
+                "message": ("This document did not pass the OSHA/compliance checklist and "
+                            "was NOT sent. Fix the gaps below, or resend with override=true "
+                            "after reviewing."),
+                "validation": report,
+            }, status_code=422)
+
         pdf_path = target.with_suffix(".pdf")
         try:
             _cmp.render_pdf(html, pdf_path, title=target.stem)
@@ -811,6 +872,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         rel = str(pdf_path.relative_to(Path(proj.workdir).resolve()))
         result = _cmp.send_email(to, subject or target.stem, message, attachment=pdf_path)
         result["pdf_path"] = rel
+        result["validation"] = report
+        result["overridden"] = bool(report.get("passed") is False and body.get("override"))
         return result
 
     app.state.engine = eng

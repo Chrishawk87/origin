@@ -1,0 +1,1218 @@
+{
+  "name": "Origin Compliance Knowledge Base",
+  "generated": "2026-08-18",
+  "entry_count": 75,
+  "categories": {
+    "01 - General Industry (29 CFR 1910)": 24,
+    "02 - Construction (29 CFR 1926)": 13,
+    "03 - Oil & Gas and Energy Specialty": 7,
+    "04 - DOT and FMCSA (49 CFR)": 9,
+    "05 - Prequalification Agencies (Process)": 4,
+    "06 - Environmental (EPA)": 3,
+    "07 - Safety Metrics & KPIs": 6,
+    "08 - Insurance & COI Verification": 9
+  },
+  "schema_version": "2.0",
+  "entries": [
+    {
+      "id": "29-cfr-1910-38-emergency-action-plan",
+      "title": "Emergency Action Plan",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.38",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.38",
+      "template": "https://www.osha.gov/etools/evacuation-plans-procedures",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-38-emergency-action-plan.md"
+    },
+    {
+      "id": "29-cfr-1910-39-fire-prevention-plan",
+      "title": "Fire Prevention Plan",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.39",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": ""
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.39",
+      "template": "https://www.osha.gov/sites/default/files/publications/smallbusiness.pdf",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-39-fire-prevention-plan.md"
+    },
+    {
+      "id": "29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program",
+      "title": "Occupational Noise Exposure / Hearing Conservation Program",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.95",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.95",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program.md"
+    },
+    {
+      "id": "29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm",
+      "title": "Process Safety Management of Highly Hazardous Chemicals (PSM)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.119",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/process-safety-management",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm.md"
+    },
+    {
+      "id": "29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper",
+      "title": "Hazardous Waste Operations and Emergency Response (HAZWOPER)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.120",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.120",
+      "template": "https://www.osha.gov/emergency-preparedness/hazardous-waste-operations",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper.md"
+    },
+    {
+      "id": "29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment",
+      "title": "Personal Protective Equipment (PPE) \u2014 Hazard Assessment",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.132",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.132",
+      "template": "https://jjkellersafety.com/written-safety-plans",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment.md"
+    },
+    {
+      "id": "29-cfr-1910-134-respiratory-protection-program",
+      "title": "Respiratory Protection Program",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.134",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "template": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-134-respiratory-protection-program.md"
+    },
+    {
+      "id": "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+      "title": "Permit-Required Confined Spaces (General Industry)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.146",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "template": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-146-permit-required-confined-spaces-general-industry.md"
+    },
+    {
+      "id": "29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout",
+      "title": "Control of Hazardous Energy (Lockout/Tagout)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.147",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/lockout-tagout",
+      "template": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout.md"
+    },
+    {
+      "id": "29-cfr-1910-178-powered-industrial-trucks-forklift-program",
+      "title": "Powered Industrial Trucks (Forklift Program)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.178",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "template": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-178-powered-industrial-trucks-forklift-program.md"
+    },
+    {
+      "id": "29-cfr-1910-331-335-electrical-safety-related-work-practices",
+      "title": "Electrical Safety-Related Work Practices",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.331-.335",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/electrical",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-331-335-electrical-safety-related-work-practices.md"
+    },
+    {
+      "id": "29-cfr-1910-252-welding-cutting-and-brazing-hot-work",
+      "title": "Welding, Cutting, and Brazing / Hot Work",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.252",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/welding-cutting-brazing",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-252-welding-cutting-and-brazing-hot-work.md"
+    },
+    {
+      "id": "29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan",
+      "title": "Bloodborne Pathogens \u2014 Exposure Control Plan",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1030",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "template": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan.md"
+    },
+    {
+      "id": "29-cfr-1910-1200-hazard-communication-hazcom-ghs",
+      "title": "Hazard Communication (HazCom / GHS)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1200",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/hazcom",
+      "template": "https://www.osha.gov/hazcom",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1200-hazard-communication-hazcom-ghs.md"
+    },
+    {
+      "id": "29-cfr-1910-1450-laboratory-chemical-hygiene-plan",
+      "title": "Laboratory Chemical Hygiene Plan",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1450",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "",
+        "Avetta": "C",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.1450",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1450-laboratory-chemical-hygiene-plan.md"
+    },
+    {
+      "id": "29-cfr-1910-1001-asbestos-general-industry",
+      "title": "Asbestos (General Industry)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1001",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/asbestos",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1001-asbestos-general-industry.md"
+    },
+    {
+      "id": "29-cfr-1910-1025-lead-general-industry",
+      "title": "Lead (General Industry)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1025",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/lead",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1025-lead-general-industry.md"
+    },
+    {
+      "id": "29-cfr-1910-1026-hexavalent-chromium-general-industry",
+      "title": "Hexavalent Chromium (General Industry)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1026",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/hexavalent-chromium",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1026-hexavalent-chromium-general-industry.md"
+    },
+    {
+      "id": "29-cfr-1910-1027-cadmium-general-industry",
+      "title": "Cadmium (General Industry)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1027",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/cadmium",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1027-cadmium-general-industry.md"
+    },
+    {
+      "id": "29-cfr-1910-1048-formaldehyde",
+      "title": "Formaldehyde",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1048",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/formaldehyde",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1048-formaldehyde.md"
+    },
+    {
+      "id": "29-cfr-1910-1028-benzene",
+      "title": "Benzene",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1028",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/benzene",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1028-benzene.md"
+    },
+    {
+      "id": "29-cfr-1910-1053-respirable-crystalline-silica-general-industry",
+      "title": "Respirable Crystalline Silica (General Industry)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1053",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/silica",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1053-respirable-crystalline-silica-general-industry.md"
+    },
+    {
+      "id": "29-cfr-1910-1020-access-to-employee-exposure-and-medical-records",
+      "title": "Access to Employee Exposure and Medical Records",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1910.1020",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "",
+        "Avetta": "",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.1020",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1910-1020-access-to-employee-exposure-and-medical-records.md"
+    },
+    {
+      "id": "29-cfr-1904-recording-and-reporting-occupational-injuries-and-illnesses",
+      "title": "Recording and Reporting Occupational Injuries and Illnesses",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "citation": "29 CFR 1904",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/recordkeeping",
+      "template": "",
+      "file": "01 - General Industry (29 CFR 1910)/29-cfr-1904-recording-and-reporting-occupational-injuries-and-illnesses.md"
+    },
+    {
+      "id": "29-cfr-1926-20-21-general-safety-and-health-provisions-accident-prevention",
+      "title": "General Safety and Health Provisions / Accident Prevention",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926.20-.21",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.20",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-20-21-general-safety-and-health-provisions-accident-prevention.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-m-1926-501-503-fall-protection-construction",
+      "title": "Fall Protection (Construction)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart M (1926.501-.503)",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "template": "https://www.osha.gov/complianceassistance/sampleprograms",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-m-1926-501-503-fall-protection-construction.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-l-1926-451-454-scaffolding",
+      "title": "Scaffolding",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart L (1926.451-.454)",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/scaffolding",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-l-1926-451-454-scaffolding.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-p-1926-651-652-excavation-and-trenching",
+      "title": "Excavation and Trenching",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart P (1926.651-.652)",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/trenching-excavation",
+      "template": "https://www.osha.gov/trenching-excavation",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-p-1926-651-652-excavation-and-trenching.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-r-1926-750-761-steel-erection",
+      "title": "Steel Erection",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart R (1926.750-.761)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/steel-erection",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-r-1926-750-761-steel-erection.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-cc-1926-1400-1442-cranes-and-derricks-in-construction",
+      "title": "Cranes and Derricks in Construction",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart CC (1926.1400-.1442)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/cranes-derricks",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-cc-1926-1400-1442-cranes-and-derricks-in-construction.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction",
+      "title": "Ladders (Construction)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart X (1926.1053, .1060)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": ""
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.1053",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction.md"
+    },
+    {
+      "id": "29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power",
+      "title": "Assured Equipment Grounding Conductor Program / GFCI (Temporary Power)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926.404(b)(1)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": ""
+      },
+      "source": "https://www.osha.gov/electrical",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power.md"
+    },
+    {
+      "id": "29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction",
+      "title": "Respirable Crystalline Silica \u2014 Written Exposure Control Plan (Construction)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926.1153",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/silica-crystalline/construction-info",
+      "template": "https://www.osha.gov/silica-crystalline/construction-info",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction.md"
+    },
+    {
+      "id": "29-cfr-1926-62-lead-in-construction",
+      "title": "Lead in Construction",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926.62",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/lead",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-62-lead-in-construction.md"
+    },
+    {
+      "id": "29-cfr-1926-1101-asbestos-in-construction",
+      "title": "Asbestos in Construction",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926.1101",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.osha.gov/asbestos",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-1101-asbestos-in-construction.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-construction",
+      "title": "Confined Spaces in Construction",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart AA (1926.1200-.1213)",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/confined-spaces",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-construction.md"
+    },
+    {
+      "id": "29-cfr-1926-subpart-t-1926-850-860-demolition",
+      "title": "Demolition",
+      "category": "02 - Construction (29 CFR 1926)",
+      "citation": "29 CFR 1926 Subpart T (1926.850-.860)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.850",
+      "template": "",
+      "file": "02 - Construction (29 CFR 1926)/29-cfr-1926-subpart-t-1926-850-860-demolition.md"
+    },
+    {
+      "id": "ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program",
+      "title": "Hydrogen Sulfide (H2S) Program",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "citation": "ANSI/ASSP Z390.1-2017",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "C"
+      },
+      "source": "https://www.assp.org/standards/standards-topics/hydrogen-sulfide-training-z390-1",
+      "template": "https://basincheck.com/resources/h2s-written-program",
+      "file": "03 - Oil & Gas and Energy Specialty/ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program.md"
+    },
+    {
+      "id": "osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops",
+      "title": "Simultaneous Operations (SIMOPS)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "citation": "OSHA PSM 29 CFR 1910.119 (Hot Work/MOC/PHA)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/process-safety-management",
+      "template": "",
+      "file": "03 - Oil & Gas and Energy Specialty/osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops.md"
+    },
+    {
+      "id": "api-rp-75-30-cfr-250-subpart-s-safety-and-environmental-management-system-sems",
+      "title": "Safety and Environmental Management System (SEMS)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "citation": "API RP 75 / 30 CFR 250 Subpart S",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.bsee.gov/what-we-do/offshore-regulatory-programs/office-of-offshore-regulatory-programs/safety-and",
+      "template": "",
+      "file": "03 - Oil & Gas and Energy Specialty/api-rp-75-30-cfr-250-subpart-s-safety-and-environmental-management-system-sems.md"
+    },
+    {
+      "id": "client-driven-isn-operator-requirement-short-service-employee-sse-program",
+      "title": "Short Service Employee (SSE) Program",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "citation": "Client-driven (ISN / operator requirement)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.isnetworld.com",
+      "template": "",
+      "file": "03 - Oil & Gas and Energy Specialty/client-driven-isn-operator-requirement-short-service-employee-sse-program.md"
+    },
+    {
+      "id": "client-driven-api-rp-75-principle-stop-work-authority-swa",
+      "title": "Stop Work Authority (SWA)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "citation": "Client-driven (API RP 75 principle)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.api.org",
+      "template": "",
+      "file": "03 - Oil & Gas and Energy Specialty/client-driven-api-rp-75-principle-stop-work-authority-swa.md"
+    },
+    {
+      "id": "client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield",
+      "title": "Journey Management / Driving Safety (Oilfield)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "citation": "Client requirement / API RP 755 (fatigue)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.api.org",
+      "template": "",
+      "file": "03 - Oil & Gas and Energy Specialty/client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield.md"
+    },
+    {
+      "id": "api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety",
+      "title": "Well Control / Well Servicing Safety",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "citation": "API RP 54 / 29 CFR 1910.269 / BSEE",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.api.org",
+      "template": "",
+      "file": "03 - Oil & Gas and Energy Specialty/api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety.md"
+    },
+    {
+      "id": "49-cfr-part-40-dot-drug-and-alcohol-testing-procedures",
+      "title": "DOT Drug and Alcohol Testing Procedures",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 40",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.transportation.gov/odapc/part40",
+      "template": "",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-40-dot-drug-and-alcohol-testing-procedures.md"
+    },
+    {
+      "id": "49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa",
+      "title": "Controlled Substances and Alcohol Use and Testing (FMCSA)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 382",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.fmcsa.dot.gov/regulations/title/49/part/382",
+      "template": "https://www.transportation.gov/odapc",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa.md"
+    },
+    {
+      "id": "49-cfr-part-391-driver-qualification-dq-file-program",
+      "title": "Driver Qualification (DQ File Program)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 391",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "C"
+      },
+      "source": "https://csa.fmcsa.dot.gov/safetyplanner",
+      "template": "https://csa.fmcsa.dot.gov/safetyplanner",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-391-driver-qualification-dq-file-program.md"
+    },
+    {
+      "id": "49-cfr-part-395-hours-of-service-hos-eld-fatigue",
+      "title": "Hours of Service (HOS) / ELD & Fatigue",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 395",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "C"
+      },
+      "source": "https://www.ecfr.gov/current/title-49/part-395",
+      "template": "https://csa.fmcsa.dot.gov/safetyplanner",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-395-hours-of-service-hos-eld-fatigue.md"
+    },
+    {
+      "id": "49-cfr-part-396-inspection-repair-and-maintenance-dvir",
+      "title": "Inspection, Repair, and Maintenance (DVIR)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 396",
+      "written_program": "Yes",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "Y",
+        "PEC": "C"
+      },
+      "source": "https://csa.fmcsa.dot.gov/safetyplanner",
+      "template": "https://csa.fmcsa.dot.gov/safetyplanner",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-396-inspection-repair-and-maintenance-dvir.md"
+    },
+    {
+      "id": "49-cfr-part-393-subpart-i-cargo-load-securement",
+      "title": "Cargo / Load Securement",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 393 Subpart I",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.fmcsa.dot.gov/regulations/cargo-securement/cargo-securement-rules",
+      "template": "",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-393-subpart-i-cargo-load-securement.md"
+    },
+    {
+      "id": "49-cfr-part-380-subpart-f-entry-level-driver-training-eldt",
+      "title": "Entry-Level Driver Training (ELDT)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 380 Subpart F",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "",
+        "Avetta": "",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://tpr.fmcsa.dot.gov/",
+      "template": "",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-380-subpart-f-entry-level-driver-training-eldt.md"
+    },
+    {
+      "id": "49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan",
+      "title": "Hazardous Materials Transportation Security Plan",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 172 Subpart I (172.800-.804)",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.ecfr.gov/current/title-49/part-172",
+      "template": "",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan.md"
+    },
+    {
+      "id": "49-cfr-part-192-part-195-subpart-pipeline-operator-qualification-oq",
+      "title": "Pipeline Operator Qualification (OQ)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "citation": "49 CFR Part 192 / Part 195 Subpart",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.phmsa.dot.gov/pipeline/operator-qualification",
+      "template": "",
+      "file": "04 - DOT and FMCSA (49 CFR)/49-cfr-part-192-part-195-subpart-pipeline-operator-qualification-oq.md"
+    },
+    {
+      "id": "isnetworld-ravs-isnetworld-ravs-review-process",
+      "title": "ISNetworld / RAVS Review Process",
+      "category": "05 - Prequalification Agencies (Process)",
+      "citation": "ISNetworld (RAVS)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.isnetworld.com",
+      "template": "",
+      "file": "05 - Prequalification Agencies (Process)/isnetworld-ravs-isnetworld-ravs-review-process.md"
+    },
+    {
+      "id": "avetta-avetta-prequalification-process",
+      "title": "Avetta Prequalification Process",
+      "category": "05 - Prequalification Agencies (Process)",
+      "citation": "Avetta",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "",
+        "Avetta": "Y",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.avetta.com",
+      "template": "",
+      "file": "05 - Prequalification Agencies (Process)/avetta-avetta-prequalification-process.md"
+    },
+    {
+      "id": "veriforce-pec-veriforce-pec-prequalification-process",
+      "title": "Veriforce / PEC Prequalification Process",
+      "category": "05 - Prequalification Agencies (Process)",
+      "citation": "Veriforce / PEC",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "",
+        "Avetta": "",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://veriforce.com",
+      "template": "",
+      "file": "05 - Prequalification Agencies (Process)/veriforce-pec-veriforce-pec-prequalification-process.md"
+    },
+    {
+      "id": "browz-complyworks-browz-complyworks-and-other-platforms",
+      "title": "BROWZ / ComplyWorks and Other Platforms",
+      "category": "05 - Prequalification Agencies (Process)",
+      "citation": "BROWZ / ComplyWorks",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "",
+        "Avetta": "",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.complyworks.com",
+      "template": "",
+      "file": "05 - Prequalification Agencies (Process)/browz-complyworks-browz-complyworks-and-other-platforms.md"
+    },
+    {
+      "id": "40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan",
+      "title": "Spill Prevention, Control, and Countermeasure (SPCC) Plan",
+      "category": "06 - Environmental (EPA)",
+      "citation": "40 CFR Part 112",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.epa.gov/oil-spills-prevention-and-preparedness-regulations",
+      "template": "",
+      "file": "06 - Environmental (EPA)/40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan.md"
+    },
+    {
+      "id": "epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp",
+      "title": "Stormwater Pollution Prevention Plan (SWPPP)",
+      "category": "06 - Environmental (EPA)",
+      "citation": "EPA NPDES Construction General Permit / 40 CFR 122",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.epa.gov/npdes/stormwater-discharges-construction-activities",
+      "template": "",
+      "file": "06 - Environmental (EPA)/epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp.md"
+    },
+    {
+      "id": "40-cfr-parts-262-265-rcra-hazardous-waste-management-contingency-plan",
+      "title": "RCRA Hazardous Waste Management / Contingency Plan",
+      "category": "06 - Environmental (EPA)",
+      "citation": "40 CFR Parts 262 / 265",
+      "written_program": "Conditional",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.epa.gov/hw",
+      "template": "",
+      "file": "06 - Environmental (EPA)/40-cfr-parts-262-265-rcra-hazardous-waste-management-contingency-plan.md"
+    },
+    {
+      "id": "ncci-experience-rating-plan-manual-emr-experience-modification-rate",
+      "title": "EMR \u2014 Experience Modification Rate",
+      "category": "07 - Safety Metrics & KPIs",
+      "citation": "NCCI Experience Rating Plan Manual",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.ncci.com/Articles/Documents/UW_ABC_Exp_Rating.pdF",
+      "template": "",
+      "file": "07 - Safety Metrics & KPIs/ncci-experience-rating-plan-manual-emr-experience-modification-rate.md"
+    },
+    {
+      "id": "29-cfr-1904-recordability-bls-soii-benchmarks-trir-total-recordable-incident-rate",
+      "title": "TRIR \u2014 Total Recordable Incident Rate",
+      "category": "07 - Safety Metrics & KPIs",
+      "citation": "29 CFR 1904 (recordability) / BLS SOII (benchmarks)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/legacy/injuryreporting",
+      "template": "",
+      "file": "07 - Safety Metrics & KPIs/29-cfr-1904-recordability-bls-soii-benchmarks-trir-total-recordable-incident-rate.md"
+    },
+    {
+      "id": "29-cfr-1904-7-bls-soii-benchmarks-dart-days-away-restricted-or-transferred-rate",
+      "title": "DART \u2014 Days Away, Restricted, or Transferred Rate",
+      "category": "07 - Safety Metrics & KPIs",
+      "citation": "29 CFR 1904.7 / BLS SOII (benchmarks)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1904/1904.7",
+      "template": "",
+      "file": "07 - Safety Metrics & KPIs/29-cfr-1904-7-bls-soii-benchmarks-dart-days-away-restricted-or-transferred-rate.md"
+    },
+    {
+      "id": "29-cfr-1904-7-bls-soii-dafw-ltir-days-away-from-work-lost-time-rate",
+      "title": "DAFW / LTIR \u2014 Days Away From Work (Lost Time) Rate",
+      "category": "07 - Safety Metrics & KPIs",
+      "citation": "29 CFR 1904.7 / BLS SOII",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1904/1904.7",
+      "template": "",
+      "file": "07 - Safety Metrics & KPIs/29-cfr-1904-7-bls-soii-dafw-ltir-days-away-from-work-lost-time-rate.md"
+    },
+    {
+      "id": "industry-kpi-bls-ansi-z16-1-lineage-severity-rate-lost-workday-rate",
+      "title": "Severity Rate (Lost Workday Rate)",
+      "category": "07 - Safety Metrics & KPIs",
+      "citation": "Industry KPI (BLS/ANSI Z16.1 lineage)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "",
+        "PEC": ""
+      },
+      "source": "https://www.bls.gov/iif/",
+      "template": "",
+      "file": "07 - Safety Metrics & KPIs/industry-kpi-bls-ansi-z16-1-lineage-severity-rate-lost-workday-rate.md"
+    },
+    {
+      "id": "29-cfr-1904-39-bls-cfoi-benchmarks-fatality-rate-osha-reporting-triggers",
+      "title": "Fatality Rate & OSHA Reporting Triggers",
+      "category": "07 - Safety Metrics & KPIs",
+      "citation": "29 CFR 1904.39 / BLS CFOI (benchmarks)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1904/1904.39",
+      "template": "",
+      "file": "07 - Safety Metrics & KPIs/29-cfr-1904-39-bls-cfoi-benchmarks-fatality-rate-osha-reporting-triggers.md"
+    },
+    {
+      "id": "acord-25-certificate-of-liability-insurance-certificate-of-insurance-coi-acord-25",
+      "title": "Certificate of Insurance (COI) \u2014 ACORD 25",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "ACORD 25 (Certificate of Liability Insurance)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.acord.org/forms-print",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/acord-25-certificate-of-liability-insurance-certificate-of-insurance-coi-acord-25.md"
+    },
+    {
+      "id": "iso-cg-00-01-occurrence-form-commercial-general-liability-cgl",
+      "title": "Commercial General Liability (CGL)",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "ISO CG 00 01 (Occurrence Form)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/commercial-general-liability-insurance",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/iso-cg-00-01-occurrence-form-commercial-general-liability-cgl.md"
+    },
+    {
+      "id": "state-wc-statute-iso-ncci-wc-policy-workers-compensation-employer-s-liability",
+      "title": "Workers' Compensation & Employer's Liability",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "State WC statute + ISO/NCCI WC policy",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/workers-compensation-and-employers-liability-insurance",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/state-wc-statute-iso-ncci-wc-policy-workers-compensation-employer-s-liability.md"
+    },
+    {
+      "id": "iso-ca-00-01-business-auto-commercial-automobile-liability",
+      "title": "Commercial Automobile Liability",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "ISO CA 00 01 (Business Auto)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/business-auto-coverage",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/iso-ca-00-01-business-auto-commercial-automobile-liability.md"
+    },
+    {
+      "id": "follow-form-umbrella-over-cgl-auto-el-umbrella-excess-liability",
+      "title": "Umbrella / Excess Liability",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "Follow-Form Umbrella over CGL / Auto / EL",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/umbrella-liability-policy",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/follow-form-umbrella-over-cgl-auto-el-umbrella-excess-liability.md"
+    },
+    {
+      "id": "iso-cg-20-10-ongoing-cg-20-37-completed-ops-additional-insured-endorsement-ai",
+      "title": "Additional Insured Endorsement (AI)",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "ISO CG 20 10 (ongoing) / CG 20 37 (completed ops)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/additional-insured",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/iso-cg-20-10-ongoing-cg-20-37-completed-ops-additional-insured-endorsement-ai.md"
+    },
+    {
+      "id": "iso-cg-20-01-primary-non-contributory-endorsement-p-nc",
+      "title": "Primary & Non-Contributory Endorsement (P&NC)",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "ISO CG 20 01",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/primary-and-noncontributory",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/iso-cg-20-01-primary-non-contributory-endorsement-p-nc.md"
+    },
+    {
+      "id": "iso-cg-24-04-gl-wc-00-03-13-workers-comp-waiver-of-subrogation-wos",
+      "title": "Waiver of Subrogation (WOS)",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "ISO CG 24 04 (GL) / WC 00 03 13 (Workers' Comp)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "Y",
+        "Avetta": "Y",
+        "Veriforce": "Y",
+        "PEC": "Y"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/waiver-of-subrogation",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/iso-cg-24-04-gl-wc-00-03-13-workers-comp-waiver-of-subrogation-wos.md"
+    },
+    {
+      "id": "policy-specific-commonly-30-day-advance-notice-notice-of-cancellation-endorsement",
+      "title": "Notice of Cancellation Endorsement",
+      "category": "08 - Insurance & COI Verification",
+      "citation": "Policy-specific (commonly 30-day advance notice)",
+      "written_program": "Reference",
+      "agencies": {
+        "ISN": "C",
+        "Avetta": "C",
+        "Veriforce": "C",
+        "PEC": "C"
+      },
+      "source": "https://www.irmi.com/term/insurance-definitions/notice-of-cancellation",
+      "template": "",
+      "file": "08 - Insurance & COI Verification/policy-specific-commonly-30-day-advance-notice-notice-of-cancellation-endorsement.md"
+    }
+  ]
+}
