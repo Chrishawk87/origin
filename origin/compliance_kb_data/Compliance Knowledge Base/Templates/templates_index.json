@@ -1,6 +1,6 @@
 {
   "name": "Origin Compliance Letter & Document Templates",
-  "count": 102,
+  "count": 121,
   "note": "Placeholders use {{DOUBLE_BRACES}}. Letter/cert templates (01-06) plus one fillable written-program template per KB standard (program-*). Each program-* template's section headings, training and recordkeeping lines are verbatim from its KB entry; fill the [[...]] prompts with company-specific procedure. Follow each grounding_rule.",
   "templates": [
     {
@@ -2837,6 +2837,538 @@
       ],
       "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry housekeeping-material-storage-program.",
       "file": "programs/program-housekeeping-material-storage-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Confined and Enclosed Spaces \u2014 Shipyard (Competent Person / Marine Chemist) (29 CFR 1915 Subpart B). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person"
+      ],
+      "citation": "29 CFR 1915 Subpart B",
+      "category": "11 - Maritime & Shipyard (29 CFR 1915/1917/1918)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person.",
+      "file": "programs/program-29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person.md"
+    },
+    {
+      "template_id": "program-29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Fire Protection in Shipyard Employment (29 CFR 1915 Subpart P). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment"
+      ],
+      "citation": "29 CFR 1915 Subpart P",
+      "category": "11 - Maritime & Shipyard (29 CFR 1915/1917/1918)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment.",
+      "file": "programs/program-29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment.md"
+    },
+    {
+      "template_id": "program-29-cfr-1915-subpart-i-personal-protective-equipment-shipyard",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Personal Protective Equipment \u2014 Shipyard Employment (29 CFR 1915 Subpart I). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1915-subpart-i-personal-protective-equipment-shipyard"
+      ],
+      "citation": "29 CFR 1915 Subpart I",
+      "category": "11 - Maritime & Shipyard (29 CFR 1915/1917/1918)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1915-subpart-i-personal-protective-equipment-shipyard.",
+      "file": "programs/program-29-cfr-1915-subpart-i-personal-protective-equipment-shipyard.md"
+    },
+    {
+      "template_id": "program-29-cfr-1917-marine-terminals-safety-and-health-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Marine Terminals \u2014 Safety and Health Program (29 CFR 1917). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1917-marine-terminals-safety-and-health-program"
+      ],
+      "citation": "29 CFR 1917",
+      "category": "11 - Maritime & Shipyard (29 CFR 1915/1917/1918)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1917-marine-terminals-safety-and-health-program.",
+      "file": "programs/program-29-cfr-1917-marine-terminals-safety-and-health-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1918-longshoring-safety-and-health-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Longshoring \u2014 Safety and Health Program (29 CFR 1918). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1918-longshoring-safety-and-health-program"
+      ],
+      "citation": "29 CFR 1918",
+      "category": "11 - Maritime & Shipyard (29 CFR 1915/1917/1918)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1918-longshoring-safety-and-health-program.",
+      "file": "programs/program-29-cfr-1918-longshoring-safety-and-health-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-268-telecommunications",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Telecommunications (29 CFR 1910.268). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-268-telecommunications"
+      ],
+      "citation": "29 CFR 1910.268",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-268-telecommunications.",
+      "file": "programs/program-29-cfr-1910-268-telecommunications.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-266-logging-operations",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Logging Operations (29 CFR 1910.266). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-266-logging-operations"
+      ],
+      "citation": "29 CFR 1910.266",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-266-logging-operations.",
+      "file": "programs/program-29-cfr-1910-266-logging-operations.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-272-grain-handling-facilities",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Grain Handling Facilities (29 CFR 1910.272). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-272-grain-handling-facilities"
+      ],
+      "citation": "29 CFR 1910.272",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-272-grain-handling-facilities.",
+      "file": "programs/program-29-cfr-1910-272-grain-handling-facilities.md"
+    },
+    {
+      "template_id": "program-hazardous-drugs-safe-handling-usp-800-niosh-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hazardous Drugs \u2014 Safe Handling Program (USP <800> / NIOSH) (USP <800> / NIOSH Alert 2016-161 (OSHA 29 CFR 1910.1200 GDC)). Applies when written_program=yes.",
+      "pulls_from": [
+        "hazardous-drugs-safe-handling-usp-800-niosh-program"
+      ],
+      "citation": "USP <800> / NIOSH Alert 2016-161 (OSHA 29 CFR 1910.1200 GDC)",
+      "category": "12 - Healthcare Specialty",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry hazardous-drugs-safe-handling-usp-800-niosh-program.",
+      "file": "programs/program-hazardous-drugs-safe-handling-usp-800-niosh-program.md"
+    },
+    {
+      "template_id": "program-tuberculosis-exposure-control-plan-healthcare-cdc-osha",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Tuberculosis (TB) Exposure Control Plan \u2014 Healthcare (CDC MMWR 2005 TB Guidelines (OSHA 29 CFR 1910.134 / GDC)). Applies when written_program=yes.",
+      "pulls_from": [
+        "tuberculosis-exposure-control-plan-healthcare-cdc-osha"
+      ],
+      "citation": "CDC MMWR 2005 TB Guidelines (OSHA 29 CFR 1910.134 / GDC)",
+      "category": "12 - Healthcare Specialty",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry tuberculosis-exposure-control-plan-healthcare-cdc-osha.",
+      "file": "programs/program-tuberculosis-exposure-control-plan-healthcare-cdc-osha.md"
+    },
+    {
+      "template_id": "program-safe-patient-handling-and-mobility-program-healthcare",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Safe Patient Handling and Mobility (SPHM) Program (OSHA General Duty Clause 29 USC 654 / NIOSH; state SPHM statutes). Applies when written_program=yes.",
+      "pulls_from": [
+        "safe-patient-handling-and-mobility-program-healthcare"
+      ],
+      "citation": "OSHA General Duty Clause 29 USC 654 / NIOSH; state SPHM statutes",
+      "category": "12 - Healthcare Specialty",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry safe-patient-handling-and-mobility-program-healthcare.",
+      "file": "programs/program-safe-patient-handling-and-mobility-program-healthcare.md"
+    },
+    {
+      "template_id": "program-epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for EPCRA / SARA Title III \u2014 Tier II Reporting & Toxic Release Inventory (Form R) (40 CFR 370 / 40 CFR 372 (EPCRA)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372"
+      ],
+      "citation": "40 CFR 370 / 40 CFR 372 (EPCRA)",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372.",
+      "file": "programs/program-epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372.md"
+    },
+    {
+      "template_id": "program-epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for EPA NPDES Industrial Stormwater (MSGP) \u2014 Stormwater Pollution Prevention Plan (40 CFR 122.26 (Multi-Sector General Permit)). Applies when written_program=yes.",
+      "pulls_from": [
+        "epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122"
+      ],
+      "citation": "40 CFR 122.26 (Multi-Sector General Permit)",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122.",
+      "file": "programs/program-epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122.md"
+    },
+    {
+      "template_id": "program-epa-underground-storage-tanks-ust-40-cfr-280",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Underground Storage Tanks (UST) Program (40 CFR 280). Applies when written_program=conditional.",
+      "pulls_from": [
+        "epa-underground-storage-tanks-ust-40-cfr-280"
+      ],
+      "citation": "40 CFR 280",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry epa-underground-storage-tanks-ust-40-cfr-280.",
+      "file": "programs/program-epa-underground-storage-tanks-ust-40-cfr-280.md"
+    },
+    {
+      "template_id": "program-tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Lead Renovation, Repair and Painting (RRP) Rule (40 CFR 745 Subpart E (TSCA)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745"
+      ],
+      "citation": "40 CFR 745 Subpart E (TSCA)",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745.",
+      "file": "programs/program-tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745.md"
+    },
+    {
+      "template_id": "program-epa-universal-waste-management-40-cfr-273",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Universal Waste Management (40 CFR 273). Applies when written_program=conditional.",
+      "pulls_from": [
+        "epa-universal-waste-management-40-cfr-273"
+      ],
+      "citation": "40 CFR 273",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry epa-universal-waste-management-40-cfr-273.",
+      "file": "programs/program-epa-universal-waste-management-40-cfr-273.md"
+    },
+    {
+      "template_id": "program-epa-used-oil-management-standards-40-cfr-279",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Used Oil Management Standards (40 CFR 279). Applies when written_program=conditional.",
+      "pulls_from": [
+        "epa-used-oil-management-standards-40-cfr-279"
+      ],
+      "citation": "40 CFR 279",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry epa-used-oil-management-standards-40-cfr-279.",
+      "file": "programs/program-epa-used-oil-management-standards-40-cfr-279.md"
+    },
+    {
+      "template_id": "program-epa-risk-management-program-rmp-40-cfr-68",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Risk Management Program (RMP) \u2014 Clean Air Act 112(r) (40 CFR 68). Applies when written_program=yes.",
+      "pulls_from": [
+        "epa-risk-management-program-rmp-40-cfr-68"
+      ],
+      "citation": "40 CFR 68",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry epa-risk-management-program-rmp-40-cfr-68.",
+      "file": "programs/program-epa-risk-management-program-rmp-40-cfr-68.md"
+    },
+    {
+      "template_id": "program-29-cfr-1915-87-medical-services-and-first-aid-shipyard",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Medical Services and First Aid \u2014 Shipyard (29 CFR 1915.87). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1915-87-medical-services-and-first-aid-shipyard"
+      ],
+      "citation": "29 CFR 1915.87",
+      "category": "11 - Maritime & Shipyard (29 CFR 1915/1917/1918)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1915-87-medical-services-and-first-aid-shipyard.",
+      "file": "programs/program-29-cfr-1915-87-medical-services-and-first-aid-shipyard.md"
     }
   ]
 }

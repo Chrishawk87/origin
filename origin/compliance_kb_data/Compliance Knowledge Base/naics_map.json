@@ -60,9 +60,10 @@
         "29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program",
         "cold-stress-cold-weather-work-program",
         "ergonomics-manual-material-handling-program",
-        "hand-finger-safety-program"
-      ],
-      "gap_note": "Thin lane \u2014 dedicated logging (1910.266) and grain-handling (1910.272) standards not yet in KB; flagged for the parity batch."
+        "hand-finger-safety-program",
+        "29-cfr-1910-266-logging-operations",
+        "29-cfr-1910-272-grain-handling-facilities"
+      ]
     },
     "21": {
       "label": "Mining, Quarrying, and Oil & Gas Extraction (incl. oilfield services)",
@@ -103,7 +104,11 @@
         "dropped-objects-prevention-program",
         "line-of-fire-body-positioning-program",
         "fatigue-management-program",
-        "40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan"
+        "40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan",
+        "epa-risk-management-program-rmp-40-cfr-68",
+        "epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372",
+        "epa-underground-storage-tanks-ust-40-cfr-280",
+        "epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122"
       ]
     },
     "22": {
@@ -172,7 +177,8 @@
         "traffic-control-work-zone-flagger-safety-program",
         "rigging-lifting-signalperson-program",
         "dropped-objects-prevention-program",
-        "line-of-fire-body-positioning-program"
+        "line-of-fire-body-positioning-program",
+        "tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745"
       ]
     },
     "31-33": {
@@ -188,7 +194,13 @@
         "refinery",
         "chemical plant",
         "processing",
-        "production"
+        "production",
+        "shipbuilding",
+        "ship building",
+        "shipyard",
+        "ship repair",
+        "boat building",
+        "vessel construction"
       ],
       "standards": [
         "29-cfr-1910-212-machine-guarding-program",
@@ -208,7 +220,17 @@
         "combustible-dust-program",
         "ergonomics-manual-material-handling-program",
         "hand-finger-safety-program",
-        "29-cfr-1910-1450-laboratory-chemical-hygiene-plan"
+        "29-cfr-1910-1450-laboratory-chemical-hygiene-plan",
+        "29-cfr-1910-272-grain-handling-facilities",
+        "epa-risk-management-program-rmp-40-cfr-68",
+        "epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372",
+        "epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122",
+        "epa-universal-waste-management-40-cfr-273",
+        "epa-used-oil-management-standards-40-cfr-279",
+        "29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person",
+        "29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment",
+        "29-cfr-1915-subpart-i-personal-protective-equipment-shipyard",
+        "29-cfr-1915-87-medical-services-and-first-aid-shipyard"
       ]
     },
     "42": {
@@ -239,7 +261,16 @@
         "warehouse",
         "cmv",
         "hazmat transport",
-        "delivery"
+        "delivery",
+        "longshoring",
+        "longshore",
+        "stevedore",
+        "marine terminal",
+        "marine cargo",
+        "dock",
+        "port",
+        "harbor",
+        "wharf"
       ],
       "standards": [
         "49-cfr-part-40-dot-drug-and-alcohol-testing-procedures",
@@ -252,7 +283,16 @@
         "49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan",
         "29-cfr-1910-178-powered-industrial-trucks-forklift-program",
         "ergonomics-manual-material-handling-program",
-        "fatigue-management-program"
+        "fatigue-management-program",
+        "29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person",
+        "29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment",
+        "29-cfr-1915-subpart-i-personal-protective-equipment-shipyard",
+        "29-cfr-1917-marine-terminals-safety-and-health-program",
+        "29-cfr-1918-longshoring-safety-and-health-program",
+        "29-cfr-1915-87-medical-services-and-first-aid-shipyard",
+        "epa-underground-storage-tanks-ust-40-cfr-280",
+        "epa-universal-waste-management-40-cfr-273",
+        "epa-used-oil-management-standards-40-cfr-279"
       ]
     },
     "56": {
@@ -274,7 +314,11 @@
         "40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan",
         "epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp",
         "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
-        "29-cfr-1910-1001-asbestos-general-industry"
+        "29-cfr-1910-1001-asbestos-general-industry",
+        "epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372",
+        "epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122",
+        "epa-universal-waste-management-40-cfr-273",
+        "epa-used-oil-management-standards-40-cfr-279"
       ]
     },
     "62": {
@@ -294,9 +338,11 @@
         "29-cfr-1910-1096-ionizing-radiation",
         "29-cfr-1910-1450-laboratory-chemical-hygiene-plan",
         "infectious-disease-pandemic-preparedness-program",
-        "workplace-violence-prevention-program"
-      ],
-      "gap_note": "Thin lane \u2014 general-industry crossover only; healthcare-specific ergonomics/patient-handling not yet deep in KB."
+        "workplace-violence-prevention-program",
+        "hazardous-drugs-safe-handling-usp-800-niosh-program",
+        "tuberculosis-exposure-control-plan-healthcare-cdc-osha",
+        "safe-patient-handling-and-mobility-program-healthcare"
+      ]
     },
     "81": {
       "label": "Repair & Maintenance / Other Services",
@@ -316,7 +362,31 @@
         "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
         "29-cfr-1910-252-welding-cutting-and-brazing-hot-work",
         "29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program",
-        "hand-finger-safety-program"
+        "hand-finger-safety-program",
+        "epa-underground-storage-tanks-ust-40-cfr-280",
+        "epa-universal-waste-management-40-cfr-273",
+        "epa-used-oil-management-standards-40-cfr-279",
+        "tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745"
+      ]
+    },
+    "51": {
+      "label": "Information / Telecommunications",
+      "keywords": [
+        "telecom",
+        "telecommunications",
+        "cable",
+        "fiber",
+        "broadband",
+        "phone",
+        "line",
+        "central office",
+        "outside plant",
+        "tower"
+      ],
+      "standards": [
+        "29-cfr-1910-268-telecommunications",
+        "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+        "29-cfr-1910-331-335-electrical-safety-related-work-practices"
       ]
     }
   },
