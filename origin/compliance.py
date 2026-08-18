@@ -62,26 +62,86 @@ def _index_path() -> Path:
 
 
 def ensure_library() -> None:
-    """Create the live library from shipped defaults on first use. Idempotent."""
+    """Create the live library from shipped defaults, then merge in the KB
+    program templates. Idempotent — user edits and existing masters are never
+    overwritten; only missing masters are added (so this also back-fills the
+    program templates on a volume that was seeded before they existed)."""
     LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
-    if _index_path().is_file():
+    if not _index_path().is_file():
+        seeds = []
+        seed_index = DEFAULTS_DIR / "index.json"
+        if seed_index.is_file():
+            seeds = json.loads(seed_index.read_text(encoding="utf-8"))
+        records = []
+        for s in seeds:
+            src = DEFAULTS_DIR / s["file"]
+            if not src.is_file():
+                continue
+            title = s.get("title", s["id"])
+            html = wrap_document(src.read_text(encoding="utf-8"), title)
+            fname = f"{s['id']}.html"
+            (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
+            records.append({"id": s["id"], "trade": s.get("trade", ""),
+                            "num": s.get("num", ""), "title": title, "file": fname})
+        _write_index(records)
+    _sync_program_masters()
+
+
+def _md_to_html(md: str) -> str:
+    """Convert a program-template markdown body (frontmatter stripped) to HTML."""
+    body = md
+    if body.lstrip().startswith("---"):
+        parts = body.split("---", 2)
+        if len(parts) == 3:
+            body = parts[2]
+    try:
+        import markdown as _md
+        inner = _md.markdown(body, extensions=["tables", "sane_lists"])
+    except Exception:
+        # minimal fallback so a missing lib never breaks the library
+        inner = "".join(f"<p>{_esc(ln)}</p>" for ln in body.splitlines() if ln.strip())
+    return inner
+
+
+def _sync_program_masters() -> None:
+    """Add a library master for every KB written-program template not already
+    present. Master id is ``program-<kb_id>``; grouped in the Library by the
+    standard's KB category. Safe to run on every startup."""
+    try:
+        from . import compliance_kb as _kb
+    except Exception:
         return
-    seeds = []
-    seed_index = DEFAULTS_DIR / "index.json"
-    if seed_index.is_file():
-        seeds = json.loads(seed_index.read_text(encoding="utf-8"))
-    records = []
-    for s in seeds:
-        src = DEFAULTS_DIR / s["file"]
-        if not src.is_file():
+    records = _read_index_raw()
+    have = {r["id"] for r in records}
+    added = False
+    for r in _kb.all_records():
+        wp = str(r.get("written_program", "")).strip().lower()
+        if wp not in ("yes", "conditional"):
             continue
-        title = s.get("title", s["id"])
-        html = wrap_document(src.read_text(encoding="utf-8"), title)
-        fname = f"{s['id']}.html"
+        mid = f"program-{r['id']}"
+        if mid in have:
+            continue
+        md = _kb.render_program(r["id"])
+        if not md:
+            continue
+        title = r.get("title", r["id"])
+        html = wrap_document(_md_to_html(md), title)
+        fname = f"{mid}.html"
         (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
-        records.append({"id": s["id"], "trade": s.get("trade", ""),
-                        "num": s.get("num", ""), "title": title, "file": fname})
-    _write_index(records)
+        records.append({"id": mid, "trade": r.get("category", "Compliance Programs"),
+                        "num": "", "title": title, "file": fname})
+        have.add(mid)
+        added = True
+    if added:
+        _write_index(records)
+
+
+def _read_index_raw() -> List[Dict[str, Any]]:
+    """Read the live index without triggering ensure_library (avoids recursion)."""
+    try:
+        return json.loads(_index_path().read_text(encoding="utf-8"))
+    except Exception:
+        return []
 
 
 def _read_index() -> List[Dict[str, Any]]:
