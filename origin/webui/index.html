@@ -380,9 +380,11 @@ async function refresh(){
       if(!mid)return; e.preventDefault(); d.classList.remove('drop'); assignMasterToProject(mid, p.slug); });
     pc.appendChild(d);
   });
-  // coordinator select
+  // brain select (which model runs the agent). Friendly labels so it's clear
+  // which one is the free everyday brain vs. the paid Claude reviewer.
+  const BRAIN_LABELS={gemini:'Gemini — free (everyday brain)',claude:'Claude — paid (review)',gpt:'GPT — paid',grok:'Grok — paid'};
   const cs=document.getElementById('coord'); cs.innerHTML='';
-  (STATE.workers||[]).forEach(w=>{const o=document.createElement('option');o.value=w;o.textContent=w;
+  (STATE.workers||[]).forEach(w=>{const o=document.createElement('option');o.value=w;o.textContent=BRAIN_LABELS[w]||w;
     if(w===STATE.coordinator)o.selected=true;cs.appendChild(o);});
   if(!STATE.workers||!STATE.workers.length){const o=document.createElement('option');o.textContent='(single llm brain)';cs.appendChild(o);}
   // roles chips (active role(s))

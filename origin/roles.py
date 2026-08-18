@@ -111,6 +111,13 @@ KNOWN_ROLE_TOOLS = {
                 "shell", "read_file", "write_file", "collaborate"],
     "assistant": ["shell", "read_file", "write_file", "http_request",
                   "research", "web_search", "remember"],
+    # Compliance officer leads with the KB tools: look the standard up first,
+    # draft from its required_elements, then run the checklist BEFORE anything
+    # is finalized. Research/web catch current agency changes; remember keeps
+    # each client's specifics across sessions.
+    "compliance_officer": ["compliance_lookup", "compliance_check",
+                           "read_file", "write_file", "research", "web_search",
+                           "browse", "remember", "consult", "collaborate"],
 }
 
 # What an on-demand domain expert should reach for by default.

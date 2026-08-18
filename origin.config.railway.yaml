@@ -37,8 +37,10 @@ workers:
     role: "long-context, multimodal, fast"
 
 orchestrator:
-  # Prefers Claude; automatically falls back to whichever key is actually set.
-  coordinator: claude
+  # Gemini is the free everyday brain (runs the agent by default). Switch to
+  # Claude from the Brain dropdown when you want a paid, higher-reasoning pass
+  # or a document review. Falls back to whichever key is actually set.
+  coordinator: gemini
   collab_workers: [claude, gpt, grok, gemini]
   synthesizer: claude
 
