@@ -67,6 +67,46 @@ def build_compliance_tools() -> List[Tool]:
         parts += [_fmt_standard(h, full=False) for h in hits]
         return "\n\n".join(parts)
 
+    def compliance_profile(args: Dict[str, Any]) -> str:
+        target = (args.get("industry") or args.get("naics") or args.get("code")
+                  or args.get("query") or "").strip()
+        if not target:
+            return ("ERROR: provide 'industry' (e.g. 'oilfield services') or "
+                    "'naics' (e.g. '213112') so I can scope the required standards.")
+        state = (args.get("state") or "").strip() or None
+        prof = kb.naics_applicable(target, state=state)
+        if prof.get("error"):
+            return f"ERROR: {prof['error']}"
+        if not prof.get("standards"):
+            return (f"No standards resolved for '{target}'. Try a NAICS code or a "
+                    "clearer industry name (e.g. construction, trucking, manufacturing).")
+
+        head = [
+            f"COMPLIANCE PROFILE — {target}"
+            + (f"  (state: {state})" if state else ""),
+            f"Matched sector: {prof.get('sector')} — {prof.get('sector_label') or 'universal only'}",
+            f"{prof['count']} standards required "
+            f"(universal {prof['buckets'].get('universal',0)}"
+            + (f" + sector {prof['buckets'].get('sector',0)}" if 'sector' in prof['buckets'] else "")
+            + (f" + {state} {prof['buckets'].get('state',0)}" if 'state' in prof['buckets'] else "")
+            + ").",
+        ]
+        if prof.get("gap_note"):
+            head.append(f"NOTE: {prof['gap_note']}")
+        head.append("")
+        head.append("Required standards (look each up with compliance_lookup, then draft the written program):")
+        # group by category for a readable checklist
+        by_cat: Dict[str, list] = {}
+        for s in prof["standards"]:
+            by_cat.setdefault(s.get("category", "Other"), []).append(s)
+        lines: List[str] = []
+        for cat in sorted(by_cat):
+            lines.append(f"\n{cat}")
+            for s in by_cat[cat]:
+                cite = f" [{s['citation']}]" if s.get("citation") else ""
+                lines.append(f"  - {s['title']}{cite}  (id: {s['id']})")
+        return "\n".join(head + lines)
+
     def compliance_check(args: Dict[str, Any]) -> str:
         doc = args.get("document") or args.get("html") or args.get("text") or ""
         if not doc.strip():
@@ -100,6 +140,30 @@ def build_compliance_tools() -> List[Tool]:
                 "required": ["query"],
             },
             handler=compliance_lookup,
+            source="builtin",
+        ),
+        Tool(
+            name="compliance_profile",
+            description=(
+                "Scope a client's required compliance standards by their industry. Call this "
+                "FIRST when onboarding a new contractor or when asked 'what programs does this "
+                "company need?'. Give a NAICS code (e.g. '213112') or an industry name (e.g. "
+                "'oilfield services', 'construction', 'trucking') and optionally a state (e.g. "
+                "'CA' adds Cal/OSHA IIPP, heat, workplace-violence). Returns the full checklist "
+                "of KB standards that a prequalification review (ISNetworld/Avetta/Veriforce) "
+                "typically requires for that industry — universal programs plus trade-specific "
+                "ones. Then use compliance_lookup on each id to draft the written programs."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "industry": {"type": "string", "description": "Industry name, e.g. 'oilfield services', 'construction'"},
+                    "naics": {"type": "string", "description": "NAICS code, e.g. '213112' or '23'"},
+                    "state": {"type": "string", "description": "Two-letter state for jurisdiction overlays, e.g. 'CA'"},
+                },
+                "required": [],
+            },
+            handler=compliance_profile,
             source="builtin",
         ),
         Tool(

@@ -1,0 +1,333 @@
+{
+  "version": "1.0",
+  "note": "Maps a client's NAICS sector (2-digit prefix) + state to the KB standards a prequalification review typically requires. 'universal' applies to essentially every contractor; sectors add trade-specific standards; state_overlays add jurisdiction rules. Match a client by NAICS prefix or by industry keywords.",
+  "universal": [
+    "29-cfr-1904-recording-and-reporting-occupational-injuries-and-illnesses",
+    "29-cfr-1910-1200-hazard-communication-hazcom-ghs",
+    "29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment",
+    "29-cfr-1910-38-emergency-action-plan",
+    "29-cfr-1910-39-fire-prevention-plan",
+    "29-cfr-1910-157-portable-fire-extinguishers",
+    "29-cfr-1910-151-medical-services-first-aid",
+    "29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan",
+    "29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout",
+    "29-cfr-1910-22-30-walking-working-surfaces-fall-protection-general-industry",
+    "29-cfr-1904-incident-investigation-reporting-program",
+    "ravs-required-written-program-disciplinary-enforcement-policy",
+    "ravs-required-written-program-substance-abuse-drug-alcohol-program-non-dot",
+    "ravs-required-written-program-behavior-based-safety-safety-observation-program",
+    "29-cfr-1910-subpart-wide-training-duties-new-employee-safety-orientation-training-program",
+    "29-cfr-1910-132-job-safety-analysis-jsa-jha-hazard-identification-program",
+    "29-cfr-1910-242-29-cfr-1926-300-307-hand-portable-power-tools-safety-program",
+    "ravs-required-written-program-motor-vehicle-fleet-safety-program",
+    "ravs-required-written-program-fitness-for-duty-program",
+    "housekeeping-material-storage-program",
+    "acord-25-certificate-of-liability-insurance-certificate-of-insurance-coi-acord-25",
+    "iso-cg-00-01-occurrence-form-commercial-general-liability-cgl",
+    "state-wc-statute-iso-ncci-wc-policy-workers-compensation-employer-s-liability",
+    "iso-ca-00-01-business-auto-commercial-automobile-liability",
+    "follow-form-umbrella-over-cgl-auto-el-umbrella-excess-liability",
+    "iso-cg-20-10-ongoing-cg-20-37-completed-ops-additional-insured-endorsement-ai",
+    "iso-cg-20-01-primary-non-contributory-endorsement-p-nc",
+    "iso-cg-24-04-gl-wc-00-03-13-workers-comp-waiver-of-subrogation-wos",
+    "policy-specific-commonly-30-day-advance-notice-notice-of-cancellation-endorsement",
+    "ncci-experience-rating-plan-manual-emr-experience-modification-rate",
+    "29-cfr-1904-recordability-bls-soii-benchmarks-trir-total-recordable-incident-rate",
+    "29-cfr-1904-7-bls-soii-benchmarks-dart-days-away-restricted-or-transferred-rate",
+    "29-cfr-1904-7-bls-soii-dafw-ltir-days-away-from-work-lost-time-rate",
+    "industry-kpi-bls-ansi-z16-1-lineage-severity-rate-lost-workday-rate",
+    "29-cfr-1904-39-bls-cfoi-benchmarks-fatality-rate-osha-reporting-triggers",
+    "isnetworld-ravs-isnetworld-ravs-review-process",
+    "avetta-avetta-prequalification-process",
+    "veriforce-pec-veriforce-pec-prequalification-process",
+    "browz-complyworks-browz-complyworks-and-other-platforms"
+  ],
+  "sectors": {
+    "11": {
+      "label": "Agriculture, Forestry, Fishing & Hunting (incl. logging)",
+      "keywords": [
+        "agriculture",
+        "farm",
+        "forestry",
+        "logging",
+        "timber",
+        "fishing",
+        "ranch",
+        "grain",
+        "harvest"
+      ],
+      "standards": [
+        "29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program",
+        "cold-stress-cold-weather-work-program",
+        "ergonomics-manual-material-handling-program",
+        "hand-finger-safety-program"
+      ],
+      "gap_note": "Thin lane \u2014 dedicated logging (1910.266) and grain-handling (1910.272) standards not yet in KB; flagged for the parity batch."
+    },
+    "21": {
+      "label": "Mining, Quarrying, and Oil & Gas Extraction (incl. oilfield services)",
+      "keywords": [
+        "oil",
+        "gas",
+        "oilfield",
+        "well",
+        "drilling",
+        "frac",
+        "mining",
+        "quarry",
+        "upstream",
+        "midstream",
+        "wireline",
+        "completion",
+        "workover",
+        "pipeline construction"
+      ],
+      "standards": [
+        "ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program",
+        "osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops",
+        "api-rp-75-30-cfr-250-subpart-s-safety-and-environmental-management-system-sems",
+        "client-driven-isn-operator-requirement-short-service-employee-sse-program",
+        "client-driven-api-rp-75-principle-stop-work-authority-swa",
+        "client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield",
+        "api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety",
+        "29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm",
+        "29-cfr-1910-119-management-of-change-moc-program",
+        "29-cfr-1910-119-contractor-subcontractor-safety-management-program",
+        "29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper",
+        "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+        "29-cfr-1910-252-welding-cutting-and-brazing-hot-work",
+        "29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program",
+        "29-cfr-1910-1053-respirable-crystalline-silica-general-industry",
+        "29-cfr-1910-179-cranes-derricks-hoists-slings-general-industry-rigging",
+        "rigging-lifting-signalperson-program",
+        "dropped-objects-prevention-program",
+        "line-of-fire-body-positioning-program",
+        "fatigue-management-program",
+        "40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan"
+      ]
+    },
+    "22": {
+      "label": "Utilities (electric power, gas, water) & pipeline operators",
+      "keywords": [
+        "utility",
+        "utilities",
+        "electric",
+        "power",
+        "transmission",
+        "distribution",
+        "substation",
+        "lineman",
+        "pipeline",
+        "gas utility",
+        "water"
+      ],
+      "standards": [
+        "29-cfr-1910-269-electric-power-generation-transmission-distribution",
+        "29-cfr-1910-331-335-electrical-safety-related-work-practices",
+        "29-cfr-1926-950-968-power-transmission-distribution-construction",
+        "29-cfr-1926-400-449-electrical-safety-construction",
+        "49-cfr-part-192-part-195-subpart-pipeline-operator-qualification-oq",
+        "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+        "29-cfr-1910-1096-ionizing-radiation",
+        "rigging-lifting-signalperson-program"
+      ]
+    },
+    "23": {
+      "label": "Construction",
+      "keywords": [
+        "construction",
+        "contractor",
+        "builder",
+        "general contractor",
+        "subcontractor",
+        "erection",
+        "excavation",
+        "concrete",
+        "masonry",
+        "roofing",
+        "demolition",
+        "scaffold"
+      ],
+      "standards": [
+        "29-cfr-1926-20-21-general-safety-and-health-provisions-accident-prevention",
+        "29-cfr-1926-subpart-m-1926-501-503-fall-protection-construction",
+        "29-cfr-1926-subpart-l-1926-451-454-scaffolding",
+        "29-cfr-1926-subpart-p-1926-651-652-excavation-and-trenching",
+        "29-cfr-1926-subpart-r-1926-750-761-steel-erection",
+        "29-cfr-1926-subpart-cc-1926-1400-1442-cranes-and-derricks-in-construction",
+        "29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction",
+        "29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power",
+        "29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction",
+        "29-cfr-1926-62-lead-in-construction",
+        "29-cfr-1926-1101-asbestos-in-construction",
+        "29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-construction",
+        "29-cfr-1926-subpart-t-1926-850-860-demolition",
+        "29-cfr-1926-95-106-personal-protective-equipment-construction",
+        "29-cfr-1926-350-354-welding-cutting-brazing-hot-work-construction",
+        "29-cfr-1926-400-449-electrical-safety-construction",
+        "29-cfr-1926-700-706-concrete-masonry-construction",
+        "29-cfr-1926-900-914-blasting-use-of-explosives-construction",
+        "29-cfr-1926-52-occupational-noise-exposure-construction",
+        "29-cfr-1926-150-155-fire-prevention-protection-program-construction",
+        "traffic-control-work-zone-flagger-safety-program",
+        "rigging-lifting-signalperson-program",
+        "dropped-objects-prevention-program",
+        "line-of-fire-body-positioning-program"
+      ]
+    },
+    "31-33": {
+      "label": "Manufacturing",
+      "keywords": [
+        "manufacturing",
+        "factory",
+        "plant",
+        "fabrication",
+        "machining",
+        "assembly",
+        "mill",
+        "refinery",
+        "chemical plant",
+        "processing",
+        "production"
+      ],
+      "standards": [
+        "29-cfr-1910-212-machine-guarding-program",
+        "29-cfr-1910-178-powered-industrial-trucks-forklift-program",
+        "29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program",
+        "29-cfr-1910-1053-respirable-crystalline-silica-general-industry",
+        "29-cfr-1910-1025-lead-general-industry",
+        "29-cfr-1910-1026-hexavalent-chromium-general-industry",
+        "29-cfr-1910-1027-cadmium-general-industry",
+        "29-cfr-1910-1048-formaldehyde",
+        "29-cfr-1910-1028-benzene",
+        "29-cfr-1910-106-flammable-liquids",
+        "29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program",
+        "29-cfr-1910-179-cranes-derricks-hoists-slings-general-industry-rigging",
+        "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+        "29-cfr-1910-252-welding-cutting-and-brazing-hot-work",
+        "combustible-dust-program",
+        "ergonomics-manual-material-handling-program",
+        "hand-finger-safety-program",
+        "29-cfr-1910-1450-laboratory-chemical-hygiene-plan"
+      ]
+    },
+    "42": {
+      "label": "Wholesale Trade / Distribution",
+      "keywords": [
+        "wholesale",
+        "distribution",
+        "distributor",
+        "warehouse",
+        "supply"
+      ],
+      "standards": [
+        "29-cfr-1910-178-powered-industrial-trucks-forklift-program",
+        "ergonomics-manual-material-handling-program",
+        "hand-finger-safety-program"
+      ]
+    },
+    "48-49": {
+      "label": "Transportation & Warehousing (incl. motor carriers, hazmat)",
+      "keywords": [
+        "trucking",
+        "transport",
+        "carrier",
+        "logistics",
+        "freight",
+        "hauling",
+        "fleet",
+        "warehouse",
+        "cmv",
+        "hazmat transport",
+        "delivery"
+      ],
+      "standards": [
+        "49-cfr-part-40-dot-drug-and-alcohol-testing-procedures",
+        "49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa",
+        "49-cfr-part-391-driver-qualification-dq-file-program",
+        "49-cfr-part-395-hours-of-service-hos-eld-fatigue",
+        "49-cfr-part-396-inspection-repair-and-maintenance-dvir",
+        "49-cfr-part-393-subpart-i-cargo-load-securement",
+        "49-cfr-part-380-subpart-f-entry-level-driver-training-eldt",
+        "49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan",
+        "29-cfr-1910-178-powered-industrial-trucks-forklift-program",
+        "ergonomics-manual-material-handling-program",
+        "fatigue-management-program"
+      ]
+    },
+    "56": {
+      "label": "Waste Management & Remediation / Environmental Services",
+      "keywords": [
+        "waste",
+        "remediation",
+        "environmental",
+        "abatement",
+        "cleanup",
+        "hazwoper",
+        "spill",
+        "decontamination",
+        "demolition abatement"
+      ],
+      "standards": [
+        "29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper",
+        "40-cfr-parts-262-265-rcra-hazardous-waste-management-contingency-plan",
+        "40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan",
+        "epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp",
+        "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+        "29-cfr-1910-1001-asbestos-general-industry"
+      ]
+    },
+    "62": {
+      "label": "Health Care & Social Assistance",
+      "keywords": [
+        "health",
+        "healthcare",
+        "medical",
+        "hospital",
+        "clinic",
+        "nursing",
+        "patient care",
+        "laboratory"
+      ],
+      "standards": [
+        "29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan",
+        "29-cfr-1910-1096-ionizing-radiation",
+        "29-cfr-1910-1450-laboratory-chemical-hygiene-plan",
+        "infectious-disease-pandemic-preparedness-program",
+        "workplace-violence-prevention-program"
+      ],
+      "gap_note": "Thin lane \u2014 general-industry crossover only; healthcare-specific ergonomics/patient-handling not yet deep in KB."
+    },
+    "81": {
+      "label": "Repair & Maintenance / Other Services",
+      "keywords": [
+        "repair",
+        "maintenance",
+        "service",
+        "mechanical",
+        "hvac",
+        "facility",
+        "janitorial",
+        "equipment service"
+      ],
+      "standards": [
+        "29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout",
+        "29-cfr-1910-331-335-electrical-safety-related-work-practices",
+        "29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+        "29-cfr-1910-252-welding-cutting-and-brazing-hot-work",
+        "29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program",
+        "hand-finger-safety-program"
+      ]
+    }
+  },
+  "state_overlays": {
+    "CA": {
+      "label": "California (Cal/OSHA)",
+      "standards": [
+        "injury-illness-prevention-program-cal-osha-iipp",
+        "heat-illness-prevention-cal-osha",
+        "workplace-violence-prevention-program"
+      ]
+    }
+  }
+}

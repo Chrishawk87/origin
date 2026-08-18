@@ -86,6 +86,108 @@ def template_body(template_id: str) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
+# ── NAICS → required-standards resolver ─────────────────────────────────────
+@functools.lru_cache(maxsize=1)
+def _naics_map() -> dict:
+    path = KB_DIR / "naics_map.json"
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _sector_for(code_or_industry: str) -> Optional[str]:
+    """Resolve a NAICS sector key from a numeric code or an industry name."""
+    m = _naics_map()
+    sectors = m.get("sectors", {})
+    raw = (code_or_industry or "").strip()
+    if not raw:
+        return None
+
+    # numeric: match the 2-digit sector prefix (handles ranges like 31-33, 48-49)
+    digits = re.sub(r"\D", "", raw)
+    if digits:
+        prefix = digits[:2]
+        if prefix in sectors:
+            return prefix
+        for key in sectors:  # ranges e.g. "31-33", "48-49"
+            if "-" in key:
+                lo, hi = key.split("-", 1)
+                if lo.isdigit() and hi.isdigit() and int(lo) <= int(prefix or 0) <= int(hi):
+                    return key
+        return None
+
+    # text: score each sector's keywords against the industry name
+    low = raw.lower()
+    best, best_score = None, 0
+    for key, sec in sectors.items():
+        score = sum(1 for kw in sec.get("keywords", []) if kw in low)
+        if score > best_score:
+            best, best_score = key, score
+    return best
+
+
+def naics_applicable(code_or_industry: str, state: Optional[str] = None) -> dict:
+    """Return the KB standards a prequal review typically requires for a client.
+
+    Unions the ``universal`` standards, the matched NAICS sector's standards,
+    and any ``state`` overlay (e.g. "CA" for Cal/OSHA IIPP + heat). Returns
+    resolved records (id/title/citation/category) plus the sector and any
+    coverage gap notes so the agent can auto-scope a client by industry.
+    """
+    m = _naics_map()
+    if not m:
+        return {"error": "naics_map.json not found", "sector": None, "standards": []}
+
+    recs = _records()
+    ids: List[str] = list(m.get("universal", []))
+    buckets = {"universal": list(m.get("universal", []))}
+
+    sector_key = _sector_for(code_or_industry)
+    sector_label = None
+    gap_note = None
+    if sector_key:
+        sec = m["sectors"][sector_key]
+        sector_label = sec.get("label")
+        gap_note = sec.get("gap_note")
+        sec_ids = sec.get("standards", [])
+        buckets["sector"] = sec_ids
+        for i in sec_ids:
+            if i not in ids:
+                ids.append(i)
+
+    state_key = (state or "").strip().upper() or None
+    if state_key and state_key in m.get("state_overlays", {}):
+        st = m["state_overlays"][state_key]
+        st_ids = st.get("standards", [])
+        buckets["state"] = st_ids
+        for i in st_ids:
+            if i not in ids:
+                ids.append(i)
+
+    standards = []
+    for i in ids:
+        r = recs.get(i)
+        if r:
+            standards.append({
+                "id": i,
+                "title": r.get("title", ""),
+                "citation": r.get("citation", ""),
+                "category": r.get("category", ""),
+                "written_program": r.get("written_program", ""),
+            })
+
+    return {
+        "input": code_or_industry,
+        "sector": sector_key,
+        "sector_label": sector_label,
+        "state": state_key,
+        "gap_note": gap_note,
+        "count": len(standards),
+        "buckets": {k: len(v) for k, v in buckets.items()},
+        "standards": standards,
+    }
+
+
 # ── text helpers ────────────────────────────────────────────────────────────
 def _strip_html(html: str) -> str:
     text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html or "")
