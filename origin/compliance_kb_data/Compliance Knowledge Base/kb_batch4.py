@@ -1,0 +1,557 @@
+"""KB Batch 4 — parity batch: maritime/shipyard, telecom, logging, grain,
+healthcare depth, deeper EPA. Safe rewrite (guarantees trailing newlines) then
+append non-duplicate records. Run from the KB dir."""
+import json, os
+
+CORPUS = "corpus.jsonl"
+
+MARITIME = "11 - Maritime & Shipyard (29 CFR 1915/1917/1918)"
+GI = "01 - General Industry (29 CFR 1910)"
+HEALTH = "12 - Healthcare Specialty"
+EPA = "06 - Environmental (EPA)"
+
+def A(isn="C", av="C", vf="C", pec="C"):
+    return {"ISN": isn, "Avetta": av, "Veriforce": vf, "PEC": pec}
+
+ENTRIES = [
+    # ── MARITIME / SHIPYARD ────────────────────────────────────────────────
+    {
+        "id": "29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person",
+        "title": "Confined and Enclosed Spaces — Shipyard (Competent Person / Marine Chemist)",
+        "category": MARITIME,
+        "citation": "29 CFR 1915 Subpart B",
+        "related_citations": ["29 CFR 1915.7", "29 CFR 1915.11-.16"],
+        "written_program": "Yes",
+        "applicability": "Shipyard employment — ship repair, shipbuilding, shipbreaking, and related work in confined or enclosed spaces aboard vessels or in landside structures.",
+        "required_elements": [
+            "Designation of a Competent Person to test and inspect confined/enclosed spaces before and during entry",
+            "Marine Chemist or Certified Industrial Hygiene certificate ('Safe for Workers'/'Safe for Hot Work') where required",
+            "Atmospheric testing for oxygen, flammable vapors (LEL), and toxic contaminants before entry and periodically",
+            "Labeling/posting of space status and controls to prevent unauthorized entry",
+            "Ventilation and continuous monitoring procedures for spaces immediately dangerous to life or health (IDLH)",
+            "Rescue and emergency procedures with equipment and trained standby personnel",
+        ],
+        "training": "Competent Person training; employee training on space hazards, testing results, PPE, and rescue. Retraining when conditions change.",
+        "recordkeeping": "Retain Competent Person test records and Marine Chemist certificates for the duration of the job/shift as required by 1915.7.",
+        "failure_points": [
+            "No designated Competent Person or Marine Chemist certificate for hot work",
+            "Atmospheric testing not repeated as conditions change",
+            "Rescue plan not space-specific or standby not equipped",
+        ],
+        "agencies": A("R", "R", "R", "R"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1915/1915SubpartB",
+        "template": "https://www.osha.gov/shipyard-employment", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment",
+        "title": "Fire Protection in Shipyard Employment",
+        "category": MARITIME,
+        "citation": "29 CFR 1915 Subpart P",
+        "related_citations": ["29 CFR 1915.501-.509"],
+        "written_program": "Yes",
+        "applicability": "All shipyard employment — establishes the fire safety program for ship repair, shipbuilding, and shipbreaking, including hot work and fire watch requirements.",
+        "required_elements": [
+            "Written Fire Safety Plan per 1915.502: responsibilities, hot work permits, fire watch, alarm/notification, evacuation, and coordination with the fire response organization",
+            "Designation of a Fire Watch and their duties during and after hot work",
+            "Hot work authorization and control by a Competent Person",
+            "Fire response organization (in-house brigade or outside department) with defined capabilities",
+            "Employee alarm and notification system and evacuation procedures",
+            "Inspection and maintenance of fire detection, alarm, and suppression equipment",
+        ],
+        "training": "Training for fire watches, hot work operators, and members of the fire response organization; annual review.",
+        "recordkeeping": "Retain the written fire safety plan, hot work permits, and fire watch/inspection records.",
+        "failure_points": [
+            "No written fire safety plan or fire response organization identified",
+            "Fire watch not posted or not maintained 30 minutes after hot work",
+            "Hot work not authorized by a Competent Person",
+        ],
+        "agencies": A("R", "R", "R", "R"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1915/1915SubpartP",
+        "template": "https://www.osha.gov/shipyard-employment/fire-safety", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "29-cfr-1915-subpart-i-personal-protective-equipment-shipyard",
+        "title": "Personal Protective Equipment — Shipyard Employment",
+        "category": MARITIME,
+        "citation": "29 CFR 1915 Subpart I",
+        "related_citations": ["29 CFR 1915.152-.160"],
+        "written_program": "Yes",
+        "applicability": "Shipyard employment where employees are exposed to hazards requiring PPE, including fall protection, respiratory protection, and personal fall arrest in shipyards.",
+        "required_elements": [
+            "Written hazard assessment certifying the PPE required for each task",
+            "Selection, provision, and maintenance of head, eye, face, foot, hand, and body protection",
+            "Personal fall arrest and positioning systems where required (1915.159/.160)",
+            "Employer-provided PPE at no cost, with fit and condition verified",
+            "Employee training on use, limitations, care, and disposal of PPE",
+        ],
+        "training": "Training so each employee knows when PPE is necessary, what type, how to don/doff, limitations, and proper care.",
+        "recordkeeping": "Retain the written PPE hazard-assessment certification and training records.",
+        "failure_points": [
+            "No written hazard assessment certification",
+            "Fall protection not provided for shipyard elevations",
+            "PPE not provided at no cost or not maintained",
+        ],
+        "agencies": A("R", "R", "R", "R"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1915/1915SubpartI",
+        "template": "https://www.osha.gov/shipyard-employment", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "29-cfr-1917-marine-terminals-safety-and-health-program",
+        "title": "Marine Terminals — Safety and Health Program",
+        "category": MARITIME,
+        "citation": "29 CFR 1917",
+        "related_citations": ["29 CFR 1917.1", "29 CFR 1917.50", "29 CFR 1917.71"],
+        "written_program": "Conditional",
+        "applicability": "Employment within marine terminals, including cargo handling and related activities at waterfront facilities (loading, unloading, movement, and storage of cargo).",
+        "required_elements": [
+            "Accident prevention program and hazard controls for terminal operations",
+            "Cargo handling gear inspection, testing, and certification program (1917.50)",
+            "Powered industrial truck and material handling equipment safety",
+            "Container and Ro-Ro operations procedures where applicable",
+            "First aid, emergency action, and injury reporting procedures",
+        ],
+        "training": "Employee training on terminal hazards, equipment operation, and emergency procedures.",
+        "recordkeeping": "Retain gear certification, equipment inspection, and injury records.",
+        "failure_points": [
+            "Cargo handling gear not certificated/tested",
+            "No accident prevention program",
+            "Untrained equipment operators",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1917",
+        "template": "https://www.osha.gov/maritime", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "29-cfr-1918-longshoring-safety-and-health-program",
+        "title": "Longshoring — Safety and Health Program",
+        "category": MARITIME,
+        "citation": "29 CFR 1918",
+        "related_citations": ["29 CFR 1918.1", "29 CFR 1918.11", "29 CFR 1918.98"],
+        "written_program": "Conditional",
+        "applicability": "Longshoring operations — loading, unloading, moving, or handling cargo aboard vessels or between vessel and shore.",
+        "required_elements": [
+            "Accident prevention and hazard control procedures aboard vessels",
+            "Gear certification and inspection for cargo handling equipment",
+            "Fall protection, access, and gangway/ladder safety",
+            "Atmospheric testing for enclosed cargo spaces and fumigated cargo",
+            "First aid, life-saving, and emergency response equipment and procedures",
+        ],
+        "training": "Qualified/designated person training for cargo gear and hazardous operations; employee hazard training.",
+        "recordkeeping": "Retain gear certification and inspection records and injury reports.",
+        "failure_points": [
+            "Cargo gear not certificated",
+            "No atmospheric testing for fumigated/enclosed cargo",
+            "Inadequate access/fall protection to vessels",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1918",
+        "template": "https://www.osha.gov/maritime", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    # ── TELECOM ────────────────────────────────────────────────────────────
+    {
+        "id": "29-cfr-1910-268-telecommunications",
+        "title": "Telecommunications",
+        "category": GI,
+        "citation": "29 CFR 1910.268",
+        "related_citations": ["29 CFR 1910.269"],
+        "written_program": "Yes",
+        "applicability": "Work on, or associated with, telecommunications lines, cables, equipment, central offices, and outside plant (aerial and underground), including installation and maintenance.",
+        "required_elements": [
+            "Employee training and qualification for the tasks and hazards (aerial, underground, central office)",
+            "Personal protective equipment and personal fall arrest / body-belt use for climbing and aerial work",
+            "Approach distances and procedures near energized power conductors",
+            "Manhole and unvented vault entry: testing, ventilation, and attendant procedures",
+            "Cable fault locating, tree trimming, and derrick/aerial-lift truck procedures",
+            "Grounding and protection against buried/aerial cable hazards",
+        ],
+        "training": "Task- and hazard-specific training; first-aid/CPR for designated employees; pole-climbing qualification.",
+        "recordkeeping": "Retain training and qualification records; equipment inspection logs.",
+        "failure_points": [
+            "No pole-climbing/aerial qualification records",
+            "Manhole entry without atmospheric testing/ventilation",
+            "Approach distances to power conductors not defined",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.268",
+        "template": "https://www.osha.gov/telecommunications", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    # ── LOGGING ────────────────────────────────────────────────────────────
+    {
+        "id": "29-cfr-1910-266-logging-operations",
+        "title": "Logging Operations",
+        "category": GI,
+        "citation": "29 CFR 1910.266",
+        "related_citations": [],
+        "written_program": "Yes",
+        "applicability": "All logging operations regardless of end use of the wood — felling, bucking, limbing, yarding, loading, and transport of trees/logs.",
+        "required_elements": [
+            "First-aid and CPR training for each employee, with first-aid kits at the worksite and each vehicle",
+            "PPE: head, eye, leg (chain-saw chaps), foot (cut-resistant), and hand protection provided at no cost",
+            "Chain saw and machine operation safe practices, inspection, and maintenance",
+            "Safe work procedures for felling, limbing, bucking, and manual/mechanical yarding",
+            "Signaling and communication among crew; safe distances (two-tree-length rule)",
+            "Danger-tree and environmental hazard evaluation before work begins",
+        ],
+        "training": "Initial and as-needed training on safe operation of each machine/tool; first-aid/CPR current; documented competency before solo work.",
+        "recordkeeping": "Retain training certifications and first-aid/CPR records.",
+        "failure_points": [
+            "No first-aid/CPR certification for each employee",
+            "Chain-saw chaps/PPE not provided",
+            "Untrained employees felling timber",
+        ],
+        "agencies": A("R", "R", "R", "R"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.266",
+        "template": "https://www.osha.gov/logging", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    # ── GRAIN ──────────────────────────────────────────────────────────────
+    {
+        "id": "29-cfr-1910-272-grain-handling-facilities",
+        "title": "Grain Handling Facilities",
+        "category": GI,
+        "citation": "29 CFR 1910.272",
+        "related_citations": ["29 CFR 1910.146", "29 CFR 1910.147"],
+        "written_program": "Yes",
+        "applicability": "Grain elevators, feed mills, flour mills, grain processing, and other facilities handling bulk raw agricultural commodities (dust-explosion and engulfment hazards).",
+        "required_elements": [
+            "Written housekeeping program addressing fugitive grain dust accumulations on floors and surfaces",
+            "Hot work permit system in grain handling areas",
+            "Preventive maintenance program for mechanical and safety-control equipment",
+            "Bin/tank/silo entry permit program (engulfment): testing, lockout of loading, body harness/lifeline, and observer",
+            "Contractor notification of known hazards (dust, engulfment, hot work)",
+            "Emergency action plan and employee alarm system",
+        ],
+        "training": "Training on grain-handling hazards, entry procedures, and emergency response before assignment and annually.",
+        "recordkeeping": "Retain entry permits, hot work permits, housekeeping schedules, and training records.",
+        "failure_points": [
+            "No written housekeeping program for dust",
+            "Bin entry without engulfment controls (harness/observer/loading lockout)",
+            "No contractor hazard notification",
+        ],
+        "agencies": A("R", "R", "R", "R"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.272",
+        "template": "https://www.osha.gov/grain-handling", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    # ── HEALTHCARE DEPTH ───────────────────────────────────────────────────
+    {
+        "id": "hazardous-drugs-safe-handling-usp-800-niosh-program",
+        "title": "Hazardous Drugs — Safe Handling Program (USP <800> / NIOSH)",
+        "category": HEALTH,
+        "citation": "USP <800> / NIOSH Alert 2016-161 (OSHA 29 CFR 1910.1200 GDC)",
+        "related_citations": ["29 CFR 1910.1200", "29 CFR 1910.1030"],
+        "written_program": "Yes",
+        "applicability": "Healthcare and pharmacy settings where employees receive, prepare, administer, or dispose of hazardous drugs (antineoplastics and other NIOSH-listed drugs).",
+        "required_elements": [
+            "Written Hazardous Drug safe-handling plan naming a responsible person and covering the NIOSH hazardous-drug list",
+            "Engineering controls: containment primary engineering controls (BSC/CACI) and containment segregated compounding area",
+            "PPE: chemo-rated gloves, gowns, eye/face and respiratory protection per activity",
+            "Safe receipt, storage, compounding, transport, administration, spill, and waste-disposal procedures",
+            "Medical surveillance and exposure-response procedures for potentially exposed staff",
+            "Environmental wipe sampling / deactivation-decontamination-cleaning procedures",
+        ],
+        "training": "Initial and ongoing competency training for all staff who handle hazardous drugs; documented before independent work.",
+        "recordkeeping": "Retain the written plan, training/competency records, medical surveillance, and spill/exposure reports.",
+        "failure_points": [
+            "No assessment of containment for the facility's hazardous-drug list",
+            "Chemo PPE not specified per activity",
+            "No spill kit or exposure-response procedure",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.cdc.gov/niosh/topics/hazdrug/",
+        "template": "https://www.cdc.gov/niosh/docs/2016-161/", "notes": "USP <800> is enforceable via state boards of pharmacy and OSHA General Duty Clause / HazCom.", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "tuberculosis-exposure-control-plan-healthcare-cdc-osha",
+        "title": "Tuberculosis (TB) Exposure Control Plan — Healthcare",
+        "category": HEALTH,
+        "citation": "CDC MMWR 2005 TB Guidelines (OSHA 29 CFR 1910.134 / GDC)",
+        "related_citations": ["29 CFR 1910.134", "29 CFR 1910.1020"],
+        "written_program": "Yes",
+        "applicability": "Healthcare settings and other facilities with reasonably anticipated occupational exposure to Mycobacterium tuberculosis (hospitals, clinics, corrections, long-term care, labs).",
+        "required_elements": [
+            "Written TB infection-control plan with a facility risk assessment and assigned responsibility",
+            "Administrative controls: early identification, isolation, and management of persons with suspected/confirmed TB",
+            "Environmental controls: airborne infection isolation rooms (negative pressure), ventilation, HEPA/UVGI where used",
+            "Respiratory protection program per 1910.134 with fit-tested N95 or higher for exposed staff",
+            "TB screening/testing and medical follow-up for employees per facility risk level",
+        ],
+        "training": "Initial and periodic TB training for staff with potential exposure; documented.",
+        "recordkeeping": "Retain the plan, risk assessment, TB screening/medical records (per 1910.1020), and fit-test records.",
+        "failure_points": [
+            "No facility TB risk assessment",
+            "No fit-tested respirators for staff entering isolation",
+            "No airborne isolation controls",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.cdc.gov/mmwr/preview/mmwrhtml/rr5417a1.htm",
+        "template": "https://www.osha.gov/tuberculosis", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "safe-patient-handling-and-mobility-program-healthcare",
+        "title": "Safe Patient Handling and Mobility (SPHM) Program",
+        "category": HEALTH,
+        "citation": "OSHA General Duty Clause 29 USC 654 / NIOSH; state SPHM statutes",
+        "related_citations": [],
+        "written_program": "Yes",
+        "applicability": "Healthcare facilities where staff manually lift, transfer, or reposition patients/residents (hospitals, nursing homes, home health, rehab).",
+        "required_elements": [
+            "Written SPHM policy with management commitment and a designated coordinator/committee",
+            "Patient handling hazard assessment and mobility/lift assessment per patient",
+            "Provision and maintenance of mechanical lift and transfer equipment matched to needs",
+            "Minimal manual-lift / no-lift procedures and algorithms",
+            "Incident reporting and post-incident review for musculoskeletal injuries",
+        ],
+        "training": "Initial and annual training on SPHM equipment and techniques; competency documented.",
+        "recordkeeping": "Retain assessments, equipment maintenance, training, and injury records.",
+        "failure_points": [
+            "No lift equipment available or maintained",
+            "Manual lifting still the default with no assessment",
+            "No injury tracking to target high-risk units",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.cdc.gov/niosh/topics/safepatient/",
+        "template": "https://www.osha.gov/healthcare/safe-patient-handling", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    # ── DEEPER EPA / ENVIRONMENTAL ─────────────────────────────────────────
+    {
+        "id": "epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372",
+        "title": "EPCRA / SARA Title III — Tier II Reporting & Toxic Release Inventory (Form R)",
+        "category": EPA,
+        "citation": "40 CFR 370 / 40 CFR 372 (EPCRA)",
+        "related_citations": ["40 CFR 355"],
+        "written_program": "Conditional",
+        "applicability": "Facilities storing hazardous chemicals above thresholds (Tier II) and manufacturers/processors/users of listed toxic chemicals above thresholds (TRI/Form R). Also EPCRA release notification.",
+        "required_elements": [
+            "Inventory of hazardous chemicals on site with SDS availability to LEPC/SERC and fire department",
+            "Annual Tier II inventory report (by March 1) to SERC, LEPC, and local fire department where thresholds are met",
+            "Toxic Release Inventory (Form R / Form A) reporting (by July 1) for listed chemicals above thresholds",
+            "Emergency Planning notification and facility coordinator designation where Extremely Hazardous Substances are present",
+            "Release notification procedures for reportable quantities",
+        ],
+        "training": "Staff assigned to environmental reporting trained on thresholds and deadlines.",
+        "recordkeeping": "Retain Tier II and Form R submissions and supporting calculations (typically 3 years for TRI).",
+        "failure_points": [
+            "Missed March 1 Tier II or July 1 Form R deadline",
+            "Thresholds not evaluated for all listed chemicals",
+            "No LEPC/fire department coordination",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.epa.gov/epcra",
+        "template": "https://www.epa.gov/epcra/emergency-planning-and-community-right-know-act-epcra-fact-sheets", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122",
+        "title": "EPA NPDES Industrial Stormwater (MSGP) — Stormwater Pollution Prevention Plan",
+        "category": EPA,
+        "citation": "40 CFR 122.26 (Multi-Sector General Permit)",
+        "related_citations": ["40 CFR 122"],
+        "written_program": "Yes",
+        "applicability": "Industrial facilities in regulated sectors with stormwater discharges associated with industrial activity (distinct from construction CGP). Covered under the EPA MSGP or an equivalent state permit.",
+        "required_elements": [
+            "Written Stormwater Pollution Prevention Plan (SWPPP) with a pollution prevention team and site description",
+            "Identification of potential pollutant sources and industrial materials exposed to stormwater",
+            "Control measures / BMPs: good housekeeping, spill prevention, erosion controls, and structural controls",
+            "Routine facility inspections and quarterly visual assessments of stormwater discharges",
+            "Benchmark and effluent monitoring per applicable sector; corrective action procedures",
+            "Employee training and annual comprehensive site compliance evaluation",
+        ],
+        "training": "Annual training for staff implementing BMPs and conducting inspections/monitoring.",
+        "recordkeeping": "Retain the SWPPP, inspection/monitoring records, and corrective actions per permit (typically retain and keep current).",
+        "failure_points": [
+            "SWPPP not site-specific or not kept current",
+            "Missed quarterly visual/benchmark monitoring",
+            "No corrective action after benchmark exceedance",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.epa.gov/npdes/stormwater-discharges-industrial-activities",
+        "template": "https://www.epa.gov/npdes/2021-msgp", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "epa-underground-storage-tanks-ust-40-cfr-280",
+        "title": "Underground Storage Tanks (UST) Program",
+        "category": EPA,
+        "citation": "40 CFR 280",
+        "related_citations": [],
+        "written_program": "Conditional",
+        "applicability": "Owners/operators of underground storage tank systems storing petroleum or hazardous substances above regulatory thresholds.",
+        "required_elements": [
+            "Release detection/leak monitoring methods for tanks and piping",
+            "Spill and overfill prevention equipment and operation",
+            "Corrosion protection and its testing/monitoring",
+            "Operator training (Class A/B/C operators) and designation",
+            "Release reporting, investigation, and corrective-action procedures",
+            "Recordkeeping of testing, monitoring, and walkthrough inspections",
+        ],
+        "training": "Class A/B/C UST operator training as required by the implementing agency.",
+        "recordkeeping": "Retain release-detection, corrosion-protection, and inspection records per 40 CFR 280 (varies 1-3 years by record).",
+        "failure_points": [
+            "No/late release detection records",
+            "Untrained UST operators",
+            "Failed corrosion protection not corrected",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.epa.gov/ust",
+        "template": "https://www.epa.gov/ust/ust-operator-training", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745",
+        "title": "Lead Renovation, Repair and Painting (RRP) Rule",
+        "category": EPA,
+        "citation": "40 CFR 745 Subpart E (TSCA)",
+        "related_citations": ["29 CFR 1926.62"],
+        "written_program": "Conditional",
+        "applicability": "Firms performing renovation, repair, or painting that disturbs lead-based paint in pre-1978 housing and child-occupied facilities (distinct from OSHA lead-in-construction exposure rules).",
+        "required_elements": [
+            "EPA (or authorized state) firm certification",
+            "Certified Renovator assigned to each job with training of non-certified workers",
+            "Lead-safe work practices: containment, dust minimization, and prohibited practices",
+            "Post-renovation cleaning and cleaning verification",
+            "Distribution of the EPA lead pamphlet and pre-renovation notification",
+            "Recordkeeping of certifications, notifications, and job documentation",
+        ],
+        "training": "Certified Renovator initial and refresher training from an EPA-accredited provider.",
+        "recordkeeping": "Retain renovation records and certifications for at least 3 years.",
+        "failure_points": [
+            "Firm or renovator not certified",
+            "No cleaning verification performed",
+            "Lead pamphlet/notification not documented",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.epa.gov/lead/renovation-repair-and-painting-program",
+        "template": "https://www.epa.gov/lead/lead-renovation-repair-and-painting-program-rules", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "epa-universal-waste-management-40-cfr-273",
+        "title": "Universal Waste Management",
+        "category": EPA,
+        "citation": "40 CFR 273",
+        "related_citations": ["40 CFR 262"],
+        "written_program": "Conditional",
+        "applicability": "Handlers of universal wastes — batteries, certain pesticides, mercury-containing equipment, lamps, and (in some states) aerosol cans.",
+        "required_elements": [
+            "Identification and proper container management/labeling of universal wastes",
+            "Accumulation time limits (generally 1 year) and demonstration of accumulation start date",
+            "Employee information/training appropriate to handler status",
+            "Response procedures for releases",
+            "Off-site shipment to a destination facility with tracking as required",
+        ],
+        "training": "Employees informed of proper handling and emergency procedures for the universal wastes on site.",
+        "recordkeeping": "Retain records demonstrating accumulation dates and shipments.",
+        "failure_points": [
+            "Universal waste over the 1-year accumulation limit",
+            "Containers not labeled/closed",
+            "No release-response procedure",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.epa.gov/hw/universal-waste",
+        "template": "https://www.epa.gov/hw/universal-waste", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "epa-used-oil-management-standards-40-cfr-279",
+        "title": "Used Oil Management Standards",
+        "category": EPA,
+        "citation": "40 CFR 279",
+        "related_citations": [],
+        "written_program": "Conditional",
+        "applicability": "Generators, collection centers, transporters, and processors/re-refiners of used oil (auto/fleet maintenance, industrial equipment, marine).",
+        "required_elements": [
+            "Used oil storage in tanks/containers in good condition, labeled 'Used Oil'",
+            "Secondary containment or spill controls for storage areas",
+            "Spill/leak response and cleanup procedures",
+            "Off-site transport by permitted transporters with EPA ID where required",
+            "No mixing of used oil with hazardous waste (rebuttable presumption)",
+        ],
+        "training": "Staff trained on used-oil labeling, storage, and spill response.",
+        "recordkeeping": "Retain shipment and management records as applicable.",
+        "failure_points": [
+            "Containers not labeled 'Used Oil'",
+            "No spill controls/secondary containment",
+            "Used oil mixed with hazardous waste",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.epa.gov/hw/managing-used-oil-answers-frequent-questions-businesses",
+        "template": "https://www.epa.gov/hw/used-oil-management-program", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "epa-risk-management-program-rmp-40-cfr-68",
+        "title": "Risk Management Program (RMP) — Clean Air Act 112(r)",
+        "category": EPA,
+        "citation": "40 CFR 68",
+        "related_citations": ["29 CFR 1910.119"],
+        "written_program": "Yes",
+        "applicability": "Facilities with more than a threshold quantity of a listed regulated (flammable or toxic) substance in a process. Complements OSHA PSM (1910.119).",
+        "required_elements": [
+            "Hazard assessment with offsite consequence analysis (worst-case and alternative scenarios) and 5-year accident history",
+            "Prevention program (aligned with PSM for Program 3): process safety information, PHA, operating procedures, training, mechanical integrity, MOC, incident investigation",
+            "Emergency response program coordinated with local responders",
+            "RMP submission to EPA and updates at least every 5 years",
+            "Management system with a qualified person accountable for implementation",
+        ],
+        "training": "Process operator and emergency-response training consistent with the program level.",
+        "recordkeeping": "Retain the RMP, PHA, compliance audits, and incident investigation records (generally 5 years).",
+        "failure_points": [
+            "RMP not resubmitted within 5 years",
+            "Offsite consequence analysis missing/outdated",
+            "Prevention program not coordinated with PSM",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.epa.gov/rmp",
+        "template": "https://www.epa.gov/rmp/guidance-facilities-risk-management-programs-rmp", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+    {
+        "id": "29-cfr-1915-87-medical-services-and-first-aid-shipyard",
+        "title": "Medical Services and First Aid — Shipyard",
+        "category": MARITIME,
+        "citation": "29 CFR 1915.87",
+        "related_citations": ["29 CFR 1915.98"],
+        "written_program": "Conditional",
+        "applicability": "Shipyard employment — ensures prompt medical attention and first-aid capability at ship repair, shipbuilding, and shipbreaking worksites.",
+        "required_elements": [
+            "Ready availability of medical personnel for advice/consultation",
+            "First-aid trained persons when no infirmary/clinic/hospital is in near proximity",
+            "First-aid supplies readily available and maintained",
+            "Eye-wash/quick-drench facilities where corrosive materials are present",
+            "Procedures for prompt transport of injured employees",
+        ],
+        "training": "First-aid/CPR training for designated employees, kept current.",
+        "recordkeeping": "Retain first-aid training certifications and injury records.",
+        "failure_points": [
+            "No first-aid trained person on remote sites",
+            "Eyewash absent where corrosives are used",
+            "First-aid supplies not maintained",
+        ],
+        "agencies": A("C", "C", "C", "C"),
+        "source": "https://www.osha.gov/laws-regs/regulations/standardnumber/1915/1915.87",
+        "template": "https://www.osha.gov/shipyard-employment", "notes": "", "formula": "", "calc_example": "", "benchmarks": "",
+    },
+]
+
+def main():
+    # load existing, dedup keys
+    existing = []
+    seen_ids, seen_titles = set(), set()
+    with open(CORPUS, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            existing.append(r)
+            seen_ids.add(r["id"]); seen_titles.add(r["title"].lower())
+
+    # safe rewrite (guarantees trailing newline on every record)
+    with open(CORPUS, "w", encoding="utf-8") as f:
+        for r in existing:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    added = 0
+    with open(CORPUS, "a", encoding="utf-8") as f:
+        for r in ENTRIES:
+            if r["id"] in seen_ids or r["title"].lower() in seen_titles:
+                print("SKIP dup:", r["id"]); continue
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            seen_ids.add(r["id"]); seen_titles.add(r["title"].lower())
+            added += 1
+    print(f"added {added} records; corpus now {len(existing)+added}")
+
+if __name__ == "__main__":
+    main()

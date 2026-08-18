@@ -280,14 +280,13 @@
       <div id="ed-body" contenteditable="true"></div>
       <div class="row" style="justify-content:space-between">
         <div style="display:flex;gap:8px">
-          <button onclick="downloadDocPdf()">Download PDF</button>
+          <button class="primary" onclick="downloadDocPdf()">⬇ Download PDF</button>
         </div>
         <div style="display:flex;gap:8px">
           <button onclick="closeEditor()">Close</button>
           <button id="ed-btn-savemaster" onclick="saveDoc()">Save master</button>
-          <button id="ed-btn-usejob" class="primary" onclick="openJobPick()">Use in customer job ▸</button>
+          <button id="ed-btn-usejob" onclick="openJobPick()">Use in customer job ▸</button>
           <button id="ed-btn-save" onclick="saveDoc()">Save</button>
-          <button id="ed-btn-send" class="primary" onclick="openSend()">Save &amp; Send ▸</button>
         </div>
       </div>
     </div>
@@ -1055,9 +1054,8 @@ function insertDocCard(path,title,html){
     '<div class="docedit" contenteditable="true"></div>'+
     '<div class="docfoot"><span class="docstatus"></span>'+
       '<button onclick="reloadWDoc()" title="Pull in edits Claude made to this document">↻ Claude\u2019s edits</button>'+
-      '<button onclick="pdfWDoc()">Download PDF</button>'+
       '<button onclick="saveWDoc()">Save</button>'+
-      '<button class="primary" onclick="openSendW()">Save &amp; Send \u25B8</button></div>';
+      '<button class="primary" onclick="pdfWDoc()">\u2b07 Download PDF</button></div>';
   card.querySelector('.dt').textContent=title;
   const body=card.querySelector('.docedit'); body.innerHTML=parts.body;
   chat.appendChild(card);
