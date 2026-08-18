@@ -86,6 +86,96 @@ def template_body(template_id: str) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
+# ── fillable written-program renderer ───────────────────────────────────────
+_PROGRAM_PLACEHOLDERS = [
+    "COMPANY_NAME", "COMPANY_ADDRESS", "PROGRAM_ADMINISTRATOR", "ADMIN_TITLE",
+    "ADMIN_PHONE", "ADMIN_EMAIL", "EFFECTIVE_DATE", "SCOPE", "LAST_REVIEW_DATE",
+    "NEXT_REVIEW_DATE", "SIGNATURE_NAME", "SIGNATURE_TITLE", "SIGNATURE_DATE",
+]
+
+
+def render_program(entry_id: str) -> Optional[str]:
+    """Return a fillable, editable written-program document for a KB standard.
+
+    Serves the pre-generated file at ``Templates/programs/program-<id>.md`` when
+    it exists; otherwise builds the same document on the fly from the record so
+    any standard (including ones added later) yields a workable template. Section
+    headings, training and recordkeeping lines come verbatim from the record, so
+    the template can never drift from the KB. Returns ``None`` if no such record.
+    """
+    static = KB_DIR / "Templates" / "programs" / f"program-{entry_id}.md"
+    if static.exists():
+        return static.read_text(encoding="utf-8")
+
+    r = get(entry_id)
+    if not r:
+        return None
+
+    cite = (r.get("citation") or "").strip()
+    elems = r.get("required_elements") or []
+    training = (r.get("training") or "").strip()
+    record = (r.get("recordkeeping") or "").strip()
+    appl = (r.get("applicability") or "").strip()
+    fails = r.get("failure_points") or []
+
+    L = [
+        f"# {r.get('title','')}",
+        "**{{COMPANY_NAME}} — Written Safety Program**  ",
+        f"Governing standard: {cite}  ",
+        "Effective date: {{EFFECTIVE_DATE}}  ",
+        "Program administrator: {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} "
+        "({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})",
+        "",
+        "## 1. Purpose and Scope",
+    ]
+    if appl:
+        L += [f"*Applicability (from the standard):* {appl}", ""]
+    L += [
+        f"This program establishes {{{{COMPANY_NAME}}}}'s procedures to comply with {cite}. "
+        "It applies to: {{SCOPE}}.",
+        "",
+        "## 2. Responsibilities",
+        "{{PROGRAM_ADMINISTRATOR}} ({{ADMIN_TITLE}}) is accountable for implementing this "
+        "program, training affected employees, keeping the records in Section 5, and reviewing "
+        "the program on the cadence in Section 6. Supervisors enforce it; employees follow it "
+        "and report hazards.",
+        "",
+        "## 3. Program Elements",
+        f"*Every element required by {cite} is addressed below. Replace each prompt with your "
+        "company-specific procedure.*",
+        "",
+    ]
+    for i, el in enumerate(elems, 1):
+        L += [f"### 3.{i}  {el}",
+              "[[Describe how {{COMPANY_NAME}} does this — the procedure, who is responsible, "
+              "what equipment/forms are used, and how it is documented.]]", ""]
+    L += ["## 4. Training"]
+    if training:
+        L += [f"*Standard requirement:* {training}", ""]
+    L += ["[[State who is trained, by whom, how often, the topics, and how training is "
+          "documented.]]", "",
+          "## 5. Recordkeeping and Retention"]
+    if record:
+        L += [f"*Standard requirement:* {record}", ""]
+    L += ["[[List the records this program generates, where they are kept, who maintains them, "
+          "and the retention period.]]", "",
+          "## 6. Program Review",
+          f"Reviewed at least annually and whenever operations, equipment, or {cite} change. "
+          "Last reviewed: {{LAST_REVIEW_DATE}}. Next review due: {{NEXT_REVIEW_DATE}}.", ""]
+    if fails:
+        L += ["## 7. Reviewer Rejection Checklist — confirm NONE apply before submitting"]
+        L += [f"- [ ] {f}" for f in fails]
+        L += [""]
+    L += ["## Management Certification",
+          "I certify that this written program is implemented at {{COMPANY_NAME}} and reviewed "
+          "on the cadence stated above.", "",
+          "Signature: ______________________________  ",
+          "Name: {{SIGNATURE_NAME}}  ",
+          "Title: {{SIGNATURE_TITLE}}  ",
+          "Date: {{SIGNATURE_DATE}}", ""]
+    return "\n".join(L)
+
+
 # ── NAICS → required-standards resolver ─────────────────────────────────────
 @functools.lru_cache(maxsize=1)
 def _naics_map() -> dict:

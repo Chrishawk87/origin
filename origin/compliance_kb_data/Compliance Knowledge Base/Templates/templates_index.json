@@ -1,7 +1,7 @@
 {
   "name": "Origin Compliance Letter & Document Templates",
-  "count": 6,
-  "note": "Placeholders use {{DOUBLE_BRACES}}. Each template's pulls_from lists the KB entry ids whose citations/fields the template must reference. Follow each template's grounding_rule.",
+  "count": 102,
+  "note": "Placeholders use {{DOUBLE_BRACES}}. Letter/cert templates (01-06) plus one fillable written-program template per KB standard (program-*). Each program-* template's section headings, training and recordkeeping lines are verbatim from its KB entry; fill the [[...]] prompts with company-specific procedure. Follow each grounding_rule.",
   "templates": [
     {
       "template_id": "01-ravs-prequalification-submittal-cover-letter",
@@ -149,6 +149,2694 @@
       ],
       "grounding_rule": "REQUIRED_ELEMENTS, TRAINING_REQ, and RECORDKEEPING_REQ must be copied verbatim from the matching KB entry's required_elements, training, and recordkeeping fields. Every element in the KB entry must appear as a section; before returning, check the draft against the entry's failure_points.",
       "file": "06-written-program-skeleton.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-38-emergency-action-plan",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Emergency Action Plan (29 CFR 1910.38). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-38-emergency-action-plan"
+      ],
+      "citation": "29 CFR 1910.38",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-38-emergency-action-plan.",
+      "file": "programs/program-29-cfr-1910-38-emergency-action-plan.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-39-fire-prevention-plan",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Fire Prevention Plan (29 CFR 1910.39). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-39-fire-prevention-plan"
+      ],
+      "citation": "29 CFR 1910.39",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-39-fire-prevention-plan.",
+      "file": "programs/program-29-cfr-1910-39-fire-prevention-plan.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Occupational Noise Exposure / Hearing Conservation Program (29 CFR 1910.95). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program"
+      ],
+      "citation": "29 CFR 1910.95",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program.",
+      "file": "programs/program-29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Process Safety Management of Highly Hazardous Chemicals (PSM) (29 CFR 1910.119). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm"
+      ],
+      "citation": "29 CFR 1910.119",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm.",
+      "file": "programs/program-29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hazardous Waste Operations and Emergency Response (HAZWOPER) (29 CFR 1910.120). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper"
+      ],
+      "citation": "29 CFR 1910.120",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper.",
+      "file": "programs/program-29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Personal Protective Equipment (PPE) \u2014 Hazard Assessment (29 CFR 1910.132). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment"
+      ],
+      "citation": "29 CFR 1910.132",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment.",
+      "file": "programs/program-29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-134-respiratory-protection-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Respiratory Protection Program (29 CFR 1910.134). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-134-respiratory-protection-program"
+      ],
+      "citation": "29 CFR 1910.134",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-134-respiratory-protection-program.",
+      "file": "programs/program-29-cfr-1910-134-respiratory-protection-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-146-permit-required-confined-spaces-general-industry",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Permit-Required Confined Spaces (General Industry) (29 CFR 1910.146). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-146-permit-required-confined-spaces-general-industry"
+      ],
+      "citation": "29 CFR 1910.146",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-146-permit-required-confined-spaces-general-industry.",
+      "file": "programs/program-29-cfr-1910-146-permit-required-confined-spaces-general-industry.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Control of Hazardous Energy (Lockout/Tagout) (29 CFR 1910.147). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout"
+      ],
+      "citation": "29 CFR 1910.147",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout.",
+      "file": "programs/program-29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-178-powered-industrial-trucks-forklift-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Powered Industrial Trucks (Forklift Program) (29 CFR 1910.178). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-178-powered-industrial-trucks-forklift-program"
+      ],
+      "citation": "29 CFR 1910.178",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-178-powered-industrial-trucks-forklift-program.",
+      "file": "programs/program-29-cfr-1910-178-powered-industrial-trucks-forklift-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-331-335-electrical-safety-related-work-practices",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Electrical Safety-Related Work Practices (29 CFR 1910.331-.335). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-331-335-electrical-safety-related-work-practices"
+      ],
+      "citation": "29 CFR 1910.331-.335",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-331-335-electrical-safety-related-work-practices.",
+      "file": "programs/program-29-cfr-1910-331-335-electrical-safety-related-work-practices.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-252-welding-cutting-and-brazing-hot-work",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Welding, Cutting, and Brazing / Hot Work (29 CFR 1910.252). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-252-welding-cutting-and-brazing-hot-work"
+      ],
+      "citation": "29 CFR 1910.252",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-252-welding-cutting-and-brazing-hot-work.",
+      "file": "programs/program-29-cfr-1910-252-welding-cutting-and-brazing-hot-work.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Bloodborne Pathogens \u2014 Exposure Control Plan (29 CFR 1910.1030). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan"
+      ],
+      "citation": "29 CFR 1910.1030",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan.",
+      "file": "programs/program-29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1200-hazard-communication-hazcom-ghs",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hazard Communication (HazCom / GHS) (29 CFR 1910.1200). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-1200-hazard-communication-hazcom-ghs"
+      ],
+      "citation": "29 CFR 1910.1200",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1200-hazard-communication-hazcom-ghs.",
+      "file": "programs/program-29-cfr-1910-1200-hazard-communication-hazcom-ghs.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1450-laboratory-chemical-hygiene-plan",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Laboratory Chemical Hygiene Plan (29 CFR 1910.1450). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-1450-laboratory-chemical-hygiene-plan"
+      ],
+      "citation": "29 CFR 1910.1450",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1450-laboratory-chemical-hygiene-plan.",
+      "file": "programs/program-29-cfr-1910-1450-laboratory-chemical-hygiene-plan.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1001-asbestos-general-industry",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Asbestos (General Industry) (29 CFR 1910.1001). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1001-asbestos-general-industry"
+      ],
+      "citation": "29 CFR 1910.1001",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1001-asbestos-general-industry.",
+      "file": "programs/program-29-cfr-1910-1001-asbestos-general-industry.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1025-lead-general-industry",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Lead (General Industry) (29 CFR 1910.1025). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1025-lead-general-industry"
+      ],
+      "citation": "29 CFR 1910.1025",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1025-lead-general-industry.",
+      "file": "programs/program-29-cfr-1910-1025-lead-general-industry.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1026-hexavalent-chromium-general-industry",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hexavalent Chromium (General Industry) (29 CFR 1910.1026). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1026-hexavalent-chromium-general-industry"
+      ],
+      "citation": "29 CFR 1910.1026",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1026-hexavalent-chromium-general-industry.",
+      "file": "programs/program-29-cfr-1910-1026-hexavalent-chromium-general-industry.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1027-cadmium-general-industry",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Cadmium (General Industry) (29 CFR 1910.1027). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1027-cadmium-general-industry"
+      ],
+      "citation": "29 CFR 1910.1027",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1027-cadmium-general-industry.",
+      "file": "programs/program-29-cfr-1910-1027-cadmium-general-industry.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1048-formaldehyde",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Formaldehyde (29 CFR 1910.1048). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1048-formaldehyde"
+      ],
+      "citation": "29 CFR 1910.1048",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1048-formaldehyde.",
+      "file": "programs/program-29-cfr-1910-1048-formaldehyde.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1028-benzene",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Benzene (29 CFR 1910.1028). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1028-benzene"
+      ],
+      "citation": "29 CFR 1910.1028",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1028-benzene.",
+      "file": "programs/program-29-cfr-1910-1028-benzene.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1053-respirable-crystalline-silica-general-industry",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Respirable Crystalline Silica (General Industry) (29 CFR 1910.1053). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1053-respirable-crystalline-silica-general-industry"
+      ],
+      "citation": "29 CFR 1910.1053",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1053-respirable-crystalline-silica-general-industry.",
+      "file": "programs/program-29-cfr-1910-1053-respirable-crystalline-silica-general-industry.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-20-21-general-safety-and-health-provisions-accident-prevention",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for General Safety and Health Provisions / Accident Prevention (29 CFR 1926.20-.21). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-20-21-general-safety-and-health-provisions-accident-prevention"
+      ],
+      "citation": "29 CFR 1926.20-.21",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-20-21-general-safety-and-health-provisions-accident-prevention.",
+      "file": "programs/program-29-cfr-1926-20-21-general-safety-and-health-provisions-accident-prevention.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-m-1926-501-503-fall-protection-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Fall Protection (Construction) (29 CFR 1926 Subpart M (1926.501-.503)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-m-1926-501-503-fall-protection-construction"
+      ],
+      "citation": "29 CFR 1926 Subpart M (1926.501-.503)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-m-1926-501-503-fall-protection-construction.",
+      "file": "programs/program-29-cfr-1926-subpart-m-1926-501-503-fall-protection-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-l-1926-451-454-scaffolding",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Scaffolding (29 CFR 1926 Subpart L (1926.451-.454)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-l-1926-451-454-scaffolding"
+      ],
+      "citation": "29 CFR 1926 Subpart L (1926.451-.454)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-l-1926-451-454-scaffolding.",
+      "file": "programs/program-29-cfr-1926-subpart-l-1926-451-454-scaffolding.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-p-1926-651-652-excavation-and-trenching",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Excavation and Trenching (29 CFR 1926 Subpart P (1926.651-.652)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-p-1926-651-652-excavation-and-trenching"
+      ],
+      "citation": "29 CFR 1926 Subpart P (1926.651-.652)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-p-1926-651-652-excavation-and-trenching.",
+      "file": "programs/program-29-cfr-1926-subpart-p-1926-651-652-excavation-and-trenching.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-r-1926-750-761-steel-erection",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Steel Erection (29 CFR 1926 Subpart R (1926.750-.761)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-r-1926-750-761-steel-erection"
+      ],
+      "citation": "29 CFR 1926 Subpart R (1926.750-.761)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-r-1926-750-761-steel-erection.",
+      "file": "programs/program-29-cfr-1926-subpart-r-1926-750-761-steel-erection.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-cc-1926-1400-1442-cranes-and-derricks-in-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Cranes and Derricks in Construction (29 CFR 1926 Subpart CC (1926.1400-.1442)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-cc-1926-1400-1442-cranes-and-derricks-in-construction"
+      ],
+      "citation": "29 CFR 1926 Subpart CC (1926.1400-.1442)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-cc-1926-1400-1442-cranes-and-derricks-in-construction.",
+      "file": "programs/program-29-cfr-1926-subpart-cc-1926-1400-1442-cranes-and-derricks-in-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Ladders (Construction) (29 CFR 1926 Subpart X (1926.1053, .1060)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction"
+      ],
+      "citation": "29 CFR 1926 Subpart X (1926.1053, .1060)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction.",
+      "file": "programs/program-29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Assured Equipment Grounding Conductor Program / GFCI (Temporary Power) (29 CFR 1926.404(b)(1)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power"
+      ],
+      "citation": "29 CFR 1926.404(b)(1)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power.",
+      "file": "programs/program-29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Respirable Crystalline Silica \u2014 Written Exposure Control Plan (Construction) (29 CFR 1926.1153). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction"
+      ],
+      "citation": "29 CFR 1926.1153",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction.",
+      "file": "programs/program-29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-62-lead-in-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Lead in Construction (29 CFR 1926.62). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-62-lead-in-construction"
+      ],
+      "citation": "29 CFR 1926.62",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-62-lead-in-construction.",
+      "file": "programs/program-29-cfr-1926-62-lead-in-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-1101-asbestos-in-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Asbestos in Construction (29 CFR 1926.1101). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-1101-asbestos-in-construction"
+      ],
+      "citation": "29 CFR 1926.1101",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-1101-asbestos-in-construction.",
+      "file": "programs/program-29-cfr-1926-1101-asbestos-in-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Confined Spaces in Construction (29 CFR 1926 Subpart AA (1926.1200-.1213)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-construction"
+      ],
+      "citation": "29 CFR 1926 Subpart AA (1926.1200-.1213)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-construction.",
+      "file": "programs/program-29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-subpart-t-1926-850-860-demolition",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Demolition (29 CFR 1926 Subpart T (1926.850-.860)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-subpart-t-1926-850-860-demolition"
+      ],
+      "citation": "29 CFR 1926 Subpart T (1926.850-.860)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-subpart-t-1926-850-860-demolition.",
+      "file": "programs/program-29-cfr-1926-subpart-t-1926-850-860-demolition.md"
+    },
+    {
+      "template_id": "program-ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hydrogen Sulfide (H2S) Program (ANSI/ASSP Z390.1-2017). Applies when written_program=yes.",
+      "pulls_from": [
+        "ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program"
+      ],
+      "citation": "ANSI/ASSP Z390.1-2017",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program.",
+      "file": "programs/program-ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program.md"
+    },
+    {
+      "template_id": "program-osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Simultaneous Operations (SIMOPS) (OSHA PSM 29 CFR 1910.119 (Hot Work/MOC/PHA)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops"
+      ],
+      "citation": "OSHA PSM 29 CFR 1910.119 (Hot Work/MOC/PHA)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops.",
+      "file": "programs/program-osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops.md"
+    },
+    {
+      "template_id": "program-api-rp-75-30-cfr-250-subpart-s-safety-and-environmental-management-system-sems",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Safety and Environmental Management System (SEMS) (API RP 75 / 30 CFR 250 Subpart S). Applies when written_program=conditional.",
+      "pulls_from": [
+        "api-rp-75-30-cfr-250-subpart-s-safety-and-environmental-management-system-sems"
+      ],
+      "citation": "API RP 75 / 30 CFR 250 Subpart S",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry api-rp-75-30-cfr-250-subpart-s-safety-and-environmental-management-system-sems.",
+      "file": "programs/program-api-rp-75-30-cfr-250-subpart-s-safety-and-environmental-management-system-sems.md"
+    },
+    {
+      "template_id": "program-client-driven-isn-operator-requirement-short-service-employee-sse-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Short Service Employee (SSE) Program (Client-driven (ISN / operator requirement)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "client-driven-isn-operator-requirement-short-service-employee-sse-program"
+      ],
+      "citation": "Client-driven (ISN / operator requirement)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry client-driven-isn-operator-requirement-short-service-employee-sse-program.",
+      "file": "programs/program-client-driven-isn-operator-requirement-short-service-employee-sse-program.md"
+    },
+    {
+      "template_id": "program-client-driven-api-rp-75-principle-stop-work-authority-swa",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Stop Work Authority (SWA) (Client-driven (API RP 75 principle)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "client-driven-api-rp-75-principle-stop-work-authority-swa"
+      ],
+      "citation": "Client-driven (API RP 75 principle)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry client-driven-api-rp-75-principle-stop-work-authority-swa.",
+      "file": "programs/program-client-driven-api-rp-75-principle-stop-work-authority-swa.md"
+    },
+    {
+      "template_id": "program-client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Journey Management / Driving Safety (Oilfield) (Client requirement / API RP 755 (fatigue)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield"
+      ],
+      "citation": "Client requirement / API RP 755 (fatigue)",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield.",
+      "file": "programs/program-client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield.md"
+    },
+    {
+      "template_id": "program-api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Well Control / Well Servicing Safety (API RP 54 / 29 CFR 1910.269 / BSEE). Applies when written_program=conditional.",
+      "pulls_from": [
+        "api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety"
+      ],
+      "citation": "API RP 54 / 29 CFR 1910.269 / BSEE",
+      "category": "03 - Oil & Gas and Energy Specialty",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety.",
+      "file": "programs/program-api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Controlled Substances and Alcohol Use and Testing (FMCSA) (49 CFR Part 382). Applies when written_program=yes.",
+      "pulls_from": [
+        "49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa"
+      ],
+      "citation": "49 CFR Part 382",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa.",
+      "file": "programs/program-49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-391-driver-qualification-dq-file-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Driver Qualification (DQ File Program) (49 CFR Part 391). Applies when written_program=yes.",
+      "pulls_from": [
+        "49-cfr-part-391-driver-qualification-dq-file-program"
+      ],
+      "citation": "49 CFR Part 391",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-391-driver-qualification-dq-file-program.",
+      "file": "programs/program-49-cfr-part-391-driver-qualification-dq-file-program.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-395-hours-of-service-hos-eld-fatigue",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hours of Service (HOS) / ELD & Fatigue (49 CFR Part 395). Applies when written_program=yes.",
+      "pulls_from": [
+        "49-cfr-part-395-hours-of-service-hos-eld-fatigue"
+      ],
+      "citation": "49 CFR Part 395",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-395-hours-of-service-hos-eld-fatigue.",
+      "file": "programs/program-49-cfr-part-395-hours-of-service-hos-eld-fatigue.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-396-inspection-repair-and-maintenance-dvir",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Inspection, Repair, and Maintenance (DVIR) (49 CFR Part 396). Applies when written_program=yes.",
+      "pulls_from": [
+        "49-cfr-part-396-inspection-repair-and-maintenance-dvir"
+      ],
+      "citation": "49 CFR Part 396",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-396-inspection-repair-and-maintenance-dvir.",
+      "file": "programs/program-49-cfr-part-396-inspection-repair-and-maintenance-dvir.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-393-subpart-i-cargo-load-securement",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Cargo / Load Securement (49 CFR Part 393 Subpart I). Applies when written_program=conditional.",
+      "pulls_from": [
+        "49-cfr-part-393-subpart-i-cargo-load-securement"
+      ],
+      "citation": "49 CFR Part 393 Subpart I",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-393-subpart-i-cargo-load-securement.",
+      "file": "programs/program-49-cfr-part-393-subpart-i-cargo-load-securement.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-380-subpart-f-entry-level-driver-training-eldt",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Entry-Level Driver Training (ELDT) (49 CFR Part 380 Subpart F). Applies when written_program=conditional.",
+      "pulls_from": [
+        "49-cfr-part-380-subpart-f-entry-level-driver-training-eldt"
+      ],
+      "citation": "49 CFR Part 380 Subpart F",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-380-subpart-f-entry-level-driver-training-eldt.",
+      "file": "programs/program-49-cfr-part-380-subpart-f-entry-level-driver-training-eldt.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hazardous Materials Transportation Security Plan (49 CFR Part 172 Subpart I (172.800-.804)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan"
+      ],
+      "citation": "49 CFR Part 172 Subpart I (172.800-.804)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan.",
+      "file": "programs/program-49-cfr-part-172-subpart-i-172-800-804-hazardous-materials-transportation-security-plan.md"
+    },
+    {
+      "template_id": "program-49-cfr-part-192-part-195-subpart-pipeline-operator-qualification-oq",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Pipeline Operator Qualification (OQ) (49 CFR Part 192 / Part 195 Subpart). Applies when written_program=conditional.",
+      "pulls_from": [
+        "49-cfr-part-192-part-195-subpart-pipeline-operator-qualification-oq"
+      ],
+      "citation": "49 CFR Part 192 / Part 195 Subpart",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 49-cfr-part-192-part-195-subpart-pipeline-operator-qualification-oq.",
+      "file": "programs/program-49-cfr-part-192-part-195-subpart-pipeline-operator-qualification-oq.md"
+    },
+    {
+      "template_id": "program-40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Spill Prevention, Control, and Countermeasure (SPCC) Plan (40 CFR Part 112). Applies when written_program=conditional.",
+      "pulls_from": [
+        "40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan"
+      ],
+      "citation": "40 CFR Part 112",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan.",
+      "file": "programs/program-40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan.md"
+    },
+    {
+      "template_id": "program-epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Stormwater Pollution Prevention Plan (SWPPP) (EPA NPDES Construction General Permit / 40 CFR 122). Applies when written_program=conditional.",
+      "pulls_from": [
+        "epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp"
+      ],
+      "citation": "EPA NPDES Construction General Permit / 40 CFR 122",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp.",
+      "file": "programs/program-epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp.md"
+    },
+    {
+      "template_id": "program-40-cfr-parts-262-265-rcra-hazardous-waste-management-contingency-plan",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for RCRA Hazardous Waste Management / Contingency Plan (40 CFR Parts 262 / 265). Applies when written_program=conditional.",
+      "pulls_from": [
+        "40-cfr-parts-262-265-rcra-hazardous-waste-management-contingency-plan"
+      ],
+      "citation": "40 CFR Parts 262 / 265",
+      "category": "06 - Environmental (EPA)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 40-cfr-parts-262-265-rcra-hazardous-waste-management-contingency-plan.",
+      "file": "programs/program-40-cfr-parts-262-265-rcra-hazardous-waste-management-contingency-plan.md"
+    },
+    {
+      "template_id": "program-29-cfr-1904-incident-investigation-reporting-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Incident Investigation & Reporting Program (29 CFR 1904 + 29 CFR 1960.29 (RAVS-required written program)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1904-incident-investigation-reporting-program"
+      ],
+      "citation": "29 CFR 1904 + 29 CFR 1960.29 (RAVS-required written program)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1904-incident-investigation-reporting-program.",
+      "file": "programs/program-29-cfr-1904-incident-investigation-reporting-program.md"
+    },
+    {
+      "template_id": "program-ravs-required-written-program-disciplinary-enforcement-policy",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Disciplinary & Enforcement Policy (RAVS-required written program (OSHA General Duty Clause, 29 USC 654(a)(1))). Applies when written_program=yes.",
+      "pulls_from": [
+        "ravs-required-written-program-disciplinary-enforcement-policy"
+      ],
+      "citation": "RAVS-required written program (OSHA General Duty Clause, 29 USC 654(a)(1))",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry ravs-required-written-program-disciplinary-enforcement-policy.",
+      "file": "programs/program-ravs-required-written-program-disciplinary-enforcement-policy.md"
+    },
+    {
+      "template_id": "program-ravs-required-written-program-substance-abuse-drug-alcohol-program-non-dot",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Substance Abuse \u2014 Drug & Alcohol Program (non-DOT) (RAVS-required written program (client-driven; distinct from 49 CFR Part 40 DOT testing)). Applies when written_program=yes.",
+      "pulls_from": [
+        "ravs-required-written-program-substance-abuse-drug-alcohol-program-non-dot"
+      ],
+      "citation": "RAVS-required written program (client-driven; distinct from 49 CFR Part 40 DOT testing)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry ravs-required-written-program-substance-abuse-drug-alcohol-program-non-dot.",
+      "file": "programs/program-ravs-required-written-program-substance-abuse-drug-alcohol-program-non-dot.md"
+    },
+    {
+      "template_id": "program-ravs-required-written-program-behavior-based-safety-safety-observation-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Behavior-Based Safety / Safety Observation Program (RAVS-required written program (client-driven safety-culture element)). Applies when written_program=yes.",
+      "pulls_from": [
+        "ravs-required-written-program-behavior-based-safety-safety-observation-program"
+      ],
+      "citation": "RAVS-required written program (client-driven safety-culture element)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry ravs-required-written-program-behavior-based-safety-safety-observation-program.",
+      "file": "programs/program-ravs-required-written-program-behavior-based-safety-safety-observation-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-119-management-of-change-moc-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Management of Change (MOC) Program (29 CFR 1910.119(l) + RAVS-required written program). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-119-management-of-change-moc-program"
+      ],
+      "citation": "29 CFR 1910.119(l) + RAVS-required written program",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-119-management-of-change-moc-program.",
+      "file": "programs/program-29-cfr-1910-119-management-of-change-moc-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-119-contractor-subcontractor-safety-management-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Contractor / Subcontractor Safety Management Program (29 CFR 1910.119(h) + RAVS-required written program). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-119-contractor-subcontractor-safety-management-program"
+      ],
+      "citation": "29 CFR 1910.119(h) + RAVS-required written program",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-119-contractor-subcontractor-safety-management-program.",
+      "file": "programs/program-29-cfr-1910-119-contractor-subcontractor-safety-management-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-subpart-wide-training-duties-new-employee-safety-orientation-training-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for New Employee Safety Orientation & Training Program (29 CFR 1910 Subpart-wide training duties + RAVS-required written program). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-subpart-wide-training-duties-new-employee-safety-orientation-training-program"
+      ],
+      "citation": "29 CFR 1910 Subpart-wide training duties + RAVS-required written program",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-subpart-wide-training-duties-new-employee-safety-orientation-training-program.",
+      "file": "programs/program-29-cfr-1910-subpart-wide-training-duties-new-employee-safety-orientation-training-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-132-job-safety-analysis-jsa-jha-hazard-identification-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Job Safety Analysis (JSA/JHA) & Hazard Identification Program (29 CFR 1910.132(d) (hazard assessment) + RAVS-required written program). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-132-job-safety-analysis-jsa-jha-hazard-identification-program"
+      ],
+      "citation": "29 CFR 1910.132(d) (hazard assessment) + RAVS-required written program",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-132-job-safety-analysis-jsa-jha-hazard-identification-program.",
+      "file": "programs/program-29-cfr-1910-132-job-safety-analysis-jsa-jha-hazard-identification-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-242-29-cfr-1926-300-307-hand-portable-power-tools-safety-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hand & Portable Power Tools Safety Program (29 CFR 1910.242 / 29 CFR 1926.300-.307). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-242-29-cfr-1926-300-307-hand-portable-power-tools-safety-program"
+      ],
+      "citation": "29 CFR 1910.242 / 29 CFR 1926.300-.307",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-242-29-cfr-1926-300-307-hand-portable-power-tools-safety-program.",
+      "file": "programs/program-29-cfr-1910-242-29-cfr-1926-300-307-hand-portable-power-tools-safety-program.md"
+    },
+    {
+      "template_id": "program-osha-general-duty-clause-29-usc-654-heat-illness-prevention-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Heat Illness Prevention Program (OSHA General Duty Clause 29 USC 654(a)(1) + OSHA Heat NEP (client-required written program)). Applies when written_program=yes.",
+      "pulls_from": [
+        "osha-general-duty-clause-29-usc-654-heat-illness-prevention-program"
+      ],
+      "citation": "OSHA General Duty Clause 29 USC 654(a)(1) + OSHA Heat NEP (client-required written program)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry osha-general-duty-clause-29-usc-654-heat-illness-prevention-program.",
+      "file": "programs/program-osha-general-duty-clause-29-usc-654-heat-illness-prevention-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-150-155-fire-prevention-protection-program-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Fire Prevention & Protection Program (Construction) (29 CFR 1926.150-.155 (Subpart F)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-150-155-fire-prevention-protection-program-construction"
+      ],
+      "citation": "29 CFR 1926.150-.155 (Subpart F)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-150-155-fire-prevention-protection-program-construction.",
+      "file": "programs/program-29-cfr-1926-150-155-fire-prevention-protection-program-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-212-machine-guarding-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Machine Guarding Program (29 CFR 1910.212 (+ 1910.219 mechanical power-transmission)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-212-machine-guarding-program"
+      ],
+      "citation": "29 CFR 1910.212 (+ 1910.219 mechanical power-transmission)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-212-machine-guarding-program.",
+      "file": "programs/program-29-cfr-1910-212-machine-guarding-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Compressed Gas Cylinder Safety Program (29 CFR 1910.101 / 29 CFR 1926.350). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program"
+      ],
+      "citation": "29 CFR 1910.101 / 29 CFR 1926.350",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program.",
+      "file": "programs/program-29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program.md"
+    },
+    {
+      "template_id": "program-ravs-required-written-program-motor-vehicle-fleet-safety-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Motor Vehicle / Fleet Safety Program (RAVS-required written program (OSHA General Duty Clause; NHTSA/FMCSA where applicable)). Applies when written_program=yes.",
+      "pulls_from": [
+        "ravs-required-written-program-motor-vehicle-fleet-safety-program"
+      ],
+      "citation": "RAVS-required written program (OSHA General Duty Clause; NHTSA/FMCSA where applicable)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry ravs-required-written-program-motor-vehicle-fleet-safety-program.",
+      "file": "programs/program-ravs-required-written-program-motor-vehicle-fleet-safety-program.md"
+    },
+    {
+      "template_id": "program-ravs-required-written-program-fitness-for-duty-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Fitness for Duty Program (RAVS-required written program (client-driven)). Applies when written_program=yes.",
+      "pulls_from": [
+        "ravs-required-written-program-fitness-for-duty-program"
+      ],
+      "citation": "RAVS-required written program (client-driven)",
+      "category": "09 - Management Systems & Prequal Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry ravs-required-written-program-fitness-for-duty-program.",
+      "file": "programs/program-ravs-required-written-program-fitness-for-duty-program.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-22-30-walking-working-surfaces-fall-protection-general-industry",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Walking-Working Surfaces & Fall Protection (General Industry) (29 CFR 1910.22-.30). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-22-30-walking-working-surfaces-fall-protection-general-industry"
+      ],
+      "citation": "29 CFR 1910.22-.30",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-22-30-walking-working-surfaces-fall-protection-general-industry.",
+      "file": "programs/program-29-cfr-1910-22-30-walking-working-surfaces-fall-protection-general-industry.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-157-portable-fire-extinguishers",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Portable Fire Extinguishers (29 CFR 1910.157). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-157-portable-fire-extinguishers"
+      ],
+      "citation": "29 CFR 1910.157",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-157-portable-fire-extinguishers.",
+      "file": "programs/program-29-cfr-1910-157-portable-fire-extinguishers.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-151-medical-services-first-aid",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Medical Services & First Aid (29 CFR 1910.151). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-151-medical-services-first-aid"
+      ],
+      "citation": "29 CFR 1910.151",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-151-medical-services-first-aid.",
+      "file": "programs/program-29-cfr-1910-151-medical-services-first-aid.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-269-electric-power-generation-transmission-distribution",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Electric Power Generation, Transmission & Distribution (29 CFR 1910.269). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1910-269-electric-power-generation-transmission-distribution"
+      ],
+      "citation": "29 CFR 1910.269",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-269-electric-power-generation-transmission-distribution.",
+      "file": "programs/program-29-cfr-1910-269-electric-power-generation-transmission-distribution.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-179-cranes-derricks-hoists-slings-general-industry-rigging",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Cranes, Derricks, Hoists & Slings (General Industry Rigging) (29 CFR 1910.179/.180/.184). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-179-cranes-derricks-hoists-slings-general-industry-rigging"
+      ],
+      "citation": "29 CFR 1910.179/.180/.184",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-179-cranes-derricks-hoists-slings-general-industry-rigging.",
+      "file": "programs/program-29-cfr-1910-179-cranes-derricks-hoists-slings-general-industry-rigging.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-106-flammable-liquids",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Flammable Liquids (29 CFR 1910.106). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-106-flammable-liquids"
+      ],
+      "citation": "29 CFR 1910.106",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-106-flammable-liquids.",
+      "file": "programs/program-29-cfr-1910-106-flammable-liquids.md"
+    },
+    {
+      "template_id": "program-29-cfr-1910-1096-ionizing-radiation",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Ionizing Radiation (29 CFR 1910.1096). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1910-1096-ionizing-radiation"
+      ],
+      "citation": "29 CFR 1910.1096",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1910-1096-ionizing-radiation.",
+      "file": "programs/program-29-cfr-1910-1096-ionizing-radiation.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-95-106-personal-protective-equipment-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Personal Protective Equipment (Construction) (29 CFR 1926.95-.106 (Subpart E)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-95-106-personal-protective-equipment-construction"
+      ],
+      "citation": "29 CFR 1926.95-.106 (Subpart E)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-95-106-personal-protective-equipment-construction.",
+      "file": "programs/program-29-cfr-1926-95-106-personal-protective-equipment-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-350-354-welding-cutting-brazing-hot-work-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Welding, Cutting & Brazing / Hot Work (Construction) (29 CFR 1926.350-.354 (Subpart J)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-350-354-welding-cutting-brazing-hot-work-construction"
+      ],
+      "citation": "29 CFR 1926.350-.354 (Subpart J)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-350-354-welding-cutting-brazing-hot-work-construction.",
+      "file": "programs/program-29-cfr-1926-350-354-welding-cutting-brazing-hot-work-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-400-449-electrical-safety-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Electrical Safety (Construction) (29 CFR 1926.400-.449 (Subpart K)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-400-449-electrical-safety-construction"
+      ],
+      "citation": "29 CFR 1926.400-.449 (Subpart K)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-400-449-electrical-safety-construction.",
+      "file": "programs/program-29-cfr-1926-400-449-electrical-safety-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-700-706-concrete-masonry-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Concrete & Masonry Construction (29 CFR 1926.700-.706 (Subpart Q)). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-700-706-concrete-masonry-construction"
+      ],
+      "citation": "29 CFR 1926.700-.706 (Subpart Q)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-700-706-concrete-masonry-construction.",
+      "file": "programs/program-29-cfr-1926-700-706-concrete-masonry-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-900-914-blasting-use-of-explosives-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Blasting & Use of Explosives (Construction) (29 CFR 1926.900-.914 (Subpart U)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-900-914-blasting-use-of-explosives-construction"
+      ],
+      "citation": "29 CFR 1926.900-.914 (Subpart U)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-900-914-blasting-use-of-explosives-construction.",
+      "file": "programs/program-29-cfr-1926-900-914-blasting-use-of-explosives-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-950-968-power-transmission-distribution-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Power Transmission & Distribution (Construction) (29 CFR 1926.950-.968 (Subpart V)). Applies when written_program=yes.",
+      "pulls_from": [
+        "29-cfr-1926-950-968-power-transmission-distribution-construction"
+      ],
+      "citation": "29 CFR 1926.950-.968 (Subpart V)",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-950-968-power-transmission-distribution-construction.",
+      "file": "programs/program-29-cfr-1926-950-968-power-transmission-distribution-construction.md"
+    },
+    {
+      "template_id": "program-29-cfr-1926-52-occupational-noise-exposure-construction",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Occupational Noise Exposure (Construction) (29 CFR 1926.52 / 1926.101). Applies when written_program=conditional.",
+      "pulls_from": [
+        "29-cfr-1926-52-occupational-noise-exposure-construction"
+      ],
+      "citation": "29 CFR 1926.52 / 1926.101",
+      "category": "02 - Construction (29 CFR 1926)",
+      "written_program": "conditional",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1926-52-occupational-noise-exposure-construction.",
+      "file": "programs/program-29-cfr-1926-52-occupational-noise-exposure-construction.md"
+    },
+    {
+      "template_id": "program-dropped-objects-prevention-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Dropped Objects Prevention Program (Client-required (OSHA General Duty Clause 29 USC 654(a)(1); ANSI/ISEA 121)). Applies when written_program=yes.",
+      "pulls_from": [
+        "dropped-objects-prevention-program"
+      ],
+      "citation": "Client-required (OSHA General Duty Clause 29 USC 654(a)(1); ANSI/ISEA 121)",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry dropped-objects-prevention-program.",
+      "file": "programs/program-dropped-objects-prevention-program.md"
+    },
+    {
+      "template_id": "program-line-of-fire-body-positioning-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Line of Fire / Body Positioning Program (Client-required (OSHA General Duty Clause 29 USC 654(a)(1))). Applies when written_program=yes.",
+      "pulls_from": [
+        "line-of-fire-body-positioning-program"
+      ],
+      "citation": "Client-required (OSHA General Duty Clause 29 USC 654(a)(1))",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry line-of-fire-body-positioning-program.",
+      "file": "programs/program-line-of-fire-body-positioning-program.md"
+    },
+    {
+      "template_id": "program-hand-finger-safety-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Hand & Finger Safety Program (Client-required (OSHA General Duty Clause; 29 CFR 1910.138 hand protection)). Applies when written_program=yes.",
+      "pulls_from": [
+        "hand-finger-safety-program"
+      ],
+      "citation": "Client-required (OSHA General Duty Clause; 29 CFR 1910.138 hand protection)",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry hand-finger-safety-program.",
+      "file": "programs/program-hand-finger-safety-program.md"
+    },
+    {
+      "template_id": "program-ergonomics-manual-material-handling-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Ergonomics / Manual Material Handling Program (Client-required (OSHA General Duty Clause 29 USC 654(a)(1); NIOSH lifting guidance)). Applies when written_program=yes.",
+      "pulls_from": [
+        "ergonomics-manual-material-handling-program"
+      ],
+      "citation": "Client-required (OSHA General Duty Clause 29 USC 654(a)(1); NIOSH lifting guidance)",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry ergonomics-manual-material-handling-program.",
+      "file": "programs/program-ergonomics-manual-material-handling-program.md"
+    },
+    {
+      "template_id": "program-infectious-disease-pandemic-preparedness-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Infectious Disease / Pandemic Preparedness Program (Client-required (OSHA General Duty Clause; CDC/OSHA guidance; 29 CFR 1910.1030 where blood/OPIM)). Applies when written_program=yes.",
+      "pulls_from": [
+        "infectious-disease-pandemic-preparedness-program"
+      ],
+      "citation": "Client-required (OSHA General Duty Clause; CDC/OSHA guidance; 29 CFR 1910.1030 where blood/OPIM)",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry infectious-disease-pandemic-preparedness-program.",
+      "file": "programs/program-infectious-disease-pandemic-preparedness-program.md"
+    },
+    {
+      "template_id": "program-injury-illness-prevention-program-cal-osha-iipp",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Injury & Illness Prevention Program (Cal/OSHA IIPP) (8 CCR 3203 (California Code of Regulations, Title 8) \u2014 MANDATORY in California). Applies when written_program=yes.",
+      "pulls_from": [
+        "injury-illness-prevention-program-cal-osha-iipp"
+      ],
+      "citation": "8 CCR 3203 (California Code of Regulations, Title 8) \u2014 MANDATORY in California",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry injury-illness-prevention-program-cal-osha-iipp.",
+      "file": "programs/program-injury-illness-prevention-program-cal-osha-iipp.md"
+    },
+    {
+      "template_id": "program-heat-illness-prevention-cal-osha",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Heat Illness Prevention (Cal/OSHA) (8 CCR 3395 (outdoor) / 8 CCR 3396 (indoor) \u2014 California-specific). Applies when written_program=yes.",
+      "pulls_from": [
+        "heat-illness-prevention-cal-osha"
+      ],
+      "citation": "8 CCR 3395 (outdoor) / 8 CCR 3396 (indoor) \u2014 California-specific",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry heat-illness-prevention-cal-osha.",
+      "file": "programs/program-heat-illness-prevention-cal-osha.md"
+    },
+    {
+      "template_id": "program-workplace-violence-prevention-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Workplace Violence Prevention Program (CA SB 553 / Labor Code 6401.9 (general industry) & 8 CCR 3342 (healthcare); OSHA General Duty Clause elsewhere). Applies when written_program=yes.",
+      "pulls_from": [
+        "workplace-violence-prevention-program"
+      ],
+      "citation": "CA SB 553 / Labor Code 6401.9 (general industry) & 8 CCR 3342 (healthcare); OSHA General Duty Clause elsewhere",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry workplace-violence-prevention-program.",
+      "file": "programs/program-workplace-violence-prevention-program.md"
+    },
+    {
+      "template_id": "program-fatigue-management-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Fatigue Management Program (Client-required (OSHA General Duty Clause; API RP 755 for refining/petrochemical)). Applies when written_program=yes.",
+      "pulls_from": [
+        "fatigue-management-program"
+      ],
+      "citation": "Client-required (OSHA General Duty Clause; API RP 755 for refining/petrochemical)",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry fatigue-management-program.",
+      "file": "programs/program-fatigue-management-program.md"
+    },
+    {
+      "template_id": "program-cold-stress-cold-weather-work-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Cold Stress / Cold Weather Work Program (Client-required (OSHA General Duty Clause 29 USC 654(a)(1); NIOSH cold-stress guidance)). Applies when written_program=yes.",
+      "pulls_from": [
+        "cold-stress-cold-weather-work-program"
+      ],
+      "citation": "Client-required (OSHA General Duty Clause 29 USC 654(a)(1); NIOSH cold-stress guidance)",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry cold-stress-cold-weather-work-program.",
+      "file": "programs/program-cold-stress-cold-weather-work-program.md"
+    },
+    {
+      "template_id": "program-combustible-dust-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Combustible Dust Program (OSHA Combustible Dust NEP (CPL 03-00-008) + NFPA 652/654; 29 CFR 1910.22/.307/.1200). Applies when written_program=yes.",
+      "pulls_from": [
+        "combustible-dust-program"
+      ],
+      "citation": "OSHA Combustible Dust NEP (CPL 03-00-008) + NFPA 652/654; 29 CFR 1910.22/.307/.1200",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry combustible-dust-program.",
+      "file": "programs/program-combustible-dust-program.md"
+    },
+    {
+      "template_id": "program-traffic-control-work-zone-flagger-safety-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Traffic Control / Work Zone & Flagger Safety Program (29 CFR 1926.200-.203 (Subpart G) + MUTCD Part 6). Applies when written_program=yes.",
+      "pulls_from": [
+        "traffic-control-work-zone-flagger-safety-program"
+      ],
+      "citation": "29 CFR 1926.200-.203 (Subpart G) + MUTCD Part 6",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry traffic-control-work-zone-flagger-safety-program.",
+      "file": "programs/program-traffic-control-work-zone-flagger-safety-program.md"
+    },
+    {
+      "template_id": "program-rigging-lifting-signalperson-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Rigging, Lifting & Signalperson Program (29 CFR 1926.1400-.1442 (Subpart CC) / 29 CFR 1926.251). Applies when written_program=yes.",
+      "pulls_from": [
+        "rigging-lifting-signalperson-program"
+      ],
+      "citation": "29 CFR 1926.1400-.1442 (Subpart CC) / 29 CFR 1926.251",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry rigging-lifting-signalperson-program.",
+      "file": "programs/program-rigging-lifting-signalperson-program.md"
+    },
+    {
+      "template_id": "program-housekeeping-material-storage-program",
+      "type": "written_program",
+      "purpose": "Fillable written safety program for Housekeeping & Material Storage Program (29 CFR 1910.22 / 29 CFR 1926.25 + Client-required). Applies when written_program=yes.",
+      "pulls_from": [
+        "housekeeping-material-storage-program"
+      ],
+      "citation": "29 CFR 1910.22 / 29 CFR 1926.25 + Client-required",
+      "category": "10 - Client-Required & State-Specific Programs",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry housekeeping-material-storage-program.",
+      "file": "programs/program-housekeeping-material-storage-program.md"
     }
   ]
 }

@@ -115,9 +115,9 @@ KNOWN_ROLE_TOOLS = {
     # draft from its required_elements, then run the checklist BEFORE anything
     # is finalized. Research/web catch current agency changes; remember keeps
     # each client's specifics across sessions.
-    "compliance_officer": ["compliance_profile", "compliance_lookup", "compliance_check",
-                           "read_file", "write_file", "research", "web_search",
-                           "browse", "remember", "consult", "collaborate"],
+    "compliance_officer": ["compliance_profile", "compliance_lookup", "compliance_template",
+                           "compliance_check", "read_file", "write_file", "research",
+                           "web_search", "browse", "remember", "consult", "collaborate"],
 }
 
 # What an on-demand domain expert should reach for by default.

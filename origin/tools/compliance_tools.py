@@ -107,6 +107,25 @@ def build_compliance_tools() -> List[Tool]:
                 lines.append(f"  - {s['title']}{cite}  (id: {s['id']})")
         return "\n".join(head + lines)
 
+    def compliance_template(args: Dict[str, Any]) -> str:
+        entry_id = (args.get("entry_id") or args.get("id") or args.get("standard") or "").strip()
+        query = (args.get("query") or "").strip()
+        if not entry_id and query:
+            rec = kb.by_citation(query)
+            if not rec:
+                hits = kb.search(query, limit=1)
+                rec = hits[0] if hits else None
+            if rec:
+                entry_id = rec["id"]
+        if not entry_id:
+            return ("ERROR: provide 'entry_id' (a KB standard id) or 'query' (a topic/citation) "
+                    "so I know which written program to generate.")
+        doc = kb.render_program(entry_id)
+        if doc is None:
+            return (f"No KB standard '{entry_id}'. Use compliance_lookup to find the right id, or "
+                    "compliance_profile to list a client's required standards.")
+        return doc
+
     def compliance_check(args: Dict[str, Any]) -> str:
         doc = args.get("document") or args.get("html") or args.get("text") or ""
         if not doc.strip():
@@ -164,6 +183,30 @@ def build_compliance_tools() -> List[Tool]:
                 "required": [],
             },
             handler=compliance_profile,
+            source="builtin",
+        ),
+        Tool(
+            name="compliance_template",
+            description=(
+                "Generate a ready-to-fill, editable WRITTEN PROGRAM document for a compliance "
+                "standard — the actual workable document a contractor submits, not just the "
+                "requirements. Every required element becomes a fillable section (headings taken "
+                "verbatim from the standard) with company placeholders ({{COMPANY_NAME}} etc.), "
+                "training/recordkeeping language, a reviewer rejection checklist, and a signature "
+                "block. Give 'entry_id' (a KB id, e.g. '29-cfr-1910-134-respiratory-protection-"
+                "program') or 'query' (topic/citation). Use compliance_profile to get the ids a "
+                "client needs, then call this per standard to produce each document, then fill "
+                "the [[...]] prompts with the client's specifics and run compliance_check."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "entry_id": {"type": "string", "description": "KB standard id to generate the program for"},
+                    "query": {"type": "string", "description": "Alternatively, a topic or citation to resolve to a standard"},
+                },
+                "required": [],
+            },
+            handler=compliance_template,
             source="builtin",
         ),
         Tool(
