@@ -32,7 +32,9 @@ workers:
     role: "real-time takes, contrarian angles"
   gemini:
     provider: gemini
-    model: gemini-flash-latest
+    # gemini-2.5-flash is unaffected by the OpenAI-compat "thought_signature"
+    # bug that breaks multi-turn tool calls on the -latest / 3.x thinking models.
+    model: gemini-2.5-flash
     api_key_env: GEMINI_API_KEY
     role: "long-context, multimodal, fast"
 

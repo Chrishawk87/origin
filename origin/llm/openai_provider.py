@@ -40,6 +40,10 @@ class OpenAIProvider(LLMProvider):
         self.client = OpenAI(**client_kwargs)
         self.model = cfg.get("model", "gpt-4o")
         self.max_tokens = int(cfg.get("max_tokens", 4096))
+        # Extra fields merged into the request body (subclasses can set these,
+        # e.g. Gemini disabling "thinking" so tool calls don't require a
+        # thought_signature the OpenAI-compat layer can't round-trip).
+        self.extra_body: Dict[str, Any] = dict(cfg.get("extra_body") or {})
 
     def _convert_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
@@ -96,6 +100,8 @@ class OpenAIProvider(LLMProvider):
         }
         if openai_tools:
             kwargs["tools"] = openai_tools
+        if self.extra_body:
+            kwargs["extra_body"] = self.extra_body
 
         resp = self.client.chat.completions.create(**kwargs)
         choice = resp.choices[0].message
@@ -147,5 +153,10 @@ class GeminiProvider(OpenAIProvider):
         cfg = dict(cfg)
         cfg.setdefault("base_url", "https://generativelanguage.googleapis.com/v1beta/openai/")
         cfg.setdefault("api_key_env", "GEMINI_API_KEY")
-        cfg.setdefault("model", "gemini-flash-latest")
+        cfg.setdefault("model", "gemini-2.5-flash")
         super().__init__(cfg)
+        # Turn off "thinking" on 2.5 models so a tool call doesn't return a
+        # thought_signature that Gemini then demands back verbatim — the
+        # OpenAI-compat layer strips it, which 400s multi-turn tool loops.
+        # (reasoning_effort="none" is honored by Gemini 2.5 via the compat API.)
+        self.extra_body.setdefault("reasoning_effort", "none")
