@@ -21,11 +21,14 @@ placeholders:
 grounding_rule: Required-element section headings, training, and recordkeeping language are copied verbatim from KB entry injury-illness-prevention-program-cal-osha-iipp. Fill each [[...]] prompt with the company's own procedure — who does it, how, and how it is documented. Before submitting, confirm none of the reviewer rejection reasons at the end apply.
 ---
 
+<table class="oms-lh"><tr>
+<td style="width:64%"><div class="client-name">{{COMPANY_NAME}}</div><div class="client-addr">{{COMPANY_ADDRESS}}</div></td>
+<td class="doc-meta"><b>Written Safety Program</b><br>8 CCR 3203 (California Code of Regulations, Title 8) — MANDATORY in California<br>Effective {{EFFECTIVE_DATE}}</td>
+</tr></table>
+<div class="oms-rule"></div><div class="oms-rule2"></div>
+
 # Injury & Illness Prevention Program (Cal/OSHA IIPP)
-**{{COMPANY_NAME}} — Written Safety Program**  
-Governing standard: 8 CCR 3203 (California Code of Regulations, Title 8) — MANDATORY in California  
-Effective date: {{EFFECTIVE_DATE}}  
-Program administrator: {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
+**Program administrator:** {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
 
 ## 1. Purpose and Scope
 *Applicability (from the standard):* REQUIRED for every employer with operations in California (and analogous 'safety program' rules in several other state-plan states). A frequent hard-fail if missing.

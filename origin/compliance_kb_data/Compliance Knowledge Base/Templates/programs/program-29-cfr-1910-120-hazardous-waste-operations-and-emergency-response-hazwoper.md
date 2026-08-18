@@ -21,11 +21,14 @@ placeholders:
 grounding_rule: Required-element section headings, training, and recordkeeping language are copied verbatim from KB entry 29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper. Fill each [[...]] prompt with the company's own procedure — who does it, how, and how it is documented. Before submitting, confirm none of the reviewer rejection reasons at the end apply.
 ---
 
+<table class="oms-lh"><tr>
+<td style="width:64%"><div class="client-name">{{COMPANY_NAME}}</div><div class="client-addr">{{COMPANY_ADDRESS}}</div></td>
+<td class="doc-meta"><b>Written Safety Program</b><br>29 CFR 1910.120<br>Effective {{EFFECTIVE_DATE}}</td>
+</tr></table>
+<div class="oms-rule"></div><div class="oms-rule2"></div>
+
 # Hazardous Waste Operations and Emergency Response (HAZWOPER)
-**{{COMPANY_NAME}} — Written Safety Program**  
-Governing standard: 29 CFR 1910.120  
-Effective date: {{EFFECTIVE_DATE}}  
-Program administrator: {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
+**Program administrator:** {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
 
 ## 1. Purpose and Scope
 *Applicability (from the standard):* Applies to cleanup operations at hazardous waste sites, RCRA TSD facilities, and emergency response to hazardous-substance releases. Construction analog is 1926.65.

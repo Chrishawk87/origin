@@ -21,11 +21,14 @@ placeholders:
 grounding_rule: Required-element section headings, training, and recordkeeping language are copied verbatim from KB entry epa-npdes-construction-general-permit-40-cfr-122-stormwater-pollution-prevention-plan-swppp. Fill each [[...]] prompt with the company's own procedure — who does it, how, and how it is documented. Before submitting, confirm none of the reviewer rejection reasons at the end apply.
 ---
 
+<table class="oms-lh"><tr>
+<td style="width:64%"><div class="client-name">{{COMPANY_NAME}}</div><div class="client-addr">{{COMPANY_ADDRESS}}</div></td>
+<td class="doc-meta"><b>Written Safety Program</b><br>EPA NPDES Construction General Permit / 40 CFR 122<br>Effective {{EFFECTIVE_DATE}}</td>
+</tr></table>
+<div class="oms-rule"></div><div class="oms-rule2"></div>
+
 # Stormwater Pollution Prevention Plan (SWPPP)
-**{{COMPANY_NAME}} — Written Safety Program**  
-Governing standard: EPA NPDES Construction General Permit / 40 CFR 122  
-Effective date: {{EFFECTIVE_DATE}}  
-Program administrator: {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
+**Program administrator:** {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
 
 ## 1. Purpose and Scope
 *Applicability (from the standard):* Applies to construction sites disturbing 1+ acre (and certain industrial facilities). Required under the NPDES construction general permit.

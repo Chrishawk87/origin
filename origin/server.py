@@ -867,19 +867,23 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return JSONResponse({"error": "no such file"}, status_code=404)
         html = target.read_text(encoding="utf-8", errors="replace")
 
-        # ── HARD COMPLIANCE GATE ────────────────────────────────────────────
-        # No compliance document leaves Origin for a client until it passes the
-        # KB's OSHA/DOT required-elements checklist for the standard it invokes.
-        # A reviewer can override only by explicitly acknowledging the gate
-        # (override=true) after reading the report — never silently.
+        # ── COMPLIANCE GATE ─────────────────────────────────────────────────
+        # The gate exists to stop an INCOMPLETE OSHA/DOT written program from
+        # reaching a client. It only blocks when a standard is actually detected
+        # AND the draft fails its required-elements checklist ("fail"). Documents
+        # that don't invoke a codified standard — cover letters, COI/insurance
+        # letters, EMR explanation letters, transmittals — return "unverified"
+        # and are allowed through, because there's nothing to check them against.
+        # A reviewer can still override a genuine "fail" with override=true after
+        # reading the report.
         entry_ids = body.get("entry_ids") or body.get("standards") or None
         report = _kb.validate_document(html, entry_ids=entry_ids)
-        if not report.get("passed") and not body.get("override"):
+        if report.get("status") == "fail" and not body.get("override"):
             return JSONResponse({
                 "error": "blocked_by_compliance_gate",
-                "message": ("This document did not pass the OSHA/compliance checklist and "
-                            "was NOT sent. Fix the gaps below, or resend with override=true "
-                            "after reviewing."),
+                "message": ("This written program is missing required elements for the "
+                            "standard it cites, so it was NOT sent. Fix the gaps listed "
+                            "below, or resend with override=true after reviewing."),
                 "validation": report,
             }, status_code=422)
 

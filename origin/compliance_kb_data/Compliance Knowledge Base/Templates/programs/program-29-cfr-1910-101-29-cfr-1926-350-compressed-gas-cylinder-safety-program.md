@@ -21,11 +21,14 @@ placeholders:
 grounding_rule: Required-element section headings, training, and recordkeeping language are copied verbatim from KB entry 29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program. Fill each [[...]] prompt with the company's own procedure — who does it, how, and how it is documented. Before submitting, confirm none of the reviewer rejection reasons at the end apply.
 ---
 
+<table class="oms-lh"><tr>
+<td style="width:64%"><div class="client-name">{{COMPANY_NAME}}</div><div class="client-addr">{{COMPANY_ADDRESS}}</div></td>
+<td class="doc-meta"><b>Written Safety Program</b><br>29 CFR 1910.101 / 29 CFR 1926.350<br>Effective {{EFFECTIVE_DATE}}</td>
+</tr></table>
+<div class="oms-rule"></div><div class="oms-rule2"></div>
+
 # Compressed Gas Cylinder Safety Program
-**{{COMPANY_NAME}} — Written Safety Program**  
-Governing standard: 29 CFR 1910.101 / 29 CFR 1926.350  
-Effective date: {{EFFECTIVE_DATE}}  
-Program administrator: {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
+**Program administrator:** {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
 
 ## 1. Purpose and Scope
 *Applicability (from the standard):* Contractors that store, handle, or use compressed gas cylinders (welding, oilfield, industrial).

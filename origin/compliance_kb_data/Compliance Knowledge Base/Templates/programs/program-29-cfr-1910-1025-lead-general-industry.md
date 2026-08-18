@@ -21,11 +21,14 @@ placeholders:
 grounding_rule: Required-element section headings, training, and recordkeeping language are copied verbatim from KB entry 29-cfr-1910-1025-lead-general-industry. Fill each [[...]] prompt with the company's own procedure — who does it, how, and how it is documented. Before submitting, confirm none of the reviewer rejection reasons at the end apply.
 ---
 
+<table class="oms-lh"><tr>
+<td style="width:64%"><div class="client-name">{{COMPANY_NAME}}</div><div class="client-addr">{{COMPANY_ADDRESS}}</div></td>
+<td class="doc-meta"><b>Written Safety Program</b><br>29 CFR 1910.1025<br>Effective {{EFFECTIVE_DATE}}</td>
+</tr></table>
+<div class="oms-rule"></div><div class="oms-rule2"></div>
+
 # Lead (General Industry)
-**{{COMPANY_NAME}} — Written Safety Program**  
-Governing standard: 29 CFR 1910.1025  
-Effective date: {{EFFECTIVE_DATE}}  
-Program administrator: {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
+**Program administrator:** {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
 
 ## 1. Purpose and Scope
 *Applicability (from the standard):* Applies where employee exposure to airborne lead occurs at or above the action level / as defined by the standard.

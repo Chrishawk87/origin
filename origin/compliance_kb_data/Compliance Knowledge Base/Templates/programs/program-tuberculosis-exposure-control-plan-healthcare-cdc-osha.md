@@ -21,11 +21,14 @@ placeholders:
 grounding_rule: Required-element section headings, training, and recordkeeping language are copied verbatim from KB entry tuberculosis-exposure-control-plan-healthcare-cdc-osha. Fill each [[...]] prompt with the company's own procedure — who does it, how, and how it is documented. Before submitting, confirm none of the reviewer rejection reasons at the end apply.
 ---
 
+<table class="oms-lh"><tr>
+<td style="width:64%"><div class="client-name">{{COMPANY_NAME}}</div><div class="client-addr">{{COMPANY_ADDRESS}}</div></td>
+<td class="doc-meta"><b>Written Safety Program</b><br>CDC MMWR 2005 TB Guidelines (OSHA 29 CFR 1910.134 / GDC)<br>Effective {{EFFECTIVE_DATE}}</td>
+</tr></table>
+<div class="oms-rule"></div><div class="oms-rule2"></div>
+
 # Tuberculosis (TB) Exposure Control Plan — Healthcare
-**{{COMPANY_NAME}} — Written Safety Program**  
-Governing standard: CDC MMWR 2005 TB Guidelines (OSHA 29 CFR 1910.134 / GDC)  
-Effective date: {{EFFECTIVE_DATE}}  
-Program administrator: {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
+**Program administrator:** {{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}} ({{ADMIN_PHONE}} / {{ADMIN_EMAIL}})
 
 ## 1. Purpose and Scope
 *Applicability (from the standard):* Healthcare settings and other facilities with reasonably anticipated occupational exposure to Mycobacterium tuberculosis (hospitals, clinics, corrections, long-term care, labs).

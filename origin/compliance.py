@@ -28,18 +28,64 @@ LIBRARY_DIR = DATA_DIR / "compliance_library"                 # live, editable
 ASSIGN_SUBDIR = "Compliance"                                  # inside a project
 
 
-# ── Styling / document wrapper ───────────────────────────────────────────────
+# ── Brand / document styling ─────────────────────────────────────────────────
+# Bump STYLE_VERSION whenever the look changes; ensure_library() re-renders the
+# stored masters so existing documents on the Railway volume pick up the change.
+STYLE_VERSION = "2026-08-18-premium-2"
+
+# IMPORTANT: these documents are the CLIENT's own written programs — the client
+# uploads them to ISNetworld/Avetta as their company's program. So Origin
+# Management Solutions must NOT appear anywhere on them. The letterhead is driven
+# by the CLIENT's fields ({{COMPANY_NAME}}/{{COMPANY_ADDRESS}}) inside each
+# template body; the document shell here stays neutral (premium styling + a
+# page-number footer with no service-provider branding).
+
+# Markers delimit the auto-generated chrome so a re-style can strip and replace
+# it without touching the document body.
+_CHROME_START = "<!--OMS:CHROME-START-->"
+_CHROME_END = "<!--OMS:CHROME-END-->"
+
+# Palette: navy #0f2c4c, ink #1f2933, slate #475569, muted #64748b, hair #e2e8f0
 _DOC_CSS = """
 <style>
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;line-height:1.5;
-       max-width:800px;margin:0 auto;padding:24px;font-size:13px}
-  h1,h2,h3{color:#0f2c4c;margin:0.6em 0 0.3em}
-  h1{font-size:20px;border-bottom:2px solid #0f2c4c;padding-bottom:6px}
-  h2{font-size:16px} h3{font-size:14px}
-  table{border-collapse:collapse;width:100%;margin:10px 0}
-  td,th{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top}
-  p{margin:0.4em 0}
-  strong{color:#0f2c4c}
+  @page {
+    size: letter;
+    margin: 108px 64px 92px 64px;
+    @frame footer_frame {
+      -pdf-frame-content: omsFooter;
+      bottom: 34px; margin-left: 64px; margin-right: 64px; height: 36px;
+    }
+  }
+  body{font-family:'Helvetica','Arial',sans-serif;color:#1f2933;line-height:1.6;
+       font-size:12.5px;margin:0;padding:0;background:#ffffff}
+  .oms-doc{max-width:770px;margin:0 auto;padding:28px 30px 40px}
+  /* Client letterhead (driven by the client's own company fields) */
+  table.oms-lh{width:100%;border-collapse:collapse;margin:0 0 4px}
+  table.oms-lh td{border:none;padding:0;vertical-align:middle}
+  .client-name{font-size:22px;font-weight:bold;color:#0f2c4c;letter-spacing:0.3px}
+  .client-addr{font-size:10px;color:#64748b;letter-spacing:0.3px;padding-top:4px}
+  .client-logo{height:50px}
+  .doc-meta{font-size:10px;color:#475569;text-align:right;line-height:1.6}
+  .doc-meta b{color:#0f2c4c;font-size:11px}
+  .oms-rule{font-size:1px;line-height:1px;border-bottom:3px solid #0f2c4c;margin:8px 0 0}
+  .oms-rule2{font-size:1px;line-height:1px;border-bottom:1px solid #cbd5e1;margin:2px 0 20px}
+  /* Body typography */
+  h1{font-size:19px;color:#0f2c4c;font-weight:bold;margin:16px 0 6px}
+  h2{font-size:13.5px;color:#0f2c4c;font-weight:bold;text-transform:uppercase;
+     letter-spacing:0.6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin:22px 0 8px}
+  h3{font-size:12.5px;color:#1f3a5f;font-weight:bold;margin:15px 0 4px}
+  p{margin:7px 0}
+  strong,b{color:#0f2c4c}
+  em{color:#64748b;font-style:italic}
+  ul,ol{margin:7px 0 7px 18px;padding:0}
+  li{margin:3px 0}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:11.5px}
+  th,td{border:1px solid #cbd5e1;padding:6px 9px;vertical-align:top;text-align:left}
+  thead th,th{background:#0f2c4c;color:#ffffff;font-weight:bold}
+  tbody tr:nth-child(even) td{background:#f5f8fc}
+  hr{border:none;border-top:1px solid #e2e8f0;margin:18px 0}
+  .oms-footer{font-size:8.5px;color:#94a3b8;text-align:center;
+              border-top:1px solid #e2e8f0;padding-top:6px}
 </style>
 """
 
@@ -48,12 +94,51 @@ def _esc(s: str) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _footer_html() -> str:
+    # Neutral footer — NO service-provider branding, since the client uploads
+    # this as their own document. <pdf:pagenumber>/<pdf:pagecount> render page
+    # numbers in the PDF; browsers ignore the unknown tags.
+    return (
+        f"{_CHROME_START}"
+        f"<div id='omsFooter' class='oms-footer'>"
+        f"Confidential &nbsp;·&nbsp; Page <pdf:pagenumber> of <pdf:pagecount>"
+        f"</div>"
+        f"{_CHROME_END}"
+    )
+
+
+_CHROME_RE = re.compile(re.escape(_CHROME_START) + r".*?" + re.escape(_CHROME_END), re.S)
+_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", re.S | re.I)
+_DOCWRAP_RE = re.compile(r"<div class=['\"]oms-doc['\"]>(.*)</div>\s*$", re.S | re.I)
+
+
+def _content_only(html: str) -> str:
+    """Reduce any stored document back to its pure body content: strip the
+    <html>/<head>, unwrap the .oms-doc container, and remove prior chrome."""
+    s = html or ""
+    m = _BODY_RE.search(s)
+    if m:
+        s = m.group(1)
+    s = _CHROME_RE.sub("", s)          # remove old letterhead + footer blocks
+    m2 = _DOCWRAP_RE.search(s.strip())
+    if m2:
+        s = m2.group(1)
+    return s.strip()
+
+
 def wrap_document(inner_html: str, title: str = "") -> str:
-    if "<html" in (inner_html or "").lower():
-        return inner_html
-    return (f"<!doctype html><html><head><meta charset='utf-8'>"
-            f"<title>{_esc(title)}</title>{_DOC_CSS}</head>"
-            f"<body>{inner_html}</body></html>")
+    """Wrap content in a neutral, print-ready document shell (premium styling +
+    page-number footer, no service-provider branding — the client's own
+    letterhead comes from the template body). Idempotent: re-wrapping an
+    already-wrapped document restyles it rather than nesting."""
+    content = _content_only(inner_html)
+    return (
+        f"<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>{_esc(title or 'Written Compliance Program')}</title>{_DOC_CSS}</head>"
+        f"<body><div class='oms-doc'>"
+        f"{content}"
+        f"</div>{_footer_html()}</body></html>"
+    )
 
 
 # ── Library persistence ──────────────────────────────────────────────────────
@@ -85,6 +170,55 @@ def ensure_library() -> None:
                             "num": s.get("num", ""), "title": title, "file": fname})
         _write_index(records)
     _sync_program_masters()
+    _restyle_masters_if_needed()
+
+
+def _style_marker_path() -> Path:
+    return LIBRARY_DIR / ".style_version"
+
+
+def _restyle_masters_if_needed() -> None:
+    """When STYLE_VERSION changes, re-wrap every stored master so existing
+    documents pick up the new letterhead/style. Re-wrapping preserves each
+    master's body content (and any user edits) — only the branded chrome and
+    CSS are refreshed. Runs once per version, then records the marker."""
+    marker = _style_marker_path()
+    try:
+        current = marker.read_text(encoding="utf-8").strip() if marker.is_file() else ""
+    except Exception:
+        current = ""
+    if current == STYLE_VERSION:
+        return
+    try:
+        from . import compliance_kb as _kb
+    except Exception:
+        _kb = None
+    for rec in _read_index_raw():
+        f = LIBRARY_DIR / rec.get("file", "")
+        if not f.is_file():
+            continue
+        mid = rec.get("id", "")
+        try:
+            # Program masters: regenerate from the KB so any change to the
+            # template body (e.g. the new client letterhead) flows into the
+            # already-stored masters — not just the CSS chrome.
+            if _kb is not None and mid.startswith("program-"):
+                md = _kb.render_program(mid[len("program-"):])
+                if md:
+                    f.write_text(wrap_document(_md_to_html(md), rec.get("title", "")),
+                                 encoding="utf-8")
+                    continue
+            # Everything else: re-wrap in place (preserves body, refreshes shell).
+            old = f.read_text(encoding="utf-8", errors="replace")
+            new = wrap_document(old, rec.get("title", mid))
+            if new != old:
+                f.write_text(new, encoding="utf-8")
+        except Exception:
+            continue
+    try:
+        marker.write_text(STYLE_VERSION, encoding="utf-8")
+    except Exception:
+        pass
 
 
 def _md_to_html(md: str) -> str:
