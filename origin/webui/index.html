@@ -1114,23 +1114,34 @@ function openSend(){
   document.getElementById('sendmodal').style.display='flex';
 }
 function closeSend(){ document.getElementById('sendmodal').style.display='none'; SEND_FROM_CARD=false; }
-async function doSend(){
+async function doSend(override){
   const to=document.getElementById('send-to').value.trim();
   if(!to){ alert('Enter a recipient email.'); return; }
   const usingCard = SEND_FROM_CARD && WDOC;
   const path = usingCard ? WDOC.path : EDIT_PATH;
-  if(usingCard) await saveWDoc(); else await saveDoc();
+  if(!override){ if(usingCard) await saveWDoc(); else await saveDoc(); }
   const btn=document.getElementById('send-go'); btn.disabled=true;
-  const st=document.getElementById('send-status'); st.textContent='Rendering PDF and sending…';
-  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/send',
-    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-       path:path, to:to,
+  const st=document.getElementById('send-status'); st.style.color=''; st.textContent='Rendering PDF and sending…';
+  const payload={ path:path, to:to,
        subject:document.getElementById('send-subject').value,
-       message:document.getElementById('send-message').value })});
+       message:document.getElementById('send-message').value };
+  if(override) payload.override=true;
+  const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/send',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   btn.disabled=false;
-  if(r&&r.sent){ st.style.color='var(--accent2)'; st.textContent='Sent to '+to+' ✓ (PDF also saved to the project)'; loadFiles(); SEND_FROM_CARD=false; }
-  else { st.style.color='var(--warn)';
-    st.textContent=(r&&r.error?r.error:'Send failed.')+(r&&r.pdf_path?' The PDF was saved to the project.':''); loadFiles(); }
+  if(r&&r.sent){ st.style.color='var(--accent2)'; st.textContent='Sent to '+to+' ✓ (PDF also saved to the project)'; loadFiles(); SEND_FROM_CARD=false; return; }
+  // Compliance gate flagged missing required elements — let Chris review + send anyway.
+  if(r&&r.error==='blocked_by_compliance_gate'){
+    const v=r.validation||{}; const gaps=(v.summary||'This document is missing required elements for the standard it cites.');
+    st.style.color='var(--warn)';
+    st.textContent='Compliance check flagged gaps — review below, then choose Send anyway.';
+    if(confirm('Compliance check flagged this document:\n\n'+gaps+'\n\nSend it to '+to+' anyway?')){
+      return doSend(true);
+    }
+    return;
+  }
+  st.style.color='var(--warn)';
+  st.textContent=(r&&r.error?r.error:'Send failed.')+(r&&r.pdf_path?' The PDF was saved to the project.':''); loadFiles();
 }
 
 refresh();
