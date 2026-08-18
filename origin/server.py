@@ -195,18 +195,49 @@ class Engine:
 
     # ── chat ────────────────────────────────────────────────────────────────
     def _enhance(self, text: str) -> str:
-        """Rewrite the raw message into a stronger instruction (or return it)."""
+        """Rewrite the raw message into a stronger instruction (or return it).
+
+        Two guarantees so prompt-enhancement can never wedge a chat turn:
+          1) It runs on the ACTIVE coordinator (follows the Brain dropdown) by
+             default — so a Claude turn enhances with Claude, not a hardwired
+             free-tier model that may be rate-limited or slow. A model can be
+             pinned via `enhancer.worker`, but ONLY if `enhancer.pin: true`.
+          2) It is wrapped in a hard timeout. The chat turn holds a single
+             global lock; if enhancement hangs, the next question fails with
+             "still finishing your previous message" and the user must refresh.
+             On timeout we abandon enhancement and use the raw message instead.
+        """
+        import threading
         from .enhancer import enhance_prompt
+
         enh = self.config.data.get("enhancer", {}) or {}
-        worker = enh.get("worker")
+        pinned = enh.get("worker") if enh.get("pin") else None
+        timeout = float(enh.get("timeout_seconds", 12) or 12)
 
         def ask(prompt: str, system: str = "") -> str:
-            if worker and self.pool.has(worker):
-                return self.pool.ask(worker, prompt, system)
-            return self._ask(prompt, system)
+            if pinned and self.pool.has(pinned):
+                return self.pool.ask(pinned, prompt, system)
+            return self._ask(prompt, system)   # active coordinator
 
         ctx = f"Project: {self.active.name}." if self.active else ""
-        return enhance_prompt(ask, text, ctx)
+
+        result = {"text": text}
+
+        def run() -> None:
+            try:
+                result["text"] = enhance_prompt(ask, text, ctx)
+            except Exception:
+                result["text"] = text
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        t.join(timeout)
+        if t.is_alive():
+            # Enhancement is taking too long — let it finish in the background
+            # and just send the raw message so the turn (and the chat lock) is
+            # never held hostage by the enhance step.
+            return text
+        return result["text"]
 
     def _workspace_files(self) -> Dict[str, tuple]:
         """Map of relative path -> (mtime, size) for the open project's files.
@@ -305,7 +336,11 @@ class Engine:
                     self._jobs.pop(k, None)
 
         def work() -> None:
-            if not self._chat_lock.acquire(blocking=False):
+            # Wait a short grace period for a previous turn to finish rather than
+            # failing instantly — this smooths over the tiny gap between turns so
+            # a quick follow-up question doesn't bounce off the lock and force a
+            # page refresh. Only a genuinely still-running turn hits the error.
+            if not self._chat_lock.acquire(timeout=8):
                 job["status"] = "error"
                 job["error"] = ("Origin is still finishing your previous message — "
                                 "give it a moment, then try again.")

@@ -62,4 +62,10 @@ media:
 
 enhancer:
   enabled: true
-  worker: gemini   # free-tier model does the prompt rewriting
+  # Prompt-enhancement now follows the ACTIVE brain (the Brain dropdown) by
+  # default, so picking Claude enhances with Claude instead of a hardwired
+  # free-tier model that can rate-limit and hang the turn. To force one model,
+  # set `pin: true` and a `worker:` below.
+  pin: false
+  worker: gemini
+  timeout_seconds: 12   # hard cap; if enhancement is slower, send the raw message
