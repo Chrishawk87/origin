@@ -1,0 +1,1790 @@
+{
+  "_meta": {
+    "name": "hiring_client_requirement_profiles",
+    "purpose": "Operator-specific prequalification requirements layered on top of ISN RAVS baseline. Analogous to naics_map.json overlay model.",
+    "version": 2,
+    "source": "ISN public directory + public HSE norms; operator-specific values confirmed per contractor ISN account",
+    "field_guide_ref": "ISN_Hiring_Client_Requirement_Profiles.xlsx",
+    "note": "All profiles are archetype-seeded (confirmed:false). Verify exact limits/thresholds in each client's ISN account before quoting; then set confirmed:true.",
+    "archetypes": [
+      "refining",
+      "midstream",
+      "chemical",
+      "upstream"
+    ],
+    "profile_count": 34
+  },
+  "field_schema": {
+    "hiring_client": "str",
+    "sector": "str",
+    "prequal_platforms": "list[str]",
+    "isn_grade_target": "str",
+    "insurance": {
+      "gl_per_occ": "str",
+      "gl_aggregate": "str",
+      "auto_csl": "str",
+      "wc_el": "str",
+      "umbrella_excess": "str",
+      "additional_insured_forms": "list[str]",
+      "waiver_of_subrogation": "str",
+      "primary_non_contributory": "str",
+      "other": "str"
+    },
+    "performance": {
+      "emr_max": "str",
+      "trir_threshold": "str",
+      "dart_threshold": "str"
+    },
+    "programs_training": {
+      "extra_written_programs": "list[str]",
+      "required_training": "list[str]",
+      "drug_alcohol": "str",
+      "background_sse": "str",
+      "subcontractor_mgmt": "str"
+    },
+    "grading_flags": "str",
+    "source": "str",
+    "last_verified": "str",
+    "confirmed": "bool",
+    "archetype": "str"
+  },
+  "profiles": [
+    {
+      "hiring_client": "ExxonMobil Global Product Solutions",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Chevron Oil, Products and Gas",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Shell Downstream",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Shell Americas",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "BP Products North America",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Marathon Petroleum Company LP",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Phillips 66",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Valero",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Motiva Enterprises",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "PBF Energy",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "HF Sinclair",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "CITGO Petroleum Corporation",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Par Pacific Holdings, Inc.",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Delek US",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "refining",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; Excess to $10M on turnarounds"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "H2S",
+          "Fall protection",
+          "PSM contractor reqs (1910.119)"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "H2S (SafeGulf/SafeLand)",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "Turnaround work triggers higher limits + PSM checklist",
+      "source": "Archetype: Refining/Downstream - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Kinder Morgan",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Energy Transfer",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Enterprise Products",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "ONEOK",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Targa Resources",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Plains",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Buckeye Partners, LP",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Colonial Pipeline Company",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "ExxonMobil Pipeline Company",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Chevron Pipeline & Power",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Veriforce OQ"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "midstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required",
+        "other": "Contractors Pollution $2-5M; Sudden & Accidental"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "Excavation/trenching",
+          "PHMSA OQ tasks (49 CFR 192 Subpart N)",
+          "Gas detection",
+          "Right-of-way safety"
+        ],
+        "required_training": [
+          "Operator Qualification (Veriforce)",
+          "OSHA 10/30",
+          "First aid/CPR"
+        ],
+        "drug_alcohol": "DOT program required",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "OQ tasks are per-covered-task - map to crew roles",
+      "source": "Archetype: Midstream/Pipeline + PHMSA - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "The Dow Chemical Company",
+      "sector": "Chemicals",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "chemical",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; PSM/RMP-driven"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "PSM contractor reqs (1910.119)",
+          "RMP",
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "Line breaking",
+          "HazCom/GHS"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "Site orientation",
+          "Contractor PSM orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "PSM-covered process = contractor safety-performance review (1910.119(h))",
+      "source": "Archetype: Chemical mfg + OSHA PSM - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Lyondell Chemical Company",
+      "sector": "Chemicals",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "chemical",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; PSM/RMP-driven"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "PSM contractor reqs (1910.119)",
+          "RMP",
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "Line breaking",
+          "HazCom/GHS"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "Site orientation",
+          "Contractor PSM orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "PSM-covered process = contractor safety-performance review (1910.119(h))",
+      "source": "Archetype: Chemical mfg + OSHA PSM - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "DuPont Specialty Products USA, LLC",
+      "sector": "Chemicals",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "chemical",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; PSM/RMP-driven"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "PSM contractor reqs (1910.119)",
+          "RMP",
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "Line breaking",
+          "HazCom/GHS"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "Site orientation",
+          "Contractor PSM orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "PSM-covered process = contractor safety-performance review (1910.119(h))",
+      "source": "Archetype: Chemical mfg + OSHA PSM - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Air Products and Chemicals Inc.",
+      "sector": "Chemicals",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "chemical",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; PSM/RMP-driven"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "PSM contractor reqs (1910.119)",
+          "RMP",
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "Line breaking",
+          "HazCom/GHS"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "Site orientation",
+          "Contractor PSM orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "PSM-covered process = contractor safety-performance review (1910.119(h))",
+      "source": "Archetype: Chemical mfg + OSHA PSM - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "CF Industries, Inc.",
+      "sector": "Chemicals",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "chemical",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; PSM/RMP-driven"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "PSM contractor reqs (1910.119)",
+          "RMP",
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "Line breaking",
+          "HazCom/GHS"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "Site orientation",
+          "Contractor PSM orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "PSM-covered process = contractor safety-performance review (1910.119(h))",
+      "source": "Archetype: Chemical mfg + OSHA PSM - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Nutrien Ltd.",
+      "sector": "Chemicals",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "chemical",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; PSM/RMP-driven"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "PSM contractor reqs (1910.119)",
+          "RMP",
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "Line breaking",
+          "HazCom/GHS"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "Site orientation",
+          "Contractor PSM orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "PSM-covered process = contractor safety-performance review (1910.119(h))",
+      "source": "Archetype: Chemical mfg + OSHA PSM - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "Sherwin-Williams",
+      "sector": "Chemicals",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "chemical",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M (scope-based)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $1-5M; PSM/RMP-driven"
+      },
+      "performance": {
+        "emr_max": "<=1.0 (letter if higher)",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "PSM contractor reqs (1910.119)",
+          "RMP",
+          "LOTO",
+          "Confined space",
+          "Hot work",
+          "Line breaking",
+          "HazCom/GHS"
+        ],
+        "required_training": [
+          "OSHA 10/30",
+          "Site orientation",
+          "Contractor PSM orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background check + SSE program (<6 mo)",
+        "subcontractor_mgmt": "Written program required"
+      },
+      "grading_flags": "PSM-covered process = contractor safety-performance review (1910.119(h))",
+      "source": "Archetype: Chemical mfg + OSHA PSM - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "ExxonMobil Upstream",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta/PEC (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "upstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+ (well work higher)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $2-5M; Well control/OEE on drilling; offshore = OEE/Marine"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "H2S",
+          "Well control",
+          "SEMS (offshore, 30 CFR 250)",
+          "Hot work",
+          "Fall protection",
+          "DOT"
+        ],
+        "required_training": [
+          "H2S (SafeLand/SafeGulf)",
+          "OSHA 10/30",
+          "PEC Core",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "Offshore/SEMS scope adds BSEE reqs; short-service-employee limits enforced",
+      "source": "Archetype: Upstream E&P + BSEE/PEC - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "ConocoPhillips North America",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta/PEC (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "upstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+ (well work higher)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $2-5M; Well control/OEE on drilling; offshore = OEE/Marine"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "H2S",
+          "Well control",
+          "SEMS (offshore, 30 CFR 250)",
+          "Hot work",
+          "Fall protection",
+          "DOT"
+        ],
+        "required_training": [
+          "H2S (SafeLand/SafeGulf)",
+          "OSHA 10/30",
+          "PEC Core",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "Offshore/SEMS scope adds BSEE reqs; short-service-employee limits enforced",
+      "source": "Archetype: Upstream E&P + BSEE/PEC - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    },
+    {
+      "hiring_client": "BP - Gulf of America Business Units",
+      "sector": "Oil & Gas / Energy",
+      "prequal_platforms": [
+        "ISN",
+        "Avetta/PEC (some sites)"
+      ],
+      "isn_grade_target": "A / Green",
+      "archetype": "upstream",
+      "insurance": {
+        "gl_per_occ": "$1M",
+        "gl_aggregate": "$2M",
+        "auto_csl": "$1M",
+        "wc_el": "Statutory + $1M EL",
+        "umbrella_excess": "$5M+ (well work higher)",
+        "additional_insured_forms": [
+          "CG 20 10",
+          "CG 20 37",
+          "CA 20 48"
+        ],
+        "waiver_of_subrogation": "GL, Auto, WC",
+        "primary_non_contributory": "Required (CG 20 01)",
+        "other": "Contractors Pollution $2-5M; Well control/OEE on drilling; offshore = OEE/Marine"
+      },
+      "performance": {
+        "emr_max": "<=1.0",
+        "trir_threshold": "<= NAICS avg (3-yr)",
+        "dart_threshold": "<= NAICS avg (3-yr)"
+      },
+      "programs_training": {
+        "extra_written_programs": [
+          "H2S",
+          "Well control",
+          "SEMS (offshore, 30 CFR 250)",
+          "Hot work",
+          "Fall protection",
+          "DOT"
+        ],
+        "required_training": [
+          "H2S (SafeLand/SafeGulf)",
+          "OSHA 10/30",
+          "PEC Core",
+          "Site orientation"
+        ],
+        "drug_alcohol": "DOT + non-DOT",
+        "background_sse": "Background + MVR; SSE program",
+        "subcontractor_mgmt": "Written program + flow-down"
+      },
+      "grading_flags": "Offshore/SEMS scope adds BSEE reqs; short-service-employee limits enforced",
+      "source": "Archetype: Upstream E&P + BSEE/PEC - CONFIRM in ISN",
+      "last_verified": "",
+      "confirmed": false
+    }
+  ]
+}

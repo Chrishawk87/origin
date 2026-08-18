@@ -278,6 +278,87 @@ def naics_applicable(code_or_industry: str, state: Optional[str] = None) -> dict
     }
 
 
+# ── Hiring-client requirement overlay (operator profiles) ───────────────────
+@functools.lru_cache(maxsize=1)
+def _hiring_profiles() -> dict:
+    path = KB_DIR / "hiring_client_profiles.json"
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def list_hiring_clients() -> List[dict]:
+    """The catalog: every operator we have a profile for."""
+    doc = _hiring_profiles()
+    return [
+        {
+            "hiring_client": p["hiring_client"],
+            "sector": p.get("sector"),
+            "archetype": p.get("archetype"),
+            "confirmed": p.get("confirmed", False),
+        }
+        for p in doc.get("profiles", [])
+    ]
+
+
+def _match_hiring_client(name: str) -> Optional[dict]:
+    """Resolve a loose name ('exxon', 'chevron pipeline') to a profile."""
+    raw = (name or "").strip().lower()
+    if not raw:
+        return None
+    profs = _hiring_profiles().get("profiles", [])
+    for p in profs:                                   # exact
+        if p["hiring_client"].lower() == raw:
+            return p
+    for p in profs:                                   # prefix / substring
+        pl = p["hiring_client"].lower()
+        if pl.startswith(raw) or raw in pl:
+            return p
+    toks = set(re.findall(r"[a-z0-9]+", raw))         # token overlap
+    best, best_score = None, 0
+    for p in profs:
+        pt = set(re.findall(r"[a-z0-9]+", p["hiring_client"].lower()))
+        score = len(toks & pt)
+        if score > best_score:
+            best, best_score = p, score
+    return best if best_score else None
+
+
+def hiring_client_gaps(client_name: str, industry: str,
+                       state: Optional[str] = None) -> dict:
+    """Overlay one operator's extra prequal requirements on the NAICS baseline.
+
+    Returns the ISN/NAICS baseline the contractor already needs for their trade,
+    PLUS the operator-specific layer (insurance limits, EMR/TRIR caps, extra
+    written programs, training) this hiring client bolts on — i.e. the ADDITIONAL
+    gaps to close so the contractor stays hireable by THIS client.
+    """
+    prof = _match_hiring_client(client_name)
+    if not prof:
+        return {"error": f"No profile for '{client_name}'. "
+                         f"Call list_hiring_clients for the catalog.",
+                "hiring_client": None}
+    base = naics_applicable(industry, state=state)     # reuse existing resolver
+    return {
+        "hiring_client": prof["hiring_client"],
+        "archetype": prof.get("archetype"),
+        "confirmed": prof.get("confirmed", False),
+        "baseline": base,
+        "overlay": {
+            "prequal_platforms": prof.get("prequal_platforms", []),
+            "isn_grade_target": prof.get("isn_grade_target"),
+            "insurance": prof.get("insurance", {}),
+            "performance": prof.get("performance", {}),
+            "programs_training": prof.get("programs_training", {}),
+            "grading_flags": prof.get("grading_flags"),
+        },
+        "source": prof.get("source"),
+        "note": ("Overlay values are archetype-seeded (confirmed=false) — verify "
+                 "against this client's live ISN requirement list before quoting.")
+                 if not prof.get("confirmed") else "",
+    }
+
+
 # ── text helpers ────────────────────────────────────────────────────────────
 def _strip_html(html: str) -> str:
     text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html or "")

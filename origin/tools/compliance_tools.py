@@ -138,6 +138,69 @@ def build_compliance_tools() -> List[Tool]:
             return head + "\n" + report.get("reason", "")
         return head + "\n\n" + report.get("summary", "")
 
+    def hiring_client_list(args: Dict[str, Any]) -> str:
+        clients = kb.list_hiring_clients()
+        if not clients:
+            return "No hiring-client profiles loaded."
+        by_arch: Dict[str, list] = {}
+        for c in clients:
+            by_arch.setdefault(c.get("archetype", "other"), []).append(c)
+        out = [f"HIRING-CLIENT CATALOG — {len(clients)} operators profiled:"]
+        for arch in sorted(by_arch):
+            out.append(f"\n{arch}:")
+            for c in by_arch[arch]:
+                tick = "confirmed" if c["confirmed"] else "archetype (verify)"
+                out.append(f"  - {c['hiring_client']}  [{tick}]")
+        return "\n".join(out)
+
+    def hiring_client_gaps(args: Dict[str, Any]) -> str:
+        client = (args.get("hiring_client") or args.get("operator")
+                  or args.get("client") or "").strip()
+        industry = (args.get("industry") or args.get("naics")
+                    or args.get("code") or "").strip()
+        state = (args.get("state") or "").strip() or None
+        if not client:
+            return ("ERROR: 'hiring_client' (the operator, e.g. 'Chevron') is required. "
+                    "Use hiring_client_list to see the catalog.")
+        if not industry:
+            return ("ERROR: 'industry' or 'naics' (the contractor's trade) is required "
+                    "so I can compute the baseline the operator sits on top of.")
+        rep = kb.hiring_client_gaps(client, industry, state=state)
+        if rep.get("error"):
+            return f"ERROR: {rep['error']}"
+
+        ov = rep["overlay"]; ins = ov.get("insurance", {}); perf = ov.get("performance", {})
+        pt = ov.get("programs_training", {})
+        L = [
+            f"GAP REPORT — contractor ({industry}) working under {rep['hiring_client']}",
+            f"Archetype: {rep['archetype']}  |  Platforms: {', '.join(ov.get('prequal_platforms', []))}"
+            f"  |  Grade target: {ov.get('isn_grade_target')}",
+        ]
+        if not rep["confirmed"]:
+            L.append(f"** {rep['note']} **")
+        base = rep["baseline"]
+        L.append(f"\nISN baseline (industry): {base.get('count', 0)} standards "
+                 f"(use compliance_profile('{industry}') for the full list).")
+        L.append("\nOPERATOR OVERLAY — extra to close for this client:")
+        L.append("  Insurance:")
+        for k, v in ins.items():
+            if isinstance(v, list):
+                v = ", ".join(v)
+            L.append(f"    - {k}: {v}")
+        L.append("  Performance ceilings:")
+        for k, v in perf.items():
+            L.append(f"    - {k}: {v}")
+        if pt.get("extra_written_programs"):
+            L.append("  Extra written programs: " + "; ".join(pt["extra_written_programs"]))
+        if pt.get("required_training"):
+            L.append("  Required training: " + "; ".join(pt["required_training"]))
+        if pt.get("drug_alcohol"):        L.append(f"  Drug & alcohol: {pt['drug_alcohol']}")
+        if pt.get("background_sse"):       L.append(f"  Background/SSE: {pt['background_sse']}")
+        if pt.get("subcontractor_mgmt"):   L.append(f"  Subcontractor mgmt: {pt['subcontractor_mgmt']}")
+        if ov.get("grading_flags"):        L.append(f"  Grading flags: {ov['grading_flags']}")
+        L.append(f"\nSource: {rep.get('source')}")
+        return "\n".join(L)
+
     return [
         Tool(
             name="compliance_lookup",
@@ -230,6 +293,44 @@ def build_compliance_tools() -> List[Tool]:
                 "required": ["document"],
             },
             handler=compliance_check,
+            source="builtin",
+        ),
+        Tool(
+            name="hiring_client_list",
+            description=(
+                "List the hiring clients (operators like Chevron, Energy Transfer, Dow) that "
+                "Origin has prequalification requirement profiles for. Call this when the user "
+                "asks which operators are covered, or before hiring_client_gaps if unsure of the "
+                "exact name."
+            ),
+            input_schema={"type": "object", "properties": {}, "required": []},
+            handler=hiring_client_list,
+            source="builtin",
+        ),
+        Tool(
+            name="hiring_client_gaps",
+            description=(
+                "Produce a per-OPERATOR gap report for a contractor. Give the hiring client "
+                "(e.g. 'Chevron', 'Energy Transfer') and the contractor's industry/NAICS. "
+                "Returns the ISN baseline for that trade PLUS the operator's EXTRA requirements "
+                "— insurance limits and endorsements, EMR/TRIR/DART ceilings, extra written "
+                "programs, and required training — i.e. the additional items to close so the "
+                "contractor stays hireable by that specific operator. Values flagged "
+                "'archetype' must be confirmed against the client's live ISN list before "
+                "quoting. Use compliance_profile for the industry baseline and compliance_"
+                "template to draft any missing written program."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "hiring_client": {"type": "string", "description": "Operator name, e.g. 'Chevron'"},
+                    "industry": {"type": "string", "description": "Contractor trade, e.g. 'oilfield services'"},
+                    "naics": {"type": "string", "description": "Or a NAICS code, e.g. '213112'"},
+                    "state": {"type": "string", "description": "Two-letter state for jurisdiction overlays"},
+                },
+                "required": ["hiring_client"],
+            },
+            handler=hiring_client_gaps,
             source="builtin",
         ),
     ]
