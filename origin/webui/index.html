@@ -928,9 +928,40 @@ function setEditorButtons(kind){
   show('ed-btn-send',       kind==='project');
 }
 
+/* The master's premium CSS lives in its <head>. The editor only injects the
+   <body>, so without this the letterhead/headings render unstyled. We lift the
+   master's own <style> into a page-level block, but SCOPE every rule to the
+   editor container so it can't restyle the rest of the app. */
+function _extractCss(headHtml){
+  const d=new DOMParser().parseFromString('<head>'+(headHtml||'')+'</head>','text/html');
+  return Array.from(d.querySelectorAll('style')).map(s=>s.textContent||'').join('\n');
+}
+function scopeCss(css, scope){
+  // Drop print-only at-rules (@page/@media/@font-face), incl. one nested level.
+  css=css.replace(/@[\w-]+[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g,'');
+  // Prefix each remaining selector with the editor scope.
+  return css.replace(/([^{}]+)\{([^{}]*)\}/g,function(m,sel,decl){
+    if(!sel.trim()) return '';
+    const scoped=sel.split(',').map(function(s){
+      s=s.trim(); if(!s) return '';
+      if(/^(html|body)\b/.test(s)) return scope+s.replace(/^(html|body)/,'');
+      return scope+' '+s;
+    }).filter(Boolean).join(',');
+    return scoped?scoped+'{'+decl+'}':'';
+  });
+}
+function applyMasterCss(headHtml){
+  let st=document.getElementById('master-style');
+  if(!st){ st=document.createElement('style'); st.id='master-style'; document.head.appendChild(st); }
+  const css=_extractCss(headHtml);
+  // Apply to both editors; hide the PDF page-number footer in the on-screen view.
+  st.textContent = scopeCss(css,'#ed-body') + '\n' + scopeCss(css,'.docedit')
+    + '\n#ed-body .oms-footer,.docedit .oms-footer{display:none}';
+}
 function loadIntoEditor(html, title){
   const doc=new DOMParser().parseFromString(html,'text/html');
   EDIT_HEAD=doc.head?doc.head.innerHTML:''; EDIT_TITLE=title;
+  applyMasterCss(EDIT_HEAD);
   document.getElementById('ed-title').textContent=title;
   document.getElementById('ed-body').innerHTML=doc.body?doc.body.innerHTML:html;
   document.getElementById('ed-status').textContent = EDIT_KIND==='master' ? 'Editing master' : 'Customer copy';
@@ -990,6 +1021,7 @@ function tblk(tag,inner,tip){
 }
 function insertDocCard(path,title,html){
   const parts=docToParts(html);
+  applyMasterCss(parts.head);
   const chat=document.getElementById('chat');
   const card=document.createElement('div'); card.className='doccard';
   card.innerHTML=

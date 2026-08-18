@@ -449,11 +449,40 @@ def send_email(to: str, subject: str, body: str,
         sub = "pdf" if attachment.suffix.lower() == ".pdf" else "octet-stream"
         msg.add_attachment(data, maintype="application", subtype=sub,
                            filename=attachment.name)
+    # Railway containers often have an IPv6 address but no routable IPv6 egress,
+    # so smtplib picking the AAAA record fails with "[Errno 101] Network is
+    # unreachable". Force IPv4 resolution for the duration of the send, and try
+    # STARTTLS:587 first, then SSL:465 as a fallback (some networks block 587).
+    import socket as _socket
+    _real_gai = _socket.getaddrinfo
+
+    def _ipv4_only(*a, **k):
+        res = _real_gai(*a, **k)
+        v4 = [r for r in res if r[0] == _socket.AF_INET]
+        return v4 or res
+
+    def _attempt(p: int, use_ssl: bool):
+        if use_ssl:
+            with smtplib.SMTP_SSL(host, p, timeout=30) as s:
+                s.login(user, pw)
+                s.send_message(msg)
+        else:
+            with smtplib.SMTP(host, p, timeout=30) as s:
+                s.ehlo()
+                s.starttls()
+                s.login(user, pw)
+                s.send_message(msg)
+
+    _socket.getaddrinfo = _ipv4_only
     try:
-        with smtplib.SMTP(host, port, timeout=30) as s:
-            s.starttls()
-            s.login(user, pw)
-            s.send_message(msg)
+        try:
+            _attempt(port, use_ssl=(port == 465))
+        except OSError:
+            # Primary transport unreachable/blocked — try the other common port.
+            alt_port, alt_ssl = (465, True) if port != 465 else (587, False)
+            _attempt(alt_port, use_ssl=alt_ssl)
         return {"sent": True, "to": to}
     except Exception as e:
         return {"sent": False, "error": f"SMTP send failed: {e}"}
+    finally:
+        _socket.getaddrinfo = _real_gai
