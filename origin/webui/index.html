@@ -18,10 +18,15 @@
   #brand span{color:var(--accent)}
   .side-h{padding:12px 16px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim)}
   #projects{flex:1;overflow:auto;padding:0 8px}
-  .proj{padding:10px 12px;border-radius:8px;cursor:pointer;margin:2px 0;font-size:14px}
+  .proj{position:relative;padding:10px 30px 10px 12px;border-radius:8px;cursor:pointer;margin:2px 0;font-size:14px}
   .proj:hover{background:var(--panel2)}
   .proj.active{background:var(--user);color:#fff}
   .proj small{display:block;color:var(--dim);font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .proj-del{position:absolute;top:8px;right:8px;width:20px;height:20px;line-height:18px;text-align:center;
+    border-radius:5px;border:none;background:transparent;color:var(--dim);font-size:15px;cursor:pointer;opacity:0;transition:opacity .12s}
+  .proj:hover .proj-del{opacity:.7}
+  .proj-del:hover{opacity:1;background:#e5484d;color:#fff}
+  .proj.active .proj-del{color:#fff}
   .side-actions{padding:10px;border-top:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap}
   button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;
          padding:8px 12px;cursor:pointer;font-size:13px}
@@ -364,6 +369,9 @@ async function refresh(){
     const d=document.createElement('div'); d.className='proj'+(ACTIVE&&ACTIVE.slug===p.slug?' active':'');
     d.innerHTML=`${p.name}<small>${p.workdir}</small>`;
     d.onclick=()=>openProject(p.slug);
+    const del=document.createElement('button'); del.className='proj-del'; del.textContent='\u00d7';
+    del.title='Delete project'; del.onclick=(e)=>{ e.stopPropagation(); deleteProject(p.slug, p.name); };
+    d.appendChild(del);
     // Drag a master from the Asset Library onto a customer to use it in their job
     d.addEventListener('dragover',e=>{ if(!Array.from(e.dataTransfer.types||[]).includes('text/origin-master'))return;
       e.preventDefault(); e.dataTransfer.dropEffect='copy'; d.classList.add('drop'); });
@@ -675,6 +683,13 @@ function openNew(){
 function closeModal(){document.getElementById('modal').style.display='none';}
 
 function shareProj(){ if(ACTIVE) window.location='/api/projects/'+ACTIVE.slug+'/export'+(TOKEN?('?token='+encodeURIComponent(TOKEN)):''); }
+async function deleteProject(slug, name){
+  if(!confirm('Delete project "'+name+'"?\n\nThis removes its chat history and Origin record. Files in its workspace folder are NOT deleted.'))return;
+  const r=await api('/api/projects/'+slug+'/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+  if(r&&r.error){ alert('Could not delete: '+r.error); return; }
+  if(ACTIVE&&ACTIVE.slug===slug){ ACTIVE=null; try{ localStorage.removeItem('origin_last_project'); }catch(e){} }
+  await refresh();
+}
 function importProj(){ document.getElementById('importfile').click(); }
 async function doImport(ev){
   const f=ev.target.files[0]; if(!f)return;

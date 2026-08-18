@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 import re
+import shutil
 import time
 import zipfile
 from dataclasses import dataclass, field
@@ -174,6 +175,29 @@ class ProjectManager:
 
     def save(self, proj: Project) -> None:
         proj.meta_path.write_text(json.dumps(proj.to_dict(), indent=2))
+
+    def delete(self, slug: str, purge_workspace: bool = False) -> bool:
+        """Remove a project's record (meta + chat history).
+
+        The project's working directory is left untouched by default, because it
+        may be a real folder of the user's own files. Only when
+        ``purge_workspace`` is set AND the workdir is an Origin-created workspace
+        under ``DATA_DIR/workspaces/`` is the workspace deleted too — never a
+        user-chosen folder.
+        """
+        proj = self.get(slug)
+        if not proj:
+            return False
+        auto_ws = (DATA_DIR / "workspaces").resolve()
+        if purge_workspace:
+            try:
+                wd = Path(proj.workdir).resolve()
+                if wd == auto_ws / slug or auto_ws in wd.parents:
+                    shutil.rmtree(wd, ignore_errors=True)
+            except Exception:
+                pass
+        shutil.rmtree(proj.dir, ignore_errors=True)
+        return not proj.dir.exists()
 
     # ── sharing ────────────────────────────────────────────────────────────
     def export_bytes(self, slug: str) -> bytes:

@@ -182,6 +182,17 @@ class Engine:
     def create_project(self, name: str, workdir: Optional[str], notes: str = "") -> Project:
         return self.projects.create(name, workdir=workdir, notes=notes)
 
+    def delete_project(self, slug: str, purge_workspace: bool = False) -> bool:
+        # If the project being deleted is the open one, close it first.
+        if self.active and self.active.slug == slug:
+            try:
+                self.active.save_history(self.agent.history)
+            except Exception:
+                pass
+            self.active = None
+            self.agent.reset()
+        return self.projects.delete(slug, purge_workspace=purge_workspace)
+
     # ── chat ────────────────────────────────────────────────────────────────
     def _enhance(self, text: str) -> str:
         """Rewrite the raw message into a stronger instruction (or return it)."""
@@ -523,6 +534,14 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except KeyError:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"opened": proj.to_dict(), "transcript": proj.display_transcript()}
+
+    @app.post("/api/projects/{slug}/delete")
+    def delete_project(slug: str, body: dict = Body(default={})):
+        if not eng.projects.get(slug):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        purge = bool((body or {}).get("purge_workspace"))
+        ok = eng.delete_project(slug, purge_workspace=purge)
+        return {"deleted": ok, "slug": slug, "purged_workspace": purge}
 
     @app.get("/api/projects/{slug}/export")
     def export_project(slug: str):
