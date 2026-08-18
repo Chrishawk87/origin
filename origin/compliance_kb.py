@@ -86,6 +86,49 @@ def template_body(template_id: str) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
+def kb_stats() -> dict:
+    """A plain-English inventory of the compliance knowledge base: how many
+    standards are loaded, how they break down by category, how many require a
+    written program, how many of those already have a fillable template, and
+    exactly which standards still need a template built (the 'what to add' list).
+    """
+    recs = all_records()
+    by_cat: Dict[str, int] = {}
+    needs_program: List[dict] = []
+    for r in recs:
+        cat = r.get("category") or "(uncategorized)"
+        by_cat[cat] = by_cat.get(cat, 0) + 1
+        if (r.get("written_program") or "").strip().lower() in ("yes", "conditional"):
+            needs_program.append(r)
+
+    # Which written-program standards already ship a fillable template file?
+    prog_dir = KB_DIR / "Templates" / "programs"
+    have: set = set()
+    if prog_dir.exists():
+        for f in prog_dir.glob("program-*.md"):
+            have.add(f.stem[len("program-"):])
+
+    missing = [
+        {
+            "id": r["id"],
+            "title": r.get("title", ""),
+            "citation": r.get("citation", ""),
+            "category": r.get("category", ""),
+        }
+        for r in needs_program
+        if r["id"] not in have
+    ]
+    missing.sort(key=lambda m: (m["category"], m["title"]))
+
+    return {
+        "total_standards": len(recs),
+        "by_category": dict(sorted(by_cat.items())),
+        "written_program_required": len(needs_program),
+        "program_templates": len(have),
+        "missing_templates": missing,
+    }
+
+
 # ── fillable written-program renderer ───────────────────────────────────────
 _PROGRAM_PLACEHOLDERS = [
     "COMPANY_NAME", "COMPANY_ADDRESS", "PROGRAM_ADMINISTRATOR", "ADMIN_TITLE",

@@ -415,6 +415,86 @@ class Engine:
             "presets": self.config.presets,
         }
 
+    def inventory(self) -> Dict[str, Any]:
+        """A single snapshot of everything the system currently holds — the
+        capabilities (tools), the compliance knowledge base + templates, the
+        hiring-client requirement profiles, and what Origin has LEARNED at
+        runtime (saved memories + cached research). Powers the System panel so
+        Chris can see what's stored and what still needs to be added."""
+        import origin.compliance_kb as ckb
+
+        # ── Tools (capabilities), with a short description, grouped by source ──
+        tools: Dict[str, List[Dict[str, str]]] = {}
+        for t in self.registry.tools.values():
+            desc = (getattr(t, "description", "") or "").strip().replace("\n", " ")
+            tools.setdefault(t.source, []).append(
+                {"name": t.name, "description": desc[:240]}
+            )
+        for src in tools:
+            tools[src].sort(key=lambda x: x["name"])
+        tool_total = sum(len(v) for v in tools.values())
+
+        # ── Compliance KB + templates ────────────────────────────────────────
+        try:
+            kb = ckb.kb_stats()
+        except Exception as e:
+            kb = {"error": str(e)}
+
+        # ── Hiring-client requirement profiles ──────────────────────────────
+        try:
+            profs = ckb.list_hiring_clients()
+        except Exception:
+            profs = []
+        by_arch: Dict[str, List[Dict[str, Any]]] = {}
+        confirmed = 0
+        for p in profs:
+            by_arch.setdefault(p.get("archetype") or "other", []).append(
+                {"hiring_client": p.get("hiring_client"),
+                 "confirmed": bool(p.get("confirmed"))}
+            )
+            if p.get("confirmed"):
+                confirmed += 1
+        for a in by_arch:
+            by_arch[a].sort(key=lambda x: x["hiring_client"] or "")
+
+        # ── Learned memory (saved facts / preferences / goals) ───────────────
+        try:
+            mems = self.registry.memory.all()
+        except Exception:
+            mems = []
+        mem_by_kind: Dict[str, int] = {}
+        for m in mems:
+            mem_by_kind[m.get("kind", "fact")] = mem_by_kind.get(m.get("kind", "fact"), 0) + 1
+        recent_mem = [
+            {"kind": m.get("kind"), "content": (m.get("content") or "")[:200]}
+            for m in mems[:15]
+        ]
+
+        # ── Learned knowledge (cached research answers) ──────────────────────
+        try:
+            know = self.registry.research_engine.store.list()
+        except Exception:
+            know = []
+        recent_know = [
+            {"question": (k.get("question") or "")[:160],
+             "fetched_at": k.get("fetched_at"),
+             "watch": bool(k.get("watch"))}
+            for k in know[:15]
+        ]
+
+        return {
+            "tools": {"total": tool_total, "by_source": tools},
+            "compliance_kb": kb,
+            "profiles": {
+                "total": len(profs),
+                "confirmed": confirmed,
+                "unconfirmed": len(profs) - confirmed,
+                "by_archetype": by_arch,
+            },
+            "memory": {"total": len(mems), "by_kind": mem_by_kind, "recent": recent_mem},
+            "knowledge": {"total": len(know), "recent": recent_know},
+        }
+
     def shutdown(self) -> None:
         self.registry.shutdown()
 
@@ -553,6 +633,10 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     @app.get("/api/state")
     def state():
         return eng.state()
+
+    @app.get("/api/inventory")
+    def inventory():
+        return eng.inventory()
 
     @app.post("/api/projects")
     def create_project(body: dict = Body(...)):
