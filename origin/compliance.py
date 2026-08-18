@@ -421,19 +421,82 @@ def render_pdf(html: str, out_path: Path, title: str = "") -> None:
         raise RuntimeError("PDF rendering failed while converting the document.")
 
 
-# ── Email dispatch (SMTP) ────────────────────────────────────────────────────
+# ── Email dispatch ───────────────────────────────────────────────────────────
 def smtp_configured() -> bool:
     return bool(os.environ.get("ORIGIN_SMTP_HOST") and os.environ.get("ORIGIN_SMTP_USER")
                 and os.environ.get("ORIGIN_SMTP_PASS"))
 
 
+def resend_configured() -> bool:
+    return bool(os.environ.get("RESEND_API_KEY"))
+
+
+def _mail_from() -> str:
+    """The verified sender address for the email envelope. This is the From on
+    the EMAIL (Chris's own business writing to his client) — separate from the
+    document content, which stays unbranded."""
+    return (os.environ.get("ORIGIN_MAIL_FROM")
+            or os.environ.get("ORIGIN_SMTP_FROM")
+            or os.environ.get("ORIGIN_SMTP_USER")
+            or "info@originmanagementsolutions.com")
+
+
+def _send_via_resend(to: str, subject: str, body: str,
+                     attachment: Optional[Path] = None) -> Dict[str, Any]:
+    """Send over Resend's HTTPS API (port 443). Works on every Railway plan —
+    unlike raw SMTP, which Railway blocks on Free/Trial/Hobby plans."""
+    import json as _json
+    import base64 as _b64
+    import urllib.request as _url
+    payload: Dict[str, Any] = {
+        "from": _mail_from(),
+        "to": [to],
+        "subject": subject or "Compliance document",
+        "text": body or "Please find the attached compliance document.",
+    }
+    if attachment and attachment.is_file():
+        payload["attachments"] = [{
+            "filename": attachment.name,
+            "content": _b64.b64encode(attachment.read_bytes()).decode("ascii"),
+        }]
+    req = _url.Request(
+        "https://api.resend.com/emails",
+        data=_json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {os.environ['RESEND_API_KEY']}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with _url.urlopen(req, timeout=30) as resp:
+            data = _json.loads(resp.read().decode("utf-8") or "{}")
+        return {"sent": True, "to": to, "id": data.get("id")}
+    except _url.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8")
+        except Exception:
+            pass
+        return {"sent": False,
+                "error": f"Resend API error ({e.code}): {detail or e.reason}. "
+                         "Check that RESEND_API_KEY is valid and the From domain "
+                         "is verified in Resend."}
+    except Exception as e:
+        return {"sent": False, "error": f"Resend send failed: {e}"}
+
+
 def send_email(to: str, subject: str, body: str,
                attachment: Optional[Path] = None) -> Dict[str, Any]:
+    # Prefer Resend (HTTPS) — reliable on every Railway plan. Fall back to SMTP
+    # if only SMTP is configured (works on Railway Pro or off-Railway hosts).
+    if resend_configured():
+        return _send_via_resend(to, subject, body, attachment)
     if not smtp_configured():
         return {"sent": False,
-                "error": "Email isn't set up yet. Set ORIGIN_SMTP_HOST, "
-                         "ORIGIN_SMTP_USER and ORIGIN_SMTP_PASS to send directly. "
-                         "The PDF was still saved to the project."}
+                "error": "Email isn't set up yet. Add a RESEND_API_KEY (recommended — "
+                         "works on any Railway plan), or set ORIGIN_SMTP_HOST/USER/PASS "
+                         "(SMTP needs Railway Pro). The PDF was still saved to the project."}
     host = os.environ["ORIGIN_SMTP_HOST"]
     port = int(os.environ.get("ORIGIN_SMTP_PORT", "587"))
     user = os.environ["ORIGIN_SMTP_USER"]
