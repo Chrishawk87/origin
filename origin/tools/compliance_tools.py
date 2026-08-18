@@ -201,7 +201,211 @@ def build_compliance_tools() -> List[Tool]:
         L.append(f"\nSource: {rep.get('source')}")
         return "\n".join(L)
 
+    def compliance_intake(args: Dict[str, Any]) -> str:
+        """Read an uploaded prequal report (PDF/scan/image/docx) and turn it into a
+        punch list: platform + operator + required written programs, and — when
+        draft=True — auto-generate every needed program document into outputs/."""
+        import os
+        import re
+        import time
+        from . import document_tools
+
+        path = (args.get("path") or args.get("file") or "").strip()
+        if not path:
+            return ("ERROR: 'path' (the uploaded ISN/Avetta/Veriforce/PEC report to "
+                    "analyze) is required.")
+
+        text = document_tools.extract_text(path)
+        if text.startswith("ERROR"):
+            return text
+        if not text.strip() or text.lstrip().startswith("(No text"):
+            return (f"Could not extract readable text from '{path}'. If it's a scanned "
+                    "PDF, OCR (Tesseract) may not be available in this environment.")
+        low = text.lower()
+
+        # 1. which prequal platform is this report from
+        platforms = {
+            "ISNetworld": ["isnetworld", "isnet", "isn grade", "isn®", "isn "],
+            "Avetta": ["avetta"],
+            "Veriforce": ["veriforce", "pec safety", "pecsafety"],
+            "PEC": ["pec premier", "pec basic", "pec "],
+            "BROWZ": ["browz"],
+            "ComplyWorks": ["complyworks", "comply works"],
+        }
+        detected = [n for n, kws in platforms.items() if any(k in low for k in kws)]
+
+        # 2. which operator (hiring client) is driving the requirement.
+        #    Profiles carry full legal names ("Chevron Oil, Products and Gas") but a
+        #    report usually names the brand ("Chevron"), so match the full name OR a
+        #    distinctive leading brand token.
+        _COMMON = {"oil", "gas", "energy", "pipeline", "power", "products", "company",
+                   "corporation", "corp", "inc", "llc", "lp", "group", "americas",
+                   "north", "global", "solutions", "services", "the", "and", "of"}
+        operator = None
+        for c in kb.list_hiring_clients():
+            full = (c.get("hiring_client") or "").strip()
+            fl = full.lower()
+            if len(fl) > 2 and fl in low:
+                operator = full
+                break
+            toks = re.findall(r"[a-z0-9]+", fl)
+            brand = next((t for t in toks if len(t) > 3 and t not in _COMMON), "")
+            if brand and re.search(r"\b" + re.escape(brand) + r"\b", low):
+                operator = full
+                break
+
+        # 3. the required standards = industry baseline (if given) ∪ standards the
+        #    report itself references by citation/title
+        industry = (args.get("industry") or args.get("naics")
+                    or args.get("code") or "").strip()
+        state = (args.get("state") or "").strip() or None
+
+        required: Dict[str, dict] = {}
+        prof = None
+        if industry:
+            prof = kb.naics_applicable(industry, state=state)
+            for s in prof.get("standards", []):
+                required[s["id"]] = s
+        for r in kb.resolve_standards(low, limit=25):
+            required.setdefault(r["id"], {
+                "id": r["id"],
+                "title": r.get("title", ""),
+                "citation": r.get("citation", ""),
+                "category": r.get("category", ""),
+                "written_program": r.get("written_program", ""),
+            })
+
+        if not required:
+            return ("Read the document, but couldn't map it to any KB standard. "
+                    "Pass 'industry' (e.g. 'oilfield services') or 'naics' so I can "
+                    "scope the baseline, or the report may not cite recognizable "
+                    "OSHA/DOT standards.")
+
+        # which of those require a written program
+        need_program = [
+            r for r in required.values()
+            if (r.get("written_program") or "").strip().lower() in ("yes", "conditional")
+        ]
+        need_program.sort(key=lambda r: (r.get("category", ""), r.get("title", "")))
+
+        draft = args.get("draft", True)
+        if isinstance(draft, str):
+            draft = draft.strip().lower() not in ("false", "no", "0", "off")
+
+        # 4. report header
+        L: List[str] = []
+        L.append("COMPLIANCE INTAKE")
+        L.append(f"Source file: {os.path.basename(path)}")
+        L.append(f"Platform detected: {', '.join(detected) if detected else 'unclear (no platform keyword found)'}")
+        if operator:
+            L.append(f"Hiring client detected: {operator}  (run hiring_client_gaps for their overlay)")
+        if industry:
+            sect = (prof or {}).get("sector_label") or (prof or {}).get("sector") or industry
+            L.append(f"Industry baseline: {industry} → {(prof or {}).get('count', 0)} standards ({sect})")
+        L.append(f"Standards implicated: {len(required)}  |  Written programs required: {len(need_program)}")
+
+        # 5. the punch list
+        L.append("\nWRITTEN PROGRAMS TO SUBMIT:")
+        if not need_program:
+            L.append("  (none of the implicated standards require a written program)")
+        else:
+            by_cat: Dict[str, list] = {}
+            for r in need_program:
+                by_cat.setdefault(r.get("category", "Other"), []).append(r)
+            for cat in sorted(by_cat):
+                L.append(f"\n  {cat}")
+                for r in by_cat[cat]:
+                    cite = f" [{r['citation']}]" if r.get("citation") else ""
+                    L.append(f"    - {r.get('title', '')}{cite}  (id: {r['id']})")
+
+        # 6. optionally draft every needed program to disk
+        if draft and need_program:
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            out_dir = os.path.join("outputs", f"intake_{stamp}")
+            os.makedirs(out_dir, exist_ok=True)
+            written: List[str] = []
+            failed: List[str] = []
+            for r in need_program:
+                doc = kb.render_program(r["id"])
+                if not doc:
+                    failed.append(r["id"])
+                    continue
+                slug = re.sub(r"[^a-z0-9]+", "-", r["id"].lower()).strip("-")
+                fn = os.path.join(out_dir, f"program-{slug}.md")
+                try:
+                    with open(fn, "w", encoding="utf-8") as fh:
+                        fh.write(doc)
+                    written.append(fn)
+                except Exception as e:
+                    failed.append(f"{r['id']} ({e})")
+
+            # index / punch-list report alongside the drafts
+            report = [
+                f"# Compliance intake — {os.path.basename(path)}",
+                "",
+                f"- Platform: {', '.join(detected) if detected else 'unclear'}",
+                f"- Hiring client: {operator or 'not detected'}",
+                f"- Industry baseline: {industry or 'not provided'}",
+                f"- Written programs drafted: {len(written)} of {len(need_program)}",
+                "",
+                "## Programs in this folder",
+            ]
+            for fn in written:
+                report.append(f"- {os.path.basename(fn)}")
+            report.append("")
+            report.append("Each program has {{PLACEHOLDER}} fields and [[...]] prompts to fill "
+                          "with the contractor's specifics. After filling, run compliance_check "
+                          "on each before submitting.")
+            try:
+                with open(os.path.join(out_dir, "00_INTAKE_REPORT.md"), "w", encoding="utf-8") as fh:
+                    fh.write("\n".join(report))
+            except Exception:
+                pass
+
+            L.append(f"\nDRAFTED {len(written)} program document(s) → {out_dir}/")
+            L.append("  (each is pre-filled from the KB with fillable placeholders; "
+                     "complete the [[...]] prompts, then run compliance_check before submitting)")
+            if failed:
+                L.append(f"  Could not draft: {', '.join(failed)}")
+        elif need_program:
+            L.append("\n(Set draft=true to auto-generate every program document above into outputs/.)")
+
+        L.append("\nNext: fill each program's placeholders, run compliance_check per document, "
+                 "and if an operator was detected, run hiring_client_gaps for their extra overlay.")
+        return "\n".join(L)
+
     return [
+        Tool(
+            name="compliance_intake",
+            description=(
+                "THE upload-and-analyze tool. Point it at an uploaded prequalification "
+                "report — an ISNetworld / Avetta / Veriforce / PEC / BROWZ requirement "
+                "list, scorecard, or REJECTION notice, including a SCANNED PDF or image "
+                "(it OCRs) — and it tells the contractor exactly what to submit to pass. "
+                "It reads the document, detects the platform and hiring client, maps it "
+                "to the required KB written programs, and (draft=true, the default) "
+                "auto-generates every needed program document into outputs/ ready to "
+                "fill. Give 'industry' or 'naics' too for a complete baseline. Use this "
+                "FIRST whenever the user uploads a compliance PDF/scan and asks what it "
+                "needs or how to pass."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string",
+                             "description": "The uploaded report to analyze (file name in the workspace or absolute path)."},
+                    "industry": {"type": "string",
+                                 "description": "Contractor trade for the baseline, e.g. 'oilfield services', 'construction'"},
+                    "naics": {"type": "string", "description": "Or a NAICS code, e.g. '213112'"},
+                    "state": {"type": "string", "description": "Two-letter state for jurisdiction overlays, e.g. 'CA'"},
+                    "draft": {"type": "boolean",
+                              "description": "Auto-generate every required program document (default true)"},
+                },
+                "required": ["path"],
+            },
+            handler=compliance_intake,
+            source="builtin",
+        ),
         Tool(
             name="compliance_lookup",
             description=(

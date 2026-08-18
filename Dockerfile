@@ -1,7 +1,11 @@
 # Origin — hosted server image (Railway / Render / any Docker host).
 FROM python:3.12-slim
 WORKDIR /app
-RUN pip install --no-cache-dir fastapi uvicorn python-multipart anthropic openai rich PyYAML requests python-dotenv youtube-transcript-api xhtml2pdf mammoth
+# Tesseract powers OCR for scanned prequal PDFs/images (compliance_intake).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir fastapi uvicorn python-multipart anthropic openai rich PyYAML requests python-dotenv youtube-transcript-api xhtml2pdf mammoth pymupdf pytesseract pillow
 COPY . .
 ENV ORIGIN_CONFIG=/app/origin.config.railway.yaml
 ENV PYTHONUNBUFFERED=1

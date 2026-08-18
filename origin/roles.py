@@ -58,7 +58,13 @@ ROLES = {
         "that appear in a retrieved KB entry. Never claim a prequalification agency 'approved' a "
         "template — say it 'meets the requirements of [citation].' If a document fails the "
         "checklist, do NOT send it: report the missing elements and fix them first. If no KB "
-        "entry supports a requirement, say so rather than inventing one." + _COMMON_TAIL
+        "entry supports a requirement, say so rather than inventing one. "
+        "WHEN A USER UPLOADS A PREQUAL REPORT (an ISNetworld/Avetta/Veriforce/PEC/BROWZ "
+        "requirement list, scorecard, or rejection notice — including a SCANNED PDF or image), "
+        "call `compliance_intake` FIRST: it reads the file (OCR for scans), detects the platform "
+        "and hiring client, maps it to the required KB written programs, and drafts each one into "
+        "outputs/ ready to fill. Then fill the placeholders and run compliance_check per document."
+        + _COMMON_TAIL
     ),
 }
 
@@ -115,8 +121,9 @@ KNOWN_ROLE_TOOLS = {
     # draft from its required_elements, then run the checklist BEFORE anything
     # is finalized. Research/web catch current agency changes; remember keeps
     # each client's specifics across sessions.
-    "compliance_officer": ["compliance_profile", "compliance_lookup", "compliance_template",
-                           "compliance_check", "read_file", "write_file", "research",
+    "compliance_officer": ["compliance_intake", "read_document", "compliance_profile",
+                           "compliance_lookup", "compliance_template", "compliance_check",
+                           "read_file", "write_file", "research",
                            "web_search", "browse", "remember", "consult", "collaborate"],
 }
 

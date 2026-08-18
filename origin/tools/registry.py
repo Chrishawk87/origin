@@ -12,6 +12,7 @@ from ..roles import resolve_persona
 from .base import Tool
 from .browser import BrowserManager, build_browser_tools
 from .compliance_tools import build_compliance_tools
+from .document_tools import build_document_tools
 from .mcp_client import MCPManager
 from .media import build_media_tools
 from .models import build_model_tools
@@ -78,6 +79,9 @@ class Registry:
             self.tools[t.name] = t
         # 8d. compliance knowledge base (look up standards + check drafts)
         for t in build_compliance_tools():
+            self.tools[t.name] = t
+        # 8e. document reader (ingest uploaded PDFs/scans/images for intake)
+        for t in build_document_tools():
             self.tools[t.name] = t
         # 9. become-any-expert (self-specialization)
         self.tools["become"] = Tool(
