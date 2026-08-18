@@ -433,6 +433,7 @@ async function openProject(slug){
   const r=await api('/api/projects/'+slug+'/open',{method:'POST'});
   if(!r || !r.opened){ renderEmpty(); return; }
   ACTIVE=r.opened;
+  WDOC=null;  // clear any card DOM reference from a previously-open project
   try{ localStorage.setItem('origin_last_project', slug); }catch(e){}
   document.getElementById('active-name').innerHTML='<b>'+ACTIVE.name+'</b>';
   document.getElementById('sharebtn').style.display='';
@@ -440,7 +441,26 @@ async function openProject(slug){
   (r.transcript||[]).forEach(m=>addBubble(m.role,m.text));
   await refresh();
   loadFiles();
+  await restoreWDoc(slug);   // reopen the working document you were editing
   scrollDown();
+}
+
+/* Reopen the working document that was open in this project before a refresh.
+   The card is ephemeral DOM, but the file lives on disk — so we just reload it
+   from the server and rebuild the card. Silent if nothing was open / file gone. */
+async function restoreWDoc(slug){
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem('origin_wdoc_'+slug)||'null'); }catch(e){}
+  if(!saved||!saved.path) return;
+  try{
+    const r=await api('/api/projects/'+slug+'/compliance/content?path='+encodeURIComponent(saved.path));
+    if(r&&r.html&&!r.error){
+      addBubble('assistant','📄 Reopened your working document “'+escapeHtml(saved.title||saved.path)+'” — pick up where you left off.');
+      insertDocCard(saved.path, saved.title||saved.path, r.html);
+    } else {
+      try{ localStorage.removeItem('origin_wdoc_'+slug); }catch(e){}
+    }
+  }catch(e){}
 }
 
 function addBubble(role,text){
@@ -1042,6 +1062,8 @@ function insertDocCard(path,title,html){
   const body=card.querySelector('.docedit'); body.innerHTML=parts.body;
   chat.appendChild(card);
   WDOC={ path:path, title:title, head:parts.head, body:body, status:card.querySelector('.docstatus'), lastSent:null };
+  // Remember this doc so it reopens automatically after a page refresh.
+  try{ if(ACTIVE) localStorage.setItem('origin_wdoc_'+ACTIVE.slug, JSON.stringify({path:path,title:title})); }catch(e){}
   scrollDown();
   return card;
 }

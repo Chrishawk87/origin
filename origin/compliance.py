@@ -465,6 +465,10 @@ def _send_via_resend(to: str, subject: str, body: str,
         headers={
             "Authorization": f"Bearer {os.environ['RESEND_API_KEY']}",
             "Content-Type": "application/json",
+            # Resend's API is behind Cloudflare, which 403s (error 1010) the
+            # default "Python-urllib" agent as a bot. A normal UA clears it.
+            "User-Agent": "OriginManagementSolutions/1.0 (+https://originmanagementsolutions.com)",
+            "Accept": "application/json",
         },
         method="POST",
     )
