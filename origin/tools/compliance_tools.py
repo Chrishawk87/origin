@@ -192,11 +192,13 @@ def build_compliance_tools() -> List[Tool]:
             f"  |  Grade target: {ov.get('isn_grade_target')}",
         ]
         if not rep["confirmed"]:
-            L.append(f"** {rep['note']} **")
+            L.append(f"*** UNVERIFIED PROFILE — {rep['note']} ***")
         base = rep["baseline"]
         L.append(f"\nISN baseline (industry): {base.get('count', 0)} standards "
                  f"(use compliance_profile('{industry}') for the full list).")
-        L.append("\nOPERATOR OVERLAY — extra to close for this client:")
+        overlay_tag = ("" if rep["confirmed"]
+                       else "  [UNVERIFIED — typical values, confirm against live ISN scorecard]")
+        L.append(f"\nOPERATOR OVERLAY — extra to close for this client:{overlay_tag}")
         L.append("  Insurance:")
         for k, v in ins.items():
             if isinstance(v, list):
@@ -554,6 +556,14 @@ def build_compliance_tools() -> List[Tool]:
              + (f" under {overlay['hiring_client']}" if overlay else "") + ""]
         L.append(f"Target platform: {platform}"
                  + (f"  |  Operator grade target: {grade_target}" if grade_target else ""))
+        if overlay and not overlay.get("confirmed", False):
+            L.append("")
+            L.append("*** UNVERIFIED OPERATOR PROFILE — the insurance limits, EMR/TRIR/DART "
+                     f"caps, and required programs used below are TYPICAL values for the "
+                     f"'{overlay.get('archetype','?')}' archetype, NOT confirmed against "
+                     f"{overlay['hiring_client']}'s live ISN requirement list. Treat the projected "
+                     "grade as indicative only, and confirm every limit against the client's actual "
+                     "scorecard before quoting it to anyone. ***")
         L.append("")
         L.append(_fmt_grade(r))
 
