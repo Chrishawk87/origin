@@ -15,7 +15,22 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from .. import compliance_kb as kb
+from .. import compliance_grading as grading
 from .base import Tool
+
+
+def _to_float(v: Any) -> Any:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int(v: Any) -> Any:
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return None
 
 
 def _fmt_standard(r: dict, full: bool = True) -> str:
@@ -374,6 +389,222 @@ def build_compliance_tools() -> List[Tool]:
                  "and if an operator was detected, run hiring_client_gaps for their extra overlay.")
         return "\n".join(L)
 
+    def safety_metrics(args: Dict[str, Any]) -> str:
+        """Compute TRIR / DART / LTIR / severity from OSHA-300 counts + hours (or
+        accept the rates directly), and benchmark against the BLS industry average."""
+        industry = (args.get("industry") or args.get("naics") or "").strip() or None
+        m = grading.compute_metrics(
+            hours=_to_float(args.get("hours")),
+            recordables=_to_float(args.get("recordables")),
+            dart_cases=_to_float(args.get("dart_cases")),
+            days_away_cases=_to_float(args.get("days_away_cases")),
+            lost_days=_to_float(args.get("lost_days")),
+            fatalities=_to_float(args.get("fatalities")),
+            industry=industry,
+            emr=_to_float(args.get("emr")),
+        )
+        # let a caller pass precomputed rates when they don't have raw counts
+        for k in ("trir", "dart", "ltir"):
+            if m.get(k) is None and args.get(k) is not None:
+                m[k] = _to_float(args.get(k))
+        b = m["benchmark"]
+        L = ["SAFETY METRICS (OSHA 29 CFR 1904 formula: cases x 200,000 / hours worked)"]
+        L.append(f"Benchmark: {b['label']} — BLS avg TRIR {b['trir']}, DART {b['dart']}")
+        if m.get("hours"):
+            L.append(f"Hours worked: {m['hours']:g}")
+        def _line(label, val, verdict):
+            if val is None:
+                return None
+            return f"  {label}: {val}" + (f"  — {verdict}" if verdict else "")
+        for label, key, vkey in (("TRIR", "trir", "trir_vs_bls"),
+                                  ("DART", "dart", "dart_vs_bls"),
+                                  ("LTIR", "ltir", None),
+                                  ("Severity rate", "severity_rate", None)):
+            ln = _line(label, m.get(key), m.get(vkey) if vkey else None)
+            if ln:
+                L.append(ln)
+        if m.get("emr") is not None:
+            L.append(f"  EMR: {m['emr']:g}  — {m.get('emr_verdict','')}")
+        if m.get("fatalities"):
+            L.append(f"  Fatalities: {m['fatalities']:g}")
+        for n in m.get("notes", []):
+            L.append(f"  NOTE: {n}")
+        L.append("\nEMR uses NCCI 3-yr workers'-comp loss data (1.00 = industry baseline); "
+                 "most operators cap EMR at 1.0. BLS averages shift yearly — verify the "
+                 "current figure for the exact NAICS before quoting.")
+        return "\n".join(L)
+
+    def grade_estimate(args: Dict[str, Any]) -> str:
+        """Estimate a contractor's grade on a prequal platform from component inputs."""
+        platform = (args.get("platform") or "ISN").strip()
+        inputs = {
+            "programs_required": _to_int(args.get("programs_required")),
+            "programs_complete": _to_int(args.get("programs_complete")),
+            "insurance_required": _to_int(args.get("insurance_required")),
+            "insurance_met": _to_int(args.get("insurance_met")),
+            "insurance_ok": args.get("insurance_ok"),
+            "emr": _to_float(args.get("emr")),
+            "emr_cap": args.get("emr_cap"),
+            "trir": _to_float(args.get("trir")),
+            "trir_cap": args.get("trir_cap"),
+            "dart": _to_float(args.get("dart")),
+            "dart_cap": args.get("dart_cap"),
+            "industry": (args.get("industry") or "").strip() or None,
+            "open_citations": _to_int(args.get("open_citations")),
+            "msq_complete": _to_float(args.get("msq_complete")),
+            "training_complete": _to_float(args.get("training_complete")),
+            "fatalities": _to_int(args.get("fatalities")),
+        }
+        r = grading.estimate_grade(platform, inputs)
+        return _fmt_grade(r)
+
+    def _fmt_grade(r: Dict[str, Any]) -> str:
+        if r.get("score") is None:
+            return "GRADE ESTIMATE — insufficient inputs\n" + "\n".join(
+                f"  - {d}" for d in r.get("drivers", []))
+        L = [f"ESTIMATED {r['platform']} GRADE: {r['grade']}  (score {r['score']}/100)",
+             f"Status: {r.get('traffic_light','')}"]
+        if r.get("components"):
+            L.append("Component scores (0-1): " + ", ".join(
+                f"{k} {v}" for k, v in r["components"].items()))
+        if r.get("drivers"):
+            L.append("\nWhat's driving it:")
+            L += [f"  - {d}" for d in r["drivers"]]
+        if r.get("gates"):
+            L.append("\nBlocking gates:")
+            L += [f"  ! {g}" for g in r["gates"]]
+        L.append("\n" + grading.CAVEAT)
+        return "\n".join(L)
+
+    def compliance_audit(args: Dict[str, Any]) -> str:
+        """Full scored readiness audit: score the contractor against a target
+        operator/industry, project the prequal grade, and list prioritized fixes."""
+        industry = (args.get("industry") or args.get("naics") or args.get("code") or "").strip()
+        state = (args.get("state") or "").strip() or None
+        client = (args.get("hiring_client") or args.get("operator") or "").strip()
+        if not industry:
+            return ("ERROR: 'industry' or 'naics' (the contractor's trade) is required so I can "
+                    "scope the required programs. Optionally add 'hiring_client' for the "
+                    "operator overlay, plus stats (emr, trir, dart) and programs_complete.")
+
+        # 1. required written programs = industry baseline (+ operator extras)
+        prof = kb.naics_applicable(industry, state=state)
+        base_std = prof.get("standards", []) if isinstance(prof, dict) else []
+        base_programs = [s for s in base_std
+                         if (s.get("written_program") or "").strip().lower() in ("yes", "conditional")]
+        programs_required = len(base_programs)
+
+        overlay = None
+        platform = (args.get("platform") or "").strip()
+        emr_cap = args.get("emr_cap")
+        trir_cap = args.get("trir_cap")
+        dart_cap = args.get("dart_cap")
+        grade_target = None
+        extra_programs: List[str] = []
+        if client:
+            rep = kb.hiring_client_gaps(client, industry, state=state)
+            if not rep.get("error"):
+                overlay = rep
+                ov = rep.get("overlay", {})
+                perf = ov.get("performance", {})
+                emr_cap = emr_cap if emr_cap is not None else perf.get("emr_max")
+                trir_cap = trir_cap if trir_cap is not None else perf.get("trir_threshold")
+                dart_cap = dart_cap if dart_cap is not None else perf.get("dart_threshold")
+                grade_target = ov.get("isn_grade_target")
+                extra_programs = list((ov.get("programs_training", {}) or {}).get("extra_written_programs", []) or [])
+                programs_required += len(extra_programs)
+                if not platform:
+                    plats = ov.get("prequal_platforms") or []
+                    platform = (plats[0].split()[0] if plats else "ISN")
+        platform = platform or "ISN"
+
+        # thresholds that are pure BLS-relative ("<= NAICS avg") carry no number;
+        # grading falls back to BLS automatically when the cap parses to None.
+        inputs = {
+            "programs_required": programs_required,
+            "programs_complete": _to_int(args.get("programs_complete")) or 0,
+            "insurance_required": _to_int(args.get("insurance_required")),
+            "insurance_met": _to_int(args.get("insurance_met")),
+            "insurance_ok": args.get("insurance_ok"),
+            "emr": _to_float(args.get("emr")),
+            "emr_cap": emr_cap,
+            "trir": _to_float(args.get("trir")),
+            "trir_cap": trir_cap,
+            "dart": _to_float(args.get("dart")),
+            "dart_cap": dart_cap,
+            "industry": industry,
+            "open_citations": _to_int(args.get("open_citations")),
+            "msq_complete": _to_float(args.get("msq_complete")),
+            "training_complete": _to_float(args.get("training_complete")),
+            "fatalities": _to_int(args.get("fatalities")),
+        }
+        # if raw counts + hours given, compute the rates first
+        if args.get("hours") and (args.get("recordables") is not None or args.get("dart_cases") is not None):
+            m = grading.compute_metrics(
+                hours=_to_float(args.get("hours")),
+                recordables=_to_float(args.get("recordables")),
+                dart_cases=_to_float(args.get("dart_cases")),
+                industry=industry, emr=inputs["emr"])
+            inputs["trir"] = inputs["trir"] if inputs["trir"] is not None else m.get("trir")
+            inputs["dart"] = inputs["dart"] if inputs["dart"] is not None else m.get("dart")
+
+        r = grading.estimate_grade(platform, inputs)
+
+        L = [f"COMPLIANCE READINESS AUDIT — {industry}"
+             + (f" under {overlay['hiring_client']}" if overlay else "") + ""]
+        L.append(f"Target platform: {platform}"
+                 + (f"  |  Operator grade target: {grade_target}" if grade_target else ""))
+        L.append("")
+        L.append(_fmt_grade(r))
+
+        # prioritized remediation
+        fixes: List[str] = []
+        pc = inputs["programs_complete"] or 0
+        if programs_required and pc < programs_required:
+            fixes.append(f"Draft/submit {programs_required - pc} of {programs_required} required "
+                         f"written programs (run compliance_profile('{industry}') for the list"
+                         + (", plus operator extras below" if extra_programs else "") + ").")
+        if inputs.get("emr") is not None and grading.parse_cap(emr_cap):
+            cap = grading.parse_cap(emr_cap)
+            if inputs["emr"] > cap:
+                fixes.append(f"EMR {inputs['emr']:g} exceeds the {cap:g} cap — attach an EMR "
+                             "explanation letter and corrective-action history; it rolls off over 3 yrs.")
+        if inputs.get("insurance_ok") is not True and inputs.get("insurance_met") is not None \
+                and inputs.get("insurance_required") and inputs["insurance_met"] < inputs["insurance_required"]:
+            fixes.append("Close the insurance gap — get COIs with the required limits + endorsements "
+                         "(additional insured, waiver of subrogation, primary & non-contributory).")
+        if extra_programs:
+            fixes.append("Operator-specific extra programs to confirm/submit: " + ", ".join(extra_programs))
+        if overlay and not overlay.get("confirmed", False):
+            fixes.append("NOTE: operator overlay is archetype-seeded — verify against this client's "
+                         "live requirement list before quoting.")
+        if fixes:
+            L.append("\nPRIORITIZED REMEDIATION:")
+            L += [f"  {i}. {f}" for i, f in enumerate(fixes, 1)]
+        return "\n".join(L)
+
+    def grade_calibrate(args: Dict[str, Any]) -> str:
+        """Record a REAL scorecard (platform + inputs + the actual grade earned) so
+        the estimator can be tuned to reality over time."""
+        platform = (args.get("platform") or "").strip().upper()
+        actual = (args.get("actual_grade") or "").strip().upper()
+        if not platform or not actual:
+            return ("ERROR: 'platform' (e.g. 'ISN') and 'actual_grade' (the real letter/score, "
+                    "e.g. 'B') are required to record a calibration sample.")
+        cal = grading.load_calibration()
+        samples = cal.setdefault("samples", [])
+        sample = {"platform": platform, "actual_grade": actual,
+                  "inputs": {k: v for k, v in args.items()
+                             if k not in ("platform", "actual_grade")}}
+        samples.append(sample)
+        ok = grading.save_calibration(cal)
+        if not ok:
+            return ("Recorded in memory but could NOT persist the calibration file "
+                    "(read-only filesystem?). Set ORIGIN_DATA_DIR to a writable volume.")
+        return (f"Recorded calibration sample #{len(samples)} for {platform} (actual grade "
+                f"{actual}). With enough samples the grade bands/weights can be tuned to match "
+                "your real scorecards. Samples stored at the data volume.")
+
     return [
         Tool(
             name="compliance_intake",
@@ -535,6 +766,131 @@ def build_compliance_tools() -> List[Tool]:
                 "required": ["hiring_client"],
             },
             handler=hiring_client_gaps,
+            source="builtin",
+        ),
+        Tool(
+            name="safety_metrics",
+            description=(
+                "Calculate and interpret a contractor's OSHA safety metrics — TRIR, DART, "
+                "LTIR, and severity rate — from their OSHA-300 counts and hours worked, and "
+                "benchmark TRIR/DART against the BLS industry average. Also reads EMR against "
+                "the 1.0 baseline. Use this whenever a contractor gives incident numbers or "
+                "asks 'is my TRIR/EMR good enough to pass?'. Give raw counts (recordables, "
+                "dart_cases, days_away_cases, lost_days) + hours, or pass the rates directly."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "hours": {"type": "number", "description": "Total employee hours worked in the year"},
+                    "recordables": {"type": "number", "description": "OSHA-recordable cases (for TRIR)"},
+                    "dart_cases": {"type": "number", "description": "Days-away/restricted/transfer cases (for DART)"},
+                    "days_away_cases": {"type": "number", "description": "Days-away-from-work cases (for LTIR)"},
+                    "lost_days": {"type": "number", "description": "Total lost workdays (for severity rate)"},
+                    "fatalities": {"type": "number", "description": "Number of fatalities"},
+                    "emr": {"type": "number", "description": "Experience Modification Rate (NCCI), e.g. 0.85"},
+                    "trir": {"type": "number", "description": "Pass TRIR directly if you don't have raw counts"},
+                    "dart": {"type": "number", "description": "Pass DART directly if you don't have raw counts"},
+                    "ltir": {"type": "number", "description": "Pass LTIR directly if you don't have raw counts"},
+                    "industry": {"type": "string", "description": "Trade/NAICS to pick the right BLS benchmark"},
+                },
+                "required": [],
+            },
+            handler=safety_metrics,
+            source="builtin",
+        ),
+        Tool(
+            name="grade_estimate",
+            description=(
+                "Estimate the letter grade / traffic-light a contractor would earn on a prequal "
+                "platform (ISNetworld, Avetta, Veriforce, PEC, BROWZ) from their component "
+                "status: written-program completeness, insurance completeness, safety stats "
+                "(EMR/TRIR/DART), MSQ and training completion, and open citations. Returns an "
+                "ESTIMATED grade with the drivers and any blocking gates. This is a research-"
+                "grounded projection (the platforms' exact math is proprietary and per-client), "
+                "so always present it as an estimate. For a full trade-scoped audit against a "
+                "specific operator, use compliance_audit instead."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "platform": {"type": "string", "description": "ISN | Avetta | Veriforce | PEC | BROWZ (default ISN)"},
+                    "programs_required": {"type": "integer", "description": "Written programs the client requires"},
+                    "programs_complete": {"type": "integer", "description": "How many are done + verified"},
+                    "insurance_required": {"type": "integer", "description": "Insurance requirements count"},
+                    "insurance_met": {"type": "integer", "description": "How many insurance requirements are met"},
+                    "insurance_ok": {"type": "boolean", "description": "Shortcut: all insurance met"},
+                    "emr": {"type": "number"}, "emr_cap": {"type": "number", "description": "Operator EMR cap (default 1.0)"},
+                    "trir": {"type": "number"}, "trir_cap": {"type": "number"},
+                    "dart": {"type": "number"}, "dart_cap": {"type": "number"},
+                    "industry": {"type": "string", "description": "Trade/NAICS for the BLS benchmark"},
+                    "open_citations": {"type": "integer"},
+                    "msq_complete": {"type": "number", "description": "0..1 fraction of MSQ complete"},
+                    "training_complete": {"type": "number", "description": "0..1 fraction of training records complete"},
+                    "fatalities": {"type": "integer"},
+                },
+                "required": [],
+            },
+            handler=grade_estimate,
+            source="builtin",
+        ),
+        Tool(
+            name="compliance_audit",
+            description=(
+                "THE auditor tool. Run a full scored readiness audit for a contractor: give "
+                "their trade ('industry'/'naics') and optionally the target 'hiring_client' "
+                "(e.g. 'Chevron') plus their stats (emr, trir, dart or raw hours+counts), how "
+                "many required programs they've completed (programs_complete), and insurance "
+                "status. It scopes the required written programs from the KB, layers the "
+                "operator's EMR/TRIR/insurance ceilings on top, PROJECTS the prequal grade / "
+                "traffic-light, and returns a prioritized remediation punch list. Use this when "
+                "asked 'will we pass?', 'what grade will we get?', or 'audit us for <operator>'."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "industry": {"type": "string", "description": "Contractor trade, e.g. 'oilfield services'"},
+                    "naics": {"type": "string", "description": "Or a NAICS code, e.g. '213112'"},
+                    "state": {"type": "string", "description": "Two-letter state for jurisdiction overlays"},
+                    "hiring_client": {"type": "string", "description": "Target operator, e.g. 'Chevron' (adds their overlay)"},
+                    "platform": {"type": "string", "description": "Prequal platform to grade against (defaults from operator)"},
+                    "programs_complete": {"type": "integer", "description": "Required written programs already done + verified"},
+                    "insurance_required": {"type": "integer"}, "insurance_met": {"type": "integer"},
+                    "insurance_ok": {"type": "boolean"},
+                    "emr": {"type": "number"}, "trir": {"type": "number"}, "dart": {"type": "number"},
+                    "hours": {"type": "number", "description": "Hours worked (with recordables/dart_cases to compute rates)"},
+                    "recordables": {"type": "number"}, "dart_cases": {"type": "number"},
+                    "open_citations": {"type": "integer"},
+                    "msq_complete": {"type": "number"}, "training_complete": {"type": "number"},
+                    "fatalities": {"type": "integer"},
+                },
+                "required": [],
+            },
+            handler=compliance_audit,
+            source="builtin",
+        ),
+        Tool(
+            name="grade_calibrate",
+            description=(
+                "Record a REAL prequal scorecard so the grade estimator can be tuned to reality. "
+                "Give the 'platform' and the 'actual_grade' the contractor actually received, "
+                "plus whatever component inputs you know (same fields as grade_estimate). Stored "
+                "to the data volume; over time these samples let the estimator's bands/weights be "
+                "calibrated to match how the platforms really grade. Use whenever the user shares "
+                "an actual grade result."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "platform": {"type": "string", "description": "ISN | Avetta | Veriforce | PEC | BROWZ"},
+                    "actual_grade": {"type": "string", "description": "The real grade earned, e.g. 'A', 'B', or a score"},
+                    "programs_required": {"type": "integer"}, "programs_complete": {"type": "integer"},
+                    "emr": {"type": "number"}, "trir": {"type": "number"}, "dart": {"type": "number"},
+                    "insurance_ok": {"type": "boolean"},
+                    "industry": {"type": "string"},
+                },
+                "required": ["platform", "actual_grade"],
+            },
+            handler=grade_calibrate,
             source="builtin",
         ),
     ]

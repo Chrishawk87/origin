@@ -7,3 +7,5 @@ origin.config.yaml
 *.egg-info/
 build/
 dist/
+# runtime grade-calibration data (lives in the data volume, never committed)
+compliance_calibration.json
