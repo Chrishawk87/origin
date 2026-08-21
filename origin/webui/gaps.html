@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gap Finder — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:880px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  label.fld{display:block;font-weight:700;color:var(--charcoal);font-size:14px;margin:14px 0 6px}
+  input[type=text]{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:8px;font-size:15px;color:var(--ink);background:#fff}
+  input:focus{outline:none;border-color:var(--orange)}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .row > div{flex:1;min-width:200px}
+  .drop{border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--grey);cursor:pointer;transition:.12s;margin-top:6px}
+  .drop:hover,.drop.over{border-color:var(--orange);background:var(--cream);color:var(--charcoal)}
+  .files{margin-top:10px;font-size:13px}
+  .files .f{display:inline-block;background:var(--light);border-radius:6px;padding:5px 10px;margin:3px 5px 0 0}
+  .btn{appearance:none;border:0;border-radius:8px;padding:13px 24px;font-size:15px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff;margin-top:20px}
+  .btn:hover{background:var(--red)} .btn:disabled{opacity:.5;cursor:not-allowed}
+  .err{color:var(--red);font-size:14px;font-weight:600;margin-top:10px;min-height:1em}
+  /* results */
+  .score{background:var(--charcoal);color:#fff;border-radius:11px;padding:18px 20px;margin:6px 0 18px}
+  .score .h{font-size:16px;font-weight:800}
+  .score .meter{height:10px;background:#33373E;border-radius:6px;margin:12px 0 8px;overflow:hidden}
+  .score .fill{height:100%;background:var(--orange)}
+  .score .stats{font-size:13px;color:#C9CED6}
+  .grp h2{font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:22px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .gap{border:1px solid var(--line);border-left:5px solid var(--line);border-radius:9px;padding:13px 15px;margin-bottom:10px;background:#fff}
+  .gap.MISSING{border-left-color:var(--red)}
+  .gap.FAILING{border-left-color:var(--amber)}
+  .gap.PRESENT{border-left-color:var(--green)}
+  .gap .t{font-weight:700;color:var(--charcoal);font-size:15px}
+  .gap .cite{font-size:12px;color:var(--grey)}
+  .pill{float:right;font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;color:#fff}
+  .pill.MISSING{background:var(--red)} .pill.FAILING{background:var(--amber)} .pill.PRESENT{background:var(--green)}
+  .gap .detail{font-size:13.5px;color:var(--ink);margin-top:8px}
+  .gap .detail b{color:var(--charcoal)}
+  .gap ul{margin:5px 0 0;padding-left:20px} .gap li{margin:2px 0}
+  .draft{display:inline-block;font-size:11px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:2px 8px;margin-top:8px}
+  .muted{color:var(--grey);font-size:13px}
+  .hidden{display:none}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div class="tag">Gap Finder · internal</div></header>
+    <div class="rule"></div>
+    <div class="pad">
+      <div id="intake">
+        <h1>Find every compliance gap</h1>
+        <p class="lede">Load a contractor's documents and their trade. Origin resolves every required standard, checks what the docs cover, and lists what's missing, what's failing, and what's ready.</p>
+        <div class="row">
+          <div>
+            <label class="fld">Industry / trade</label>
+            <input type="text" id="industry" placeholder="e.g. industrial coating & painting contractor" autocomplete="off">
+          </div>
+          <div>
+            <label class="fld">State <span class="muted">(optional)</span></label>
+            <input type="text" id="state" placeholder="e.g. TX" maxlength="2" autocomplete="off">
+          </div>
+        </div>
+        <label class="fld">Operators / hiring clients <span class="muted">(optional, comma-separated)</span></label>
+        <input type="text" id="operators" placeholder="e.g. ExxonMobil, Chevron" autocomplete="off">
+        <label class="fld">Documents</label>
+        <div class="drop" id="drop">Drop files here or click to choose — PDF, Word, images, or text</div>
+        <input type="file" id="files" multiple class="hidden">
+        <div class="files" id="filelist"></div>
+        <button class="btn" id="go">Find the gaps</button>
+        <div class="err" id="err"></div>
+      </div>
+      <div id="results" class="hidden"></div>
+    </div>
+    <footer class="foot">Origin Management Solutions · internal compliance tool</footer>
+  </div>
+</div>
+
+<script>
+// ── access token (same login as the main app) ──────────────────────────────
+let TOKEN='';
+(function initToken(){
+  const fromUrl=new URLSearchParams(location.search).get('token');
+  if(fromUrl){ TOKEN=fromUrl; try{localStorage.setItem('origin_token',TOKEN);}catch(e){}
+    try{history.replaceState({},'',location.pathname);}catch(e){} }
+  else { try{TOKEN=localStorage.getItem('origin_token')||'';}catch(e){TOKEN='';} }
+  if(!TOKEN){ const t=prompt('Enter your Origin access token:'); if(t){TOKEN=t.trim(); try{localStorage.setItem('origin_token',TOKEN);}catch(e){}} }
+})();
+
+const $=id=>document.getElementById(id);
+let CHOSEN=[];
+
+const drop=$('drop'), fileInput=$('files');
+drop.addEventListener('click',()=>fileInput.click());
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');addFiles(e.dataTransfer.files);});
+fileInput.addEventListener('change',e=>addFiles(e.target.files));
+function addFiles(list){ for(const f of list){ CHOSEN.push(f);} renderFiles(); }
+function renderFiles(){
+  $('filelist').innerHTML=CHOSEN.map((f,i)=>`<span class="f">${esc(f.name)} <a href="#" data-i="${i}" style="color:var(--red);text-decoration:none">✕</a></span>`).join('');
+  $('filelist').querySelectorAll('a').forEach(a=>a.onclick=e=>{e.preventDefault();CHOSEN.splice(+a.dataset.i,1);renderFiles();});
+}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+$('go').addEventListener('click', analyze);
+async function analyze(){
+  const industry=$('industry').value.trim();
+  if(!industry){ $('err').textContent='Enter the industry / trade first.'; return; }
+  $('err').textContent=''; $('go').disabled=true; $('go').textContent='Analyzing…';
+  const fd=new FormData();
+  fd.append('industry',industry);
+  fd.append('state',$('state').value.trim());
+  fd.append('operators',$('operators').value.trim());
+  for(const f of CHOSEN){ fd.append('files',f,f.name); }
+  try{
+    const r=await fetch('/api/gaps/analyze',{method:'POST',headers:TOKEN?{'X-Origin-Token':TOKEN}:{},body:fd});
+    const data=await r.json();
+    if(data.error){ $('err').textContent=data.error; $('go').disabled=false; $('go').textContent='Find the gaps'; return; }
+    render(data);
+  }catch(e){ $('err').textContent='Request failed: '+e; $('go').disabled=false; $('go').textContent='Find the gaps'; }
+}
+
+function render(d){
+  const s=d.summary;
+  $('intake').classList.add('hidden');
+  const res=$('results'); res.classList.remove('hidden');
+  const groups=[
+    ['Missing written programs', d.gaps.filter(g=>g.needs_program&&g.status==='MISSING')],
+    ['Failing written programs', d.gaps.filter(g=>g.needs_program&&g.status==='FAILING')],
+    ['Programs already covered', d.gaps.filter(g=>g.needs_program&&g.status==='PRESENT')],
+    ['Insurance / benchmarks / platform items to verify', d.gaps.filter(g=>!g.needs_program&&g.status!=='PRESENT')],
+  ];
+  let html=`<div class="score">
+      <div class="h">${esc(s.headline)}</div>
+      <div class="meter"><div class="fill" style="width:${s.readiness_pct}%"></div></div>
+      <div class="stats">Written programs: ${s.programs_present} ready · ${s.programs_failing} failing · ${s.programs_missing} missing (of ${s.programs_total}). ${s.references_open} reference/insurance items open.</div>
+    </div>`;
+  if(d.platforms_detected&&d.platforms_detected.length)
+    html+=`<p class="muted">Documents look like: <b>${d.platforms_detected.map(esc).join(', ')}</b> · ${d.documents.length} file(s) read.</p>`;
+  if(d.meta&&d.meta.sector_label)
+    html+=`<p class="muted">Scoped as: <b>${esc(d.meta.sector_label)}</b>${d.meta.state?(' · '+esc(d.meta.state)):''}.</p>`;
+
+  for(const [label,items] of groups){
+    if(!items.length) continue;
+    html+=`<div class="grp"><h2>${esc(label)} (${items.length})</h2>`;
+    for(const g of items){ html+=gapCard(g); }
+    html+=`</div>`;
+  }
+  html+=`<button class="btn" onclick="location.reload()">Check another contractor</button>`;
+  res.innerHTML=html;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function gapCard(g){
+  let h=`<div class="gap ${g.status}"><span class="pill ${g.status}">${g.status}</span>
+    <div class="t">${esc(g.title)}</div><div class="cite">${esc(g.citation||'')}</div>`;
+  if(g.status==='FAILING'&&g.missing_elements&&g.missing_elements.length){
+    h+=`<div class="detail"><b>Missing required elements:</b><ul>`+
+       g.missing_elements.slice(0,6).map(e=>`<li>${esc(e)}</li>`).join('')+`</ul></div>`;
+  }
+  if(g.status!=='PRESENT'&&g.failure_points&&g.failure_points.length){
+    h+=`<div class="detail"><b>Reviewer failure points:</b><ul>`+
+       g.failure_points.slice(0,3).map(e=>`<li>${esc(e)}</li>`).join('')+`</ul></div>`;
+  }
+  if(g.can_autodraft&&g.status!=='PRESENT') h+=`<div class="draft">Origin can draft this</div>`;
+  h+=`</div>`;
+  return h;
+}
+</script>
+</body>
+</html>

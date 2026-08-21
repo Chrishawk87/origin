@@ -26,7 +26,12 @@ from .paths import DATA_DIR
 LEADS_FILE = DATA_DIR / "rescue_leads.jsonl"
 NOTIFY_TO = "info@originmanagementsolutions.com"
 
-PLATFORMS = ["ISNetworld", "Avetta", "PEC", "Veriforce"]
+PLATFORMS = ["ISNetworld", "Avetta", "PEC", "Veriforce", "None / not on a platform yet"]
+
+# Platform values that mean "not graded on a prequal platform yet" — we still
+# analyze the flagged issues and scope the work, but we don't project a letter
+# grade, since a grade only exists relative to a platform's scorecard.
+_NO_PLATFORM = {"none", "none / not on a platform yet", "not on a platform yet", "n/a", ""}
 
 INDUSTRIES = [
     "Oilfield / energy services", "Trucking / motor carrier",
@@ -255,13 +260,19 @@ def analyze(payload: Dict[str, Any]) -> Dict[str, Any]:
                      "insurance_gap", "high_trir", "high_emr", "open_citation",
                      "new_account"}
     grade = None
-    if any(c in GRADE_SIGNALS for c in checked):
+    # A letter grade only means something relative to a platform's scorecard. If
+    # the contractor isn't on a platform yet, skip the badge and just show the
+    # findings + scope of work (still useful for a brand-new setup).
+    on_platform = platform.lower() not in _NO_PLATFORM
+    if on_platform and any(c in GRADE_SIGNALS for c in checked):
         grade = estimate_grade(platform, _build_grade_inputs(checked, industry))
 
     scope = _price_and_scope(checked) if checked else None
 
     if not checked:
         headline = "Tell us what's failing and we'll show you exactly where you stand."
+    elif not on_platform:
+        headline = "Here's what your setup needs to qualify \u2014 and we can handle all of it."
     elif grade and grade.get("grade") in ("A", "B"):
         headline = "You're close \u2014 a few fixable items are keeping you from a clean grade."
     else:

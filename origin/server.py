@@ -1054,5 +1054,57 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         result["lead"] = lead
         return result
 
+    # ── INTERNAL "Gap Finder" (Chris-only) ──────────────────────────────────
+    # Load a contractor's documents + industry/state/operators and get back
+    # every compliance gap. The PAGE is a shell (like the main UI); the WORK
+    # endpoint lives under /api so the auth middleware gates it — this is an
+    # internal tool, NOT client-facing like /rescue.
+    from . import gaps as _gaps
+
+    gaps_html = Path(__file__).parent / "webui" / "gaps.html"
+
+    @app.get("/gaps", response_class=HTMLResponse)
+    def gaps_page():
+        if gaps_html.is_file():
+            return gaps_html.read_text(encoding="utf-8")
+        return "<h1>Gap Finder</h1><p>Tool page missing.</p>"
+
+    @app.get("/api/gaps/config")
+    def gaps_config():
+        return {
+            "operators": [c["hiring_client"] for c in _kb.list_hiring_clients()],
+            "pass_ratio": _gaps.PASS_RATIO,
+        }
+
+    @app.post("/api/gaps/analyze")
+    async def gaps_analyze(request: Request):
+        import tempfile
+        form = await request.form()
+        industry = (form.get("industry") or "").strip()
+        state = (form.get("state") or "").strip() or None
+        ops_raw = (form.get("operators") or "").strip()
+        operators = [o.strip() for o in ops_raw.split(",") if o.strip()] or None
+        if not industry:
+            return JSONResponse({"error": "industry is required"}, status_code=400)
+
+        uploads = form.getlist("files")
+        docs = []
+        with tempfile.TemporaryDirectory(prefix="gapfinder_") as tmp:
+            for f in uploads:
+                if not hasattr(f, "filename") or not f.filename:
+                    continue
+                dest = Path(tmp) / Path(f.filename).name
+                with open(dest, "wb") as out:
+                    while True:
+                        chunk = await f.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        out.write(chunk)
+                text = _gaps.extract_text(str(dest))
+                docs.append({"name": f.filename, "text": text})
+
+        report = _gaps.find_gaps(industry, state=state, operators=operators, docs=docs)
+        return report
+
     app.state.engine = eng
     return app
