@@ -1124,6 +1124,9 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                 status_code=400)
         import io as _io
         import zipfile as _zip
+        # Prefer branded Word docs; fall back to markdown if python-docx is
+        # absent (e.g. before the image is rebuilt) so a draft is never lost.
+        want_md = str(body.get("format") or "").lower() in ("md", "markdown")
         buf = _io.BytesIO()
         with _zip.ZipFile(buf, "w", _zip.ZIP_DEFLATED) as z:
             index = ["# Draft written programs",
@@ -1131,8 +1134,14 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                      "Fill every {{PLACEHOLDER}} and replace each [[prompt]] with your "
                      "company-specific procedure before submitting.", ""]
             for d in drafts:
-                z.writestr(d["filename"], d["markdown"])
-                index.append(f"- {d['title']} ({d['citation']}) — {d['filename']}")
+                docx_bytes = None if want_md else _gaps.program_docx_bytes(d["title"], d["markdown"])
+                if docx_bytes:
+                    name = d["filename"].rsplit(".", 1)[0] + ".docx"
+                    z.writestr(name, docx_bytes)
+                else:
+                    name = d["filename"]
+                    z.writestr(name, d["markdown"])
+                index.append(f"- {d['title']} ({d['citation']}) — {name}")
             z.writestr("00_INDEX.md", "\n".join(index))
         return Response(
             content=buf.getvalue(),

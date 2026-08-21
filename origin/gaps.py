@@ -81,6 +81,131 @@ def _severity(status: str, needs_program: bool, category: str) -> int:
     return 5  # PRESENT
 
 
+# ── Phase 3: parse an uploaded ISN / Avetta deficiency report ───────────────
+# The contractor exports their platform's deficiency / RAVS review / scorecard
+# and drops it in. These lines carry a status the platform assigned — when it's
+# one of these "flagged" states, that requirement is a confirmed problem.
+_DEFICIENCY_NEG = (
+    "not met", "not-met", "deficient", "deficiency", "expired", "rejected",
+    "reject", "missing", "failed", "incomplete", "not submitted", "not provided",
+    "under review", "needs revision", "non-compliant", "noncompliant", "past due",
+    "overdue", "not accepted", "revise", "not on file", "no document",
+)
+_DEFICIENCY_POS = (
+    "met", "approved", "accepted", "compliant", "complete", "current", "active",
+    "verified", "satisfactory", "passed", "up to date", "up-to-date",
+)
+_REPORT_SIGNALS = (
+    "deficienc", "not met", "ravs", "requirement", "verification", "under review",
+    "expired", "rejected", "scorecard", "action item", "non-compliant", "review status",
+)
+
+
+def looks_like_deficiency_report(text: str) -> bool:
+    """True when a document reads like a platform's deficiency/review export
+    rather than a written program the contractor authored."""
+    low = (text or "").lower()
+    if not low:
+        return False
+    platform = any(h in low for hints in _PLATFORM_HINTS.values() for h in hints)
+    neg_hits = sum(low.count(k) for k in
+                   ("not met", "deficien", "expired", "rejected", "under review",
+                    "incomplete", "missing", "not submitted"))
+    signals = sum(1 for s in _REPORT_SIGNALS if s in low)
+    return (platform and neg_hits >= 2) or (signals >= 3 and neg_hits >= 2)
+
+
+def _clean_topic(line: str) -> str:
+    t = line
+    for k in _DEFICIENCY_NEG + _DEFICIENCY_POS:
+        t = re.sub(r"(?i)\b" + re.escape(k) + r"\b", " ", t)
+    t = re.sub(r"[|\t;]+", " ", t)
+    t = re.sub(r"\s{2,}", " ", t)
+    return t.strip(" -:•\t.")
+
+
+# Words too generic to identify a standard by (they appear in dozens of titles).
+_TOPIC_STOP = {
+    "program", "plan", "policy", "procedure", "procedures", "written", "the",
+    "of", "and", "for", "a", "an", "to", "in", "on", "safety", "management",
+    "control", "protection", "general", "industry", "requirement", "requirements",
+    "compliance", "standard", "review", "some", "custom", "client",
+}
+
+
+def _topic_tokens(s: str) -> set:
+    return {w for w in re.findall(r"[a-z0-9]+", (s or "").lower())
+            if len(w) > 2 and w not in _TOPIC_STOP}
+
+
+def _match_standard(topic: str) -> Optional[dict]:
+    """Map a free-text deficiency line to a KB standard.
+
+    Strong signal first (resolve_standards, which matches by citation/title).
+    Otherwise pull the top keyword-search candidates and RE-RANK them by how
+    well the standard's title overlaps the topic words — plain keyword search
+    over-weights long titles (e.g. 'Hazard Communication' wrongly matching
+    'Hazardous Waste Operations…' on the shared 'hazard' stem), so a direct
+    title-token comparison is a better tiebreaker."""
+    if len(topic) < 4:
+        return None
+    hits = kb.resolve_standards(topic, limit=1)
+    if hits:
+        return hits[0]
+    res = kb.search(topic, limit=6)
+    if not res:
+        return None
+    twords = _topic_tokens(topic)
+    if not twords:
+        return res[0]
+    best, best_score = res[0], -1.0
+    for i, r in enumerate(res):
+        cand = _topic_tokens(r.get("title", ""))
+        if not cand:
+            continue
+        overlap = len(twords & cand)
+        # overlap count dominates; normalize by topic size; nudge by search rank.
+        score = overlap + (len(twords & cand) / len(twords)) - i * 0.01
+        if score > best_score:
+            best, best_score = r, score
+    # If nothing shares a meaningful word with the topic, don't force a match.
+    if best_score <= 0:
+        return None
+    return best
+
+
+def parse_deficiency_report(text: str) -> List[dict]:
+    """Pull the flagged line-items out of a deficiency report and map each to a
+    KB standard where possible."""
+    items: List[dict] = []
+    seen: set = set()
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if len(line) < 4:
+            continue
+        low = line.lower()
+        neg = next((k for k in _DEFICIENCY_NEG if k in low), None)
+        if not neg:
+            continue
+        topic = _clean_topic(line)
+        if len(topic) < 4:
+            continue
+        std = _match_standard(topic)
+        key = (std["id"] if std else topic.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        items.append({
+            "raw": line[:300],
+            "status": neg,
+            "topic": topic[:160],
+            "standard_id": std["id"] if std else None,
+            "matched_title": std.get("title") if std else None,
+            "citation": (std.get("citation", "") if std else ""),
+        })
+    return items
+
+
 def _required_set(industry: str, state: Optional[str],
                   operators: Optional[List[str]]) -> Tuple[List[dict], dict]:
     """Union the NAICS/state baseline with any operator overlays.
@@ -140,11 +265,58 @@ def find_gaps(
     (The route extracts the text; the engine stays pure so it's easy to test.)
     """
     docs = docs or []
-    corpus = "\n\n".join(d.get("text", "") for d in docs)
+
+    # Phase 3: split the uploaded docs into two piles. A platform deficiency
+    # report (ISN/Avetta export, RAVS review, scorecard) is NOT evidence the
+    # contractor covers a standard — it's a list of what the reviewer already
+    # rejected. Counting its text as "coverage" would falsely raise the score
+    # (the report literally names the programs it's flagging). So the coverage
+    # corpus is built from the CONTRACTOR'S OWN documents only; reports feed the
+    # flagged-items overlay instead.
+    program_docs: List[Dict[str, str]] = []
+    report_docs: List[Dict[str, str]] = []
+    for d in docs:
+        if looks_like_deficiency_report(d.get("text", "")):
+            report_docs.append(d)
+        else:
+            program_docs.append(d)
+
+    corpus = "\n\n".join(d.get("text", "") for d in program_docs)
+
+    # Parse every flagged line-item out of the report(s) and index by standard.
+    flagged_items: List[dict] = []
+    for d in report_docs:
+        for item in parse_deficiency_report(d.get("text", "")):
+            item = dict(item)
+            item["source"] = d.get("name", "")
+            flagged_items.append(item)
+    # standard_id -> the flagged item (first wins; keep the reason for display).
+    flagged_by_id: Dict[str, dict] = {}
+    for it in flagged_items:
+        sid = it.get("standard_id")
+        if sid and sid not in flagged_by_id:
+            flagged_by_id[sid] = it
 
     required, meta = _required_set(industry, state, operators)
 
-    # Which standards do the uploaded docs actually invoke? (informational —
+    # A platform can flag a standard that the trade baseline didn't surface —
+    # union those in so a confirmed deficiency is never silently dropped.
+    required_ids_have = {s["id"] for s in required}
+    for sid in flagged_by_id:
+        if sid in required_ids_have:
+            continue
+        rec = kb.get(sid)
+        if not rec:
+            continue
+        required.append({
+            "id": sid,
+            "title": rec.get("title", ""),
+            "citation": rec.get("citation", ""),
+            "category": rec.get("category", ""),
+            "written_program": rec.get("written_program", ""),
+        })
+
+    # Which standards do the contractor's OWN docs actually invoke? (informational —
     # surfaces things they cover that we didn't flag as required for the trade.)
     resolved_ids = {r["id"] for r in kb.resolve_standards(corpus, limit=50)} if corpus else set()
 
@@ -174,9 +346,18 @@ def find_gaps(
             status = "FAILING"
         else:
             status = "MISSING"
+
+        # Phase 3 override: the platform already ruled on this standard. Trust it
+        # over our text-coverage guess — never show PRESENT for something the
+        # reviewer rejected. If our docs cover it (PRESENT/FAILING) it's FAILING
+        # (they have a draft but the platform bounced it); if we have nothing
+        # it stays MISSING. Either way it jumps to the top of the queue.
+        flag = flagged_by_id.get(stub["id"])
+        if flag:
+            status = "MISSING" if status == "MISSING" else "FAILING"
         counts[status] += 1
 
-        gaps.append({
+        gap = {
             "id": stub["id"],
             "title": stub.get("title", rec.get("title", "")),
             "citation": stub.get("citation", rec.get("citation", "")),
@@ -193,8 +374,17 @@ def find_gaps(
             "recordkeeping": chk.get("recordkeeping", ""),
             # Phase 2: Origin can auto-draft any written-program standard from KB.
             "can_autodraft": needs_prog,
+            "platform_flagged": bool(flag),
+            "platform_reason": (flag.get("raw") if flag else ""),
+            "platform_status": (flag.get("status") if flag else ""),
+            "platform_source": (flag.get("source") if flag else ""),
             "severity": _severity(status, needs_prog, stub.get("category", "")),
-        })
+        }
+        # A confirmed platform deficiency outranks an inferred one of the same
+        # status — pull it to the very front of its severity tier.
+        if flag:
+            gap["severity"] -= 0.5
+        gaps.append(gap)
 
     gaps.sort(key=lambda g: (g["severity"], g["category"], g["title"]))
 
@@ -207,8 +397,23 @@ def find_gaps(
             extra.append({"id": rid, "title": r.get("title", ""),
                           "citation": r.get("citation", "")})
 
-    platforms = _detect_platforms(corpus)
+    all_text = "\n\n".join(d.get("text", "") for d in docs)
+    platforms = _detect_platforms(all_text)
     total = len(gaps)
+
+    # Flagged items we couldn't map to a KB standard — surface them raw so
+    # nothing the platform flagged disappears (Chris matches these by hand).
+    unmatched = [
+        {"raw": it["raw"], "status": it["status"], "topic": it["topic"],
+         "source": it.get("source", "")}
+        for it in flagged_items if not it.get("standard_id")
+    ]
+    matched_flags = [
+        {"id": sid, "title": kb.get(sid).get("title", "") if kb.get(sid) else "",
+         "citation": it.get("citation", ""), "status": it.get("status", ""),
+         "raw": it.get("raw", ""), "source": it.get("source", "")}
+        for sid, it in flagged_by_id.items()
+    ]
 
     # Split the score by what Origin can actually act on. Written programs are
     # draftable (Phase 2); References (insurance COIs, TRIR/EMR benchmarks,
@@ -226,9 +431,17 @@ def find_gaps(
         "meta": meta,
         "documents": [{"name": d.get("name", ""),
                        "chars": len(d.get("text", "")),
-                       "platforms": _detect_platforms(d.get("text", ""))}
+                       "platforms": _detect_platforms(d.get("text", "")),
+                       "is_deficiency_report": looks_like_deficiency_report(d.get("text", ""))}
                       for d in docs],
         "platforms_detected": platforms,
+        "deficiency_report": {
+            "detected": bool(report_docs),
+            "sources": [d.get("name", "") for d in report_docs],
+            "flagged_total": len(flagged_items),
+            "matched": matched_flags,
+            "unmatched": unmatched,
+        },
         "summary": {
             "required_total": total,
             "present": counts["PRESENT"],
@@ -290,6 +503,141 @@ def draft_programs(
             "markdown": md,
         })
     return out
+
+
+# Brand palette (matches the rest of Origin's compliance deliverables).
+_CHARCOAL = "1C1F24"
+_ORANGE = "E8551F"
+_GREY = "6B7280"
+
+_INLINE_RE = re.compile(r"(\{\{[^}]*\}\}|\[\[[^\]]*\]\]|\*\*[^*]+\*\*|\*[^*]+\*)")
+
+
+def _docx_available() -> bool:
+    try:
+        import docx  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _add_runs(paragraph, text: str) -> None:
+    """Emit styled runs, highlighting {{PLACEHOLDERS}} (orange bold, still to
+    fill) and [[prompts]] (grey italic guidance) so the doc reads as fillable."""
+    from docx.shared import RGBColor
+    for part in _INLINE_RE.split(text):
+        if not part:
+            continue
+        if part.startswith("{{"):
+            r = paragraph.add_run(part); r.bold = True
+            r.font.color.rgb = RGBColor.from_string(_ORANGE)
+        elif part.startswith("[["):
+            r = paragraph.add_run(part[2:-2]); r.italic = True
+            r.font.color.rgb = RGBColor.from_string(_GREY)
+        elif part.startswith("**"):
+            paragraph.add_run(part[2:-2]).bold = True
+        elif part.startswith("*"):
+            paragraph.add_run(part[1:-1]).italic = True
+        else:
+            paragraph.add_run(part)
+
+
+def _bottom_border(paragraph, color: str = _ORANGE) -> None:
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    p = paragraph._p.get_or_add_pPr()
+    borders = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single"); bottom.set(qn("w:sz"), "18")
+    bottom.set(qn("w:space"), "4"); bottom.set(qn("w:color"), color)
+    borders.append(bottom)
+    p.append(borders)
+
+
+def _normalize_program_md(md: str) -> str:
+    """render_program returns two shapes: a clean on-the-fly markdown build, OR
+    a pre-generated static template with YAML frontmatter + an HTML letterhead
+    table. Flatten both to plain markdown so the docx builder handles one format:
+    drop the frontmatter, and turn any HTML letterhead/rule lines into readable
+    (bold) header text."""
+    md = md or ""
+    # Strip a leading YAML frontmatter block ( --- ... --- ).
+    if md.lstrip().startswith("---"):
+        start = md.find("---")
+        end = md.find("\n---", start + 3)
+        if end != -1:
+            nl = md.find("\n", end + 1)
+            md = md[nl + 1:] if nl != -1 else ""
+    out: List[str] = []
+    for line in md.splitlines():
+        s = line.strip()
+        if s.startswith("<"):  # HTML letterhead / rule lines
+            t = re.sub(r"(?i)<br\s*/?>", "\n", s)
+            t = re.sub(r"(?i)</(td|tr|div|table|p|h\d)>", "\n", t)
+            t = re.sub(r"<[^>]+>", "", t)
+            for piece in t.split("\n"):
+                piece = piece.strip()
+                if piece:
+                    out.append(f"**{piece}**")
+        else:
+            out.append(line)
+    return "\n".join(out).strip()
+
+
+def program_docx_bytes(title: str, markdown: str) -> Optional[bytes]:
+    """Render one program's markdown (from render_program) into a branded .docx.
+
+    Returns the file bytes, or None if python-docx isn't available (the caller
+    falls back to shipping the markdown so a draft is never lost)."""
+    if not _docx_available():
+        return None
+    import io
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+
+    markdown = _normalize_program_md(markdown)
+
+    doc = Document()
+    normal = doc.styles["Normal"]
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(10.5)
+
+    # Brand strip
+    brand = doc.add_paragraph()
+    br = brand.add_run("ORIGIN"); br.bold = True; br.font.size = Pt(15)
+    br.font.color.rgb = RGBColor.from_string(_CHARCOAL)
+    dot = brand.add_run("."); dot.bold = True; dot.font.size = Pt(15)
+    dot.font.color.rgb = RGBColor.from_string(_ORANGE)
+    _bottom_border(brand)
+
+    for raw in markdown.splitlines():
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if line.startswith("### "):
+            h = doc.add_paragraph(); h.space_before = Pt(8)
+            r = h.add_run(line[4:]); r.bold = True; r.font.size = Pt(11.5)
+            r.font.color.rgb = RGBColor.from_string(_CHARCOAL)
+        elif line.startswith("## "):
+            h = doc.add_paragraph()
+            r = h.add_run(line[3:]); r.bold = True; r.font.size = Pt(13)
+            r.font.color.rgb = RGBColor.from_string(_ORANGE)
+        elif line.startswith("# "):
+            r = doc.add_paragraph().add_run(line[2:]); r.bold = True
+            r.font.size = Pt(18); r.font.color.rgb = RGBColor.from_string(_CHARCOAL)
+        elif line.startswith("- [ ] "):
+            p = doc.add_paragraph(style="List Bullet")
+            p.add_run("\u2610 ")  # ballot box
+            _add_runs(p, line[6:])
+        elif line.startswith("- "):
+            _add_runs(doc.add_paragraph(style="List Bullet"), line[2:])
+        else:
+            _add_runs(doc.add_paragraph(), line)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
 
 
 def _headline(missing: int, failing: int, present: int, total: int) -> str:

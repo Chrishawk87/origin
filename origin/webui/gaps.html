@@ -59,6 +59,16 @@
   .draftbar input{width:100%;max-width:340px;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:14px}
   .draftbar .btn{margin-top:12px}
   .muted{color:var(--grey);font-size:13px}
+  /* deficiency report */
+  .defrep{background:#2B1B14;border:1px solid var(--orange);border-radius:11px;padding:16px 18px;margin:6px 0 18px;color:#FCEBE2}
+  .defrep .h{font-size:14px;font-weight:800;color:var(--orange2);text-transform:uppercase;letter-spacing:.5px}
+  .defrep .sub{font-size:13px;color:#E0C9BE;margin:4px 0 10px}
+  .defrep ul{margin:6px 0 0;padding-left:18px}
+  .defrep li{margin:3px 0;font-size:13px}
+  .defrep .st{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;background:var(--red);color:#fff;border-radius:4px;padding:1px 6px;margin-right:6px}
+  .defrep .un{color:#E0C9BE}
+  .flag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;background:var(--orange);color:#fff;border-radius:4px;padding:2px 7px;margin-left:6px;vertical-align:middle}
+  .gap .plat{font-size:12.5px;color:var(--red);font-weight:600;margin-top:6px}
   .hidden{display:none}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
 </style>
@@ -163,11 +173,27 @@ function render(d){
   if(d.meta&&d.meta.sector_label)
     html+=`<p class="muted">Scoped as: <b>${esc(d.meta.sector_label)}</b>${d.meta.state?(' · '+esc(d.meta.state)):''}.</p>`;
 
+  const dr=d.deficiency_report;
+  if(dr&&dr.detected){
+    html+=`<div class="defrep">
+      <div class="h">Platform deficiency report detected</div>
+      <div class="sub">Read from <b>${dr.sources.map(esc).join(', ')}</b> — ${dr.flagged_total} flagged item(s). These are confirmed by the platform's reviewer, so they're pinned to the top of the queue below.</div>`;
+    if(dr.matched&&dr.matched.length){
+      html+=`<div style="font-size:12px;font-weight:700;color:#fff">Matched to a standard (${dr.matched.length}):</div><ul>`+
+        dr.matched.map(m=>`<li><span class="st">${esc(m.status||'flagged')}</span>${esc(m.title||m.id)}${m.citation?(' <span class="muted" style="color:#C79B8B">('+esc(m.citation)+')</span>'):''}</li>`).join('')+`</ul>`;
+    }
+    if(dr.unmatched&&dr.unmatched.length){
+      html+=`<div style="font-size:12px;font-weight:700;color:#fff;margin-top:8px">Flagged but no KB match — match by hand (${dr.unmatched.length}):</div><ul>`+
+        dr.unmatched.map(u=>`<li class="un"><span class="st">${esc(u.status||'flagged')}</span>${esc(u.topic||u.raw)}</li>`).join('')+`</ul>`;
+    }
+    html+=`</div>`;
+  }
+
   if(draftable.length){
     html+=`<div class="draftbar">
       <label>Company name <span class="muted">(optional — pre-fills every draft)</span></label>
       <input type="text" id="company" placeholder="e.g. Lone Star Coatings LLC" autocomplete="off">
-      <button class="btn" id="draftAll">Draft all ${draftable.length} missing + failing programs</button>
+      <button class="btn" id="draftAll">Draft all ${draftable.length} missing + failing programs (Word)</button>
       <div class="err" id="drafterr"></div>
     </div>`;
   }
@@ -210,7 +236,10 @@ async function draft(ids, btnEl){
 
 function gapCard(g){
   let h=`<div class="gap ${g.status}"><span class="pill ${g.status}">${g.status}</span>
-    <div class="t">${esc(g.title)}</div><div class="cite">${esc(g.citation||'')}</div>`;
+    <div class="t">${esc(g.title)}${g.platform_flagged?'<span class="flag">Platform flagged</span>':''}</div><div class="cite">${esc(g.citation||'')}</div>`;
+  if(g.platform_flagged&&g.platform_reason){
+    h+=`<div class="plat">Reviewer: ${esc(g.platform_reason)}</div>`;
+  }
   if(g.status==='FAILING'&&g.missing_elements&&g.missing_elements.length){
     h+=`<div class="detail"><b>Missing required elements:</b><ul>`+
        g.missing_elements.slice(0,6).map(e=>`<li>${esc(e)}</li>`).join('')+`</ul></div>`;
