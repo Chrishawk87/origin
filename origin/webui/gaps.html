@@ -52,7 +52,12 @@
   .gap .detail{font-size:13.5px;color:var(--ink);margin-top:8px}
   .gap .detail b{color:var(--charcoal)}
   .gap ul{margin:5px 0 0;padding-left:20px} .gap li{margin:2px 0}
-  .draft{display:inline-block;font-size:11px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:2px 8px;margin-top:8px}
+  .draft{display:inline-block;font-size:11px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:3px 9px;margin-top:8px;cursor:pointer;background:#fff}
+  .draft:hover{background:var(--orange);color:#fff}
+  .draftbar{background:var(--light);border-radius:10px;padding:16px 18px;margin:16px 0}
+  .draftbar label{display:block;font-weight:700;color:var(--charcoal);font-size:13px;margin-bottom:6px}
+  .draftbar input{width:100%;max-width:340px;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:14px}
+  .draftbar .btn{margin-top:12px}
   .muted{color:var(--grey);font-size:13px}
   .hidden{display:none}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
@@ -147,6 +152,7 @@ function render(d){
     ['Programs already covered', d.gaps.filter(g=>g.needs_program&&g.status==='PRESENT')],
     ['Insurance / benchmarks / platform items to verify', d.gaps.filter(g=>!g.needs_program&&g.status!=='PRESENT')],
   ];
+  const draftable=d.gaps.filter(g=>g.needs_program&&g.can_autodraft&&(g.status==='MISSING'||g.status==='FAILING'));
   let html=`<div class="score">
       <div class="h">${esc(s.headline)}</div>
       <div class="meter"><div class="fill" style="width:${s.readiness_pct}%"></div></div>
@@ -157,6 +163,15 @@ function render(d){
   if(d.meta&&d.meta.sector_label)
     html+=`<p class="muted">Scoped as: <b>${esc(d.meta.sector_label)}</b>${d.meta.state?(' · '+esc(d.meta.state)):''}.</p>`;
 
+  if(draftable.length){
+    html+=`<div class="draftbar">
+      <label>Company name <span class="muted">(optional — pre-fills every draft)</span></label>
+      <input type="text" id="company" placeholder="e.g. Lone Star Coatings LLC" autocomplete="off">
+      <button class="btn" id="draftAll">Draft all ${draftable.length} missing + failing programs</button>
+      <div class="err" id="drafterr"></div>
+    </div>`;
+  }
+
   for(const [label,items] of groups){
     if(!items.length) continue;
     html+=`<div class="grp"><h2>${esc(label)} (${items.length})</h2>`;
@@ -165,7 +180,32 @@ function render(d){
   }
   html+=`<button class="btn" onclick="location.reload()">Check another contractor</button>`;
   res.innerHTML=html;
+
+  const allIds=draftable.map(g=>g.id);
+  const btn=$('draftAll');
+  if(btn) btn.onclick=()=>draft(allIds, btn);
+  res.querySelectorAll('.draft[data-id]').forEach(el=>{
+    el.onclick=()=>draft([el.dataset.id], el);
+  });
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function draft(ids, btnEl){
+  const errEl=$('drafterr');
+  if(errEl) errEl.textContent='';
+  const label=btnEl?btnEl.textContent:''; if(btnEl){btnEl.disabled=true;btnEl.textContent='Drafting…';}
+  const company=($('company')&&$('company').value.trim())||'';
+  try{
+    const r=await fetch('/api/gaps/draft',{method:'POST',
+      headers:Object.assign({'Content-Type':'application/json'},TOKEN?{'X-Origin-Token':TOKEN}:{}),
+      body:JSON.stringify({ids,company})});
+    if(!r.ok){ const j=await r.json().catch(()=>({error:'HTTP '+r.status})); throw new Error(j.error||('HTTP '+r.status)); }
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=(ids.length===1?'origin-draft-program.zip':'origin-draft-programs.zip');
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }catch(e){ if(errEl) errEl.textContent=String(e.message||e); else alert(String(e.message||e)); }
+  if(btnEl){btnEl.disabled=false;btnEl.textContent=label;}
 }
 
 function gapCard(g){
@@ -179,7 +219,7 @@ function gapCard(g){
     h+=`<div class="detail"><b>Reviewer failure points:</b><ul>`+
        g.failure_points.slice(0,3).map(e=>`<li>${esc(e)}</li>`).join('')+`</ul></div>`;
   }
-  if(g.can_autodraft&&g.status!=='PRESENT') h+=`<div class="draft">Origin can draft this</div>`;
+  if(g.can_autodraft&&g.status!=='PRESENT') h+=`<div class="draft" data-id="${esc(g.id)}" title="Download a fillable draft of this program">Draft this program ↓</div>`;
   h+=`</div>`;
   return h;
 }

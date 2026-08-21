@@ -1106,5 +1106,39 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         report = _gaps.find_gaps(industry, state=state, operators=operators, docs=docs)
         return report
 
+    @app.post("/api/gaps/draft")
+    def gaps_draft(body: dict = Body(...)):
+        """Phase 2: render fillable written programs for the given standard ids
+        and return them bundled as a downloadable .zip."""
+        ids = body.get("ids") or []
+        if not ids:
+            return JSONResponse({"error": "no program ids provided"}, status_code=400)
+        drafts = _gaps.draft_programs(
+            ids,
+            company=body.get("company"),
+            effective_date=body.get("effective_date"),
+        )
+        if not drafts:
+            return JSONResponse(
+                {"error": "none of those standards have a draftable written program"},
+                status_code=400)
+        import io as _io
+        import zipfile as _zip
+        buf = _io.BytesIO()
+        with _zip.ZipFile(buf, "w", _zip.ZIP_DEFLATED) as z:
+            index = ["# Draft written programs",
+                     "",
+                     "Fill every {{PLACEHOLDER}} and replace each [[prompt]] with your "
+                     "company-specific procedure before submitting.", ""]
+            for d in drafts:
+                z.writestr(d["filename"], d["markdown"])
+                index.append(f"- {d['title']} ({d['citation']}) — {d['filename']}")
+            z.writestr("00_INDEX.md", "\n".join(index))
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": 'attachment; filename="origin-draft-programs.zip"'},
+        )
+
     app.state.engine = eng
     return app

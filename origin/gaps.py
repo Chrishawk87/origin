@@ -24,6 +24,7 @@ Nothing here is client-facing. It runs behind the app access token.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import compliance_kb as kb
@@ -245,6 +246,50 @@ def find_gaps(
         "gaps": gaps,
         "also_covered": extra,
     }
+
+
+# ── Phase 2: auto-draft the missing / failing written programs ──────────────
+def _slug(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:60] or "program"
+
+
+def draft_programs(
+    ids: List[str],
+    company: Optional[str] = None,
+    effective_date: Optional[str] = None,
+) -> List[dict]:
+    """Render a fillable written program for each standard id.
+
+    Reuses compliance_kb.render_program (which serves the pre-generated template
+    or builds one on the fly from the KB record, so a draft can never drift from
+    the standard). Pre-fills the company name / effective date when supplied;
+    every other {{PLACEHOLDER}} and [[prompt]] is left for Chris to complete.
+    """
+    company = (company or "").strip()
+    effective_date = (effective_date or "").strip()
+    out: List[dict] = []
+    seen: set = set()
+    for eid in ids:
+        if not eid or eid in seen:
+            continue
+        seen.add(eid)
+        md = kb.render_program(eid)
+        if not md:
+            continue
+        rec = kb.get(eid) or {}
+        if company:
+            md = md.replace("{{COMPANY_NAME}}", company)
+        if effective_date:
+            md = md.replace("{{EFFECTIVE_DATE}}", effective_date)
+        title = rec.get("title", eid)
+        out.append({
+            "id": eid,
+            "title": title,
+            "citation": rec.get("citation", ""),
+            "filename": f"program-{_slug(title)}.md",
+            "markdown": md,
+        })
+    return out
 
 
 def _headline(missing: int, failing: int, present: int, total: int) -> str:
