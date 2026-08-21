@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free Grade Rescue Review — Origin Compliance</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:720px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .sub{color:#C9CED6;font-size:13px;margin-top:5px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 8px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  .step{display:none}
+  .step.active{display:block}
+  label.fld{display:block;font-weight:700;color:var(--charcoal);font-size:14px;margin:14px 0 6px}
+  select,input[type=text],input[type=email],input[type=tel]{
+    width:100%;padding:12px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:15px;color:var(--ink);background:#fff}
+  select:focus,input:focus{outline:none;border-color:var(--orange)}
+  .grp{margin-top:18px}
+  .grp h3{font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:0 0 8px}
+  .opt{display:flex;align-items:flex-start;gap:11px;border:1.5px solid var(--line);border-radius:9px;padding:12px 13px;margin-bottom:9px;cursor:pointer;transition:.12s}
+  .opt:hover{border-color:#c9ced6;background:#fafafa}
+  .opt.on{border-color:var(--orange);background:var(--cream)}
+  .opt input{margin-top:3px;width:17px;height:17px;accent-color:var(--orange);flex:0 0 auto}
+  .opt span{font-size:14.5px;color:var(--charcoal)}
+  .nav{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:12px}
+  .btn{appearance:none;border:0;border-radius:8px;padding:13px 22px;font-size:15px;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--orange);color:#fff}
+  .btn.primary:hover{background:var(--red)}
+  .btn.ghost{background:transparent;color:var(--grey);padding-left:4px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .dots{display:flex;gap:6px;justify-content:center;margin:2px 0 4px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+  .dot.on{background:var(--orange)}
+  .fineprint{font-size:12px;color:var(--grey);margin-top:12px}
+  /* results */
+  .badge{display:inline-flex;align-items:center;gap:10px;background:var(--charcoal);color:#fff;border-radius:10px;padding:14px 18px;margin:4px 0 16px}
+  .badge .g{font-size:34px;font-weight:800;line-height:1}
+  .badge .lt{font-size:13px;opacity:.9}
+  .light-GREEN{color:#7CE0A3}.light-AMBER{color:#F4C77B}.light-RED{color:#F09A7C}
+  .finding{border:1px solid var(--line);border-left:5px solid var(--orange);border-radius:9px;padding:13px 15px;margin-bottom:11px}
+  .finding.med{border-left-color:#F4B36B}
+  .finding .t{font-weight:700;color:var(--charcoal);font-size:15px}
+  .finding .sev{float:right;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--red)}
+  .finding.med .sev{color:var(--amber)}
+  .finding .d{font-size:14px;color:var(--ink);margin-top:5px}
+  .scope{background:var(--light);border-radius:10px;padding:16px 18px;margin:16px 0}
+  .scope .h{font-weight:800;color:var(--orange);font-size:13px;letter-spacing:.5px;text-transform:uppercase}
+  .price{font-size:22px;font-weight:800;color:var(--charcoal);margin:6px 0}
+  .cta{background:var(--charcoal);border-radius:11px;padding:20px;text-align:center;margin-top:18px}
+  .cta .h{color:#fff;font-weight:800;font-size:18px}
+  .cta .s{color:#C9CED6;font-size:14px;margin:6px 0 14px}
+  .cta a{display:inline-block;background:var(--orange);color:#fff;text-decoration:none;font-weight:700;border-radius:8px;padding:12px 20px;margin:4px}
+  .cta a.alt{background:#33373E}
+  .caveat{font-size:11.5px;color:var(--grey);font-style:italic;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+  .err{color:var(--red);font-size:14px;font-weight:600;margin-top:10px;min-height:1em}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:16px;font-size:13px}
+  footer.foot b{display:block;font-size:14px;margin-top:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand">
+      <div class="word">ORIGIN <span>COMPLIANCE</span></div>
+      <div class="sub">Free Grade Rescue Review &bull; ISNetworld &bull; Avetta &bull; PEC / Veriforce</div>
+    </header>
+    <div class="rule"></div>
+    <div class="pad">
+      <div class="dots">
+        <div class="dot on" data-d="0"></div><div class="dot" data-d="1"></div>
+        <div class="dot" data-d="2"></div><div class="dot" data-d="3"></div>
+      </div>
+
+      <!-- STEP 0: intro / platform -->
+      <div class="step active" id="s0">
+        <h1>Failing your ISN, Avetta or PEC grade? Find out exactly why &mdash; free.</h1>
+        <p class="lede">Answer a few quick questions and get an instant, plain-English read on what's dragging your grade and what it takes to fix it. Takes about 60 seconds.</p>
+        <label class="fld">Which platform are you graded on?</label>
+        <select id="platform"></select>
+        <label class="fld">What's your trade?</label>
+        <select id="industry"></select>
+        <div class="nav">
+          <span></span>
+          <button class="btn primary" data-next>Start &rarr;</button>
+        </div>
+      </div>
+
+      <!-- STEP 1: issues -->
+      <div class="step" id="s1">
+        <h1>What's going on with your grade?</h1>
+        <p class="lede">Check everything that applies. Be honest &mdash; the more we know, the sharper the read.</p>
+        <div id="issues"></div>
+        <div class="nav">
+          <button class="btn ghost" data-prev>&larr; Back</button>
+          <button class="btn primary" data-next id="toContact" disabled>Next &rarr;</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: contact / email gate -->
+      <div class="step" id="s2">
+        <h1>Where should we send your fix plan?</h1>
+        <p class="lede">Enter your details and we'll show your results right now &mdash; and send a copy plus the steps to fix it. No charge, no obligation.</p>
+        <label class="fld">Your name</label>
+        <input type="text" id="name" autocomplete="name">
+        <label class="fld">Company</label>
+        <input type="text" id="company" autocomplete="organization">
+        <label class="fld">Email <span style="color:var(--orange)">*</span></label>
+        <input type="email" id="email" autocomplete="email" required>
+        <label class="fld">Phone</label>
+        <input type="tel" id="phone" autocomplete="tel">
+        <div class="err" id="err"></div>
+        <div class="nav">
+          <button class="btn ghost" data-prev>&larr; Back</button>
+          <button class="btn primary" id="submit">See my results &rarr;</button>
+        </div>
+        <p class="fineprint">We use your details only to send your review and follow up. We never sell your information.</p>
+      </div>
+
+      <!-- STEP 3: results -->
+      <div class="step" id="s3">
+        <h1 id="rHead">Your results</h1>
+        <div id="rGrade"></div>
+        <div id="rFindings"></div>
+        <div class="scope" id="rScope"></div>
+        <div class="cta">
+          <div class="h">Want us to fix it?</div>
+          <div class="s">Your free 15-minute review is the next step &mdash; we'll walk your deficiency report and give you a straight plan.</div>
+          <a href="tel:+18327101558">Call 832-710-1558</a>
+          <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=Grade%20Rescue%20Review">Email us</a>
+        </div>
+        <div class="caveat" id="rCaveat"></div>
+      </div>
+
+    </div>
+    <footer class="foot">
+      Origin Compliance &mdash; a service of Origin Management Solutions
+      <b>832-710-1558 &bull; info@originmanagementsolutions.com</b>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  var state={platform:"",industry:"",issues:[]};
+  var cats=[];
+  var cur=0;
+  function $(id){return document.getElementById(id);}
+  function show(n){
+    cur=n;
+    document.querySelectorAll('.step').forEach(function(s){s.classList.remove('active');});
+    $('s'+n).classList.add('active');
+    document.querySelectorAll('.dot').forEach(function(d,i){d.classList.toggle('on', i<=n);});
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  // load config
+  fetch('/rescue/config').then(function(r){return r.json();}).then(function(cfg){
+    var ps=$('platform'); (cfg.platforms||[]).forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;ps.appendChild(o);});
+    var is=$('industry'); (cfg.industries||[]).forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;is.appendChild(o);});
+    cats=cfg.categories||[];
+    // group + render checklist
+    var byGroup={}, order=[];
+    cats.forEach(function(c){ if(!byGroup[c.group]){byGroup[c.group]=[];order.push(c.group);} byGroup[c.group].push(c); });
+    var wrap=$('issues');
+    order.forEach(function(g){
+      var gd=document.createElement('div'); gd.className='grp';
+      var h=document.createElement('h3'); h.textContent=g; gd.appendChild(h);
+      byGroup[g].forEach(function(c){
+        var lab=document.createElement('label'); lab.className='opt';
+        var cb=document.createElement('input'); cb.type='checkbox'; cb.value=c.id;
+        var sp=document.createElement('span'); sp.textContent=c.label;
+        cb.addEventListener('change',function(){
+          lab.classList.toggle('on',cb.checked);
+          state.issues=Array.prototype.map.call(document.querySelectorAll('#issues input:checked'),function(x){return x.value;});
+          $('toContact').disabled = state.issues.length===0;
+        });
+        lab.appendChild(cb); lab.appendChild(sp); gd.appendChild(lab);
+      });
+      wrap.appendChild(gd);
+    });
+  });
+
+  document.querySelectorAll('[data-next]').forEach(function(b){b.addEventListener('click',function(){
+    if(cur===0){state.platform=$('platform').value;state.industry=$('industry').value;}
+    show(cur+1);
+  });});
+  document.querySelectorAll('[data-prev]').forEach(function(b){b.addEventListener('click',function(){show(cur-1);});});
+
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+
+  $('submit').addEventListener('click',function(){
+    var email=$('email').value.trim();
+    var err=$('err'); err.textContent='';
+    if(email.indexOf('@')<0 || email.split('@')[1].indexOf('.')<0){ err.textContent='Please enter a valid email so we can send your results.'; return; }
+    var btn=this; btn.disabled=true; btn.textContent='Analyzing…';
+    var payload={platform:state.platform,industry:state.industry,issues:state.issues,
+      name:$('name').value.trim(),company:$('company').value.trim(),email:email,phone:$('phone').value.trim()};
+    fetch('/rescue/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(res.error){ err.textContent=res.error; btn.disabled=false; btn.textContent='See my results \u2192'; return; }
+        render(res); show(3);
+      })
+      .catch(function(){ err.textContent='Something went wrong. Please call us at 832-710-1558.'; btn.disabled=false; btn.textContent='See my results \u2192'; });
+  });
+
+  function render(res){
+    $('rHead').textContent=res.headline||'Your results';
+    // grade badge
+    var g=res.grade, gh='';
+    if(g && g.grade && g.grade!=='?'){
+      var lt=(g.traffic_light||''); var cls=lt.indexOf('GREEN')>=0?'GREEN':(lt.indexOf('AMBER')>=0?'AMBER':'RED');
+      gh='<div class="badge"><div class="g">'+esc(g.grade)+'</div><div><div>Projected '+esc(res.platform)+' grade</div>'+
+         '<div class="lt light-'+cls+'">'+esc(lt)+'</div></div></div>';
+    }
+    $('rGrade').innerHTML=gh;
+    // findings
+    var fh='';
+    (res.findings||[]).forEach(function(f){
+      fh+='<div class="finding'+(f.severity==='medium'?' med':'')+'">'+
+          '<span class="sev">'+(f.severity==='high'?'High impact':'Worth fixing')+'</span>'+
+          '<div class="t">'+esc(f.title)+'</div><div class="d">'+esc(f.detail)+'</div></div>';
+    });
+    $('rFindings').innerHTML=fh;
+    // scope + price
+    var s=res.scope, sh='';
+    if(s){
+      sh='<div class="h">What the fix looks like</div><div>'+esc(s.scope)+'</div>'+
+         '<div class="price">$'+s.price_low+'\u2013$'+s.price_high+'</div>'+
+         '<div style="font-size:13px;color:var(--grey)">Scoped to the contract you\'re protecting, not to hours.'+
+         (s.one_cycle?' Most cases clear in a single resubmission.':'')+'</div>';
+      if(s.suggest_retainer){
+        sh+='<div style="margin-top:10px;font-size:13.5px"><b>Worth considering:</b> a light monthly monitor keeps your grade, injury numbers, and renewals from blindsiding you again \u2014 from $150/mo.</div>';
+      }
+    }
+    $('rScope').innerHTML=sh;
+    $('rScope').style.display = s? 'block':'none';
+    $('rCaveat').textContent=res.caveat||'';
+  }
+})();
+</script>
+</body>
+</html>

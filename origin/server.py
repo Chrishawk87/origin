@@ -1018,5 +1018,41 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         result["overridden"] = bool(report.get("passed") is False and body.get("override"))
         return result
 
+    # ── Public "Grade Rescue" deficiency analyzer (lead-gen tool) ───────────
+    # These live OUTSIDE /api on purpose: the auth middleware only guards /api,
+    # and this tool must be reachable by the public with no access token.
+    from . import rescue as _rescue
+
+    rescue_html = Path(__file__).parent / "webui" / "rescue.html"
+
+    @app.get("/rescue", response_class=HTMLResponse)
+    def rescue_page():
+        if rescue_html.is_file():
+            return rescue_html.read_text(encoding="utf-8")
+        return "<h1>Grade Rescue</h1><p>Tool page missing.</p>"
+
+    @app.get("/rescue/config")
+    def rescue_config():
+        return {
+            "platforms": _rescue.PLATFORMS,
+            "industries": _rescue.INDUSTRIES,
+            "categories": [
+                {"id": c["id"], "label": c["label"], "group": c["group"]}
+                for c in _rescue.CATEGORIES
+            ],
+        }
+
+    @app.post("/rescue/analyze")
+    def rescue_analyze(body: dict = Body(...)):
+        # email gate: the report is revealed only after we capture a contact.
+        email = (body.get("email") or "").strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return JSONResponse({"error": "A valid email is required to see your results."},
+                                status_code=400)
+        result = _rescue.analyze(body)
+        lead = _rescue.capture_lead(body, result)
+        result["lead"] = lead
+        return result
+
     app.state.engine = eng
     return app
