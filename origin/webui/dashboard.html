@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compliance Dashboard — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F; --slate:#9AA1AB;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.5;}
+  .wrap{max-width:1000px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  header.brand a{color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:24px 28px}
+  h1{font-size:22px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 16px;font-size:14px}
+  a.btn,.btn{display:inline-block;appearance:none;border:0;border-radius:8px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff;text-decoration:none;margin-top:6px}
+  .btn:hover{background:var(--red)}
+  .btn.ghost{background:var(--light);color:var(--charcoal)}
+  .btn.ghost:hover{background:var(--line)}
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+  th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--grey)}
+  th.c,td.c{text-align:center}
+  th.r,td.r{text-align:right}
+  tr.row{cursor:pointer}
+  tr.row:hover{background:var(--cream)}
+  .name{font-weight:700;color:var(--charcoal)}
+  .sub{font-size:12px;color:var(--grey)}
+  .pct{font-weight:800}
+  .bar{height:6px;background:var(--light);border-radius:4px;margin-top:3px;overflow:hidden;width:80px;margin-left:auto}
+  .bar i{display:block;height:100%;background:var(--orange)}
+  .dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle}
+  .dot.green{background:var(--green)} .dot.yellow{background:var(--amber)}
+  .dot.red{background:var(--red)} .dot.unknown{background:var(--slate);opacity:.4}
+  .risk{font-weight:800;font-size:12px;padding:4px 10px;border-radius:20px;color:#fff;display:inline-block}
+  .risk.Low{background:var(--green)} .risk.Medium{background:var(--amber)}
+  .risk.High{background:var(--orange)} .risk.Critical{background:var(--red)}
+  .empty{text-align:center;color:var(--grey);padding:40px 10px;font-size:14px}
+  /* detail */
+  .back{color:var(--grey);font-size:13px;cursor:pointer;display:inline-block;margin-bottom:10px}
+  .scorehead{background:var(--charcoal);color:#fff;border-radius:12px;padding:22px 24px;margin-bottom:18px}
+  .scorehead .co{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#C9CED6}
+  .scorehead .lab{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--orange2);margin-top:8px}
+  .scorehead .big{font-size:46px;font-weight:800;line-height:1}
+  .scorehead .crit{color:#FCA98A;font-weight:700;font-size:14px;margin-top:6px}
+  .scorehead .cons{background:#33231B;border-left:4px solid var(--orange);border-radius:8px;padding:10px 14px;margin-top:14px;font-size:14px}
+  .scorehead .cons b{color:var(--orange2)}
+  .dimgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin:6px 0 18px}
+  @media(max-width:640px){.dimgrid{grid-template-columns:1fr}}
+  .dimrow{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+  .dimrow .l{font-size:14px;color:var(--charcoal);font-weight:600}
+  .dimrow .l .hs{font-size:10px;color:var(--red);font-weight:700;margin-left:6px}
+  .dots{display:flex;gap:6px;align-items:center}
+  .pick{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.1s}
+  .pick.green{background:var(--green)} .pick.yellow{background:var(--amber)} .pick.red{background:var(--red)}
+  .pick.on{border-color:var(--charcoal);box-shadow:0 0 0 2px #fff inset}
+  .pick.auto{outline:2px dashed var(--slate);outline-offset:2px}
+  .autotag{font-size:10px;color:var(--slate);margin-left:4px}
+  .clr{font-size:11px;color:var(--grey);cursor:pointer;margin-left:4px;text-decoration:underline}
+  .grp h2{font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);margin:20px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .def{border:1px solid var(--line);border-left:5px solid var(--line);border-radius:9px;padding:11px 14px;margin-bottom:8px}
+  .def.red{border-left-color:var(--red)} .def.yellow{border-left-color:var(--amber)}
+  .def .t{font-weight:700;color:var(--charcoal);font-size:14px}
+  .def .cite{font-size:12px;color:var(--grey)}
+  .def .why{font-size:13px;color:var(--ink);margin-top:4px}
+  .def .flag{font-size:10px;font-weight:800;text-transform:uppercase;background:var(--orange);color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px}
+  .muted{color:var(--grey);font-size:13px}
+  .hidden{display:none}
+  .err{color:var(--red);font-weight:600;font-size:14px;margin-top:10px}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a href="/gaps">Gap Finder →</a><span class="tag">Dashboard · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+      <div id="list"></div>
+      <div id="detail" class="hidden"></div>
+      <div class="err" id="err"></div>
+    </div>
+    <footer class="foot">Origin Management Solutions · internal compliance tool</footer>
+  </div>
+</div>
+
+<script>
+// ── access token (same login as the main app) ──────────────────────────────
+let TOKEN='';
+(function initToken(){
+  const fromUrl=new URLSearchParams(location.search).get('token');
+  if(fromUrl){ TOKEN=fromUrl; try{localStorage.setItem('origin_token',TOKEN);}catch(e){}
+    try{history.replaceState({},'',location.pathname);}catch(e){} }
+  else { try{TOKEN=localStorage.getItem('origin_token')||'';}catch(e){TOKEN='';} }
+  if(!TOKEN){ const t=prompt('Enter your Origin access token:'); if(t){TOKEN=t.trim(); try{localStorage.setItem('origin_token',TOKEN);}catch(e){}} }
+})();
+
+const $=id=>document.getElementById(id);
+const H=()=>Object.assign({'Content-Type':'application/json'},TOKEN?{'X-Origin-Token':TOKEN}:{});
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const DOTS=['green','yellow','red'];
+
+async function api(path,opts){
+  const r=await fetch(path,Object.assign({headers:H()},opts||{}));
+  const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
+  if(!r.ok||j.error){ throw new Error(j.error||('HTTP '+r.status)); }
+  return j;
+}
+
+// ── portfolio table ─────────────────────────────────────────────────────────
+async function loadList(){
+  $('detail').classList.add('hidden'); $('list').classList.remove('hidden'); $('err').textContent='';
+  try{
+    const d=await api('/api/dashboard/contractors');
+    renderList(d.contractors||[]);
+  }catch(e){ $('err').textContent=String(e.message||e); }
+}
+
+function dot(c){ return `<span class="dot ${c}" title="${c}"></span>`; }
+
+function renderList(rows){
+  let h=`<h1>Contractor compliance dashboard</h1>
+    <p class="lede">Every contractor you've run through the Gap Finder, rolled up. Click a row to open the drill-down and set the dots the engine can't measure.</p>
+    <a class="btn" href="/gaps">+ Analyze a contractor</a>`;
+  if(!rows.length){
+    h+=`<div class="empty">No contractors yet. Run one through the <a href="/gaps">Gap Finder</a> with a contractor name and it lands here.</div>`;
+    $('list').innerHTML=h; return;
+  }
+  h+=`<table><thead><tr>
+      <th>Contractor</th><th class="r">Compliance</th>
+      <th class="c">Insurance</th><th class="c">Safety</th><th class="c">Qualification</th>
+      <th class="c">Risk</th></tr></thead><tbody>`;
+  for(const r of rows){
+    h+=`<tr class="row" data-slug="${esc(r.slug)}">
+      <td><div class="name">${esc(r.name)}</div><div class="sub">${esc(r.industry||'')}${r.state?(' · '+esc(r.state)):''}</div></td>
+      <td class="r"><span class="pct">${r.compliance}%</span><div class="bar"><i style="width:${r.compliance}%"></i></div></td>
+      <td class="c">${dot(r.insurance)}</td>
+      <td class="c">${dot(r.safety)}</td>
+      <td class="c">${dot(r.qualification)}</td>
+      <td class="c"><span class="risk ${esc(r.risk)}">${esc(r.risk)}</span></td>
+    </tr>`;
+  }
+  h+=`</tbody></table>`;
+  $('list').innerHTML=h;
+  $('list').querySelectorAll('tr.row').forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.slug));
+}
+
+// ── contractor drill-down ────────────────────────────────────────────────────
+async function openDetail(slug){
+  $('err').textContent='';
+  try{
+    const d=await api('/api/dashboard/contractor/'+encodeURIComponent(slug));
+    renderDetail(d);
+  }catch(e){ $('err').textContent=String(e.message||e); }
+}
+
+function renderDetail(d){
+  $('list').classList.add('hidden'); const el=$('detail'); el.classList.remove('hidden');
+  const crit = d.critical_count>0
+    ? `<div class="crit">🔴 ${d.critical_count} critical deficienc${d.critical_count===1?'y':'ies'}</div>` : '';
+  let h=`<span class="back" id="back">← All contractors</span>
+    <div class="scorehead">
+      <div class="co">${esc((d.name||'').toUpperCase())}</div>
+      <div class="lab">Qualification score</div>
+      <div class="big">${d.compliance}%</div>
+      ${crit}
+      <div class="cons"><b>Estimated consequence:</b> ${esc(d.consequence||'')}</div>
+    </div>`;
+
+  // Status dots (auto + manual)
+  h+=`<div class="grp"><h2>Status — click to set what the engine can't measure</h2></div><div class="dimgrid">`;
+  for(const dim of d.dimensions){ h+=dimRow(d.slug,dim); }
+  h+=`</div>`;
+
+  // Deficiency breakdown grouped by dimension
+  h+=`<div class="grp"><h2>Deficiencies</h2></div>`;
+  let any=false;
+  for(const dim of d.dimensions){
+    const items=(d.breakdown&&d.breakdown[dim.key])||[];
+    if(!items.length) continue;
+    any=true;
+    h+=`<div style="font-weight:700;color:var(--charcoal);margin:12px 0 6px">${esc(dim.label)}</div>`;
+    for(const it of items){ h+=defCard(it); }
+  }
+  if(!any) h+=`<p class="muted">No open deficiencies — every measured item is green.</p>`;
+
+  h+=`<button class="btn ghost" id="reanalyze">Re-analyze in Gap Finder</button>`;
+  el.innerHTML=h;
+  $('back').onclick=loadList;
+  $('reanalyze').onclick=()=>{location.href='/gaps';};
+  el.querySelectorAll('.pick').forEach(p=>p.onclick=()=>setDot(d.slug,p.dataset.dim,p.dataset.val));
+  el.querySelectorAll('.clr').forEach(c=>c.onclick=()=>setDot(d.slug,c.dataset.dim,''));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function dimRow(slug,dim){
+  const manual = ['green','yellow','red'].includes(dim.manual);
+  let picks='';
+  for(const v of DOTS){
+    const on = (manual? dim.manual===v : dim.auto===v);
+    const cls = 'pick '+v+(on?' on':'')+((!manual&&dim.auto===v)?' auto':'');
+    picks+=`<span class="${cls}" data-dim="${esc(dim.key)}" data-val="${v}" title="${v}"></span>`;
+  }
+  const tag = manual ? `<span class="clr" data-dim="${esc(dim.key)}">reset</span>`
+                     : `<span class="autotag">auto${dim.auto==='unknown'?' · not set':''}</span>`;
+  return `<div class="dimrow"><div class="l">${esc(dim.label)}${dim.hard_stop?'<span class="hs">hard-stop</span>':''}</div>
+    <div class="dots">${picks}${tag}</div></div>`;
+}
+
+function defCard(it){
+  return `<div class="def ${it.color}">
+    <div class="t">${esc(it.title)}${it.platform_flagged?'<span class="flag">flagged</span>':''}</div>
+    ${it.citation?`<div class="cite">${esc(it.citation)}</div>`:''}
+    <div class="why">${esc(it.reason||'')}</div></div>`;
+}
+
+async function setDot(slug,dim,val){
+  $('err').textContent='';
+  try{
+    const d=await api('/api/dashboard/contractor/'+encodeURIComponent(slug)+'/status',
+      {method:'POST',body:JSON.stringify({dimension:dim,value:val})});
+    renderDetail(d);
+  }catch(e){ $('err').textContent=String(e.message||e); }
+}
+
+loadList();
+</script>
+</body>
+</html>

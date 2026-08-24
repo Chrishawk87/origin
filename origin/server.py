@@ -1060,8 +1060,10 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     # endpoint lives under /api so the auth middleware gates it — this is an
     # internal tool, NOT client-facing like /rescue.
     from . import gaps as _gaps
+    from . import contractors as _contractors
 
     gaps_html = Path(__file__).parent / "webui" / "gaps.html"
+    dashboard_html = Path(__file__).parent / "webui" / "dashboard.html"
 
     @app.get("/gaps", response_class=HTMLResponse)
     def gaps_page():
@@ -1084,6 +1086,7 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         state = (form.get("state") or "").strip() or None
         ops_raw = (form.get("operators") or "").strip()
         operators = [o.strip() for o in ops_raw.split(",") if o.strip()] or None
+        contractor = (form.get("contractor") or "").strip()
         if not industry:
             return JSONResponse({"error": "industry is required"}, status_code=400)
 
@@ -1104,6 +1107,17 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                 docs.append({"name": f.filename, "text": text})
 
         report = _gaps.find_gaps(industry, state=state, operators=operators, docs=docs)
+        # If a contractor name was given, snapshot this analysis onto the
+        # dashboard (preserving any manual status dots already set).
+        if contractor:
+            try:
+                slug = _contractors.save_snapshot(
+                    contractor, report, industry=industry,
+                    state=state, operators=operators or [])
+                report["contractor_slug"] = slug
+                report["contractor_name"] = contractor
+            except Exception:
+                pass
         return report
 
     @app.post("/api/gaps/draft")
@@ -1148,6 +1162,41 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             media_type="application/zip",
             headers={"Content-Disposition": 'attachment; filename="origin-draft-programs.zip"'},
         )
+
+    # ── INTERNAL Contractor Compliance Dashboard (Chris-only) ───────────────
+    # A living roll-up of every contractor run through the Gap Finder. Page is
+    # a public shell; the /api endpoints are token-gated like the rest.
+    @app.get("/dashboard", response_class=HTMLResponse)
+    def dashboard_page():
+        if dashboard_html.is_file():
+            return dashboard_html.read_text(encoding="utf-8")
+        return "<h1>Dashboard</h1><p>Tool page missing.</p>"
+
+    @app.get("/api/dashboard/contractors")
+    def dashboard_contractors():
+        return {"contractors": _contractors.list_contractors(),
+                "dimensions": _contractors.DIMENSIONS}
+
+    @app.get("/api/dashboard/contractor/{slug}")
+    def dashboard_contractor(slug: str):
+        rec = _contractors.get_contractor(slug)
+        if not rec:
+            return JSONResponse({"error": "contractor not found"}, status_code=404)
+        return rec
+
+    @app.post("/api/dashboard/contractor/{slug}/status")
+    def dashboard_set_status(slug: str, body: dict = Body(...)):
+        dim = (body.get("dimension") or "").strip()
+        value = (body.get("value") or "").strip()
+        if not _contractors.set_status(slug, dim, value):
+            return JSONResponse({"error": "could not set status (bad slug/dimension/value)"},
+                                status_code=400)
+        return _contractors.get_contractor(slug)
+
+    @app.delete("/api/dashboard/contractor/{slug}")
+    def dashboard_delete(slug: str):
+        ok = _contractors.delete_contractor(slug)
+        return {"deleted": ok}
 
     app.state.engine = eng
     return app

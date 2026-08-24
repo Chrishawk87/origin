@@ -76,12 +76,14 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div class="tag">Gap Finder · internal</div></header>
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a href="/dashboard" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Dashboard</a><span class="tag">Gap Finder · internal</span></div></header>
     <div class="rule"></div>
     <div class="pad">
       <div id="intake">
         <h1>Find every compliance gap</h1>
         <p class="lede">Load a contractor's documents and their trade. Origin resolves every required standard, checks what the docs cover, and lists what's missing, what's failing, and what's ready.</p>
+        <label class="fld">Contractor name <span class="muted">(optional — saves this to the dashboard)</span></label>
+        <input type="text" id="contractor" placeholder="e.g. ABC Mechanical" autocomplete="off">
         <div class="row">
           <div>
             <label class="fld">Industry / trade</label>
@@ -143,6 +145,7 @@ async function analyze(){
   fd.append('industry',industry);
   fd.append('state',$('state').value.trim());
   fd.append('operators',$('operators').value.trim());
+  fd.append('contractor',$('contractor').value.trim());
   for(const f of CHOSEN){ fd.append('files',f,f.name); }
   try{
     const r=await fetch('/api/gaps/analyze',{method:'POST',headers:TOKEN?{'X-Origin-Token':TOKEN}:{},body:fd});
