@@ -1,6 +1,6 @@
 {
   "name": "Origin Compliance Letter & Document Templates",
-  "count": 121,
+  "count": 124,
   "note": "Placeholders use {{DOUBLE_BRACES}}. Letter/cert templates (01-06) plus one fillable written-program template per KB standard (program-*). Each program-* template's section headings, training and recordkeeping lines are verbatim from its KB entry; fill the [[...]] prompts with company-specific procedure. Follow each grounding_rule.",
   "templates": [
     {
@@ -95,7 +95,7 @@
         "CARRIER_AMBEST",
         "POLICY_PERIOD"
       ],
-      "grounding_rule": "Name the exact ISO/WC endorsement form numbers from the Insurance KB entries. Enforce the rule that the certificate alone is not proof \u2014 the endorsements must be attached. Never state Additional Insured applies to Workers' Compensation.",
+      "grounding_rule": "Name the exact ISO/WC endorsement form numbers from the Insurance KB entries. Enforce the rule that the certificate alone is not proof — the endorsements must be attached. Never state Additional Insured applies to Workers' Compensation.",
       "file": "04-insurance-coi-compliance-letter.md"
     },
     {
@@ -293,7 +293,7 @@
     {
       "template_id": "program-29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Personal Protective Equipment (PPE) \u2014 Hazard Assessment (29 CFR 1910.132). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Personal Protective Equipment (PPE) — Hazard Assessment (29 CFR 1910.132). Applies when written_program=yes.",
       "pulls_from": [
         "29-cfr-1910-132-personal-protective-equipment-ppe-hazard-assessment"
       ],
@@ -489,7 +489,7 @@
     {
       "template_id": "program-29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Bloodborne Pathogens \u2014 Exposure Control Plan (29 CFR 1910.1030). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Bloodborne Pathogens — Exposure Control Plan (29 CFR 1910.1030). Applies when written_program=yes.",
       "pulls_from": [
         "29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan"
       ],
@@ -993,7 +993,7 @@
     {
       "template_id": "program-29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Respirable Crystalline Silica \u2014 Written Exposure Control Plan (Construction) (29 CFR 1926.1153). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Respirable Crystalline Silica — Written Exposure Control Plan (Construction) (29 CFR 1926.1153). Applies when written_program=yes.",
       "pulls_from": [
         "29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction"
       ],
@@ -1693,7 +1693,7 @@
     {
       "template_id": "program-ravs-required-written-program-substance-abuse-drug-alcohol-program-non-dot",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Substance Abuse \u2014 Drug & Alcohol Program (non-DOT) (RAVS-required written program (client-driven; distinct from 49 CFR Part 40 DOT testing)). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Substance Abuse — Drug & Alcohol Program (non-DOT) (RAVS-required written program (client-driven; distinct from 49 CFR Part 40 DOT testing)). Applies when written_program=yes.",
       "pulls_from": [
         "ravs-required-written-program-substance-abuse-drug-alcohol-program-non-dot"
       ],
@@ -2589,11 +2589,11 @@
     {
       "template_id": "program-injury-illness-prevention-program-cal-osha-iipp",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Injury & Illness Prevention Program (Cal/OSHA IIPP) (8 CCR 3203 (California Code of Regulations, Title 8) \u2014 MANDATORY in California). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Injury & Illness Prevention Program (Cal/OSHA IIPP) (8 CCR 3203 (California Code of Regulations, Title 8) — MANDATORY in California). Applies when written_program=yes.",
       "pulls_from": [
         "injury-illness-prevention-program-cal-osha-iipp"
       ],
-      "citation": "8 CCR 3203 (California Code of Regulations, Title 8) \u2014 MANDATORY in California",
+      "citation": "8 CCR 3203 (California Code of Regulations, Title 8) — MANDATORY in California",
       "category": "10 - Client-Required & State-Specific Programs",
       "written_program": "yes",
       "placeholders": [
@@ -2617,11 +2617,11 @@
     {
       "template_id": "program-heat-illness-prevention-cal-osha",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Heat Illness Prevention (Cal/OSHA) (8 CCR 3395 (outdoor) / 8 CCR 3396 (indoor) \u2014 California-specific). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Heat Illness Prevention (Cal/OSHA) (8 CCR 3395 (outdoor) / 8 CCR 3396 (indoor) — California-specific). Applies when written_program=yes.",
       "pulls_from": [
         "heat-illness-prevention-cal-osha"
       ],
-      "citation": "8 CCR 3395 (outdoor) / 8 CCR 3396 (indoor) \u2014 California-specific",
+      "citation": "8 CCR 3395 (outdoor) / 8 CCR 3396 (indoor) — California-specific",
       "category": "10 - Client-Required & State-Specific Programs",
       "written_program": "yes",
       "placeholders": [
@@ -2841,7 +2841,7 @@
     {
       "template_id": "program-29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Confined and Enclosed Spaces \u2014 Shipyard (Competent Person / Marine Chemist) (29 CFR 1915 Subpart B). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Confined and Enclosed Spaces — Shipyard (Competent Person / Marine Chemist) (29 CFR 1915 Subpart B). Applies when written_program=yes.",
       "pulls_from": [
         "29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person"
       ],
@@ -2897,7 +2897,7 @@
     {
       "template_id": "program-29-cfr-1915-subpart-i-personal-protective-equipment-shipyard",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Personal Protective Equipment \u2014 Shipyard Employment (29 CFR 1915 Subpart I). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Personal Protective Equipment — Shipyard Employment (29 CFR 1915 Subpart I). Applies when written_program=yes.",
       "pulls_from": [
         "29-cfr-1915-subpart-i-personal-protective-equipment-shipyard"
       ],
@@ -2925,7 +2925,7 @@
     {
       "template_id": "program-29-cfr-1917-marine-terminals-safety-and-health-program",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Marine Terminals \u2014 Safety and Health Program (29 CFR 1917). Applies when written_program=conditional.",
+      "purpose": "Fillable written safety program for Marine Terminals — Safety and Health Program (29 CFR 1917). Applies when written_program=conditional.",
       "pulls_from": [
         "29-cfr-1917-marine-terminals-safety-and-health-program"
       ],
@@ -2953,7 +2953,7 @@
     {
       "template_id": "program-29-cfr-1918-longshoring-safety-and-health-program",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Longshoring \u2014 Safety and Health Program (29 CFR 1918). Applies when written_program=conditional.",
+      "purpose": "Fillable written safety program for Longshoring — Safety and Health Program (29 CFR 1918). Applies when written_program=conditional.",
       "pulls_from": [
         "29-cfr-1918-longshoring-safety-and-health-program"
       ],
@@ -3065,7 +3065,7 @@
     {
       "template_id": "program-hazardous-drugs-safe-handling-usp-800-niosh-program",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Hazardous Drugs \u2014 Safe Handling Program (USP <800> / NIOSH) (USP <800> / NIOSH Alert 2016-161 (OSHA 29 CFR 1910.1200 GDC)). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Hazardous Drugs — Safe Handling Program (USP <800> / NIOSH) (USP <800> / NIOSH Alert 2016-161 (OSHA 29 CFR 1910.1200 GDC)). Applies when written_program=yes.",
       "pulls_from": [
         "hazardous-drugs-safe-handling-usp-800-niosh-program"
       ],
@@ -3093,7 +3093,7 @@
     {
       "template_id": "program-tuberculosis-exposure-control-plan-healthcare-cdc-osha",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Tuberculosis (TB) Exposure Control Plan \u2014 Healthcare (CDC MMWR 2005 TB Guidelines (OSHA 29 CFR 1910.134 / GDC)). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Tuberculosis (TB) Exposure Control Plan — Healthcare (CDC MMWR 2005 TB Guidelines (OSHA 29 CFR 1910.134 / GDC)). Applies when written_program=yes.",
       "pulls_from": [
         "tuberculosis-exposure-control-plan-healthcare-cdc-osha"
       ],
@@ -3149,7 +3149,7 @@
     {
       "template_id": "program-epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372",
       "type": "written_program",
-      "purpose": "Fillable written safety program for EPCRA / SARA Title III \u2014 Tier II Reporting & Toxic Release Inventory (Form R) (40 CFR 370 / 40 CFR 372 (EPCRA)). Applies when written_program=conditional.",
+      "purpose": "Fillable written safety program for EPCRA / SARA Title III — Tier II Reporting & Toxic Release Inventory (Form R) (40 CFR 370 / 40 CFR 372 (EPCRA)). Applies when written_program=conditional.",
       "pulls_from": [
         "epcra-sara-title-iii-tier-ii-and-tri-form-r-40-cfr-370-372"
       ],
@@ -3177,7 +3177,7 @@
     {
       "template_id": "program-epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122",
       "type": "written_program",
-      "purpose": "Fillable written safety program for EPA NPDES Industrial Stormwater (MSGP) \u2014 Stormwater Pollution Prevention Plan (40 CFR 122.26 (Multi-Sector General Permit)). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for EPA NPDES Industrial Stormwater (MSGP) — Stormwater Pollution Prevention Plan (40 CFR 122.26 (Multi-Sector General Permit)). Applies when written_program=yes.",
       "pulls_from": [
         "epa-npdes-industrial-stormwater-msgp-swppp-40-cfr-122"
       ],
@@ -3317,7 +3317,7 @@
     {
       "template_id": "program-epa-risk-management-program-rmp-40-cfr-68",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Risk Management Program (RMP) \u2014 Clean Air Act 112(r) (40 CFR 68). Applies when written_program=yes.",
+      "purpose": "Fillable written safety program for Risk Management Program (RMP) — Clean Air Act 112(r) (40 CFR 68). Applies when written_program=yes.",
       "pulls_from": [
         "epa-risk-management-program-rmp-40-cfr-68"
       ],
@@ -3345,7 +3345,7 @@
     {
       "template_id": "program-29-cfr-1915-87-medical-services-and-first-aid-shipyard",
       "type": "written_program",
-      "purpose": "Fillable written safety program for Medical Services and First Aid \u2014 Shipyard (29 CFR 1915.87). Applies when written_program=conditional.",
+      "purpose": "Fillable written safety program for Medical Services and First Aid — Shipyard (29 CFR 1915.87). Applies when written_program=conditional.",
       "pulls_from": [
         "29-cfr-1915-87-medical-services-and-first-aid-shipyard"
       ],
@@ -3369,6 +3369,71 @@
       ],
       "grounding_rule": "Section headings and standard-requirement lines are verbatim from KB entry 29-cfr-1915-87-medical-services-and-first-aid-shipyard.",
       "file": "programs/program-29-cfr-1915-87-medical-services-and-first-aid-shipyard.md"
+    },
+    {
+      "template_id": "program-osha-recordkeeping-program",
+      "type": "written_program",
+      "purpose": "Fillable written OSHA Injury & Illness Recordkeeping Program (29 CFR 1904) — documents how the company keeps its 300/300A/301 accurately, the driver of TRIR/DART accuracy for prequal grading.",
+      "pulls_from": [
+        "osha-recordkeeping-program"
+      ],
+      "citation": "29 CFR 1904",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "written_program": "yes",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS",
+        "PROGRAM_ADMINISTRATOR",
+        "ADMIN_TITLE",
+        "ADMIN_PHONE",
+        "ADMIN_EMAIL",
+        "EFFECTIVE_DATE",
+        "SCOPE",
+        "LAST_REVIEW_DATE",
+        "NEXT_REVIEW_DATE",
+        "SIGNATURE_NAME",
+        "SIGNATURE_TITLE",
+        "SIGNATURE_DATE"
+      ],
+      "grounding_rule": "29 CFR 1904 is public-domain; requirements stated in full. Recordability decisions govern the TRIR/DART prequal platforms grade — fill each [[...]] prompt with the company's own procedure and confirm no reviewer rejection reason applies.",
+      "file": "programs/program-osha-recordkeeping-program.md"
+    },
+    {
+      "template_id": "eewp-energized-electrical-work-permit",
+      "type": "form",
+      "purpose": "Energized Electrical Work Permit (EEWP) form (NFPA 70E 130.2 / 29 CFR 1910.333(a)) — authorizes and documents justified energized work with the shock/arc-flash assessment, PPE, and management approval.",
+      "pulls_from": [
+        "nfpa-70e-energized-electrical-work-permit-eewp",
+        "nfpa-70e-shock-risk-assessment-approach-boundaries",
+        "nfpa-70e-arc-flash-risk-assessment-incident-energy"
+      ],
+      "citation": "NFPA 70E 130.2 / 29 CFR 1910.333(a)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS"
+      ],
+      "grounding_rule": "Required for energized work inside the restricted approach or arc-flash boundary when equipment is NOT in an electrically safe work condition. Justification must be infeasibility or a greater hazard — never convenience. Management approval signed before work begins. Record assessment results; do not copy NFPA 70E tables.",
+      "file": "eewp-energized-electrical-work-permit.md"
+    },
+    {
+      "template_id": "osha-300-300a-301-forms",
+      "type": "form",
+      "purpose": "OSHA Forms 300 (Log), 300A (Annual Summary), and 301 (Incident Report) per 29 CFR 1904 — public-domain forms reproduced in full and ready to fill.",
+      "pulls_from": [
+        "29-cfr-1904-recording-and-reporting-occupational-injuries-and-illnesses",
+        "29-cfr-1904-7-general-recording-criteria",
+        "29-cfr-1904-29-forms-and-privacy-concern-cases",
+        "29-cfr-1904-32-annual-summary-300a-posting-certification"
+      ],
+      "citation": "29 CFR 1904 (OSHA Forms 300, 300A, 301)",
+      "category": "01 - General Industry (29 CFR 1910)",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS"
+      ],
+      "grounding_rule": "Enter each recordable case within 7 calendar days. Privacy-concern cases: no name on the 300 Log. The 300A must be certified by a company executive and posted Feb 1-Apr 30 even with zero cases. Retain all three forms 5 years.",
+      "file": "osha-300-300a-301-forms.md"
     }
   ]
 }
