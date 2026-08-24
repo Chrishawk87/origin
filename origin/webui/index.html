@@ -97,6 +97,11 @@
   #v-body img,#v-body video{max-width:100%;border-radius:8px}
   #v-body pre{max-height:70vh;overflow:auto;background:var(--panel2);padding:10px;border-radius:8px;font-size:12px}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:20}
+  #tooloverlay{position:fixed;inset:0;z-index:40;background:var(--bg);display:none;flex-direction:column}
+  #tooloverlay .toolbar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  #tooloverlay .toolbar .t-title{font-weight:600;font-size:14px}
+  #tooloverlay .toolbar .t-spacer{flex:1}
+  #tooloverlay iframe{flex:1;width:100%;border:0;background:var(--bg)}
   .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:420px}
   .modal h3{margin:0 0 14px}
   .modal label{display:block;font-size:12px;color:var(--dim);margin:10px 0 4px}
@@ -173,6 +178,9 @@
       <button onclick="importProj()">Import</button>
       <button onclick="openAccounts()">🔌 Connectors</button>
       <button onclick="openSystem()" title="See everything the system holds — tools, compliance knowledge base, hiring-client profiles, and what Origin has learned">🧠 System</button>
+      <button onclick="openTool('/dashboard','Compliance Dashboard')" title="Contractor compliance dashboard — portfolio roll-up and per-contractor drill-down">📊 Dashboard</button>
+      <button onclick="openTool('/gaps','Gap Finder')" title="Analyze a contractor's documents and find every compliance gap">🔍 Gap Finder</button>
+      <button onclick="openTool('/rescue','Rescue')" title="Rescue tool">🛟 Rescue</button>
       <input id="importfile" type="file" accept=".originproj,.zip" style="display:none" onchange="doImport(event)">
     </div>
   </div>
@@ -342,6 +350,16 @@
     </div>
   </div>
 
+  <div id="tooloverlay">
+    <div class="toolbar">
+      <span class="t-title" id="tool-title">Tool</span>
+      <span class="t-spacer"></span>
+      <button onclick="reloadTool()" title="Reload this tool">↻</button>
+      <button class="primary" onclick="closeTool()">✕ Close</button>
+    </div>
+    <iframe id="toolframe" title="Origin tool"></iframe>
+  </div>
+
 <script>
 let STATE=null, ACTIVE=null, BUSY=false, autoOpenTried=false;
 
@@ -363,6 +381,30 @@ let TOKEN='';
   }
 })();
 function signOut(){ try{ localStorage.removeItem('origin_token'); localStorage.removeItem('origin_last_project'); }catch(e){} location.reload(); }
+
+// ── in-app tool overlays (Dashboard / Gap Finder / Rescue) ──────────────────
+function openTool(path, title){
+  // pass the token so the tool signs in with the same login (no second prompt)
+  const url = path + (TOKEN ? ('?token=' + encodeURIComponent(TOKEN)) : '');
+  const f = document.getElementById('toolframe');
+  document.getElementById('tool-title').textContent = title || 'Tool';
+  f.dataset.base = path;
+  f.src = url;
+  document.getElementById('tooloverlay').style.display = 'flex';
+}
+function closeTool(){
+  document.getElementById('tooloverlay').style.display = 'none';
+  const f = document.getElementById('toolframe');
+  f.src = 'about:blank';
+}
+function reloadTool(){
+  const f = document.getElementById('toolframe');
+  const path = f.dataset.base || '';
+  if(path) f.src = path + (TOKEN ? ('?token=' + encodeURIComponent(TOKEN)) : '');
+}
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && document.getElementById('tooloverlay').style.display==='flex') closeTool();
+});
 
 async function api(path, opts){
   opts = opts || {};
