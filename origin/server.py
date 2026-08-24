@@ -1198,5 +1198,16 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         ok = _contractors.delete_contractor(slug)
         return {"deleted": ok}
 
+    @app.post("/api/dashboard/seed")
+    def dashboard_seed():
+        # Load the four demo contractors so the board shows a full
+        # green/yellow/red mix before any real client documents exist.
+        try:
+            from . import seed_dashboard as _seed
+            written = _seed.seed_samples(force=True)
+            return {"seeded": written, "count": len(written)}
+        except Exception as exc:  # never 500 the button
+            return JSONResponse({"error": f"seed failed: {exc}"}, status_code=400)
+
     app.state.engine = eng
     return app

@@ -134,8 +134,19 @@ function renderList(rows){
     <p class="lede">Every contractor you've run through the Gap Finder, rolled up. Click a row to open the drill-down and set the dots the engine can't measure.</p>
     <a class="btn" href="/gaps">+ Analyze a contractor</a>`;
   if(!rows.length){
-    h+=`<div class="empty">No contractors yet. Run one through the <a href="/gaps">Gap Finder</a> with a contractor name and it lands here.</div>`;
-    $('list').innerHTML=h; return;
+    h+=`<div class="empty">No contractors yet. Run one through the <a href="/gaps">Gap Finder</a> with a contractor name and it lands here.
+      <div style="margin-top:18px">
+        <button id="seedbtn" class="btn" type="button">Load sample contractors</button>
+        <div class="sub" style="margin-top:8px">Adds four demo contractors so you can see a full board. They're tagged as samples and can be deleted anytime.</div>
+      </div></div>`;
+    $('list').innerHTML=h;
+    const sb=$('seedbtn');
+    if(sb) sb.onclick=async()=>{
+      sb.disabled=true; sb.textContent='Loading…';
+      try{ await api('/api/dashboard/seed',{method:'POST'}); await loadList(); }
+      catch(e){ $('err').textContent=String(e.message||e); sb.disabled=false; sb.textContent='Load sample contractors'; }
+    };
+    return;
   }
   h+=`<table><thead><tr>
       <th>Contractor</th><th class="r">Compliance</th>
