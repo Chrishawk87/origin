@@ -2988,3 +2988,1412 @@ JHA_LIBRARY["29-cfr-1910-272-grain-handling-facilities"] = {
         ]),
     ],
 }
+
+
+# ── Oil &amp; Gas and Energy Specialty ────────────────────────────────────────
+JHA_LIBRARY["ansi-assp-z390-1-2017-hydrogen-sulfide-h2s-program"] = {
+    "subtitle": "Hydrogen Sulfide (H2S) Operations",
+    "legend": [
+        ("Atmospheric / Toxic", "H2S inhalation (rapidly fatal); oxygen displacement."),
+        ("Fire / Explosion", "H2S and associated hydrocarbons are flammable."),
+        ("Rescue", "Rescuer becoming a victim in an H2S atmosphere."),
+        ("Environmental", "Wind shifts moving gas toward workers."),
+    ],
+    "jobs": [
+        ("1", "Site Assessment &amp; Monitoring Setup", [
+            ("Assess H2S potential and set up monitoring",
+             ["Undetected H2S", "No warning of release"],
+             ["Identify H2S potential; post the area and set contingency plans",
+              "Deploy fixed/personal H2S monitors and wind socks",
+              "Establish briefing areas, muster points, and escape routes upwind"],
+             "Personal H2S monitor, FR clothing, standard PPE"),
+        ]),
+        ("2", "Detection, Alarms &amp; Escape", [
+            ("Respond to detection and alarms",
+             ["Inhalation exposure", "Loss of consciousness"],
+             ["Evacuate crosswind/upwind on any alarm; account for personnel at muster",
+              "Understand alarm levels (10 ppm low / 15 ppm high typical)",
+              "Never re-enter until the area is confirmed safe"],
+             "Personal H2S monitor, escape respirator/SCBA"),
+        ]),
+        ("3", "Work in Potential H2S Areas", [
+            ("Perform work where H2S may be present",
+             ["Toxic exposure", "Fire/ignition"],
+             ["Use continuous monitoring; work upwind where possible",
+              "Use supplied-air/SCBA for entry into known/potential H2S atmospheres",
+              "Control ignition sources; ground/bond as needed"],
+             "Supplied-air respirator/SCBA as required, FR clothing, monitor"),
+        ]),
+        ("4", "Rescue &amp; Emergency Response", [
+            ("Respond to an H2S emergency",
+             ["Rescuer overcome", "Delayed rescue"],
+             ["Never enter an H2S atmosphere to rescue without SCBA and a backup",
+              "Use trained rescue teams and the buddy system",
+              "Move victims crosswind/upwind and begin first aid/O2"],
+             "SCBA, retrieval equipment, first-aid/O2"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["osha-psm-29-cfr-1910-119-hot-work-moc-pha-simultaneous-operations-simops"] = {
+    "subtitle": "Simultaneous Operations (SIMOPS)",
+    "legend": [
+        ("Conflicting Operations", "Two or more activities creating combined hazards."),
+        ("Fire / Explosion", "Hot work near hydrocarbons/pressurized systems."),
+        ("Struck-By", "Crane/equipment operations over active work areas."),
+        ("Communication", "Loss of coordination between crews."),
+    ],
+    "jobs": [
+        ("1", "SIMOPS Planning &amp; Authorization", [
+            ("Plan and authorize concurrent operations",
+             ["Conflicting activities", "Unmanaged combined hazards"],
+             ["Identify all simultaneous operations and their interactions",
+              "Complete a SIMOPS matrix/plan; obtain authorization before starting",
+              "Assign a coordinator with authority to stop conflicting work"],
+             "Task PPE per operations"),
+        ]),
+        ("2", "Permitting &amp; Isolation", [
+            ("Control permits across operations",
+             ["Overlapping hazardous permits", "Uncontrolled energy"],
+             ["Coordinate hot work, confined space, and line-break permits",
+              "Isolate/lock out systems affected by concurrent work",
+              "Verify no permit conflicts before authorizing"],
+             "Task PPE, LOTO devices"),
+        ]),
+        ("3", "Executing Concurrent Work", [
+            ("Perform simultaneous operations",
+             ["Fire/ignition", "Struck-by cross-operations", "Exposure"],
+             ["Maintain separation/barriers between conflicting activities",
+              "Keep continuous communication between crews and the coordinator",
+              "Monitor atmospheres where hot work and hydrocarbons coexist"],
+             "FR clothing, gas monitor, task PPE"),
+        ]),
+        ("4", "Change &amp; Stop-Work", [
+            ("Manage change and stop work",
+             ["Unassessed change", "Escalating hazard"],
+             ["Re-evaluate the SIMOPS plan on any scope/condition change",
+              "Exercise stop-work authority when hazards are not controlled",
+              "Resume only after re-authorization"],
+             "Task PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["client-requirement-api-rp-755-fatigue-journey-management-driving-safety-oilfield"] = {
+    "subtitle": "Journey Management &amp; Driving Safety",
+    "legend": [
+        ("Vehicle / Traffic", "Collisions, rollovers, run-off-road."),
+        ("Fatigue", "Drowsy driving from long hours and shift work."),
+        ("Environmental", "Weather, remote lease roads, wildlife, night driving."),
+        ("Loading", "Unsecured loads and improper vehicle loading."),
+    ],
+    "jobs": [
+        ("1", "Journey Planning", [
+            ("Plan the trip",
+             ["Fatigue", "Unassessed route hazards"],
+             ["Complete a journey management plan for long/remote trips",
+              "Schedule within hours-of-service and fatigue limits; plan rest stops",
+              "Check weather, route, and communication/check-in points"],
+             "Seat belt, high-visibility vest when out of vehicle"),
+        ]),
+        ("2", "Pre-Trip Vehicle Inspection", [
+            ("Inspect the vehicle",
+             ["Mechanical failure", "Unsecured load"],
+             ["Perform a pre-trip inspection (tires, brakes, lights, fluids)",
+              "Secure cargo and equipment; verify weight distribution",
+              "Confirm emergency kit, comms, and recovery gear"],
+             "Gloves, high-visibility vest"),
+        ]),
+        ("3", "Driving", [
+            ("Operate the vehicle",
+             ["Collision/rollover", "Distraction", "Adverse conditions"],
+             ["Wear seat belts; obey limits; no handheld device use",
+              "Adjust speed for lease roads, weather, and visibility",
+              "Take rest breaks; stop and check in per the plan"],
+             "Seat belt"),
+        ]),
+        ("4", "Arrival, Parking &amp; Incident Response", [
+            ("Park and respond to incidents",
+             ["Struck-by at site", "Backing collision"],
+             ["Use spotters/GOAL (get out and look) when backing",
+              "Park to allow forward exit; chock on grades",
+              "Follow accident reporting and emergency procedures"],
+             "High-visibility vest, seat belt"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["api-rp-54-29-cfr-1910-269-bsee-well-control-well-servicing-safety"] = {
+    "subtitle": "Well Control &amp; Well Servicing Safety",
+    "legend": [
+        ("Well Control", "Kicks, blowouts, uncontrolled pressure release."),
+        ("Struck-By / Caught-Between", "Rotating equipment, tubulars, tongs, blocks."),
+        ("Fire / Explosion", "Hydrocarbons, H2S, ignition sources."),
+        ("Falls", "Falls from the derrick, rig floor, and elevated work."),
+    ],
+    "jobs": [
+        ("1", "Rig-Up &amp; Pre-Job", [
+            ("Rig up and hold pre-job",
+             ["Unstable setup", "Unrecognized well hazards"],
+             ["Level and secure the rig/equipment; inspect before use",
+              "Hold a pre-job/JSA covering well conditions and roles",
+              "Verify BOP and well control equipment are tested and functional"],
+             "Hard hat, FR clothing, gloves, safety glasses, H2S monitor"),
+        ]),
+        ("2", "Well Control Monitoring", [
+            ("Monitor for well control events",
+             ["Kick/influx", "Blowout", "H2S release"],
+             ["Monitor fluid levels/returns for kicks; maintain hydrostatic control",
+              "Keep BOP accessible; practice well control drills",
+              "Shut in the well per procedure on any indication of a kick"],
+             "FR clothing, H2S monitor, hard hat"),
+        ]),
+        ("3", "Tripping &amp; Handling Tubulars", [
+            ("Trip pipe and handle tubulars",
+             ["Struck-by/caught in tongs/blocks", "Dropped tubulars"],
+             ["Keep hands clear of tongs, slips, and pinch points",
+              "Use proper tubular handling and pipe-racking procedures",
+              "Keep the red zone clear during rotating operations"],
+             "Hard hat, gloves, FR clothing, safety-toe boots"),
+        ]),
+        ("4", "Derrick / Elevated Work", [
+            ("Work at height on the rig",
+             ["Falls", "Dropped objects"],
+             ["Use fall protection in the derrick/monkeyboard; inspect gear",
+              "Secure/tether tools to prevent dropped objects",
+              "Barricade areas below elevated work"],
+             "Full-body harness, hard hat, tool tethers, FR clothing"),
+        ]),
+        ("5", "Emergency &amp; Shut-Down", [
+            ("Respond to well emergencies",
+             ["Escalating blowout/fire", "H2S exposure"],
+             ["Follow shut-in and emergency response procedures",
+              "Evacuate crosswind/upwind; account for personnel",
+              "Control ignition sources; only trained responders act"],
+             "SCBA as required, FR clothing, H2S monitor"),
+        ]),
+    ],
+}
+
+
+# ── DOT / FMCSA (49 CFR) — physical field tasks ───────────────────────────────
+_DVIR_JHA = {
+    "subtitle": "Vehicle Inspection, Repair &amp; Maintenance (DVIR)",
+    "legend": [
+        ("Struck-By / Caught-Between", "Moving vehicle, falling components, pinch points."),
+        ("Mechanical", "Stored energy, hot surfaces, rotating parts, hydraulics."),
+        ("Ergonomic", "Awkward postures, heavy tires/components."),
+        ("Chemical", "Fuel, oils, battery acid, exhaust."),
+    ],
+    "jobs": [
+        ("1", "Pre-Trip / Post-Trip Inspection", [
+            ("Inspect the vehicle",
+             ["Undetected defect", "Vehicle roll-away"],
+             ["Chock wheels; set brakes; shut off before inspecting",
+              "Follow the DVIR checklist (brakes, tires, lights, steering, coupling)",
+              "Tag out and report defects; do not operate unsafe vehicles"],
+             "High-visibility vest, gloves, safety glasses"),
+        ]),
+        ("2", "Tire &amp; Wheel Service", [
+            ("Service tires and wheels",
+             ["Tire explosion/zipper", "Struck by wheel", "Ergonomic strain"],
+             ["Deflate before demounting; use a cage/restraint when inflating",
+              "Use proper lifting aids for heavy tires/wheels",
+              "Inspect rims/locking rings before assembly"],
+             "Safety glasses/face shield, gloves, safety-toe boots"),
+        ]),
+        ("3", "Under-Vehicle &amp; Lift Work", [
+            ("Work under or on a raised vehicle",
+             ["Vehicle drop/crush", "Falls from height"],
+             ["Support on rated jack stands/lift; never rely on a jack alone",
+              "Verify lift capacity and engagement before going underneath",
+              "Use fall protection for elevated trailer/deck work"],
+             "Safety glasses, gloves, hard hat as needed"),
+        ]),
+        ("4", "Component Repair &amp; Fluids", [
+            ("Repair components and handle fluids",
+             ["Stored energy release", "Chemical/burn exposure", "Fire"],
+             ["Relieve hydraulic/spring/air pressure before servicing",
+              "Handle fuel/oils/coolant/battery acid with proper PPE and containment",
+              "Control ignition sources; ventilate for exhaust/fumes"],
+             "Chemical-resistant gloves, safety glasses/face shield, apron as needed"),
+        ]),
+    ],
+}
+JHA_LIBRARY["trucking-03"] = _DVIR_JHA
+JHA_LIBRARY["49-cfr-part-396-inspection-repair-and-maintenance-dvir"] = _DVIR_JHA
+
+_CARGO_JHA = {
+    "subtitle": "Cargo / Load Securement",
+    "legend": [
+        ("Struck-By / Caught-Between", "Shifting/falling cargo, tie-down release."),
+        ("Falls", "Falls from the trailer deck or load."),
+        ("Ergonomic", "Handling chains, straps, and heavy tie-downs."),
+        ("Traffic", "Working roadside during securement checks."),
+    ],
+    "jobs": [
+        ("1", "Load Planning &amp; Weight Distribution", [
+            ("Plan and distribute the load",
+             ["Overload/imbalance", "Shifting load"],
+             ["Distribute weight within axle limits and center of gravity",
+              "Select securement (chains/straps/binders) rated for the load",
+              "Verify working load limits meet the aggregate requirement"],
+             "Gloves, high-visibility vest, safety-toe boots"),
+        ]),
+        ("2", "Securing the Load", [
+            ("Apply tie-downs",
+             ["Struck by released binder", "Pinch points", "Ergonomic strain"],
+             ["Keep body clear when tensioning binders; use proper technique",
+              "Use edge protection; meet minimum tie-down counts/spacing",
+              "Block/brace to prevent forward/rearward/lateral movement"],
+             "Gloves, high-visibility vest, safety-toe boots"),
+        ]),
+        ("3", "Deck Access &amp; Fall Prevention", [
+            ("Access the trailer deck",
+             ["Falls from deck/load", "Slips"],
+             ["Use three points of contact; keep the deck clear of trip hazards",
+              "Use fall protection where provided for high loads",
+              "Do not climb on unstable cargo"],
+             "Safety-toe boots, gloves, fall protection where provided"),
+        ]),
+        ("4", "En-Route &amp; Roadside Checks", [
+            ("Re-check securement en route",
+             ["Loosened tie-downs", "Traffic exposure"],
+             ["Inspect securement within the first miles and at required intervals",
+              "Pull fully off the roadway; use hazards/triangles",
+              "Wear high-visibility PPE when out of the cab"],
+             "High-visibility vest, gloves"),
+        ]),
+    ],
+}
+JHA_LIBRARY["trucking-05"] = _CARGO_JHA
+JHA_LIBRARY["49-cfr-part-393-subpart-i-cargo-load-securement"] = _CARGO_JHA
+
+
+# ── Healthcare Specialty ──────────────────────────────────────────────────────
+JHA_LIBRARY["hazardous-drugs-safe-handling-usp-800-niosh-program"] = {
+    "subtitle": "Hazardous Drugs &mdash; Safe Handling (USP 800 / NIOSH)",
+    "legend": [
+        ("Chemical / Cytotoxic", "Exposure to antineoplastic/hazardous drugs."),
+        ("Contamination", "Surface, skin, and take-home contamination."),
+        ("Sharps", "Needlesticks during compounding/administration."),
+        ("Spill", "Hazardous drug spills and aerosolization."),
+    ],
+    "jobs": [
+        ("1", "Receiving &amp; Storage", [
+            ("Receive and store hazardous drugs",
+             ["Package breakage/exposure", "Improper storage"],
+             ["Inspect shipments in a neutral/negative-pressure area; handle sealed packages carefully",
+              "Store hazardous drugs separately with proper ventilation",
+              "Label hazardous drug areas and containers"],
+             "Chemotherapy-rated gloves, gown"),
+        ]),
+        ("2", "Compounding", [
+            ("Compound hazardous drugs",
+             ["Inhalation/aerosol exposure", "Skin contact"],
+             ["Compound in a containment primary engineering control (BSC/CACI)",
+              "Use closed-system transfer devices (CSTDs) where required",
+              "Follow USP 800 containment and technique requirements"],
+             "Double chemo gloves, gown, respirator/eye protection as required"),
+        ]),
+        ("3", "Administration &amp; Sharps", [
+            ("Administer hazardous drugs",
+             ["Sharps injury", "Splash/contact exposure"],
+             ["Use CSTDs and safe injection practices; do not recap needles",
+              "Dispose of sharps/hazardous waste in labeled containers",
+              "Use spill-resistant technique for connections"],
+             "Chemo gloves, gown, face/eye protection"),
+        ]),
+        ("4", "Decontamination, Spill &amp; Waste", [
+            ("Decontaminate and manage spills/waste",
+             ["Surface contamination", "Spill exposure"],
+             ["Deactivate/decontaminate surfaces and equipment per protocol",
+              "Use the hazardous drug spill kit; contain and clean spills promptly",
+              "Segregate and dispose of hazardous drug waste per regulations"],
+             "Double chemo gloves, gown, respirator/eye protection for spills"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["tuberculosis-exposure-control-plan-healthcare-cdc-osha"] = {
+    "subtitle": "Tuberculosis (TB) Exposure Control",
+    "legend": [
+        ("Biological / Airborne", "Inhalation of TB (M. tuberculosis) aerosols."),
+        ("Contamination", "Contact with respiratory secretions."),
+        ("Engineering", "Isolation room and ventilation reliance."),
+    ],
+    "jobs": [
+        ("1", "Screening &amp; Identification", [
+            ("Identify suspected/known TB",
+             ["Unrecognized infectious patient", "Delayed isolation"],
+             ["Screen and promptly identify suspected/confirmed TB cases",
+              "Initiate airborne isolation precautions immediately",
+              "Follow the TB exposure control plan and risk assessment"],
+             "N95 or higher respirator, gloves"),
+        ]),
+        ("2", "Airborne Isolation &amp; Engineering Controls", [
+            ("Place patient in isolation",
+             ["Airborne transmission", "Ventilation failure"],
+             ["Use an airborne infection isolation room (negative pressure)",
+              "Verify room pressure/air changes before/at entry",
+              "Keep the door closed; limit personnel entering"],
+             "Fit-tested N95/PAPR, gloves"),
+        ]),
+        ("3", "Patient Care &amp; Procedures", [
+            ("Provide care and perform procedures",
+             ["Aerosol-generating exposure", "Contact with secretions"],
+             ["Wear a fit-tested respirator for all entries",
+              "Minimize aerosol-generating procedures; perform in isolation",
+              "Place a surgical mask on the patient during transport"],
+             "Fit-tested N95/PAPR, gloves, gown/eye protection as needed"),
+        ]),
+        ("4", "Respiratory Protection &amp; Surveillance", [
+            ("Maintain protection and surveillance",
+             ["Improper respirator use", "Undetected conversion"],
+             ["Use respirators under the respiratory protection program (fit-test, medical)",
+              "Provide TB testing/surveillance for exposed workers",
+              "Follow up on exposures and conversions"],
+             "Fit-tested respirator"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["safe-patient-handling-and-mobility-program-healthcare"] = {
+    "subtitle": "Safe Patient Handling &amp; Mobility",
+    "legend": [
+        ("Ergonomic / Musculoskeletal", "Overexertion lifting/transferring patients."),
+        ("Slips / Falls", "Wet floors, patient falls during transfer."),
+        ("Struck-By / Caught", "Equipment, bed rails, lift device pinch points."),
+        ("Biological", "Contact during handling."),
+    ],
+    "jobs": [
+        ("1", "Assessment &amp; Planning", [
+            ("Assess the patient and plan the move",
+             ["Overexertion", "Patient fall"],
+             ["Assess patient mobility, weight, and cooperation before handling",
+              "Select the appropriate lift/transfer method and equipment",
+              "Plan the number of staff needed; communicate the plan"],
+             "Gloves, non-slip footwear"),
+        ]),
+        ("2", "Using Lift &amp; Transfer Equipment", [
+            ("Operate mechanical lifts/aids",
+             ["Equipment tip/failure", "Pinch points", "Patient fall"],
+             ["Use mechanical lifts, slings, and slide sheets rated for the patient",
+              "Inspect equipment and slings before use; lock wheels/brakes",
+              "Keep hands clear of pinch points; follow manufacturer instructions"],
+             "Gloves, non-slip footwear, gait belt as appropriate"),
+        ]),
+        ("3", "Manual Assist &amp; Repositioning", [
+            ("Perform manual repositioning (minimize)",
+             ["Musculoskeletal injury", "Awkward posture"],
+             ["Minimize manual lifting; use team lifts and proper body mechanics",
+              "Adjust bed height; keep loads close; avoid twisting",
+              "Use friction-reducing devices for repositioning"],
+             "Gloves, non-slip footwear"),
+        ]),
+        ("4", "Environment &amp; Fall Prevention", [
+            ("Control the environment",
+             ["Slips/trips", "Patient fall"],
+             ["Keep floors dry and pathways clear; manage lines/tubing",
+              "Lock beds/chairs; use fall precautions per assessment",
+              "Report injuries and near-misses to improve the program"],
+             "Non-slip footwear, gloves"),
+        ]),
+    ],
+}
+
+
+# ======================================================================
+# ENVIRONMENTAL (06)
+# ======================================================================
+
+JHA_LIBRARY["40-cfr-part-112-spill-prevention-control-and-countermeasure-spcc-plan"] = {
+    "subtitle": "Oil Handling, Transfer &amp; Spill Response (SPCC)",
+    "legend": [
+        ("Chemical / Environmental", "Oil contact, vapors, and releases to soil/water."),
+        ("Slips / Falls", "Oily surfaces, elevated tank tops and platforms."),
+        ("Fire / Explosion", "Flammable/combustible oil and vapors."),
+        ("Ergonomic", "Handling hoses, drums, and containment equipment."),
+    ],
+    "jobs": [
+        ("1", "Pre-Transfer Inspection", [
+            ("Inspect tanks, containment, and equipment before transfer",
+             ["Undetected leaks", "Failed secondary containment", "Overfill"],
+             ["Inspect tanks, valves, piping, and hoses for leaks/damage before each transfer",
+              "Verify secondary containment (dikes/berms) is intact and drain valves are closed",
+              "Confirm available freeboard/ullage and overfill protection before filling"],
+             "Chemical-resistant gloves, safety glasses, FR clothing where required, steel-toe boots"),
+        ]),
+        ("2", "Oil Transfer &amp; Loading/Unloading", [
+            ("Transfer product between tanks, trucks, and drums",
+             ["Spill/release", "Static discharge/fire", "Hose failure", "Slips on oily surfaces"],
+             ["Attend the transfer continuously; never leave an active fill unattended",
+              "Bond and ground during transfer; control ignition sources; keep extinguisher staged",
+              "Place drip pans/containment under connection points; use dry-break/quick fittings"],
+             "Chemical-resistant gloves, splash goggles/face shield, FR clothing, steel-toe boots"),
+        ]),
+        ("3", "Spill Response &amp; Cleanup", [
+            ("Contain and clean up a release",
+             ["Environmental release", "Slips", "Chemical contact", "Improper waste handling"],
+             ["Stop the source if safe; deploy absorbents/booms to contain within the spill kit plan",
+              "Prevent entry to drains, waterways, and soil; notify per the SPCC reporting matrix",
+              "Collect and label spill waste; document the event and root cause"],
+             "Chemical-resistant gloves, goggles, Tyvek/coveralls, boots"),
+        ]),
+        ("4", "Tank Top &amp; Elevated Work", [
+            ("Access tank tops, gauges, and platforms",
+             ["Falls from height", "Slips on oily grating"],
+             ["Use fixed ladders/stairs and guardrails; tie off where guardrails are absent",
+              "Keep walking surfaces clean of oil; use three points of contact",
+              "Do not climb during high wind, ice, or lightning"],
+             "Fall protection where required, non-slip boots, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["tsca-lead-renovation-repair-and-painting-rrp-40-cfr-745"] = {
+    "subtitle": "Lead-Safe Renovation, Repair &amp; Painting (RRP)",
+    "legend": [
+        ("Chemical / Lead Exposure", "Lead dust and debris from disturbing paint."),
+        ("Respiratory", "Airborne lead particulate."),
+        ("Falls / Access", "Ladders, scaffolds, and exterior work."),
+        ("Housekeeping", "Contaminated dust spread beyond the work area."),
+    ],
+    "jobs": [
+        ("1", "Setup &amp; Containment", [
+            ("Establish the regulated work area and containment",
+             ["Spread of lead dust", "Bystander/occupant exposure"],
+             ["Post signs and restrict access; relocate occupants and belongings",
+              "Seal the work area with plastic sheeting; cover HVAC and floors per RRP",
+              "Confirm a certified renovator directs the job and workers are trained"],
+             "N100/P100 respirator, disposable coveralls, gloves, safety glasses"),
+        ]),
+        ("2", "Paint Disturbance &amp; Demolition", [
+            ("Disturb painted surfaces (sanding, cutting, removal)",
+             ["Lead dust generation", "Inhalation", "Ingestion"],
+             ["Use wet methods and HEPA-vacuum-shrouded tools; prohibit dry sanding/open-flame burning",
+              "Mist surfaces to suppress dust; work low-to-high to control debris",
+              "No eating, drinking, or smoking in the work area; wash before breaks"],
+             "Fit-tested N100/P100 respirator, coveralls, gloves, eye protection"),
+        ]),
+        ("3", "Cleaning &amp; Clearance", [
+            ("Clean the area and verify clearance",
+             ["Residual lead dust", "Improper waste handling"],
+             ["HEPA-vacuum then wet-wipe all surfaces; repeat until visibly clean",
+              "Bag and seal waste/plastic; dispose per regulation and document",
+              "Perform the required cleaning-verification/clearance before reoccupancy"],
+             "Respirator, coveralls, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["epa-universal-waste-management-40-cfr-273"] = {
+    "subtitle": "Universal Waste Handling (Batteries, Lamps, Mercury Devices)",
+    "legend": [
+        ("Chemical", "Battery acid/electrolyte, mercury, and reactive contents."),
+        ("Cuts / Lacerations", "Broken lamps and damaged battery casings."),
+        ("Ergonomic", "Lifting and moving accumulated waste containers."),
+        ("Fire", "Lithium and damaged batteries."),
+    ],
+    "jobs": [
+        ("1", "Collection &amp; Accumulation", [
+            ("Collect and stage universal waste",
+             ["Container leaks", "Mixing incompatible wastes", "Mercury release"],
+             ["Use closed, labeled, structurally-sound containers by waste type",
+              "Segregate batteries, lamps, and mercury devices; tape battery terminals",
+              "Mark the accumulation start date; keep containers closed except when adding"],
+             "Chemical-resistant gloves, safety glasses"),
+        ]),
+        ("2", "Handling Lamps &amp; Devices", [
+            ("Handle lamps and mercury-containing devices",
+             ["Broken glass cuts", "Mercury vapor exposure"],
+             ["Handle lamps gently in original sleeves/boxes; do not crush unless permitted",
+              "If a lamp breaks, ventilate and clean per mercury spill procedure (no vacuum)",
+              "Store devices upright and cushioned to prevent breakage"],
+             "Cut-resistant gloves, safety glasses"),
+        ]),
+        ("3", "Shipment &amp; Recordkeeping", [
+            ("Prepare universal waste for off-site transport",
+             ["Overweight/ergonomic strain", "Improper labeling"],
+             ["Verify labels, dates, and that within the allowed accumulation time",
+              "Use carts/team lifts for heavy battery containers",
+              "Ship to a permitted handler/recycler; retain records"],
+             "Gloves, safety glasses, back support/lifting aids as needed"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["epa-used-oil-management-standards-40-cfr-279"] = {
+    "subtitle": "Used Oil Collection, Storage &amp; Transfer",
+    "legend": [
+        ("Chemical / Environmental", "Used oil contact and releases to the environment."),
+        ("Slips / Falls", "Oily surfaces around collection points."),
+        ("Fire", "Combustible used oil and rags."),
+        ("Ergonomic", "Handling drums, totes, and hoses."),
+    ],
+    "jobs": [
+        ("1", "Collection at the Point of Generation", [
+            ("Drain and collect used oil",
+             ["Skin/eye contact", "Drips and spills", "Slips"],
+             ["Use drain pans and funnels; avoid overfilling collection containers",
+              "Keep containers labeled &ldquo;Used Oil&rdquo; and closed; wipe drips immediately",
+              "Do not mix used oil with solvents, coolants, or other wastes"],
+             "Chemical-resistant gloves, safety glasses"),
+        ]),
+        ("2", "Storage &amp; Containment", [
+            ("Store used oil in tanks/drums",
+             ["Container failure", "Environmental release", "Fire"],
+             ["Store on secondary containment away from drains and ignition sources",
+              "Inspect tanks/drums for leaks, rust, and label integrity",
+              "Keep oily rags in a covered, labeled metal container"],
+             "Chemical-resistant gloves, safety glasses"),
+        ]),
+        ("3", "Transfer &amp; Pickup", [
+            ("Transfer used oil for recycling/pickup",
+             ["Hose failure", "Spill", "Ergonomic strain"],
+             ["Attend transfers; stage absorbents and a spill kit nearby",
+              "Use pumps/carts instead of manual drum lifting where possible",
+              "Release only to a permitted used-oil transporter; retain records"],
+             "Chemical-resistant gloves, splash goggles, steel-toe boots"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["epa-underground-storage-tanks-ust-40-cfr-280"] = {
+    "subtitle": "UST Operation, Monitoring &amp; Release Response",
+    "legend": [
+        ("Chemical / Flammable", "Fuel vapors, flammable liquids, and releases."),
+        ("Fire / Explosion", "Ignition of fuel vapors."),
+        ("Confined Space", "Sumps, spill buckets, and below-grade access."),
+        ("Environmental", "Releases to soil and groundwater."),
+    ],
+    "jobs": [
+        ("1", "Delivery &amp; Fill Monitoring", [
+            ("Monitor fuel deliveries and fills",
+             ["Overfill/spill", "Vapor release", "Fire"],
+             ["Verify tank capacity/ullage before delivery; use overfill/spill prevention equipment",
+              "Attend the delivery; keep spill buckets clean and drainable",
+              "Control ignition sources within the fueling area during delivery"],
+             "Chemical-resistant gloves, safety glasses, FR clothing where required"),
+        ]),
+        ("2", "Leak Detection &amp; Sump Inspection", [
+            ("Inspect sumps, spill buckets, and monitoring equipment",
+             ["Vapor exposure", "Confined-space entry", "Flammable atmosphere"],
+             ["Test the atmosphere before entering sumps; follow confined-space procedures if applicable",
+              "Inspect and functionally test release-detection equipment on schedule",
+              "Report and log alarms/discrepancies immediately"],
+             "Gas monitor, chemical-resistant gloves, safety glasses"),
+        ]),
+        ("3", "Suspected Release Response", [
+            ("Respond to a suspected or confirmed release",
+             ["Environmental release", "Fire", "Exposure"],
+             ["Stop dispensing; secure the area and eliminate ignition sources",
+              "Contain product; notify per the release-reporting matrix and timelines",
+              "Document readings, actions, and notifications"],
+             "Chemical-resistant gloves, goggles, FR clothing, boots"),
+        ]),
+    ],
+}
+
+
+# ======================================================================
+# MARITIME (11)
+# ======================================================================
+
+JHA_LIBRARY["29-cfr-1915-subpart-b-confined-and-enclosed-spaces-shipyard-competent-person"] = {
+    "subtitle": "Confined &amp; Enclosed Space Entry (Shipyard)",
+    "legend": [
+        ("Atmospheric", "Oxygen deficiency/enrichment, flammable and toxic vapors."),
+        ("Engulfment / Access", "Restricted entry, tanks, voids, and cofferdams."),
+        ("Fire / Hot Work", "Ignition of residues and vapors in enclosed spaces."),
+        ("Falls", "Vertical entry through hatches and manholes."),
+    ],
+    "jobs": [
+        ("1", "Testing &amp; Certification", [
+            ("Test the space and obtain the Competent Person certificate",
+             ["Oxygen deficiency", "Flammable/toxic atmosphere", "Uncertified entry"],
+             ["A Marine Chemist / Competent Person tests and certifies the space before entry",
+              "Post the certificate; retest per the required frequency and after changes",
+              "Verify &ldquo;Safe for Workers&rdquo; / &ldquo;Safe for Hot Work&rdquo; designations match the task"],
+             "Calibrated gas monitor, hard hat, safety glasses, boots"),
+        ]),
+        ("2", "Ventilation &amp; Isolation", [
+            ("Ventilate and isolate the space",
+             ["Residual vapors", "Uncontrolled energy/flooding"],
+             ["Provide continuous mechanical ventilation; do not use pure oxygen to ventilate",
+              "Blank/isolate lines and lock out energy that could enter the space",
+              "Continuously or periodically monitor the atmosphere during occupancy"],
+             "Gas monitor, hard hat, gloves, boots"),
+        ]),
+        ("3", "Entry &amp; Attendant Watch", [
+            ("Enter the space with an attendant on watch",
+             ["Entrapment", "Loss of communication", "Fall through hatch"],
+             ["Post an attendant; maintain continuous communication with entrants",
+              "Use retrieval equipment for vertical entries where feasible",
+              "Have a non-entry/rescue plan; never make an unplanned rescue entry"],
+             "Retrieval harness/line, gas monitor, hard hat, boots"),
+        ]),
+        ("4", "Hot Work in the Space", [
+            ("Perform hot work only when certified safe",
+             ["Fire/explosion", "Toxic fume buildup"],
+             ["Confirm &ldquo;Safe for Hot Work&rdquo; certification before any spark/flame",
+              "Maintain a fire watch and extinguisher; increase ventilation for fumes",
+              "Retest after breaks and when conditions change"],
+             "Welding PPE, respirator as required, gas monitor"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1915-subpart-p-fire-protection-in-shipyard-employment"] = {
+    "subtitle": "Fire Protection &amp; Hot Work (Shipyard)",
+    "legend": [
+        ("Fire / Explosion", "Ignition of vapors, residues, and combustibles."),
+        ("Hot Work", "Welding, cutting, and grinding sparks."),
+        ("Burns", "Hot slag, surfaces, and flame."),
+        ("Egress", "Blocked exits within vessel spaces."),
+    ],
+    "jobs": [
+        ("1", "Hot Work Authorization", [
+            ("Authorize hot work and set the fire watch",
+             ["Unpermitted ignition source", "Adjacent-space fire"],
+             ["Obtain hot-work authorization and confirm the space is certified where required",
+              "Assign a trained fire watch with extinguisher for the job and 30 min after",
+              "Remove/protect combustibles within the spark range, including adjacent spaces"],
+             "Welding PPE, FR clothing, gloves, face/eye protection"),
+        ]),
+        ("2", "Fire Watch &amp; Equipment", [
+            ("Maintain fire watch and firefighting readiness",
+             ["Undetected smoldering", "Blocked/failed equipment"],
+             ["Keep charged extinguishers/hoses staged and inspected",
+              "Watch for sparks reaching lower decks; check concealed spaces after work",
+              "Keep egress routes clear; know alarm and muster procedures"],
+             "FR clothing, gloves, eye protection"),
+        ]),
+        ("3", "Flammable Storage &amp; Housekeeping", [
+            ("Control flammables and combustible debris",
+             ["Fuel-load buildup", "Vapor accumulation"],
+             ["Store flammable/compressed gases per requirements; secure cylinders",
+              "Remove oily rags, wood, and debris; keep spaces clean",
+              "Control ventilation to prevent vapor accumulation"],
+             "Gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1915-subpart-i-personal-protective-equipment-shipyard"] = {
+    "subtitle": "Personal Protective Equipment (Shipyard)",
+    "legend": [
+        ("Impact / Struck-By", "Falling objects and moving equipment."),
+        ("Respiratory", "Welding fume, dust, blasting media, and vapors."),
+        ("Noise", "High-decibel shipyard operations."),
+        ("Falls", "Elevated and over-water work."),
+    ],
+    "jobs": [
+        ("1", "Hazard Assessment &amp; Selection", [
+            ("Assess hazards and select PPE",
+             ["Wrong or missing PPE", "Unassessed hazard"],
+             ["Perform and document a PPE hazard assessment by task/area",
+              "Select PPE rated for impact, arc, chemical, and noise hazards present",
+              "Train workers on use, limits, and care of assigned PPE"],
+             "Task-appropriate PPE per assessment"),
+        ]),
+        ("2", "Head, Eye, Face &amp; Hearing", [
+            ("Use impact, eye/face, and hearing protection",
+             ["Head/eye injury", "Hearing loss"],
+             ["Wear hard hats in overhead-hazard areas; eye/face protection for grinding/welding",
+              "Use hearing protection in posted high-noise areas",
+              "Inspect PPE before use; replace damaged items"],
+             "Hard hat, safety glasses/face shield, hearing protection"),
+        ]),
+        ("3", "Respiratory &amp; Fall/Work-Vest", [
+            ("Use respiratory and fall/over-water protection",
+             ["Inhalation exposure", "Falls", "Drowning"],
+             ["Use fit-tested respirators for fume/dust/blasting under the respiratory program",
+              "Use fall protection at heights; use approved work vests/PFDs over/near water",
+              "Provide ring buoys/rescue means for over-water work"],
+             "Respirator, fall harness, USCG-approved work vest, boots"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1917-marine-terminals-safety-and-health-program"] = {
+    "subtitle": "Marine Terminal Operations",
+    "legend": [
+        ("Struck-By / Caught", "Cargo-handling equipment, containers, and vehicles."),
+        ("Falls", "Edges, ladders, and container/rail work."),
+        ("Ergonomic", "Manual cargo handling and lashing."),
+        ("Traffic", "Mobile equipment and rail movements."),
+    ],
+    "jobs": [
+        ("1", "Terminal Traffic &amp; Equipment", [
+            ("Work around mobile equipment and vehicles",
+             ["Struck-by forklifts/hostlers", "Blind spots"],
+             ["Maintain separation from mobile equipment; use marked walkways",
+              "Make eye contact/signal operators; wear high-visibility clothing",
+              "Never walk under suspended loads or between moving equipment"],
+             "Hi-vis vest, hard hat, steel-toe boots, safety glasses"),
+        ]),
+        ("2", "Cargo Handling &amp; Lifting", [
+            ("Handle cargo and rigging",
+             ["Load drop", "Caught between", "Rigging failure"],
+             ["Inspect slings/rigging; do not exceed rated capacities",
+              "Use tag lines; keep hands/feet clear of pinch and crush points",
+              "Stay clear of the fall zone during lifts"],
+             "Gloves, hard hat, hi-vis, steel-toe boots"),
+        ]),
+        ("3", "Edges, Ladders &amp; Container Work", [
+            ("Work at edges and access containers",
+             ["Falls to lower level/water", "Ladder falls"],
+             ["Use fall protection near unguarded edges and on container tops",
+              "Use secured ladders/access; maintain three points of contact",
+              "Provide life rings and rescue means near water edges"],
+             "Fall protection, hi-vis, hard hat, boots"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1918-longshoring-safety-and-health-program"] = {
+    "subtitle": "Longshoring / Vessel Cargo Operations",
+    "legend": [
+        ("Falls", "Gangways, holds, hatches, and over-water work."),
+        ("Struck-By / Caught", "Cargo gear, hooks, and swinging loads."),
+        ("Atmospheric", "Cargo holds, fumigants, and vehicle exhaust."),
+        ("Ergonomic", "Manual cargo handling and lashing."),
+    ],
+    "jobs": [
+        ("1", "Vessel Access &amp; Gangways", [
+            ("Board and move about the vessel",
+             ["Falls from gangway/over water", "Slips"],
+             ["Use safe, well-lit gangways with side rails and a safety net where required",
+              "Keep decks clear; use handrails and three points of contact",
+              "Provide life rings, ladders, and a person to render assistance over water"],
+             "Work vest/PFD near water, hard hat, boots, hi-vis"),
+        ]),
+        ("2", "Cargo Gear &amp; Lifting", [
+            ("Rig and land cargo in the hold/on deck",
+             ["Load drop", "Swinging load struck-by", "Gear failure"],
+             ["Inspect cargo gear/hooks; do not exceed safe working loads",
+              "Use tag lines; stand clear of loads, hatch openings, and the bight of lines",
+              "Signal the operator with a designated signalperson"],
+             "Gloves, hard hat, steel-toe boots, hi-vis"),
+        ]),
+        ("3", "Hold &amp; Atmosphere", [
+            ("Work in cargo holds and enclosed cargo spaces",
+             ["Oxygen deficiency", "Fumigant/CO exposure"],
+             ["Test/ventilate holds before entry; watch for fumigated cargo placards",
+              "Control vehicle/equipment exhaust (CO) in enclosed spaces",
+              "Maintain lighting and clear escape routes from the hold"],
+             "Gas monitor as needed, hard hat, boots, gloves"),
+        ]),
+        ("4", "Manual Handling &amp; Lashing", [
+            ("Handle and secure cargo manually",
+             ["Musculoskeletal injury", "Pinch/crush"],
+             ["Use team lifts and mechanical aids; keep loads close and avoid twisting",
+              "Keep hands clear of pinch points when lashing/unlashing",
+              "Stow gear so it cannot shift or fall"],
+             "Gloves, boots, hard hat, hi-vis"),
+        ]),
+    ],
+}
+
+
+# ======================================================================
+# MANAGEMENT SYSTEMS (09)
+# ======================================================================
+
+JHA_LIBRARY["29-cfr-1910-242-29-cfr-1926-300-307-hand-portable-power-tools-safety-program"] = {
+    "subtitle": "Hand &amp; Portable Power Tool Use",
+    "legend": [
+        ("Cuts / Lacerations", "Blades, bits, and sharp edges."),
+        ("Struck-By / Caught", "Flying debris, kickback, rotating parts."),
+        ("Electrical", "Damaged cords and ungrounded tools."),
+        ("Noise / Vibration", "High-decibel and vibrating tools."),
+    ],
+    "jobs": [
+        ("1", "Tool Inspection &amp; Setup", [
+            ("Inspect the tool before use",
+             ["Defective tool", "Missing guard", "Electrical fault"],
+             ["Inspect cords, guards, switches, and blades/bits before each use; tag out defects",
+              "Use GFCI protection; verify guards are in place and functioning",
+              "Select the right tool and accessory rated for the task"],
+             "Safety glasses, gloves, hearing protection as needed"),
+        ]),
+        ("2", "Operating Power Tools", [
+            ("Cut, drill, grind, or fasten",
+             ["Flying particles", "Kickback", "Entanglement", "Cuts"],
+             ["Keep guards in place; use two hands and stable footing; secure the workpiece",
+              "Keep hands and loose clothing away from rotating/cutting parts",
+              "Let the tool reach full speed before contact; do not force the tool"],
+             "Safety glasses/face shield, gloves, hearing protection"),
+        ]),
+        ("3", "Storage &amp; Maintenance", [
+            ("Store and maintain tools",
+             ["Damaged tools in service", "Trip hazards from cords"],
+             ["Unplug/disconnect before changing bits/blades or servicing",
+              "Route cords/hoses to avoid trip hazards; store tools secured",
+              "Maintain tools per manufacturer; remove damaged tools from service"],
+             "Gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["osha-general-duty-clause-29-usc-654-heat-illness-prevention-program"] = {
+    "subtitle": "Heat Illness Prevention (Outdoor/Indoor Work)",
+    "legend": [
+        ("Heat Stress", "High temperature, humidity, and exertion."),
+        ("Physical", "Reduced awareness leading to secondary injuries."),
+        ("Environmental", "Direct sun and lack of shade/airflow."),
+    ],
+    "jobs": [
+        ("1", "Acclimatization &amp; Planning", [
+            ("Plan work for hot conditions",
+             ["Heat exhaustion", "Heat stroke", "New-worker risk"],
+             ["Acclimatize new/returning workers gradually over the first week",
+              "Monitor the heat index; adjust schedules and work/rest cycles",
+              "Provide cool water and encourage frequent small drinks"],
+             "Light, breathable clothing; hat; hi-vis as required"),
+        ]),
+        ("2", "Water, Rest &amp; Shade", [
+            ("Maintain hydration and rest cycles",
+             ["Dehydration", "Overexertion"],
+             ["Provide accessible cool water (about 1 quart/hour) and shaded/cooled rest areas",
+              "Enforce rest breaks that scale with the heat index",
+              "Use the buddy system to watch for symptoms"],
+             "Light clothing, hat, water"),
+        ]),
+        ("3", "Symptom Response", [
+            ("Recognize and respond to heat illness",
+             ["Heat stroke (life-threatening)", "Delayed response"],
+             ["Train workers to recognize symptoms and report early",
+              "Move affected workers to shade, cool them, and give water if conscious",
+              "Call 911 for confusion, fainting, or no sweating; do not leave them alone"],
+             "N/A &mdash; emergency response"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-212-machine-guarding-program"] = {
+    "subtitle": "Machine Guarding &amp; Operation",
+    "legend": [
+        ("Caught-In / Amputation", "Points of operation, nip points, rotating parts."),
+        ("Struck-By", "Ejected material and moving parts."),
+        ("Energy Release", "Stored/unexpected startup during service."),
+        ("Noise", "High-decibel machinery."),
+    ],
+    "jobs": [
+        ("1", "Pre-Operation Guard Check", [
+            ("Verify guarding before operating",
+             ["Exposed point of operation", "Missing/bypassed guard"],
+             ["Confirm all guards are installed, adjusted, and functioning; never bypass",
+              "Verify point-of-operation and nip-point protection is in place",
+              "Check emergency stops and interlocks before starting"],
+             "Safety glasses, hearing protection, snug clothing (no loose sleeves/jewelry)"),
+        ]),
+        ("2", "Operating the Machine", [
+            ("Run the machine",
+             ["Caught in nip points", "Amputation", "Ejected material"],
+             ["Keep hands out of the point of operation; use push sticks/tools",
+              "Do not reach around, under, or over guards while running",
+              "Tie back hair and avoid gloves/loose clothing near rotating parts"],
+             "Safety glasses/face shield, hearing protection"),
+        ]),
+        ("3", "Clearing Jams &amp; Servicing", [
+            ("Clear jams and service the machine",
+             ["Unexpected startup", "Stored energy"],
+             ["Lock out/tag out and verify zero energy before clearing jams or servicing",
+              "Never clear jams with the machine energized",
+              "Reinstall all guards before returning to service"],
+             "Gloves, safety glasses, LOTO devices"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-101-29-cfr-1926-350-compressed-gas-cylinder-safety-program"] = {
+    "subtitle": "Compressed Gas Cylinder Handling &amp; Storage",
+    "legend": [
+        ("Fire / Explosion", "Flammable and oxidizing gases."),
+        ("Struck-By / Mechanical", "Falling cylinders, ruptured valves."),
+        ("Chemical / Asphyxiation", "Toxic and inert gas releases."),
+        ("Ergonomic", "Moving heavy cylinders."),
+    ],
+    "jobs": [
+        ("1", "Transport &amp; Handling", [
+            ("Move cylinders",
+             ["Cylinder fall/valve shear", "Struck-by", "Strain"],
+             ["Keep valve caps on and use a cylinder cart with chains during transport",
+              "Never drag, roll on side, or lift by the valve cap",
+              "Close valves and depressurize regulators before moving"],
+             "Gloves, safety glasses, steel-toe boots"),
+        ]),
+        ("2", "Storage &amp; Segregation", [
+            ("Store cylinders",
+             ["Fire from incompatible storage", "Tip-over"],
+             ["Secure upright and chained; keep caps on stored cylinders",
+              "Separate oxidizers from fuel gases by 20 ft or a rated barrier",
+              "Store away from heat, ignition sources, and high-traffic areas"],
+             "Gloves, safety glasses"),
+        ]),
+        ("3", "Use &amp; Connection", [
+            ("Connect and use cylinders",
+             ["Leak/fire", "Regulator failure", "Flashback"],
+             ["Inspect threads/regulators; use correct fittings (no oil/grease on oxygen)",
+              "Leak-check connections; use flashback arrestors on fuel-gas torches",
+              "Open valves slowly; stand to the side of the regulator"],
+             "Gloves, safety glasses/face shield"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["ravs-required-written-program-motor-vehicle-fleet-safety-program"] = {
+    "subtitle": "Motor Vehicle / Fleet Operations",
+    "legend": [
+        ("Traffic / Collision", "Roadway crashes and backing incidents."),
+        ("Struck-By", "Backing, blind spots, and work zones."),
+        ("Ergonomic", "Entering/exiting and loading vehicles."),
+        ("Environmental", "Weather, night, and road conditions."),
+    ],
+    "jobs": [
+        ("1", "Pre-Trip Inspection", [
+            ("Inspect the vehicle before driving",
+             ["Mechanical failure", "Defective safety equipment"],
+             ["Perform a pre-trip walkaround: tires, lights, brakes, fluids, mirrors",
+              "Verify seatbelts, horn, wipers, and warning devices function",
+              "Report and tag out unsafe vehicles; do not drive defects"],
+             "Seatbelt, hi-vis when outside the vehicle"),
+        ]),
+        ("2", "Safe Driving", [
+            ("Operate the vehicle on public/site roads",
+             ["Collision", "Distraction", "Fatigue", "Weather"],
+             ["Always wear seatbelts; obey speed limits and traffic laws",
+              "No handheld phone use; pull over for calls/texts",
+              "Adjust for weather, traffic, and fatigue; take rest breaks"],
+             "Seatbelt"),
+        ]),
+        ("3", "Backing, Parking &amp; Loading", [
+            ("Back, park, and load/unload",
+             ["Backing struck-by", "Rollaway", "Strain"],
+             ["Use a spotter and back slowly; do a walkaround before backing",
+              "Set the parking brake and chock wheels as needed",
+              "Use proper lifting and secured loads when loading/unloading"],
+             "Hi-vis vest, gloves, steel-toe boots"),
+        ]),
+    ],
+}
+
+
+# ======================================================================
+# CLIENT-REQUIRED (10)
+# ======================================================================
+
+JHA_LIBRARY["dropped-objects-prevention-program"] = {
+    "subtitle": "Dropped Objects Prevention",
+    "legend": [
+        ("Struck-By", "Falling tools, materials, and equipment."),
+        ("Falls", "Working at height where objects can drop."),
+        ("Housekeeping", "Loose items at elevation."),
+    ],
+    "jobs": [
+        ("1", "Planning &amp; Barricading", [
+            ("Plan overhead work and protect the area below",
+             ["Personnel below drop zone", "Uncontrolled objects"],
+             ["Identify drop zones; barricade and post the area below",
+              "Establish exclusion zones and controlled access under overhead work",
+              "Use toe boards, debris nets, and covers on grating/openings"],
+             "Hard hat, safety glasses, steel-toe boots"),
+        ]),
+        ("2", "Securing Tools &amp; Materials", [
+            ("Secure tools and materials at height",
+             ["Dropped tools", "Wind-blown materials"],
+             ["Tether tools and small parts at height; use tool bags/lanyards",
+              "Do not stack loose materials near edges; secure against wind",
+              "Remove or secure items before moving the work platform"],
+             "Tool lanyards, hard hat, gloves"),
+        ]),
+        ("3", "Inspection &amp; Housekeeping", [
+            ("Inspect fixtures and maintain housekeeping",
+             ["Loosened fixtures", "Accumulated debris"],
+             ["Inspect fixed equipment/fixtures for loose bolts and secondary retention",
+              "Keep elevated surfaces clear of debris and unsecured items",
+              "Report and correct dropped-object near-misses"],
+             "Hard hat, gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["line-of-fire-body-positioning-program"] = {
+    "subtitle": "Line of Fire &amp; Body Positioning",
+    "legend": [
+        ("Struck-By / Caught", "Moving, falling, or swinging objects."),
+        ("Stored Energy", "Springs, pressure, tension release."),
+        ("Pinch / Crush", "Between two objects or surfaces."),
+    ],
+    "jobs": [
+        ("1", "Recognizing the Line of Fire", [
+            ("Identify line-of-fire exposures before work",
+             ["Struck-by moving equipment", "Caught between"],
+             ["Pause and identify where energy or objects could travel (drop, swing, roll, release)",
+              "Position your body out of the anticipated path of motion",
+              "Stay clear of suspended loads, pinch points, and the bight of lines"],
+             "Hard hat, gloves, safety glasses, steel-toe boots"),
+        ]),
+        ("2", "Working with Stored Energy", [
+            ("Work on pressurized/tensioned/spring-loaded items",
+             ["Sudden energy release", "Whipping hoses/lines"],
+             ["Isolate and bleed down stored energy before work; verify zero energy",
+              "Use whip checks on hoses; stand clear during pressurization",
+              "Release tension slowly and from a safe position"],
+             "Gloves, safety glasses/face shield"),
+        ]),
+        ("3", "Hand &amp; Body Placement", [
+            ("Position hands and body during the task",
+             ["Pinch/crush", "Caught between"],
+             ["Keep hands out of pinch points; use tools, not hands, to guide loads",
+              "Never place body parts under, between, or behind loads",
+              "Plan an escape route before starting the task"],
+             "Gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["hand-finger-safety-program"] = {
+    "subtitle": "Hand &amp; Finger Safety",
+    "legend": [
+        ("Cuts / Lacerations", "Sharp edges, blades, and materials."),
+        ("Pinch / Crush", "Nip points and between-object hazards."),
+        ("Punctures / Abrasions", "Rough materials and sharp objects."),
+    ],
+    "jobs": [
+        ("1", "Task Planning &amp; Glove Selection", [
+            ("Select the right gloves and tools",
+             ["Wrong glove for hazard", "Blade cuts"],
+             ["Select cut/chemical/impact gloves rated for the specific task",
+              "Use the right tool; keep cutting tools sharp and cut away from the body",
+              "Never use hands to test edges or feel for leaks"],
+             "Task-rated gloves, safety glasses"),
+        ]),
+        ("2", "Pinch &amp; Nip Point Control", [
+            ("Handle materials and equipment",
+             ["Pinch/crush", "Caught in nip points"],
+             ["Keep hands out of pinch points; use push sticks/handling tools",
+              "Use handles, grips, and carry aids on materials",
+              "De-energize/secure equipment before reaching into it"],
+             "Gloves, safety glasses"),
+        ]),
+        ("3", "Blade &amp; Sharp Object Use", [
+            ("Use knives, blades, and sharp tools",
+             ["Lacerations", "Blade breakage"],
+             ["Use safety/retractable knives; replace dull blades",
+              "Keep the free hand clear of the cutting path",
+              "Dispose of blades in sharps containers"],
+             "Cut-resistant gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["ergonomics-manual-material-handling-program"] = {
+    "subtitle": "Ergonomics &amp; Manual Material Handling",
+    "legend": [
+        ("Ergonomic / Musculoskeletal", "Lifting, carrying, pushing, and pulling."),
+        ("Struck-By / Caught", "Shifting or dropped loads."),
+        ("Slips / Trips", "Obstructed paths while carrying."),
+    ],
+    "jobs": [
+        ("1", "Assess the Lift", [
+            ("Size up the load and path",
+             ["Overexertion", "Awkward/heavy load"],
+             ["Assess weight, size, and path before lifting; clear the route",
+              "Get help or mechanical aids for heavy/awkward loads",
+              "Break loads into smaller units where possible"],
+             "Gloves, steel-toe boots"),
+        ]),
+        ("2", "Proper Lifting Technique", [
+            ("Lift and carry the load",
+             ["Back/shoulder strain", "Load drop"],
+             ["Lift with the legs, keep the load close, and avoid twisting",
+              "Pivot with the feet; do not carry loads that block your vision",
+              "Set loads down using the legs, not the back"],
+             "Gloves, back support as appropriate"),
+        ]),
+        ("3", "Repetitive &amp; Sustained Tasks", [
+            ("Perform repetitive or sustained handling",
+             ["Cumulative trauma", "Static posture strain"],
+             ["Rotate tasks and take micro-breaks to reduce repetition",
+              "Adjust work heights to avoid reaching and bending",
+              "Use carts, conveyors, and lift assists where available"],
+             "Gloves, ergonomic aids as provided"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["infectious-disease-pandemic-preparedness-program"] = {
+    "subtitle": "Infectious Disease / Pandemic Field Controls",
+    "legend": [
+        ("Biological", "Person-to-person and surface transmission."),
+        ("Respiratory", "Airborne/droplet exposure."),
+        ("Administrative", "Screening, distancing, and hygiene gaps."),
+    ],
+    "jobs": [
+        ("1", "Screening &amp; Access", [
+            ("Screen personnel and control site access",
+             ["Symptomatic entry", "Cross-contamination"],
+             ["Screen per current guidance; keep symptomatic workers home",
+              "Stagger shifts/entry to reduce crowding",
+              "Post hygiene and distancing signage at entries"],
+             "Face covering as required per current guidance"),
+        ]),
+        ("2", "Distancing &amp; Hygiene", [
+            ("Maintain distancing and hygiene during work",
+             ["Close-contact transmission", "Contaminated surfaces"],
+             ["Maintain distancing where feasible; limit shared tools/vehicles",
+              "Provide handwashing/sanitizer; clean high-touch surfaces regularly",
+              "Avoid sharing PPE; assign tools to individuals"],
+             "Face covering, gloves as appropriate"),
+        ]),
+        ("3", "Close-Contact Tasks", [
+            ("Perform tasks requiring close contact",
+             ["Droplet/airborne exposure"],
+             ["Minimize time in close contact; increase ventilation indoors",
+              "Use appropriate respiratory protection for close/enclosed work",
+              "Report exposures and follow current isolation guidance"],
+             "Respirator/face covering per guidance, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["heat-illness-prevention-cal-osha"] = {
+    "subtitle": "Heat Illness Prevention (Cal/OSHA)",
+    "legend": [
+        ("Heat Stress", "High temperature and exertion."),
+        ("Environmental", "Direct sun and lack of shade."),
+        ("Physical", "Impaired judgment leading to secondary injury."),
+    ],
+    "jobs": [
+        ("1", "Water &amp; Shade Provision", [
+            ("Provide water and access to shade",
+             ["Dehydration", "Heat exhaustion"],
+             ["Provide fresh, cool water (1 quart/hour) close to the work",
+              "Provide shade when temperatures exceed the Cal/OSHA trigger (80&deg;F)",
+              "Allow and encourage preventive cool-down rest in the shade"],
+             "Light, breathable clothing; hat; water"),
+        ]),
+        ("2", "High-Heat Procedures", [
+            ("Work during high-heat conditions (&ge;95&deg;F)",
+             ["Heat stroke", "Isolated-worker risk"],
+             ["Implement high-heat procedures: observation, communication, reminders",
+              "Use the buddy system and regular check-ins",
+              "Pre-shift meetings on heat hazards and emergency response"],
+             "Light clothing, hat, water"),
+        ]),
+        ("3", "Acclimatization &amp; Emergency", [
+            ("Acclimatize workers and respond to symptoms",
+             ["New-worker heat risk", "Delayed emergency response"],
+             ["Closely observe new/returning workers during a 14-day acclimatization",
+              "Move affected workers to shade and cool them immediately",
+              "Call emergency services for severe symptoms; do not leave them alone"],
+             "N/A &mdash; emergency response"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["cold-stress-cold-weather-work-program"] = {
+    "subtitle": "Cold Stress / Cold Weather Work",
+    "legend": [
+        ("Cold Stress", "Hypothermia and frostbite."),
+        ("Slips / Falls", "Ice and snow on surfaces."),
+        ("Environmental", "Wind chill and wet conditions."),
+    ],
+    "jobs": [
+        ("1", "Dress &amp; Acclimatization", [
+            ("Prepare for cold exposure",
+             ["Hypothermia", "Frostbite"],
+             ["Dress in layers; keep dry; cover the head, hands, and feet",
+              "Schedule warm-up breaks in heated areas; monitor wind chill",
+              "Use the buddy system to watch for cold-stress symptoms"],
+             "Insulated layers, gloves, hat, insulated boots"),
+        ]),
+        ("2", "Ice &amp; Slip Control", [
+            ("Work on cold/icy surfaces",
+             ["Slips and falls", "Struck-by falling ice"],
+             ["Clear and treat walkways; wear traction aids on ice",
+              "Use three points of contact; slow down on icy surfaces",
+              "Watch for falling ice/snow from structures overhead"],
+             "Ice cleats, gloves, hard hat"),
+        ]),
+        ("3", "Symptom Recognition", [
+            ("Recognize and respond to cold stress",
+             ["Advanced hypothermia", "Frostbite injury"],
+             ["Train workers to recognize shivering, numbness, and confusion",
+              "Move affected workers to warmth; remove wet clothing; warm gradually",
+              "Seek medical help for severe symptoms"],
+             "Warm/dry replacement clothing"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["combustible-dust-program"] = {
+    "subtitle": "Combustible Dust Control",
+    "legend": [
+        ("Fire / Explosion", "Ignition of accumulated/suspended dust."),
+        ("Respiratory", "Airborne dust inhalation."),
+        ("Housekeeping", "Dust accumulation on surfaces."),
+    ],
+    "jobs": [
+        ("1", "Housekeeping &amp; Accumulation Control", [
+            ("Control dust accumulation",
+             ["Secondary dust explosion", "Fuel for fire"],
+             ["Clean dust regularly before it accumulates (thin-layer rule)",
+              "Use approved vacuums/wet methods; never dry-sweep or blow with compressed air",
+              "Inspect elevated surfaces, beams, and hidden areas for hidden dust"],
+             "Respirator as needed, safety glasses"),
+        ]),
+        ("2", "Ignition Source Control", [
+            ("Control ignition sources near dust",
+             ["Dust ignition", "Static discharge"],
+             ["Control hot work, sparks, and open flames in dust areas via permits",
+              "Bond/ground equipment; use rated electrical equipment in classified areas",
+              "Maintain equipment to prevent friction/overheating"],
+             "FR clothing where required, safety glasses"),
+        ]),
+        ("3", "Dust-Generating Operations", [
+            ("Perform tasks that generate dust",
+             ["Airborne dust cloud", "Inhalation"],
+             ["Use dust collection/capture at the source; maintain filters",
+              "Contain and enclose dusty processes where feasible",
+              "Wear respiratory protection for dusty tasks"],
+             "Respirator, safety glasses, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["traffic-control-work-zone-flagger-safety-program"] = {
+    "subtitle": "Work Zone Traffic Control &amp; Flagging",
+    "legend": [
+        ("Struck-By", "Public traffic and construction vehicles."),
+        ("Traffic", "Vehicle intrusion into the work zone."),
+        ("Environmental", "Visibility, weather, and night work."),
+    ],
+    "jobs": [
+        ("1", "Work Zone Setup", [
+            ("Set up the traffic control zone",
+             ["Vehicle intrusion", "Struck-by during setup"],
+             ["Deploy signs, cones, and channelizers per an approved traffic control plan",
+              "Set up from the shoulder facing traffic; wear high-visibility apparel",
+              "Establish buffer spaces between traffic and workers"],
+             "ANSI 107 hi-vis apparel, hard hat, steel-toe boots"),
+        ]),
+        ("2", "Flagging Operations", [
+            ("Direct traffic as a flagger",
+             ["Struck-by vehicles", "Loss of driver attention"],
+             ["Use STOP/SLOW paddles and standard signals; maintain an escape route",
+              "Stand alone, clear of equipment, where drivers can see you",
+              "Stay alert; never turn your back on moving traffic"],
+             "ANSI 107 hi-vis apparel, hard hat, STOP/SLOW paddle"),
+        ]),
+        ("3", "Night &amp; Low-Visibility Work", [
+            ("Work in low visibility conditions",
+             ["Reduced visibility struck-by"],
+             ["Use illuminated signs, lighting, and retroreflective apparel at night",
+              "Increase buffer distances and reduce posted speeds where allowed",
+              "Position lighting to avoid glare to drivers"],
+             "ANSI 107 Class 3 hi-vis, hard hat"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["rigging-lifting-signalperson-program"] = {
+    "subtitle": "Rigging, Lifting &amp; Signaling",
+    "legend": [
+        ("Struck-By / Caught", "Suspended and swinging loads."),
+        ("Rigging Failure", "Overloaded or damaged rigging."),
+        ("Pinch / Crush", "Between load and structure."),
+    ],
+    "jobs": [
+        ("1", "Rigging Inspection &amp; Selection", [
+            ("Select and inspect rigging",
+             ["Rigging failure", "Overload"],
+             ["Inspect slings, shackles, and hardware; remove damaged gear from service",
+              "Calculate load weight and select rigging rated above the load",
+              "Account for sling angles that increase tension"],
+             "Gloves, hard hat, safety glasses, steel-toe boots"),
+        ]),
+        ("2", "Lift Execution &amp; Signaling", [
+            ("Rig, signal, and land the load",
+             ["Load drop", "Struck-by swinging load", "Miscommunication"],
+             ["Use a qualified signalperson and standard hand signals; one signaler at a time",
+              "Use tag lines to control the load; keep clear of the fall zone",
+              "Never walk or work under a suspended load"],
+             "Gloves, hard hat, hi-vis, steel-toe boots"),
+        ]),
+        ("3", "Landing &amp; Hands-On Control", [
+            ("Guide and land the load",
+             ["Pinch/crush between load and structure"],
+             ["Guide loads with tag lines, not hands, until final placement",
+              "Keep hands and feet clear of pinch points during landing",
+              "Ensure stable blocking/cribbing before releasing rigging"],
+             "Gloves, hard hat, steel-toe boots"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["housekeeping-material-storage-program"] = {
+    "subtitle": "Housekeeping &amp; Material Storage",
+    "legend": [
+        ("Slips / Trips / Falls", "Clutter, spills, and blocked paths."),
+        ("Struck-By", "Improperly stacked materials."),
+        ("Fire", "Combustible accumulation and blocked exits."),
+        ("Ergonomic", "Handling stored materials."),
+    ],
+    "jobs": [
+        ("1", "Walkways &amp; Egress", [
+            ("Keep walkways and exits clear",
+             ["Slips/trips", "Blocked egress"],
+             ["Keep aisles, walkways, and exits clear of materials and cords",
+              "Clean spills immediately; mark wet areas",
+              "Maintain clearance around fire equipment and electrical panels"],
+             "Steel-toe boots, gloves"),
+        ]),
+        ("2", "Material Stacking &amp; Storage", [
+            ("Stack and store materials",
+             ["Falling/collapsing stacks", "Struck-by"],
+             ["Stack materials stably, within height limits, on level surfaces",
+              "Block/secure round stock and heavy items against rolling/tipping",
+              "Store heavy items low; do not overload shelving/racks"],
+             "Gloves, steel-toe boots, hard hat"),
+        ]),
+        ("3", "Waste &amp; Combustible Control", [
+            ("Manage waste and combustibles",
+             ["Fire load buildup", "Trip hazards"],
+             ["Remove scrap and waste regularly to designated containers",
+              "Keep oily rags in covered metal containers; control combustibles",
+              "Separate and label waste streams"],
+             "Gloves, safety glasses"),
+        ]),
+    ],
+}
