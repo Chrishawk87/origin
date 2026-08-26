@@ -55,7 +55,7 @@
   .platrow{display:grid;grid-template-columns:1.1fr 1fr 1.2fr;gap:10px;align-items:end;margin-bottom:10px}
   .platlbl{font-weight:700;color:var(--charcoal);font-size:13.5px;padding-bottom:9px}
   .listrow{display:grid;gap:8px;align-items:center;margin-bottom:8px}
-  .coirow{grid-template-columns:1.3fr 1fr 1fr auto}
+  .coirow{grid-template-columns:1.3fr 1fr 1fr auto auto}
   .docrow{grid-template-columns:1.4fr 1fr auto auto}
   .availrow{grid-template-columns:1.4fr 1fr auto}
   .x{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--red);cursor:pointer;padding:8px 11px;font-weight:700}
@@ -212,12 +212,14 @@ function renderEditor(){
 
   h+='<div class="section-title">Insurance &amp; COI expiration dates</div><div class="card"><div id="coiList">';
   (c.coi||[]).forEach(function(x,i){h+=coiRow(x,i);});
-  h+='</div><button class="btn ghost sm" onclick="addCoi()">+ Add certificate</button></div>';
+  h+='</div><button class="btn ghost sm" onclick="addCoi()">+ Add certificate</button>'
+    +'<div class="hint">Add a certificate, Save, then use <b>Upload</b> to attach the actual COI file \u2014 the client can view it in their portal.</div></div>';
 
   h+='<div class="section-title">Documents (included in plan)</div><div class="card"><div id="docList">';
   (c.documents||[]).forEach(function(x,i){h+=docRow(x,i);});
-  h+='</div><button class="btn ghost sm" onclick="addDoc()">+ Add document</button>'
-    +'<div class="hint">Add a row, Save, then use <b>Upload</b> to attach the finished file the client can view &amp; print.</div></div>';
+  h+='</div><button class="btn ghost sm" onclick="addDoc()">+ Add document</button> '
+    +'<button class="btn sm" onclick="uploadNewDoc()">\u2191 Upload finished document</button>'
+    +'<div class="hint"><b>Upload finished document</b> puts a file you built and reviewed straight into the client\u2019s vault in one step. Or add a row + Save, then <b>Upload</b> to attach a file to it.</div></div>';
 
   h+='<div class="section-title">Available to request (upsell)</div><div class="card"><div id="availList">';
   (c.available||[]).forEach(function(x,i){h+=availRow(x,i);});
@@ -234,10 +236,14 @@ function platRow(key,label,v,stat){
     +'<div><label class="lbl">Grade / score</label><input class="f pf-grade" value="'+esc(v.grade||'')+'"></div>'
     +'<div><label class="lbl">Status</label><select class="f pf-status">'+opts(stat,v.status||stat[0])+'</select></div></div>';
 }
-function coiRow(x,i){return '<div class="listrow coirow">'
+function coiRow(x,i){
+  var f=x.file?'<span class="fileok">✓ '+esc(x.file)+'</span>':'<span class="fileno">no file</span>';
+  var up=CUR.slug?'<button class="btn ghost sm" onclick="uploadCoi('+i+')">Upload</button>':'<span class="fileno">save first</span>';
+  return '<div class="listrow coirow" data-file="'+esc(x.file||'')+'">'
   +'<input class="f c-name" placeholder="e.g. General Liability" value="'+esc(x.name||'')+'">'
   +'<input class="f c-carrier" placeholder="Carrier" value="'+esc(x.carrier||'')+'">'
   +'<input class="f c-exp" type="date" value="'+esc(x.expires||'')+'">'
+  +'<span>'+f+' '+up+'</span>'
   +'<button class="x" onclick="this.parentNode.remove()">✕</button></div>';}
 function docRow(x,i){var f=x.file?'<span class="fileok">✓ '+esc(x.file)+'</span>':'<span class="fileno">no file</span>';
   var up=CUR.slug?'<button class="btn ghost sm" onclick="uploadDoc(\''+esc(x.name).replace(/'/g,"\\'")+'\')">Upload</button>':'<span class="fileno">save first</span>';
@@ -263,7 +269,7 @@ function gather(){
     c.platforms[k]=c.platforms[k]||{};c.platforms[k].grade=row.querySelector('.pf-grade').value.trim();
     c.platforms[k].status=row.querySelector('.pf-status').value;});
   c.coi=[].map.call(document.querySelectorAll('#coiList .coirow'),function(r){
-    return {name:r.querySelector('.c-name').value.trim(),carrier:r.querySelector('.c-carrier').value.trim(),expires:r.querySelector('.c-exp').value};})
+    return {name:r.querySelector('.c-name').value.trim(),carrier:r.querySelector('.c-carrier').value.trim(),expires:r.querySelector('.c-exp').value,file:r.getAttribute('data-file')||''};})
     .filter(function(x){return x.name;});
   c.documents=[].map.call(document.querySelectorAll('#docList .docrow'),function(r){
     return {name:r.querySelector('.d-name').value.trim(),sub:r.querySelector('.d-sub').value.trim(),file:r.getAttribute('data-file')||''};})
@@ -294,6 +300,25 @@ function uploadDoc(name){
   var inp=document.createElement('input');inp.type='file';
   inp.onchange=function(){var f=inp.files[0];if(!f)return;var fd=new FormData();fd.append('file',f);fd.append('name',name);
     api('/portal/api/admin/client/'+CUR.slug+'/upload',{method:'POST',body:fd}).then(function(r){
+      if(!r.ok){alert(r.j.error||'Upload failed');return;}pick(CUR.slug);});};
+  inp.click();
+}
+function uploadNewDoc(){
+  if(!CUR.slug){alert('Save the client first, then upload a document.');return;}
+  var inp=document.createElement('input');inp.type='file';
+  inp.onchange=function(){var f=inp.files[0];if(!f)return;
+    var name=prompt('Document name (what the client will see):',(f.name||'').replace(/\.[^.]+$/,''));
+    if(name===null)return;
+    var fd=new FormData();fd.append('file',f);fd.append('name',(name||f.name).trim());
+    api('/portal/api/admin/client/'+CUR.slug+'/upload',{method:'POST',body:fd}).then(function(r){
+      if(!r.ok){alert(r.j.error||'Upload failed');return;}pick(CUR.slug);});};
+  inp.click();
+}
+function uploadCoi(index){
+  if(!CUR.slug){alert('Save the client first, then upload the certificate.');return;}
+  var inp=document.createElement('input');inp.type='file';
+  inp.onchange=function(){var f=inp.files[0];if(!f)return;var fd=new FormData();fd.append('file',f);fd.append('index',index);
+    api('/portal/api/admin/client/'+CUR.slug+'/coi-upload',{method:'POST',body:fd}).then(function(r){
       if(!r.ok){alert(r.j.error||'Upload failed');return;}pick(CUR.slug);});};
   inp.click();
 }

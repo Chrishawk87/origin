@@ -429,8 +429,9 @@ def register_portal(app) -> None:
         rec = load_client(sess["slug"])
         if not rec:
             return JSONResponse({"error": "account not found"}, status_code=404)
-        # only allow files listed on THIS client's record
+        # only allow files listed on THIS client's record (documents + COI certs)
         allowed = {d.get("file") for d in rec.get("documents", []) if d.get("file")}
+        allowed |= {c.get("file") for c in rec.get("coi", []) if c.get("file")}
         name = os.path.basename(file or "")
         if name not in allowed:
             return JSONResponse({"error": "not authorized for this document"}, status_code=403)
@@ -529,6 +530,31 @@ def register_portal(app) -> None:
                 break
         else:
             rec["documents"].append({"name": doc_name, "sub": "Uploaded", "file": safe})
+        save_client(rec)
+        return {"ok": True, "file": safe}
+
+    @app.post("/portal/api/admin/client/{slug}/coi-upload")
+    def admin_coi_upload(slug: str, request: Request, file: UploadFile = File(...),
+                         index: str = Form(...)):
+        """Attach the actual certificate PDF to one insurance / COI row so the
+        client can view it in their portal."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        try:
+            i = int(index)
+            row = rec.get("coi", [])[i]
+        except Exception:
+            return JSONResponse({"error": "Save the certificate row first, then upload its file."},
+                                status_code=400)
+        safe = os.path.basename(file.filename or "certificate")
+        dest = _client_dir(slug) / "docs"
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / safe).write_bytes(file.file.read())
+        row["file"] = safe
+        rec["updated"] = _now()
         save_client(rec)
         return {"ok": True, "file": safe}
 

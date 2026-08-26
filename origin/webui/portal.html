@@ -291,11 +291,12 @@ function renderPrequal(){
 function renderCOI(){
   var coi=DATA.coi||[], h='';
   h+='<div class="hello"><div><h2>Insurance &amp; COI Tracker</h2><div class="sub">We watch every expiration date so a lapsed cert never costs you a job.</div></div></div>';
-  h+='<div class="card" style="padding:6px 8px"><table><thead><tr><th>Certificate</th><th>Carrier</th><th>Expires</th><th>Status</th></tr></thead><tbody>';
-  if(!coi.length){h+='<tr><td colspan="4" class="mini" style="padding:16px">No certificates on file yet.</td></tr>';}
+  h+='<div class="card" style="padding:6px 8px"><table><thead><tr><th>Certificate</th><th>Carrier</th><th>Expires</th><th>Status</th><th>File</th></tr></thead><tbody>';
+  if(!coi.length){h+='<tr><td colspan="5" class="mini" style="padding:16px">No certificates on file yet.</td></tr>';}
   coi.forEach(function(c){var dd=daysUntil(c.expires),col=coiColor(dd)[0];
     var txt=dd==null?'—':(dd<0?'Expired':dd+' days');
-    h+='<tr><td><span class="dot-s" style="background:'+col+'"></span>'+esc(c.name)+'</td><td>'+esc(c.carrier||'')+'</td><td>'+esc(c.expires||'')+'</td><td><span class="countdown" style="color:'+col+'">'+txt+'</span></td></tr>';});
+    var link=c.file?'<a href="/portal/api/doc?file='+encodeURIComponent(c.file)+'" target="_blank" rel="noopener">View</a>':'<span class="mini">—</span>';
+    h+='<tr><td><span class="dot-s" style="background:'+col+'"></span>'+esc(c.name)+'</td><td>'+esc(c.carrier||'')+'</td><td>'+esc(c.expires||'')+'</td><td><span class="countdown" style="color:'+col+'">'+txt+'</span></td><td>'+link+'</td></tr>';});
   h+='</tbody></table></div>';
   h+='<div class="callout">Green = good. Amber = renewal window. Red = urgent. You get an email at 30, 14, and 7 days — you never have to remember a date again.</div>';
   document.getElementById('coi').innerHTML=h;
