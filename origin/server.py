@@ -1217,5 +1217,13 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _portal_exc:  # pragma: no cover
         print(f"[portal] disabled — registration failed: {_portal_exc}")
 
+    # ── ISN Upload Tracker (abatement status ladder) ──
+    # Additive overlay on the portal's own client.json; isolated + non-fatal.
+    try:
+        from . import abatement as _abatement
+        _abatement.register_abatement(app)
+    except Exception as _abate_exc:  # pragma: no cover
+        print(f"[abatement] disabled — registration failed: {_abate_exc}")
+
     app.state.engine = eng
     return app

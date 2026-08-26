@@ -229,6 +229,15 @@ function renderEditor(){
     +'<div class="hint"><b>Upload finished document</b> puts a file you built and reviewed straight into the client\u2019s vault in one step. <b>Load from Asset Library</b> renders one of your master programs into their vault. <b>Sync AI documents</b> pulls in anything the Origin AI built into this company\u2019s project folder. Or add a row + Save, then <b>Upload</b> to attach a file to it.</div>'
     +'<div id="libraryPanel"></div></div>';
 
+  if(CUR.slug){
+    h+='<div class="section-title">ISN Upload Tracker</div><div class="card">';
+    h+='<div id="abateSummary" class="hint" style="margin-bottom:8px">Loading\u2026</div>';
+    h+='<div id="abateList"></div>';
+    h+='<div id="abateOthers"></div>';
+    h+='<div class="hint" style="margin-top:8px">Tracks each finished program as it moves <b>Draft \u2192 Human Approved \u2192 Uploaded to ISN \u2192 Verified Passed</b>. Documents Origin builds start on the tracker automatically; use <b>+ Track</b> to add any other document.</div>';
+    h+='</div>';
+  }
+
   h+='<div class="section-title">Available to request (upsell)</div><div class="card"><div id="availList">';
   (c.available||[]).forEach(function(x,i){h+=availRow(x,i);});
   h+='</div><button class="btn ghost sm" onclick="addAvail()">+ Add requestable program</button></div>';
@@ -238,6 +247,48 @@ function renderEditor(){
   if(!isNew)h+='<button class="btn ghost sm" style="margin-left:auto" onclick="delClient()">Delete client</button>';
   h+='</div>';
   document.getElementById('editor').innerHTML=h;
+  if(CUR.slug)loadAbate();
+}
+
+/* ── ISN Upload Tracker (abatement status ladder) ── */
+var ABATE_ORDER=['draft','human_approved','uploaded_to_isn','verified_passed'];
+var ABATE_LABELS={draft:'Draft',human_approved:'Human Approved',uploaded_to_isn:'Uploaded to ISN',verified_passed:'Verified Passed'};
+function escq(s){return esc(s).replace(/'/g,"\\'");}
+function loadAbate(){
+  if(!CUR||!CUR.slug)return;
+  api('/portal/api/admin/client/'+CUR.slug+'/abatement').then(function(r){if(r.ok)renderAbate(r.j);});
+}
+function renderAbate(d){
+  var sum=d.summary||{counts:{}};
+  var sEl=document.getElementById('abateSummary');
+  if(sEl){var parts=ABATE_ORDER.map(function(c){return (sum.counts[c]||0)+' '+ABATE_LABELS[c];});
+    sEl.innerHTML='<b>'+(sum.total||0)+'</b> on tracker \u00b7 '+parts.join(' \u00b7 ')+' \u00b7 <b>'+(sum.verified||0)+'</b> verified';}
+  var listEl=document.getElementById('abateList'),tasks=d.tasks||[];
+  if(listEl)listEl.innerHTML=tasks.length?tasks.map(abateRow).join(''):'<div class="hint">No documents on the tracker yet.</div>';
+  var othEl=document.getElementById('abateOthers'),others=d.others||[];
+  if(othEl)othEl.innerHTML=others.length?('<div class="hint" style="margin-top:10px">Not tracked: '+others.map(function(o){
+    return '<button class="btn ghost sm" onclick="abateEnroll(\''+escq(o.key)+'\')">+ Track \u201c'+esc(o.name)+'\u201d</button>';}).join(' ')+'</div>'):'';
+}
+function abateRow(t){
+  var sel='<select class="f" style="max-width:190px" onchange="abateSetStage(\''+escq(t.key)+'\',this.value)">'+
+    ABATE_ORDER.map(function(c){return '<option value="'+c+'"'+(c===t.stage?' selected':'')+'>'+ABATE_LABELS[c]+'</option>';}).join('')+'</select>';
+  var adv=t.next_stage?'<button class="btn sm" onclick="abateSetStage(\''+escq(t.key)+'\',\''+t.next_stage+'\')">\u2192 '+esc(t.next_label)+'</button>':'<span class="fileok">\u2713 Verified</span>';
+  return '<div class="listrow" style="grid-template-columns:1.6fr 200px auto auto;align-items:center">'
+    +'<div><b>'+esc(t.name)+'</b>'+(t.updated?'<div class="hint" style="margin:2px 0 0">updated '+esc(t.updated)+'</div>':'')+'</div>'
+    +'<span>'+sel+'</span><span>'+adv+'</span>'
+    +'<button class="btn ghost sm" onclick="abateRemove(\''+escq(t.key)+'\')">Untrack</button></div>';
+}
+function abateSetStage(key,stage){
+  api('/portal/api/admin/client/'+CUR.slug+'/abatement/stage',{method:'POST',body:{key:key,stage:stage}}).then(function(r){
+    if(!r.ok){alert(r.j.error||'Could not update stage');return;}renderAbate(r.j);});
+}
+function abateEnroll(key){
+  api('/portal/api/admin/client/'+CUR.slug+'/abatement/enroll',{method:'POST',body:{key:key}}).then(function(r){
+    if(!r.ok){alert(r.j.error||'Could not track');return;}renderAbate(r.j);});
+}
+function abateRemove(key){
+  api('/portal/api/admin/client/'+CUR.slug+'/abatement/remove',{method:'POST',body:{key:key}}).then(function(r){
+    if(!r.ok){alert(r.j.error||'Could not untrack');return;}renderAbate(r.j);});
 }
 function platRow(key,label,v,stat){
   return '<div class="platrow" data-plat="'+key+'"><div class="platlbl">'+label+'</div>'
