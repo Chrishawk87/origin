@@ -187,7 +187,12 @@ function renderEditor(){
       +'<option value="prequal"'+(docs?'':' selected')+'>Prequal-managed — has ISN / Avetta / PEC / Veriforce</option>'
       +'<option value="docs"'+(docs?' selected':'')+'>Documentation-only — safety programs, no prequal accounts</option></select></div>'
     +'<div><label class="lbl">Plan label</label><input class="f" id="f_plan" value="'+esc(c.plan)+'"></div>'
-    +'</div></div>';
+    +'</div>';
+  if(c.project_slug){
+    h+='<div style="margin-top:10px"><a class="btn" href="/?project='+encodeURIComponent(c.project_slug)+'" target="_blank" rel="noopener">\u2192 Open in Origin AI</a>'
+      +'<span class="hint" style="margin-left:8px">Opens this company as a project on the main Origin terminal \u2014 talk to the AI, review their uploads, draft or update their profile. Files the AI builds land in their portal.</span></div>';
+  }
+  h+='</div>';
 
   h+='<div class="section-title">Scope of work &amp; gap analysis</div><div class="card">';
   h+='<label class="lbl">Scope of work \u2014 what this client actually does (they can also fill this in themselves)</label>';
@@ -218,8 +223,11 @@ function renderEditor(){
   h+='<div class="section-title">Documents (included in plan)</div><div class="card"><div id="docList">';
   (c.documents||[]).forEach(function(x,i){h+=docRow(x,i);});
   h+='</div><button class="btn ghost sm" onclick="addDoc()">+ Add document</button> '
-    +'<button class="btn sm" onclick="uploadNewDoc()">\u2191 Upload finished document</button>'
-    +'<div class="hint"><b>Upload finished document</b> puts a file you built and reviewed straight into the client\u2019s vault in one step. Or add a row + Save, then <b>Upload</b> to attach a file to it.</div></div>';
+    +'<button class="btn sm" onclick="uploadNewDoc()">\u2191 Upload finished document</button> '
+    +(CUR.slug?'<button class="btn sm" onclick="openLibrary()">\u2295 Load from Asset Library</button> ':'')
+    +(CUR.slug?'<button class="btn ghost sm" onclick="syncDocs()">\u21bb Sync AI documents</button>':'')
+    +'<div class="hint"><b>Upload finished document</b> puts a file you built and reviewed straight into the client\u2019s vault in one step. <b>Load from Asset Library</b> renders one of your master programs into their vault. <b>Sync AI documents</b> pulls in anything the Origin AI built into this company\u2019s project folder. Or add a row + Save, then <b>Upload</b> to attach a file to it.</div>'
+    +'<div id="libraryPanel"></div></div>';
 
   h+='<div class="section-title">Available to request (upsell)</div><div class="card"><div id="availList">';
   (c.available||[]).forEach(function(x,i){h+=availRow(x,i);});
@@ -321,6 +329,43 @@ function uploadCoi(index){
     api('/portal/api/admin/client/'+CUR.slug+'/coi-upload',{method:'POST',body:fd}).then(function(r){
       if(!r.ok){alert(r.j.error||'Upload failed');return;}pick(CUR.slug);});};
   inp.click();
+}
+function openLibrary(){
+  if(!CUR.slug){alert('Save the client first, then load a document.');return;}
+  var panel=document.getElementById('libraryPanel');
+  if(panel.getAttribute('data-open')==='1'){panel.innerHTML='';panel.removeAttribute('data-open');return;}
+  panel.setAttribute('data-open','1');
+  panel.innerHTML='<div class="hint" style="margin-top:10px">Loading Asset Library\u2026</div>';
+  api('/portal/api/admin/library').then(function(r){
+    if(!r.ok){panel.innerHTML='<div class="hint" style="color:#c0392b;margin-top:10px">'+esc((r.j&&r.j.error)||'Could not load library')+'</div>';return;}
+    var t=r.j.templates||[];
+    if(!t.length){panel.innerHTML='<div class="hint" style="margin-top:10px">No master documents in the Asset Library yet.</div>';return;}
+    var rows=t.map(function(m){
+      var meta=[m.trade,m.num].filter(Boolean).join(' \u00b7 ');
+      return '<div class="listrow" style="grid-template-columns:1fr auto;align-items:center">'
+        +'<div><b>'+esc(m.title||m.id)+'</b>'+(meta?'<br><span class="fileno">'+esc(meta)+'</span>':'')+'</div>'
+        +'<button class="btn ghost sm" onclick="loadFromLibrary(\''+esc(m.id).replace(/'/g,"\\'")+'\')">Load into vault</button></div>';
+    }).join('');
+    panel.innerHTML='<div style="margin-top:10px;border:1px solid #e2e6ea;border-radius:8px;padding:10px">'
+      +'<div class="lbl" style="margin-bottom:6px">Asset Library \u2014 pick a master to render into this client\u2019s vault</div>'+rows+'</div>';
+  });
+}
+function loadFromLibrary(mid){
+  if(!CUR.slug)return;
+  var panel=document.getElementById('libraryPanel');
+  panel.innerHTML='<div class="hint" style="margin-top:10px">Rendering into the client\u2019s vault\u2026</div>';
+  api('/portal/api/admin/client/'+CUR.slug+'/from-library',{method:'POST',body:{mid:mid,publish:true}}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Could not load that document');return;}
+    pick(CUR.slug);
+  });
+}
+function syncDocs(){
+  if(!CUR.slug){alert('Save the client first.');return;}
+  api('/portal/api/admin/client/'+CUR.slug+'/sync',{method:'POST'}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Sync failed');return;}
+    if(!r.j.added){alert('No new AI-built documents found in this company\u2019s folder.');return;}
+    pick(CUR.slug);
+  });
 }
 
 function loadRequests(){

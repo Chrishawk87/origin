@@ -365,6 +365,10 @@ let STATE=null, ACTIVE=null, BUSY=false, autoOpenTried=false;
 
 // Token: read from URL once, then remember it in this browser (log in once).
 let TOKEN='';
+// Deep-link: /?project=<slug> opens that project on load (used by the admin
+// console's "Open in Origin AI" button). Captured before we clean the URL.
+let URL_PROJECT='';
+try{ URL_PROJECT=new URLSearchParams(location.search).get('project')||''; }catch(e){ URL_PROJECT=''; }
 (function initToken(){
   const fromUrl=new URLSearchParams(location.search).get('token');
   if(fromUrl){
@@ -465,6 +469,13 @@ async function refresh(){
     });
   } else { pb.style.display='none'; }
   if(!ACTIVE){
+    // A ?project=<slug> deep-link (from the admin "Open in Origin AI" button)
+    // wins over the remembered last project.
+    if(!autoOpenTried && URL_PROJECT && (STATE.projects||[]).some(p=>p.slug===URL_PROJECT)){
+      autoOpenTried=true; const wanted=URL_PROJECT; URL_PROJECT='';
+      try{ history.replaceState({}, '', location.pathname); }catch(e){}
+      openProject(wanted); return;
+    }
     let last=null; try{ last=localStorage.getItem('origin_last_project'); }catch(e){}
     if(!autoOpenTried && last && (STATE.projects||[]).some(p=>p.slug===last)){
       autoOpenTried=true; openProject(last); return;

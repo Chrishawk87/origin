@@ -193,9 +193,92 @@ def _blank_client(company: str, email: str, client_type: str = "prequal") -> Dic
         "trade": "",  # optional NAICS/industry keyword Chris uses for the gap run
         "gap_report": None,   # last gap-analysis result (summary + gaps)
         "gap_run_at": "",
+        "project_slug": "",   # linked Origin project (main site) — see _ensure_project
         "created": _now(),
         "updated": _now(),
     }
+
+
+def _ensure_project(rec: Dict[str, Any]) -> None:
+    """Mirror this portal client as an Origin PROJECT so it shows up on the main
+    Origin site and the AI works in the same folder as the client's profile and
+    documents (workdir = the client's portal folder). Idempotent; never fatal —
+    a failure here must never block a signup or a save."""
+    try:
+        from .projects import ProjectManager
+    except Exception:
+        return
+    try:
+        pm = ProjectManager()
+        slug = rec.get("project_slug")
+        if slug and pm.get(slug):
+            return  # already linked to a live project
+        company = rec.get("company") or rec.get("slug") or "Client"
+        workdir = str(_client_dir(rec["slug"]))
+        notes = ("Portal client — the real profile + documents live in this "
+                 "folder (client.json holds their platforms, grades and COI; "
+                 "docs/ holds their files). Manage everything in the Origin admin "
+                 "console at /admin; the client sees the results at /portal. Ask "
+                 "the AI to review uploads, draft missing programs, or update the "
+                 "profile right here.")
+        proj = pm.create(company, workdir=workdir, notes=notes)
+        rec["project_slug"] = proj.slug
+    except Exception as exc:  # pragma: no cover
+        print(f"[portal] project link skipped: {exc}")
+
+
+# File types Origin AI might build into a client's folder that we should surface
+# in their portal. Anything else (scratch notes, .json, etc.) is ignored.
+_SYNC_DOC_EXTS = {".pdf", ".docx", ".doc", ".md", ".html", ".htm", ".txt",
+                  ".xlsx", ".xls", ".csv", ".pptx", ".png", ".jpg", ".jpeg"}
+
+
+def _sync_docs(rec: Dict[str, Any]) -> bool:
+    """Surface files the Origin AI (or Chris) dropped into the client's project
+    folder that aren't yet listed in their portal. Because each client's Origin
+    project workdir IS their portal docs folder, anything the AI writes there
+    lands here — this makes it show up for the client automatically.
+
+    Skips files already referenced by a document or COI row, and drafts that
+    were staged for review-first (rec['staged_files']) but not yet published.
+    Returns True if it added anything."""
+    slug = rec.get("slug")
+    if not slug:
+        return False
+    docs = _client_dir(slug) / "docs"
+    if not docs.is_dir():
+        return False
+    known = set()
+    for d in rec.get("documents", []):
+        if d.get("file"):
+            known.add(d["file"])
+    for c in rec.get("coi", []):
+        if c.get("file"):
+            known.add(c["file"])
+    known |= set(rec.get("staged_files", []))
+    changed = False
+    try:
+        entries = sorted(docs.iterdir())
+    except Exception:
+        return False
+    for f in entries:
+        try:
+            if not f.is_file():
+                continue
+        except Exception:
+            continue
+        if f.name in known or f.name.startswith("."):
+            continue
+        if f.suffix.lower() not in _SYNC_DOC_EXTS:
+            continue
+        rec.setdefault("documents", []).append({
+            "name": f.stem, "sub": "Added by Origin AI",
+            "file": f.name, "source": "origin-ai",
+        })
+        changed = True
+    if changed:
+        rec["updated"] = _now()
+    return changed
 
 
 def _public_view(rec: Dict[str, Any]) -> Dict[str, Any]:
@@ -234,6 +317,7 @@ def seed_test_client() -> Dict[str, Any]:
         {"name": "Confined Space Entry Program", "code": "OSHA 1910.146"},
         {"name": "Process Safety Management (PSM)", "code": "OSHA 1910.119"},
     ]
+    _ensure_project(rec)  # mirror as an Origin project (shows on main site)
     return save_client(rec)
 
 
@@ -246,6 +330,20 @@ def register_portal(app) -> None:
 
     webui = Path(__file__).parent / "webui"
     CLIENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Backfill: every existing portal client gets a linked Origin project so it
+    # shows up on the main site. Idempotent and non-fatal.
+    try:
+        for _c in list_clients():
+            _rec = load_client(_c["slug"])
+            if not _rec:
+                continue
+            _before = _rec.get("project_slug", "")
+            _ensure_project(_rec)
+            if _rec.get("project_slug", "") != _before:
+                save_client(_rec)
+    except Exception as _exc:  # pragma: no cover
+        print(f"[portal] project backfill skipped: {_exc}")
 
     # ---- cookie auth helpers (read request, return payload or None) ----
     def client_session(request: Request) -> Optional[Dict[str, Any]]:
@@ -311,6 +409,7 @@ def register_portal(app) -> None:
             n += 1
         rec["slug"] = slug
         rec["pin_hash"] = hash_pin(slug, pin)
+        _ensure_project(rec)  # mirror as an Origin project (shows on main site)
         save_client(rec)
         # let Chris know a new client just signed themselves up
         try:
@@ -344,6 +443,8 @@ def register_portal(app) -> None:
         rec = load_client(sess["slug"])
         if not rec:
             return JSONResponse({"error": "account not found"}, status_code=404)
+        if _sync_docs(rec):
+            save_client(rec)
         return _public_view(rec)
 
     @app.post("/portal/api/request")
@@ -470,6 +571,8 @@ def register_portal(app) -> None:
         rec = load_client(slug)
         if not rec:
             return JSONResponse({"error": "not found"}, status_code=404)
+        if _sync_docs(rec):
+            save_client(rec)
         out = dict(rec)
         out["pin_set"] = bool(rec.get("pin_hash"))
         out.pop("pin_hash", None)
@@ -497,8 +600,9 @@ def register_portal(app) -> None:
         pin = (body.get("pin") or "").strip()
         if pin:
             rec["pin_hash"] = hash_pin(slug, pin)
+        _ensure_project(rec)  # mirror as an Origin project (shows on main site)
         save_client(rec)
-        return {"ok": True, "slug": slug}
+        return {"ok": True, "slug": slug, "project_slug": rec.get("project_slug", "")}
 
     @app.post("/portal/api/admin/client/{slug}/delete")
     def admin_delete_client(slug: str, request: Request):
@@ -660,7 +764,10 @@ def register_portal(app) -> None:
                 (docs_dir / fname).write_text(d["markdown"], encoding="utf-8")
             row = {"name": d["title"], "sub": f"Built by Origin — {d.get('citation', '')}".strip(" —"),
                    "file": fname, "source": "origin-draft"}
+            staged = rec.setdefault("staged_files", [])
             if publish:
+                if fname in staged:
+                    staged.remove(fname)
                 # replace an existing row of the same name, else append
                 for existing in rec.setdefault("documents", []):
                     if existing.get("name") == d["title"]:
@@ -668,6 +775,10 @@ def register_portal(app) -> None:
                         break
                 else:
                     rec["documents"].append(row)
+            else:
+                # staged for review only — keep auto-sync from publishing it
+                if fname not in staged:
+                    staged.append(fname)
             built.append({"id": d["id"], "title": d["title"], "file": fname,
                           "citation": d.get("citation", "")})
         rec["updated"] = _now()
@@ -684,6 +795,85 @@ def register_portal(app) -> None:
         if not name or not path.is_file():
             return JSONResponse({"error": "file not found"}, status_code=404)
         return FileResponse(str(path))
+
+    @app.get("/portal/api/admin/library")
+    def admin_library(request: Request):
+        """List the Asset Library masters so Chris can pick one to drop into a
+        client's document vault straight from the admin console."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        try:
+            from . import compliance as _cmp
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"asset library unavailable: {exc}"}, status_code=500)
+        try:
+            _cmp.ensure_library()
+        except Exception:
+            pass
+        return {"ok": True, "templates": _cmp.list_templates()}
+
+    @app.post("/portal/api/admin/client/{slug}/from-library")
+    def admin_from_library(slug: str, request: Request, body: dict = Body(...)):
+        """Render an Asset Library master into THIS client's vault as a finished,
+        published document. body: {mid, publish?} — publish defaults true."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        mid = (body.get("mid") or "").strip()
+        if not mid:
+            return JSONResponse({"error": "no library document selected"}, status_code=400)
+        try:
+            from . import compliance as _cmp
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"asset library unavailable: {exc}"}, status_code=500)
+        html = _cmp.read_master_html(mid)
+        if not html:
+            return JSONResponse({"error": "that library document was not found"}, status_code=404)
+        title = _cmp.master_title(mid)
+        docs_dir = _client_dir(slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        # Prefer a finished PDF; fall back to the HTML master if PDF rendering
+        # isn't available in this deployment.
+        fname = None
+        try:
+            pdf_path = _cmp.unique_path(docs_dir, (_cmp.safe_filename(title).rsplit(".", 1)[0] + ".pdf"))
+            _cmp.render_pdf(html, pdf_path, title=title)
+            fname = pdf_path.name
+        except Exception:
+            html_path = _cmp.unique_path(docs_dir, _cmp.safe_filename(title))
+            html_path.write_text(html, encoding="utf-8")
+            fname = html_path.name
+        publish = body.get("publish")
+        publish = True if publish is None else bool(publish)
+        row = {"name": title, "sub": "From Asset Library", "file": fname,
+               "source": "asset-library"}
+        if publish:
+            for existing in rec.setdefault("documents", []):
+                if existing.get("name") == title:
+                    existing.update(row)
+                    break
+            else:
+                rec["documents"].append(row)
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "published": publish, "title": title, "file": fname}
+
+    @app.post("/portal/api/admin/client/{slug}/sync")
+    def admin_sync_docs(slug: str, request: Request):
+        """Pull any files the Origin AI dropped into this client's project
+        folder into their portal document list. Runs automatically on load,
+        but this lets Chris force it from the admin console."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        added = _sync_docs(rec)
+        if added:
+            save_client(rec)
+        return {"ok": True, "added": added, "documents": rec.get("documents", [])}
 
     @app.get("/portal/api/admin/requests")
     def admin_requests(request: Request):
