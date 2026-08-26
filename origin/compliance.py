@@ -31,7 +31,7 @@ ASSIGN_SUBDIR = "Compliance"                                  # inside a project
 # ── Brand / document styling ─────────────────────────────────────────────────
 # Bump STYLE_VERSION whenever the look changes; ensure_library() re-renders the
 # stored masters so existing documents on the Railway volume pick up the change.
-STYLE_VERSION = "2026-08-18-premium-2"
+STYLE_VERSION = "2026-08-26-premium-cover"
 
 # IMPORTANT: these documents are the CLIENT's own written programs — the client
 # uploads them to ISNetworld/Avetta as their company's program. So Origin
@@ -45,7 +45,10 @@ STYLE_VERSION = "2026-08-18-premium-2"
 _CHROME_START = "<!--OMS:CHROME-START-->"
 _CHROME_END = "<!--OMS:CHROME-END-->"
 
-# Palette: navy #0f2c4c, ink #1f2933, slate #475569, muted #64748b, hair #e2e8f0
+# Palette: navy #0f2c4c, accent #1f4e79, ink #1f2933, slate #475569,
+# muted #64748b, hair #e2e8f0. Premium program-document look (cover page +
+# control table + controlled-doc notice + callouts), ported from the approved
+# Excavation & Trenching sample so every program master renders submission-ready.
 _DOC_CSS = """
 <style>
   @page {
@@ -69,6 +72,23 @@ _DOC_CSS = """
   .doc-meta b{color:#0f2c4c;font-size:11px}
   .oms-rule{font-size:1px;line-height:1px;border-bottom:3px solid #0f2c4c;margin:8px 0 0}
   .oms-rule2{font-size:1px;line-height:1px;border-bottom:1px solid #cbd5e1;margin:2px 0 20px}
+  /* ---- Premium cover page ---- */
+  .cover{text-align:center}
+  .cover .brandbar{border-top:3px solid #0f2c4c;border-bottom:1px solid #0f2c4c;
+       padding:14px 0 12px 0;margin-bottom:6px}
+  .cover .client{font-size:23px;font-weight:bold;color:#0f2c4c;letter-spacing:0.5px}
+  .cover .client-addr{font-size:10px;color:#64748b;margin-top:5px}
+  .cover .kicker{font-size:11px;color:#7a8a99;letter-spacing:3px;margin-top:20px}
+  .cover .title{font-size:28px;font-weight:bold;color:#0f2c4c;margin:10px 30px 6px 30px;line-height:1.15}
+  .cover .std{font-size:12.5px;color:#1f4e79;font-weight:bold;margin-top:5px}
+  .cover .coverrule{border-top:1px solid #c8d2dc;margin:16px 40px}
+  .ctrl{margin:0 40px}
+  table.ctrl-t{width:100%;border-collapse:collapse}
+  table.ctrl-t td{border:1px solid #c8d2dc;padding:5px 11px;font-size:10px;text-align:left}
+  table.ctrl-t td.k{background:#0f2c4c;color:#ffffff;font-weight:bold;width:38%}
+  table.ctrl-t td.v{background:#f5f8fb;color:#1c2733}
+  .notice{margin:14px 40px 0 40px;border:1px solid #d9c26a;background:#fbf6e6;
+       padding:9px 12px;font-size:9px;color:#6b5a1f;text-align:left;line-height:1.45}
   /* Body typography */
   h1{font-size:19px;color:#0f2c4c;font-weight:bold;margin:16px 0 6px}
   h2{font-size:13.5px;color:#0f2c4c;font-weight:bold;text-transform:uppercase;
@@ -84,6 +104,36 @@ _DOC_CSS = """
   thead th,th{background:#0f2c4c;color:#ffffff;font-weight:bold}
   tbody tr:nth-child(even) td{background:#f5f8fc}
   hr{border:none;border-top:1px solid #e2e8f0;margin:18px 0}
+  /* ---- Callout boxes ---- */
+  .callout{padding:9px 12px;margin:11px 0;font-size:11px;border-left:4px solid #999}
+  .callout .lbl{font-weight:bold;font-size:10px;letter-spacing:1px;display:block;margin-bottom:3px}
+  .callout.warning{background:#fdecea;border-left-color:#c0392b}
+  .callout.warning .lbl{color:#c0392b}
+  .callout.caution{background:#fef6e7;border-left-color:#e67e22}
+  .callout.caution .lbl{color:#b9600f}
+  .callout.note{background:#eef4fb;border-left-color:#3a6ea5}
+  .callout.note .lbl{color:#2c5f97}
+  /* ---- Job Hazard Analysis (JHA companion) ---- */
+  .cover .subtitle{font-size:15px;color:#1f4e79;margin:2px 30px 6px 30px}
+  .jobhead{background:#0f2c4c;color:#ffffff;font-size:12px;font-weight:bold;padding:6px 9px}
+  table.jha{width:100%;border-collapse:collapse;margin:0 0 14px 0}
+  table.jha th{background:#1f4e79;color:#ffffff;font-size:9px;text-align:left;padding:5px 7px}
+  table.jha td{border:1px solid #cdd8e2;padding:5px 7px;font-size:9px;vertical-align:top}
+  table.jha tr.alt td{background:#f5f8fb}
+  .jha .hz{color:#8a3221}
+  .jha .step{font-weight:bold;color:#0f2c4c}
+  table.legend{width:100%;border-collapse:collapse;margin:8px 0}
+  table.legend td{border:1px solid #cdd8e2;padding:5px 8px;font-size:10px;vertical-align:top}
+  table.legend td.k{background:#eef4fb;font-weight:bold;color:#1f4e79;width:150px}
+  table.specs{width:100%;border-collapse:collapse;margin:8px 0}
+  table.specs td{border:1px solid #cdd8e2;padding:6px 8px;font-size:10px;vertical-align:top}
+  table.specs td.k{background:#eef4fb;font-weight:bold;color:#1f4e79;width:24%}
+  table.specs td.fill{background:#ffffff}
+  .subhead{font-size:12px;color:#1f4e79;font-weight:bold;margin:14px 0 4px}
+  table.ack{width:100%;border-collapse:collapse;margin:8px 0}
+  table.ack td{border:1px solid #c8d2dc;padding:6px 7px;font-size:9px}
+  table.ack th{background:#0f2c4c;color:#ffffff;font-size:9px;padding:6px 7px;text-align:left}
+  .pb{page-break-before:always}
   .oms-footer{font-size:8.5px;color:#94a3b8;text-align:center;
               border-top:1px solid #e2e8f0;padding-top:6px}
 </style>
@@ -141,6 +191,76 @@ def wrap_document(inner_html: str, title: str = "") -> str:
     )
 
 
+# ── Premium program cover page ───────────────────────────────────────────────
+# Program masters get a full cover page (client letterhead + control table +
+# controlled-document notice) that replaces the inline letterhead + title block
+# in the template body. Every field is either a value known from the KB (the
+# regulatory basis) or an EXISTING client placeholder token ({{COMPANY_NAME}},
+# {{EFFECTIVE_DATE}}, etc.) that the portal already fills on assign — plus a few
+# sensible literal defaults. No new tokens are introduced.
+
+# Strip everything before the first real section heading so the cover isn't
+# duplicated by the template's own inline letterhead / <h1> title / admin line.
+_INTRO_RE = re.compile(r"^.*?(?=<h2)", re.S | re.I)
+
+
+def _program_cover_html(title: str, citation: str) -> str:
+    """Build the premium cover page for a written-program master."""
+    std = _esc(citation or "")
+    rows = [
+        ("Revision", "1.0"),
+        ("Effective Date", "{{EFFECTIVE_DATE}}"),
+        ("Regulatory Basis", std or "See program body"),
+        ("Review Cycle", "Annual"),
+        ("Last Reviewed", "{{LAST_REVIEW_DATE}}"),
+        ("Next Review Due", "{{NEXT_REVIEW_DATE}}"),
+        ("Program Administrator", "{{PROGRAM_ADMINISTRATOR}}, {{ADMIN_TITLE}}"),
+        ("Classification", "Controlled &mdash; Internal Use"),
+    ]
+    ctrl = "".join(
+        f"<tr><td class='k'>{k}</td><td class='v'>{v}</td></tr>" for k, v in rows
+    )
+    std_line = f"<div class='std'>{std}</div>" if std else ""
+    return (
+        "<div class='cover'>"
+        "<div class='brandbar'>"
+        "<div class='client'>{{COMPANY_NAME}}</div>"
+        "<div class='client-addr'>{{COMPANY_ADDRESS}}</div>"
+        "</div>"
+        "<div class='kicker'>WRITTEN SAFETY PROGRAM</div>"
+        f"<div class='title'>{_esc(title)}</div>"
+        f"{std_line}"
+        "<div class='coverrule'></div>"
+        f"<div class='ctrl'><table class='ctrl-t'>{ctrl}</table></div>"
+        "<div class='notice'><b>CONTROLLED DOCUMENT.</b> This document is the property of "
+        "{{COMPANY_NAME}} and is maintained under its Health, Safety &amp; Environmental "
+        "management system. Printed copies are uncontrolled and valid only on the date "
+        "printed. Verify the current revision before use.</div>"
+        "</div>"
+    )
+
+
+def wrap_program_document(inner_html: str, title: str = "",
+                          citation: str = "") -> str:
+    """Wrap a written-program body in the premium shell: a client-branded cover
+    page (letterhead + control table + controlled-doc notice) on page 1, then
+    the program sections. The template's own inline letterhead / title block is
+    stripped so nothing is duplicated. Client fields stay as placeholder tokens
+    the portal fills on assign — the shell carries no service-provider branding."""
+    content = _content_only(inner_html)
+    body = _INTRO_RE.sub("", content, count=1).strip() or content
+    cover = _program_cover_html(title, citation)
+    return (
+        f"<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>{_esc(title or 'Written Compliance Program')}</title>{_DOC_CSS}</head>"
+        f"<body><div class='oms-doc'>"
+        f"{cover}"
+        f"<div class='pb'></div>"
+        f"{body}"
+        f"</div>{_footer_html()}</body></html>"
+    )
+
+
 # ── Library persistence ──────────────────────────────────────────────────────
 def _index_path() -> Path:
     return LIBRARY_DIR / "index.json"
@@ -170,6 +290,7 @@ def ensure_library() -> None:
                             "num": s.get("num", ""), "title": title, "file": fname})
         _write_index(records)
     _sync_program_masters()
+    _sync_jha_masters()
     _restyle_masters_if_needed()
 
 
@@ -203,9 +324,25 @@ def _restyle_masters_if_needed() -> None:
             # template body (e.g. the new client letterhead) flows into the
             # already-stored masters — not just the CSS chrome.
             if _kb is not None and mid.startswith("program-"):
-                md = _kb.render_program(mid[len("program-"):])
+                kid = mid[len("program-"):]
+                md = _kb.render_program(kid)
                 if md:
-                    f.write_text(wrap_document(_md_to_html(md), rec.get("title", "")),
+                    krec = _kb.get(kid) or {}
+                    f.write_text(
+                        wrap_program_document(_md_to_html(md), rec.get("title", ""),
+                                              krec.get("citation", "")),
+                        encoding="utf-8")
+                    continue
+            # JHA companions: regenerate from the JHA engine so the authored
+            # matrices + the new premium shell flow into stored masters.
+            if mid.startswith("jha-"):
+                try:
+                    from . import compliance_jha as _jha
+                    inner = _jha.render_jha(mid[len("jha-"):])
+                except Exception:
+                    inner = None
+                if inner:
+                    f.write_text(wrap_document(inner, rec.get("title", mid)),
                                  encoding="utf-8")
                     continue
             # Everything else: re-wrap in place (preserves body, refreshes shell).
@@ -259,10 +396,43 @@ def _sync_program_masters() -> None:
         if not md:
             continue
         title = r.get("title", r["id"])
-        html = wrap_document(_md_to_html(md), title)
+        html = wrap_program_document(_md_to_html(md), title, r.get("citation", ""))
         fname = f"{mid}.html"
         (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
         records.append({"id": mid, "trade": r.get("category", "Compliance Programs"),
+                        "num": "", "title": title, "file": fname})
+        have.add(mid)
+        added = True
+    if added:
+        _write_index(records)
+
+
+def _sync_jha_masters() -> None:
+    """Add a library master for every authored Job Hazard Analysis (from the JHA
+    engine) whose companion isn't already present. Master id is ``jha-<kb_id>``,
+    grouped alongside its written program. Safe to run on every startup — this
+    also back-fills JHAs onto a volume that was seeded before they existed."""
+    try:
+        from . import compliance_jha as _jha
+        from . import compliance_kb as _kb
+    except Exception:
+        return
+    records = _read_index_raw()
+    have = {r["id"] for r in records}
+    added = False
+    for pid in _jha.list_jha_ids():
+        mid = f"jha-{pid}"
+        if mid in have:
+            continue
+        inner = _jha.render_jha(pid)
+        if not inner:
+            continue
+        rec = _kb.get(pid) or {}
+        title = _jha.jha_title(pid)
+        html = wrap_document(inner, title)
+        fname = f"{mid}.html"
+        (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
+        records.append({"id": mid, "trade": rec.get("category", "Compliance Programs"),
                         "num": "", "title": title, "file": fname})
         have.add(mid)
         added = True
