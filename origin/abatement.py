@@ -27,6 +27,17 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+# Imported at module scope so FastAPI can resolve the string annotation "Request"
+# on the route handlers below. `from __future__ import annotations` turns every
+# annotation into a string, and FastAPI resolves them with get_type_hints against
+# THIS module's globals — so `Request` must live here, not just inside the
+# register function. (portal.py does the same for the same reason.) Without this,
+# FastAPI misreads `request: Request` as a required query param and returns 422.
+try:
+    from starlette.requests import Request
+except Exception:  # pragma: no cover
+    Request = None  # type: ignore
+
 # Reuse the portal's storage + auth. These are all module-level in portal.py.
 from .portal import (
     load_client,
