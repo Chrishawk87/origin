@@ -189,6 +189,18 @@ function renderEditor(){
     +'<div><label class="lbl">Plan label</label><input class="f" id="f_plan" value="'+esc(c.plan)+'"></div>'
     +'</div></div>';
 
+  h+='<div class="section-title">Scope of work &amp; gap analysis</div><div class="card">';
+  h+='<label class="lbl">Scope of work \u2014 what this client actually does (they can also fill this in themselves)</label>';
+  h+='<textarea class="f" id="f_scope" style="min-height:90px;resize:vertical;font-family:inherit">'+esc(c.scope||'')+'</textarea>';
+  h+='<div class="row2" style="margin-top:8px">'
+    +'<div><label class="lbl">Industry / trade for the gap run (optional override)</label><input class="f" id="f_trade" value="'+esc(c.trade||'')+'" placeholder="e.g. electrical contractor, or NAICS 238210"></div>'
+    +'<div><label class="lbl">State (optional)</label><input class="f" id="f_state" placeholder="e.g. TX"></div>'
+    +'</div>';
+  h+='<div class="hint">Runs the Gap Finder against this client\u2019s uploaded documents + their scope, and flags every OSHA program their work requires. Save first so uploaded files are attached.</div>';
+  h+='<div style="margin-top:10px"><button class="btn" onclick="runGap()">Run gap analysis</button> <span class="saved" id="gapMsg" style="margin-left:8px"></span></div>';
+  h+='<div id="gapReport" style="margin-top:12px"></div>';
+  h+='</div>';
+
   if(!docs){
     h+='<div class="section-title">Prequal platform grades</div><div class="card">';
     h+=platRow('isnetworld','ISNetworld',p.isnetworld||{},STAT_PREQ);
@@ -244,6 +256,7 @@ function addAvail(){document.getElementById('availList').insertAdjacentHTML('bef
 
 function gather(){
   var c=CUR;c.company=val('f_company');c.email=val('f_email');c.client_type=val('f_type');c.plan=val('f_plan');
+  c.scope=val('f_scope');c.trade=val('f_trade');
   var pin=val('f_pin');
   c.platforms=c.platforms||{};
   document.querySelectorAll('.platrow').forEach(function(row){var k=row.getAttribute('data-plat');
@@ -259,6 +272,7 @@ function gather(){
     return {name:r.querySelector('.a-name').value.trim(),code:r.querySelector('.a-code').value.trim()};})
     .filter(function(x){return x.name;});
   var body={company:c.company,email:c.email,client_type:c.client_type,plan:c.plan,
+    scope:c.scope,trade:c.trade,
     platforms:c.platforms,coi:c.coi,documents:c.documents,available:c.available};
   if(c.slug)body.slug=c.slug;
   if(pin)body.pin=pin;
@@ -302,6 +316,64 @@ function loadRequests(){
 function quote(slug,index){
   var price=document.getElementById('pr_'+slug+'_'+index).value.trim();
   api('/portal/api/admin/request/quote',{method:'POST',body:{slug:slug,index:index,price:price,status:'quoted'}}).then(function(){loadRequests();});
+}
+function runGap(){
+  if(!CUR.slug){alert('Save the client first, then run the gap analysis.');return;}
+  var industry=(val('f_trade')||val('f_scope')||'').trim();
+  var state=val('f_state');
+  if(!industry){alert('Add a scope of work (or a trade) first \u2014 that tells the gap finder which programs their work requires.');return;}
+  var msg=document.getElementById('gapMsg');msg.textContent='Running\u2026 this can take a moment.';msg.classList.add('show');
+  document.getElementById('gapReport').innerHTML='';
+  api('/portal/api/admin/client/'+CUR.slug+'/gap',{method:'POST',body:{industry:industry,state:state}}).then(function(r){
+    msg.classList.remove('show');msg.textContent='';
+    if(!r.ok){document.getElementById('gapReport').innerHTML='<div class="card" style="color:#b91c1c">'+esc(r.j.error||'Gap analysis failed.')+'</div>';return;}
+    CUR.gap_report=r.j.report;renderGapReport(r.j.report);
+  });
+}
+function renderGapReport(rep){
+  if(!rep){document.getElementById('gapReport').innerHTML='';return;}
+  var s=rep.summary||{};var h='';
+  h+='<div class="card"><div style="font-weight:700">'+esc(s.headline||'')+'</div>';
+  h+='<div class="sub" style="margin-top:4px">'+(s.programs_present||0)+' present \u00b7 '+(s.programs_failing||0)+' failing \u00b7 '+(s.programs_missing||0)+' missing (of '+(s.programs_total||0)+' required written programs) \u00b7 readiness '+(s.readiness_pct||0)+'%.</div>';
+  var gaps=(rep.gaps||[]).filter(function(g){return g.needs_program&&g.status!=='PRESENT';});
+  if(!gaps.length){h+='<div class="hint" style="margin-top:8px">Nothing to build \u2014 every required written program is already covered.</div>';}
+  else{
+    h+='<div style="margin-top:10px">';
+    gaps.forEach(function(g){
+      var tag=g.status==='MISSING'?'<span class="pill new">Missing</span>':'<span class="pill">Failing</span>';
+      var flag=g.platform_flagged?' <span class="pill new">Platform-flagged</span>':'';
+      h+='<label style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid #eee">'
+        +'<input type="checkbox" class="gapchk" value="'+esc(g.id)+'" '+(g.can_autodraft?'checked':'disabled')+'>'
+        +'<span><b>'+esc(g.title)+'</b> '+tag+flag+'<br><span class="from">'+esc(g.citation||'')+'</span></span></label>';
+    });
+    h+='</div>';
+    h+='<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +'<button class="btn ghost sm" onclick="buildDrafts(false)">Build drafts (review first)</button>'
+      +'<button class="btn orange sm" onclick="buildDrafts(true)">Build &amp; publish to client</button>'
+      +'<span class="saved" id="buildMsg" style="margin-left:4px"></span></div>';
+  }
+  h+='</div>';
+  document.getElementById('gapReport').innerHTML=h;
+}
+function buildDrafts(publish){
+  var ids=[].map.call(document.querySelectorAll('.gapchk:checked'),function(c){return c.value;});
+  if(!ids.length){alert('Select at least one program to build.');return;}
+  var msg=document.getElementById('buildMsg');msg.textContent=publish?'Building \u0026 publishing\u2026':'Building\u2026';msg.classList.add('show');
+  api('/portal/api/admin/client/'+CUR.slug+'/draft',{method:'POST',body:{ids:ids,publish:publish}}).then(function(r){
+    msg.classList.remove('show');msg.textContent='';
+    if(!r.ok){alert(r.j.error||'Build failed');return;}
+    var built=r.j.built||[],n=built.length;
+    if(publish){
+      alert(n+' program'+(n===1?'':'s')+' built and published \u2014 the client now sees '+(n===1?'it':'them')+' in My Documents.');
+      pick(CUR.slug);
+    }else{
+      var links=built.map(function(b){return '<a href="/portal/api/admin/client/'+CUR.slug+'/draft/preview?file='+encodeURIComponent(b.file)+'" target="_blank" rel="noopener">'+esc(b.title)+'</a>';}).join(' \u00b7 ');
+      document.getElementById('gapReport').insertAdjacentHTML('beforeend',
+        '<div class="card"><div style="font-weight:600">Drafts built (not yet visible to the client):</div>'
+        +'<div class="sub" style="margin-top:4px">'+links+'</div>'
+        +'<div class="hint">Open each to review. When they look right, click \u201cBuild \u0026 publish to client\u201d to add them to the portal.</div></div>');
+    }
+  });
 }
 document.getElementById('pw').addEventListener('keydown',function(e){if(e.key==='Enter')adminLogin();});
 </script>

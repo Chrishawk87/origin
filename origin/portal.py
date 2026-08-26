@@ -186,6 +186,13 @@ def _blank_client(company: str, email: str, client_type: str = "prequal") -> Dic
         "documents": [],
         "available": [],
         "requests": [],
+        # Free-text description of the work the client actually performs. Drives
+        # the gap finder: what programs their trade/scope requires vs. what they
+        # have. Client fills this in; Chris can refine it in admin.
+        "scope": "",
+        "trade": "",  # optional NAICS/industry keyword Chris uses for the gap run
+        "gap_report": None,   # last gap-analysis result (summary + gaps)
+        "gap_run_at": "",
         "created": _now(),
         "updated": _now(),
     }
@@ -367,6 +374,22 @@ def register_portal(app) -> None:
             print(f"[portal] request email skipped: {exc}")
         return {"ok": True}
 
+    @app.post("/portal/api/scope")
+    def portal_scope(request: Request, body: dict = Body(...)):
+        """The client describes the work they perform. This feeds the gap
+        finder so Origin can spot programs their trade requires that they may
+        not know they need."""
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        rec["scope"] = (body.get("scope") or "").strip()
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True}
+
     @app.post("/portal/api/upload")
     def portal_upload(request: Request, file: UploadFile = File(...), name: str = Form("")):
         sess = client_session(request)
@@ -463,7 +486,7 @@ def register_portal(app) -> None:
                                                  body.get("client_type", "prequal"))
         rec["slug"] = slug
         rec["company"] = company
-        for key in ("email", "client_type", "plan"):
+        for key in ("email", "client_type", "plan", "scope", "trade"):
             if key in body:
                 rec[key] = body[key]
         for key in ("platforms", "coi", "documents", "available"):
@@ -508,6 +531,133 @@ def register_portal(app) -> None:
             rec["documents"].append({"name": doc_name, "sub": "Uploaded", "file": safe})
         save_client(rec)
         return {"ok": True, "file": safe}
+
+    @app.post("/portal/api/admin/client/{slug}/gap")
+    def admin_gap(slug: str, request: Request, body: dict = Body(...)):
+        """Run the Origin Gap Finder against ONE client — using the documents
+        they've uploaded plus the scope of work they perform — and store the
+        result on their record. Eliminates the manual download/re-upload loop.
+
+        Body: {industry?, state?, operators?}. If industry is omitted, falls
+        back to the client's trade keyword, then their scope-of-work text."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        try:
+            from . import gaps as _gaps
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"gap engine unavailable: {exc}"}, status_code=500)
+
+        industry = (body.get("industry") or rec.get("trade") or rec.get("scope") or "").strip()
+        if not industry:
+            return JSONResponse(
+                {"error": "Add a scope of work (or trade) for this client first — "
+                          "that's what tells the gap finder which programs their work requires."},
+                status_code=400)
+        state = (body.get("state") or "").strip() or None
+        ops_raw = body.get("operators")
+        if isinstance(ops_raw, str):
+            operators = [o.strip() for o in ops_raw.split(",") if o.strip()] or None
+        elif isinstance(ops_raw, list):
+            operators = [str(o).strip() for o in ops_raw if str(o).strip()] or None
+        else:
+            operators = None
+
+        # Read every document the client already has on file. Their scope text
+        # is added as a pseudo-document so trade-specific work they describe but
+        # haven't documented still informs coverage.
+        docs = []
+        docs_dir = _client_dir(slug) / "docs"
+        for d in rec.get("documents", []):
+            fn = d.get("file")
+            if not fn:
+                continue
+            path = docs_dir / os.path.basename(fn)
+            if not path.is_file():
+                continue
+            try:
+                text = _gaps.extract_text(str(path))
+            except Exception:
+                text = ""
+            docs.append({"name": d.get("name") or fn, "text": text})
+
+        try:
+            report = _gaps.find_gaps(industry, state=state, operators=operators, docs=docs)
+        except Exception as exc:
+            return JSONResponse({"error": f"gap analysis failed: {exc}"}, status_code=500)
+
+        # Store a trimmed copy on the record (full gaps list + summary/meta).
+        rec["gap_report"] = report
+        rec["gap_run_at"] = _now()
+        if body.get("industry"):
+            rec["trade"] = industry
+        save_client(rec)
+        return {"ok": True, "report": report}
+
+    @app.post("/portal/api/admin/client/{slug}/draft")
+    def admin_draft(slug: str, request: Request, body: dict = Body(...)):
+        """Build the missing/failing written programs Origin identified and,
+        when publish is set, drop the finished .docx straight into the client's
+        document vault so they see it in their portal."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        ids = body.get("ids") or []
+        if not ids:
+            return JSONResponse({"error": "no program ids selected"}, status_code=400)
+        publish = bool(body.get("publish"))
+        try:
+            from . import gaps as _gaps
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"gap engine unavailable: {exc}"}, status_code=500)
+
+        drafts = _gaps.draft_programs(ids, company=rec.get("company"),
+                                      effective_date=body.get("effective_date"))
+        if not drafts:
+            return JSONResponse(
+                {"error": "none of those standards have a draftable written program"},
+                status_code=400)
+        docs_dir = _client_dir(slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        built = []
+        for d in drafts:
+            docx_bytes = _gaps.program_docx_bytes(d["title"], d["markdown"])
+            if docx_bytes:
+                fname = d["filename"].rsplit(".", 1)[0] + ".docx"
+                (docs_dir / fname).write_bytes(docx_bytes)
+            else:
+                fname = d["filename"]
+                (docs_dir / fname).write_text(d["markdown"], encoding="utf-8")
+            row = {"name": d["title"], "sub": f"Built by Origin — {d.get('citation', '')}".strip(" —"),
+                   "file": fname, "source": "origin-draft"}
+            if publish:
+                # replace an existing row of the same name, else append
+                for existing in rec.setdefault("documents", []):
+                    if existing.get("name") == d["title"]:
+                        existing.update(row)
+                        break
+                else:
+                    rec["documents"].append(row)
+            built.append({"id": d["id"], "title": d["title"], "file": fname,
+                          "citation": d.get("citation", "")})
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "published": publish, "built": built}
+
+    @app.get("/portal/api/admin/client/{slug}/draft/preview")
+    def admin_draft_preview(slug: str, request: Request, file: str = ""):
+        """Let Chris open a built draft from the admin console before publishing."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        name = os.path.basename(file or "")
+        path = _client_dir(slug) / "docs" / name
+        if not name or not path.is_file():
+            return JSONResponse({"error": "file not found"}, status_code=404)
+        return FileResponse(str(path))
 
     @app.get("/portal/api/admin/requests")
     def admin_requests(request: Request):

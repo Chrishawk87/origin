@@ -128,6 +128,7 @@
 
   <nav class="tabs"><div class="wrap">
     <div class="tab active" data-page="overview" onclick="go(this)">Overview</div>
+    <div class="tab" data-page="scope" onclick="go(this)">Scope of Work</div>
     <div class="tab" data-page="prequal" id="tabPrequal" onclick="go(this)">Prequal Status</div>
     <div class="tab" data-page="coi" onclick="go(this)">Insurance &amp; COI</div>
     <div class="tab" data-page="docs" onclick="go(this)">My Documents</div>
@@ -135,6 +136,7 @@
 
   <main><div class="wrap">
     <section id="overview" class="page active"></section>
+    <section id="scope" class="page"></section>
     <section id="prequal" class="page"></section>
     <section id="coi" class="page"></section>
     <section id="docs" class="page"></section>
@@ -227,7 +229,29 @@ function render(){
   document.getElementById('tabPrequal').classList.toggle('hidden',!prequal);
   // if prequal tab was active but now hidden, jump to overview
   if(!prequal&&document.getElementById('prequal').classList.contains('active')){go(document.querySelector('.tab'));}
-  renderOverview(prequal); renderPrequal(); renderCOI(); renderDocs();
+  renderOverview(prequal); renderScope(); renderPrequal(); renderCOI(); renderDocs();
+}
+function renderScope(){
+  var d=DATA, h='';
+  h+='<div class="hello"><div><h2>Scope of Work</h2>'
+    +'<div class="sub">Tell us exactly what work your company performs. The more detail you give, the better we can spot the safety programs your trade requires \u2014 including ones you may not know you need.</div></div></div>';
+  h+='<div class="card" style="padding:16px">';
+  h+='<label style="display:block;font-weight:600;font-size:13px;color:var(--charcoal);margin-bottom:6px">Describe the work you do</label>';
+  h+='<textarea id="scopeText" style="width:100%;min-height:150px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical" '
+    +'placeholder="e.g. Industrial electrical contractor. We do high-voltage work, motor control installs, and cable tray in refineries and chemical plants. Crews use aerial lifts, work at heights, and enter confined spaces. Occasional hot work / welding.">'+esc(d.scope||'')+'</textarea>';
+  h+='<div id="scopeMsg" style="font-size:12.5px;color:var(--green);margin-top:8px;min-height:16px"></div>';
+  h+='<div style="margin-top:10px"><button class="btn orange" onclick="saveScope()">Save scope of work</button></div>';
+  h+='</div>';
+  document.getElementById('scope').innerHTML=h;
+}
+function saveScope(){
+  var t=(document.getElementById('scopeText').value||'').trim();
+  var msg=document.getElementById('scopeMsg');msg.style.color='var(--muted)';msg.textContent='Saving\u2026';
+  api('/portal/api/scope',{method:'POST',body:{scope:t}}).then(function(r){
+    if(!r.ok){msg.style.color='var(--red)';msg.textContent=r.j.error||'Could not save. Please try again.';return;}
+    if(DATA)DATA.scope=t;
+    msg.style.color='var(--green)';msg.textContent='Saved \u2014 thank you. This helps us build exactly what your work requires.';
+  });
 }
 function renderOverview(prequal){
   var d=DATA, h='';
