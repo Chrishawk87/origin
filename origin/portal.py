@@ -158,13 +158,20 @@ def list_clients() -> List[Dict[str, Any]]:
 
 def find_by_email(email: str) -> Optional[Dict[str, Any]]:
     email = (email or "").strip().lower()
-    if not CLIENTS_DIR.is_dir():
+    if not email or not CLIENTS_DIR.is_dir():
         return None
+    matches: List[Dict[str, Any]] = []
     for d in sorted(CLIENTS_DIR.iterdir()):
         rec = load_client(d.name)
         if rec and (rec.get("email", "").strip().lower() == email):
-            return rec
-    return None
+            matches.append(rec)
+    if not matches:
+        return None
+    # If more than one record somehow shares this email, prefer the most
+    # recently updated one. Otherwise a freshly edited profile could appear to
+    # "revert" to a stale/seed duplicate that merely sorts first by folder name.
+    matches.sort(key=lambda r: r.get("updated", ""), reverse=True)
+    return matches[0]
 
 
 def _blank_client(company: str, email: str, client_type: str = "prequal") -> Dict[str, Any]:
@@ -372,15 +379,23 @@ def register_portal(app) -> None:
         return request.url.scheme == "https"
 
     # ===================== PAGES =====================
+    # Never let the browser cache these pages — a stale copy of the login JS is
+    # the usual reason the portal "misbehaves" after a deploy. no-store forces a
+    # fresh fetch every visit.
+    _NO_STORE = {"Cache-Control": "no-store, must-revalidate",
+                 "Pragma": "no-cache", "Expires": "0"}
+
     @app.get("/portal", response_class=HTMLResponse)
     def portal_page():
         f = webui / "portal.html"
-        return f.read_text(encoding="utf-8") if f.is_file() else "<h1>Portal</h1><p>page missing</p>"
+        html = f.read_text(encoding="utf-8") if f.is_file() else "<h1>Portal</h1><p>page missing</p>"
+        return HTMLResponse(html, headers=_NO_STORE)
 
     @app.get("/admin", response_class=HTMLResponse)
     def admin_page():
         f = webui / "admin.html"
-        return f.read_text(encoding="utf-8") if f.is_file() else "<h1>Admin</h1><p>page missing</p>"
+        html = f.read_text(encoding="utf-8") if f.is_file() else "<h1>Admin</h1><p>page missing</p>"
+        return HTMLResponse(html, headers=_NO_STORE)
 
     # ===================== CLIENT API =====================
     @app.post("/portal/api/login")
@@ -599,8 +614,19 @@ def register_portal(app) -> None:
         company = (body.get("company") or "").strip()
         if not company:
             return JSONResponse({"error": "company name required"}, status_code=400)
-        slug = (body.get("slug") or slugify(company)).strip()
-        rec = load_client(slug) or _blank_client(company, body.get("email", ""),
+        incoming_slug = (body.get("slug") or "").strip()
+        email = (body.get("email") or "").strip()
+        # Guard against duplicate accounts for the same email. Login looks clients
+        # up by email, so two records sharing one email make a client's profile
+        # appear to "revert" to whichever record sorts first. When saving a NEW
+        # client (no slug yet) whose email already exists, edit that existing
+        # record in place instead of minting a second one.
+        if not incoming_slug and email:
+            existing = find_by_email(email)
+            if existing:
+                incoming_slug = existing["slug"]
+        slug = incoming_slug or slugify(company)
+        rec = load_client(slug) or _blank_client(company, email,
                                                  body.get("client_type", "prequal"))
         rec["slug"] = slug
         rec["company"] = company
