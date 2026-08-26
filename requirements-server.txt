@@ -11,3 +11,4 @@ anthropic>=0.39
 openai>=1.40
 mammoth
 xhtml2pdf
+markdown>=3.5          # convert program-template markdown bodies to HTML

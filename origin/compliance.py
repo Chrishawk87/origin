@@ -31,7 +31,7 @@ ASSIGN_SUBDIR = "Compliance"                                  # inside a project
 # ── Brand / document styling ─────────────────────────────────────────────────
 # Bump STYLE_VERSION whenever the look changes; ensure_library() re-renders the
 # stored masters so existing documents on the Railway volume pick up the change.
-STYLE_VERSION = "2026-08-26-premium-cover"
+STYLE_VERSION = "2026-08-26-premium-cover-2"
 
 # IMPORTANT: these documents are the CLIENT's own written programs — the client
 # uploads them to ISNetworld/Avetta as their company's program. So Origin
@@ -261,6 +261,56 @@ def wrap_program_document(inner_html: str, title: str = "",
     )
 
 
+# ── Legacy trade-template upgrade ────────────────────────────────────────────
+# The original trade starter templates (general-construction-*, oilfield-*,
+# trucking-*) predate both the premium cover and the portal auto-fill tokens.
+# Their body opens with an inline "YOUR LOGO HERE" letterhead + a metadata table
+# and uses spaced placeholder tokens ({{COMPANY NAME}}) the portal never fills.
+# This upgrade strips that legacy intro, normalizes the tokens to the same
+# underscore set the rest of the library uses, then applies the premium cover so
+# the entire asset library shares one look and one fill flow.
+_LEGACY_INTRO_RE = re.compile(r"^.*?(?=<p><strong>\s*1[.\s])", re.S | re.I)
+_LEGACY_CITE_RE = re.compile(
+    r"(?:29|30|40|49)\s*CFR\s*[\d.]+(?:\s*Subpart\s*[A-Z])?", re.I)
+
+
+def _is_legacy_template(html: str) -> bool:
+    """A stored master still in the pre-premium trade-template format."""
+    return "YOUR LOGO HERE" in html or "{{COMPANY NAME}}" in html
+
+
+def _normalize_legacy_tokens(s: str) -> str:
+    """Bring the old spaced placeholders in line with the portal's token set."""
+    s = s.replace("{{COMPANY NAME}}", "{{COMPANY_NAME}}")
+    s = s.replace("{{0}}", "1.0")          # revision-history starter row
+    s = s.replace("{{ }}", "&nbsp;")       # blank revision-history cells
+    return s
+
+
+def wrap_legacy_program_document(inner_html: str, title: str = "",
+                                 citation: str = "") -> str:
+    """Upgrade a legacy trade-template body to the premium program format:
+    strip its inline letterhead + metadata table, normalize its placeholder
+    tokens, then wrap it in the same client-branded cover the KB programs use."""
+    content = _content_only(inner_html)
+    body = _LEGACY_INTRO_RE.sub("", content, count=1).strip() or content
+    body = _normalize_legacy_tokens(body)
+    if not citation:
+        m = _LEGACY_CITE_RE.search(body)
+        if m:
+            citation = re.sub(r"\s+", " ", m.group(0)).strip()
+    cover = _program_cover_html(title, citation)
+    return (
+        f"<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>{_esc(title or 'Written Compliance Program')}</title>{_DOC_CSS}</head>"
+        f"<body><div class='oms-doc'>"
+        f"{cover}"
+        f"<div class='pb'></div>"
+        f"{body}"
+        f"</div>{_footer_html()}</body></html>"
+    )
+
+
 # ── Library persistence ──────────────────────────────────────────────────────
 def _index_path() -> Path:
     return LIBRARY_DIR / "index.json"
@@ -283,7 +333,11 @@ def ensure_library() -> None:
             if not src.is_file():
                 continue
             title = s.get("title", s["id"])
-            html = wrap_document(src.read_text(encoding="utf-8"), title)
+            raw = src.read_text(encoding="utf-8")
+            if _is_legacy_template(raw):
+                html = wrap_legacy_program_document(raw, title)
+            else:
+                html = wrap_document(raw, title)
             fname = f"{s['id']}.html"
             (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
             records.append({"id": s["id"], "trade": s.get("trade", ""),
@@ -345,8 +399,16 @@ def _restyle_masters_if_needed() -> None:
                     f.write_text(wrap_document(inner, rec.get("title", mid)),
                                  encoding="utf-8")
                     continue
-            # Everything else: re-wrap in place (preserves body, refreshes shell).
+            # Legacy trade starter templates: strip the old inline letterhead,
+            # normalize the placeholder tokens, and apply the premium cover so
+            # the whole asset library shares one look and one fill flow.
             old = f.read_text(encoding="utf-8", errors="replace")
+            if _is_legacy_template(old):
+                f.write_text(
+                    wrap_legacy_program_document(old, rec.get("title", mid)),
+                    encoding="utf-8")
+                continue
+            # Everything else: re-wrap in place (preserves body, refreshes shell).
             new = wrap_document(old, rec.get("title", mid))
             if new != old:
                 f.write_text(new, encoding="utf-8")
@@ -369,9 +431,54 @@ def _md_to_html(md: str) -> str:
         import markdown as _md
         inner = _md.markdown(body, extensions=["tables", "sane_lists"])
     except Exception:
-        # minimal fallback so a missing lib never breaks the library
-        inner = "".join(f"<p>{_esc(ln)}</p>" for ln in body.splitlines() if ln.strip())
+        # Fallback so a missing lib never renders raw markdown/HTML as literal
+        # text. Handles headings, bold, and lists; passes through lines that are
+        # already HTML (e.g. an embedded letterhead <table>) instead of escaping.
+        inner = _md_to_html_fallback(body)
     return inner
+
+
+def _md_to_html_fallback(body: str) -> str:
+    """Best-effort markdown->HTML without the `markdown` package. Not a full
+    parser — just enough that a bodies never renders as escaped source."""
+    def _inline(t: str) -> str:
+        t = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", t)
+        t = re.sub(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", r"<em>\1</em>", t)
+        return t
+    out: list[str] = []
+    in_list = False
+    for ln in body.splitlines():
+        s = ln.rstrip()
+        stripped = s.strip()
+        if not stripped:
+            if in_list:
+                out.append("</ul>"); in_list = False
+            continue
+        # Line is already HTML (raw table, div, etc.) — pass through untouched.
+        if stripped.startswith("<"):
+            if in_list:
+                out.append("</ul>"); in_list = False
+            out.append(s)
+            continue
+        m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+        if m:
+            if in_list:
+                out.append("</ul>"); in_list = False
+            lvl = len(m.group(1))
+            out.append(f"<h{lvl}>{_inline(_esc(m.group(2)))}</h{lvl}>")
+            continue
+        m = re.match(r"^[-*+]\s+(.*)$", stripped)
+        if m:
+            if not in_list:
+                out.append("<ul>"); in_list = True
+            out.append(f"<li>{_inline(_esc(m.group(1)))}</li>")
+            continue
+        if in_list:
+            out.append("</ul>"); in_list = False
+        out.append(f"<p>{_inline(_esc(stripped))}</p>")
+    if in_list:
+        out.append("</ul>")
+    return "".join(out)
 
 
 def _sync_program_masters() -> None:
