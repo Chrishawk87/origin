@@ -804,8 +804,28 @@ async function loadFiles(){
   files.forEach(f=>{
     const d=document.createElement('div'); d.className='fitem';
     d.innerHTML='<span class="ic">'+(icons[f.kind]||'📎')+'</span><span class="nm">'+escapeHtml(f.path)+'</span><span class="sz">'+fmtSize(f.size)+'</span>';
-    d.onclick=()=>onFileClick(f); fl.appendChild(d);
+    d.onclick=()=>onFileClick(f);
+    // Push a document the AI built into this company's client portal. Only
+    // meaningful for portal-client projects; the endpoint says so if it isn't.
+    const pb=document.createElement('button'); pb.className='toportal';
+    pb.textContent='→ Portal'; pb.title='Send this file to the client portal';
+    pb.style.cssText='margin-left:6px;font-size:11px;padding:2px 7px;border:1px solid var(--line,#33405a);'
+      +'background:transparent;color:var(--dim,#9fb0c8);border-radius:6px;cursor:pointer;flex:none';
+    pb.onclick=(e)=>{ e.stopPropagation(); publishToPortal(f.path); };
+    d.appendChild(pb);
+    fl.appendChild(d);
   });
+}
+async function publishToPortal(path){
+  if(!ACTIVE){ alert('Open a project first.'); return; }
+  const base=path.replace(/^.*\//,'').replace(/\.[^.]+$/,'');
+  const name=prompt('Name the client will see for this document:', base);
+  if(name===null) return;
+  const r=await api('/api/portal/publish',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({project_slug:ACTIVE.slug, path:path, name:(name||base).trim()})});
+  if(r&&r.ok){ alert('Sent to '+(r.company||'the client')+'\u2019s portal — they can view and print it now.'); }
+  else { alert((r&&r.error)||'Could not send this to a client portal.'); }
 }
 function previewFile(f){
   document.getElementById('v-name').textContent=f.path;

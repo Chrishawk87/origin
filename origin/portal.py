@@ -281,6 +281,20 @@ def _sync_docs(rec: Dict[str, Any]) -> bool:
     return changed
 
 
+def _client_by_project(project_slug: str) -> Optional[Dict[str, Any]]:
+    """Find the portal client mirrored by a given Origin project slug, so the
+    main Origin chat page can push a file the AI built into the right vault."""
+    project_slug = (project_slug or "").strip()
+    if not project_slug:
+        return None
+    for c in list_clients():
+        rec = load_client(c["slug"])
+        if rec and rec.get("project_slug") == project_slug:
+            return rec
+    # fallback: the project slug usually equals the client slug
+    return load_client(project_slug)
+
+
 def _public_view(rec: Dict[str, Any]) -> Dict[str, Any]:
     """What the logged-in client is allowed to see (no pin hash)."""
     safe = {k: v for k, v in rec.items() if k != "pin_hash"}
@@ -874,6 +888,52 @@ def register_portal(app) -> None:
         if added:
             save_client(rec)
         return {"ok": True, "added": added, "documents": rec.get("documents", [])}
+
+    @app.post("/api/portal/publish")
+    def api_portal_publish(request: Request, body: dict = Body(...)):
+        """Push a file the Origin AI built (inside a portal-client project) into
+        that client's document vault. Lives under /api so it's gated by the main
+        app's origin-token — the Origin chat page is already signed in with it."""
+        project_slug = (body.get("project_slug") or "").strip()
+        rel = (body.get("path") or "").strip()
+        if not project_slug or not rel:
+            return JSONResponse({"error": "project and file path are required"}, status_code=400)
+        rec = _client_by_project(project_slug)
+        if not rec:
+            return JSONResponse(
+                {"error": "This project isn't linked to a client portal, so there's "
+                          "nowhere to send it."}, status_code=404)
+        slug = rec["slug"]
+        workdir = _client_dir(slug)
+        try:
+            src = (workdir / rel).resolve()
+            src.relative_to(workdir.resolve())  # stay inside the client folder
+        except Exception:
+            return JSONResponse({"error": "invalid file path"}, status_code=400)
+        if not src.is_file():
+            return JSONResponse({"error": "file not found"}, status_code=404)
+        docs_dir = workdir / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        dest = docs_dir / src.name
+        if src.resolve() != dest.resolve():
+            dest.write_bytes(src.read_bytes())
+        fname = dest.name
+        title = (body.get("name") or src.stem).strip() or src.stem
+        row = {"name": title, "sub": "Built by Origin AI", "file": fname,
+               "source": "origin-ai"}
+        for existing in rec.setdefault("documents", []):
+            if existing.get("name") == title or existing.get("file") == fname:
+                existing.update(row)
+                break
+        else:
+            rec["documents"].append(row)
+        staged = rec.get("staged_files", [])
+        if fname in staged:
+            staged.remove(fname)
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "company": rec.get("company"), "slug": slug,
+                "file": fname, "title": title}
 
     @app.get("/portal/api/admin/requests")
     def admin_requests(request: Request):

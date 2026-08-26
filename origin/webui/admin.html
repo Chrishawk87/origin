@@ -356,6 +356,7 @@ function loadFromLibrary(mid){
   panel.innerHTML='<div class="hint" style="margin-top:10px">Rendering into the client\u2019s vault\u2026</div>';
   api('/portal/api/admin/client/'+CUR.slug+'/from-library',{method:'POST',body:{mid:mid,publish:true}}).then(function(r){
     if(!r.ok){alert((r.j&&r.j.error)||'Could not load that document');return;}
+    alert('\u201c'+(r.j.title||'Document')+'\u201d is now published to '+(CUR.company||'the client')+'\u2019s portal. It appears in their My Documents \u2014 no need to hit Save.');
     pick(CUR.slug);
   });
 }
