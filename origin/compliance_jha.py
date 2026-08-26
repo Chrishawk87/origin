@@ -1683,3 +1683,1308 @@ JHA_LIBRARY["29-cfr-1926-52-occupational-noise-exposure-construction"] = {
         ]),
     ],
 }
+
+
+# ── General Industry category (29 CFR 1910) — field programs ───────────────────
+JHA_LIBRARY["29-cfr-1910-95-occupational-noise-exposure-hearing-conservation-program"] = {
+    "subtitle": "Hearing Conservation Program Operations",
+    "legend": [
+        ("Noise / Hearing", "Exposure at or above the action level causing hearing loss."),
+        ("Communication", "Masking of alarms and warning signals."),
+        ("Environmental", "High-noise machinery and reflective enclosed areas."),
+    ],
+    "jobs": [
+        ("1", "Noise Monitoring &amp; Enrollment", [
+            ("Identify and monitor noise exposure",
+             ["Unrecognized overexposure", "Workers not enrolled"],
+             ["Conduct noise monitoring to identify exposures at/above the action level",
+              "Enroll affected employees in the hearing conservation program",
+              "Notify employees of their exposure results"],
+             "Hearing protection, standard PPE"),
+        ]),
+        ("2", "Engineering &amp; Administrative Controls", [
+            ("Reduce noise exposure",
+             ["Continued overexposure", "Ineffective controls"],
+             ["Apply feasible engineering controls (enclosures, maintenance, damping)",
+              "Use administrative controls (rotation, scheduling, distance)",
+              "Post high-noise areas and limit access"],
+             "Hearing protection, standard PPE"),
+        ]),
+        ("3", "Hearing Protector Use &amp; Fit", [
+            ("Provide and fit protectors",
+             ["Inadequate attenuation", "Improper fit"],
+             ["Offer a selection of protectors with adequate NRR",
+              "Train on insertion/fit; use dual protection for very high noise",
+              "Replace worn or damaged protectors"],
+             "Earplugs and/or earmuffs"),
+        ]),
+        ("4", "Audiometric Testing &amp; Training", [
+            ("Test hearing and train",
+             ["Undetected threshold shift", "Untrained workers"],
+             ["Provide baseline and annual audiograms; evaluate standard threshold shifts",
+              "Train annually on noise hazards, protectors, and testing",
+              "Follow up with re-fit or medical referral on confirmed shifts"],
+             "Hearing protection"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-120-hazardous-waste-operations-and-emergency-response-hazwoper"] = {
+    "subtitle": "Hazardous Waste Operations &amp; Emergency Response",
+    "legend": [
+        ("Chemical", "Contact/inhalation of hazardous substances and unknowns."),
+        ("Atmospheric", "Oxygen deficiency, toxic/flammable atmospheres."),
+        ("Fire / Explosion", "Ignition of flammable/reactive materials."),
+        ("Physical", "Heat stress in PPE, drum handling, slips/trips."),
+        ("Environmental", "Release/spread of contamination."),
+    ],
+    "jobs": [
+        ("1", "Site Characterization &amp; Planning", [
+            ("Characterize the site and plan",
+             ["Unknown hazards", "Inadequate protection"],
+             ["Conduct site characterization; identify substances and hazards",
+              "Develop the site safety and health plan and select PPE levels (A&ndash;D)",
+              "Only trained (HAZWOPER-certified) personnel perform the work"],
+             "PPE level per hazard assessment, air monitoring"),
+        ]),
+        ("2", "Zone Setup &amp; Air Monitoring", [
+            ("Establish work zones and monitor air",
+             ["Contamination spread", "Undetected atmosphere"],
+             ["Establish exclusion, contamination reduction, and support zones",
+              "Continuously monitor the atmosphere (O2, LEL, toxics)",
+              "Control entry/exit; restrict access to trained personnel"],
+             "Level-appropriate PPE, calibrated air monitor"),
+        ]),
+        ("3", "Drum &amp; Container Handling", [
+            ("Handle drums and containers",
+             ["Release/spill", "Reactive incompatibles", "Overpressure"],
+             ["Inspect, stage, and open containers with remote/non-sparking tools",
+              "Segregate incompatible materials; use spill containment",
+              "Do not handle bulging/pressurized drums without a plan"],
+             "Chemical-resistant suit, gloves, face/eye protection, respirator"),
+        ]),
+        ("4", "Decontamination", [
+            ("Decontaminate personnel and equipment",
+             ["Cross-contamination", "Take-home exposure"],
+             ["Follow the established decon line before leaving the exclusion zone",
+              "Manage decon fluids and disposables as contaminated waste",
+              "Monitor for heat stress; rotate and rehydrate"],
+             "PPE until decon complete"),
+        ]),
+        ("5", "Emergency Response", [
+            ("Respond to releases",
+             ["Uncontrolled release", "Responder exposure"],
+             ["Follow the emergency response plan; only trained responders act",
+              "Establish command, isolate the area, and account for personnel",
+              "Use appropriate PPE/respiratory protection for the release"],
+             "Respirator/SCBA as required, chemical PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-134-respiratory-protection-program"] = {
+    "subtitle": "Respiratory Protection Program Use",
+    "legend": [
+        ("Respiratory", "Inhalation of dusts, fumes, vapors, gases, oxygen deficiency."),
+        ("Fit / Seal", "Face-seal leakage defeating protection."),
+        ("Physiological", "Breathing resistance, heat, medical limitations."),
+    ],
+    "jobs": [
+        ("1", "Hazard Assessment &amp; Selection", [
+            ("Select the correct respirator",
+             ["Wrong respirator for the hazard", "IDLH atmosphere"],
+             ["Assess the contaminant and concentration; select the proper respirator/cartridge",
+              "Use supplied-air/SCBA for IDLH or oxygen-deficient atmospheres",
+              "Only use respirators under the written program"],
+             "Selected respirator"),
+        ]),
+        ("2", "Medical Clearance &amp; Fit Testing", [
+            ("Clear and fit the user",
+             ["Medically unfit user", "Poor face seal"],
+             ["Obtain medical evaluation/clearance before use",
+              "Perform qualitative/quantitative fit testing for tight-fitting respirators",
+              "Prohibit facial hair that breaks the seal"],
+             "Fit-tested respirator"),
+        ]),
+        ("3", "Donning, Seal Check &amp; Use", [
+            ("Don and use the respirator",
+             ["Seal leakage", "Cartridge breakthrough"],
+             ["Perform a user seal check every time before entering the area",
+              "Change cartridges/filters per the schedule or breakthrough indicators",
+              "Leave the area if breathing resistance, odor, or dizziness occurs"],
+             "Fit-tested respirator, task PPE"),
+        ]),
+        ("4", "Cleaning, Inspection &amp; Storage", [
+            ("Maintain the respirator",
+             ["Degraded/contaminated respirator", "Failure in use"],
+             ["Inspect before and after use; remove defective units from service",
+              "Clean and disinfect after use; replace worn parts",
+              "Store in a clean, dry, protected location"],
+             "Standard PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-146-permit-required-confined-spaces-general-industry"] = {
+    "subtitle": "Permit-Required Confined Space Entry (General Industry)",
+    "legend": [
+        ("Atmospheric", "Oxygen deficiency/enrichment, toxic gas, flammable vapors."),
+        ("Engulfment", "Liquids or fine solids that can bury or suffocate."),
+        ("Configuration / Entrapment", "Converging walls, sloping floors, tapering spaces."),
+        ("Physical", "Mechanical/electrical energy, moving parts, temperature."),
+        ("Rescue", "Delayed/improvised rescue; rescuer becoming a victim."),
+    ],
+    "jobs": [
+        ("1", "Identify &amp; Permit the Space", [
+            ("Identify and authorize entry",
+             ["Unrecognized permit space", "Entry without authorization"],
+             ["Identify and label permit-required confined spaces",
+              "Entry supervisor completes and signs the permit before entry",
+              "Post the permit at the entry; cancel on job end or hazard change"],
+             "Standard PPE"),
+        ]),
+        ("2", "Isolation &amp; Lockout", [
+            ("Isolate energy and material inflow",
+             ["Release of hazardous energy/material"],
+             ["Lock/tag/blank/blind all energy and material sources",
+              "Drain, purge, and secure the space before entry",
+              "Verify isolation before anyone enters"],
+             "LOTO devices, gloves, standard PPE"),
+        ]),
+        ("3", "Atmospheric Testing &amp; Ventilation", [
+            ("Test and ventilate",
+             ["Oxygen deficiency", "Toxic/flammable atmosphere"],
+             ["Test O2, LEL, then toxics with a calibrated meter before entry",
+              "Provide continuous mechanical ventilation and monitoring",
+              "Do not enter until readings are acceptable"],
+             "Calibrated 4-gas monitor, ventilation equipment"),
+        ]),
+        ("4", "Entry, Attendant &amp; Retrieval", [
+            ("Enter with roles and retrieval set",
+             ["Unmonitored entry", "Falls", "No retrieval capability"],
+             ["Station a trained attendant outside at all times with communication",
+              "Use harness and retrieval line via tripod/davit unless a greater hazard",
+              "Continuously monitor; evacuate on any alarm or symptom"],
+             "Full-body harness, retrieval line, monitor, comms"),
+        ]),
+        ("5", "Rescue &amp; Emergency", [
+            ("Summon or perform rescue",
+             ["Rescuer becoming a victim", "Delayed rescue"],
+             ["Use non-entry retrieval rescue whenever possible",
+              "Summon the pre-arranged trained rescue service on emergency",
+              "Never perform unplanned entry rescue"],
+             "Retrieval system, rescue kit, SCBA if required"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-147-control-of-hazardous-energy-lockout-tagout"] = {
+    "subtitle": "Control of Hazardous Energy (Lockout/Tagout)",
+    "legend": [
+        ("Stored / Released Energy", "Electrical, mechanical, hydraulic, pneumatic, thermal, gravity."),
+        ("Unexpected Startup", "Energization or motion during servicing."),
+        ("Struck-By / Caught-Between", "Moving parts, stored spring/gravity energy."),
+    ],
+    "jobs": [
+        ("1", "Identify Energy Sources", [
+            ("Identify all energy sources",
+             ["Missed energy source", "Unexpected energization"],
+             ["Use equipment-specific energy control procedures",
+              "Identify all energy sources (electrical, mechanical, hydraulic, pneumatic, thermal, gravity)",
+              "Notify affected employees before lockout"],
+             "Standard PPE"),
+        ]),
+        ("2", "Shutdown &amp; Isolation", [
+            ("Shut down and isolate",
+             ["Energy remaining in the system", "Partial isolation"],
+             ["Shut down equipment using normal stopping procedures",
+              "Isolate each energy source (disconnect, valve, block)",
+              "Apply locks and tags to each isolating device"],
+             "Locks, tags, hasps, standard PPE"),
+        ]),
+        ("3", "Release Stored Energy &amp; Verify", [
+            ("De-energize and verify zero energy",
+             ["Stored/residual energy", "Unverified isolation"],
+             ["Release/restrain stored energy (bleed lines, block, discharge capacitors)",
+              "Verify zero-energy state by test before work begins",
+              "Each worker applies their own lock"],
+             "Voltage tester, blocking devices, gloves"),
+        ]),
+        ("4", "Servicing &amp; Group Lockout", [
+            ("Service under lockout",
+             ["Startup during service", "Group coordination failure"],
+             ["Keep locks in place during all servicing/maintenance",
+              "Use a group lockout box for multi-person work",
+              "Protect against restart of adjacent equipment"],
+             "Task PPE, personal locks"),
+        ]),
+        ("5", "Restoring Energy", [
+            ("Return equipment to service",
+             ["Premature re-energization", "Personnel in danger zone"],
+             ["Verify tools/guards reinstalled and personnel clear",
+              "Remove locks/tags only by the person who applied them",
+              "Notify affected employees before re-energizing"],
+             "Standard PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-178-powered-industrial-trucks-forklift-program"] = {
+    "subtitle": "Powered Industrial Truck (Forklift) Operations",
+    "legend": [
+        ("Struck-By / Caught-Between", "Pedestrians, racking, tip-over, falling loads."),
+        ("Tip-Over", "Overload, high speed, uneven surfaces, raised loads."),
+        ("Atmospheric", "Carbon monoxide from internal-combustion trucks indoors."),
+        ("Falls", "Falling from forks/elevated platforms."),
+    ],
+    "jobs": [
+        ("1", "Operator Qualification &amp; Inspection", [
+            ("Qualify operator and inspect truck",
+             ["Untrained operator", "Defective truck"],
+             ["Only trained, evaluated, and authorized operators drive",
+              "Perform a documented pre-shift inspection; remove defective trucks from service",
+              "Match the truck type to the environment (e.g., rated for hazardous areas)"],
+             "Hard hat, high-visibility vest, safety-toe boots, seat belt"),
+        ]),
+        ("2", "Load Handling", [
+            ("Pick up and place loads",
+             ["Overload/tip-over", "Falling load", "Racking collapse"],
+             ["Stay within the truck load capacity and load center",
+              "Tilt back and carry loads low; secure unstable loads",
+              "Do not exceed rack capacities; place loads squarely"],
+             "Hard hat, high-visibility vest, safety-toe boots"),
+        ]),
+        ("3", "Traveling &amp; Pedestrian Control", [
+            ("Travel with the truck",
+             ["Striking pedestrians", "Collisions", "Blind corners"],
+             ["Maintain safe speed; sound horn at intersections/blind spots",
+              "Keep forks low; travel in reverse when the load blocks the view",
+              "Separate pedestrian and truck routes; make eye contact"],
+             "High-visibility vest, hard hat, seat belt"),
+        ]),
+        ("4", "Elevating Personnel &amp; Refueling/Charging", [
+            ("Elevate personnel / refuel or charge",
+             ["Falls from forks", "CO buildup", "Battery acid/hydrogen", "Fire"],
+             ["Only use an approved secured work platform to elevate personnel",
+              "Ventilate for internal-combustion trucks; monitor CO indoors",
+              "Charge batteries in ventilated areas; refuel with the engine off, no ignition"],
+             "Fall protection on platform, face shield/gloves for battery/fuel"),
+        ]),
+        ("5", "Parking &amp; Shutdown", [
+            ("Park the truck safely",
+             ["Unintended movement", "Struck-by"],
+             ["Lower forks, neutral, set brake, and shut off when unattended",
+              "Do not park on inclines or block exits/equipment",
+              "Chock or secure on a grade if unavoidable"],
+             "Standard PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-331-335-electrical-safety-related-work-practices"] = {
+    "subtitle": "Electrical Safety-Related Work Practices",
+    "legend": [
+        ("Shock / Electrocution", "Contact with energized conductors and parts."),
+        ("Arc Flash / Blast", "Thermal burns and pressure from arcing faults."),
+        ("Fire", "Faults, overloads, improper equipment."),
+        ("Stored Energy", "Capacitors and other stored electrical energy."),
+    ],
+    "jobs": [
+        ("1", "Job Planning &amp; Qualification", [
+            ("Plan the electrical task",
+             ["Unqualified worker", "Unrecognized hazard"],
+             ["Only qualified persons work on/near exposed energized parts",
+              "Determine shock and arc-flash boundaries and required PPE",
+              "Plan the task and hold a job briefing before starting"],
+             "Arc-rated clothing, voltage-rated gloves, safety glasses"),
+        ]),
+        ("2", "De-energize &amp; Lockout", [
+            ("Create an electrically safe condition",
+             ["Unexpected energization", "Stored energy"],
+             ["De-energize and apply lockout/tagout",
+              "Test for absence of voltage with a rated tester before contact",
+              "Discharge stored energy and apply safety grounds where needed"],
+             "Voltage-rated gloves, rated tester, LOTO devices"),
+        ]),
+        ("3", "Energized Work (When Justified)", [
+            ("Perform energized work",
+             ["Shock", "Arc flash/blast", "Burns"],
+             ["Perform work de-energized unless infeasible and justified per an energized work permit",
+              "Use rated PPE, insulated tools, and maintain approach boundaries",
+              "Use a second qualified person/attendant as required"],
+             "Arc-rated suit/hood, voltage-rated gloves, insulated tools"),
+        ]),
+        ("4", "Restoration", [
+            ("Return to service",
+             ["Premature re-energization", "Faulty work"],
+             ["Reinstall guards/covers; confirm personnel and tools clear",
+              "Only the authorized person removes their lock/tag",
+              "Test before returning equipment to service"],
+             "Voltage-rated gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-252-welding-cutting-and-brazing-hot-work"] = {
+    "subtitle": "Welding, Cutting &amp; Brazing / Hot Work (General Industry)",
+    "legend": [
+        ("Fire / Explosion", "Sparks, slag near combustibles/flammables."),
+        ("Burns", "Hot metal, sparks, molten slag, UV skin burns."),
+        ("Fumes / Atmospheric", "Metal fumes, gases, oxygen displacement."),
+        ("Electrical", "Shock from welding circuits and leads."),
+        ("Compressed Gas", "Cylinder rupture, backflash."),
+    ],
+    "jobs": [
+        ("1", "Hot Work Permit &amp; Fire Watch", [
+            ("Authorize and watch the work",
+             ["Fire from unpermitted work", "No fire watch"],
+             ["Issue a hot work permit; verify no safer alternative",
+              "Assign a fire watch with an extinguisher during and 30+ min after",
+              "Test atmospheres before work where flammables may be present"],
+             "Welding PPE, extinguisher on hand"),
+        ]),
+        ("2", "Area Preparation", [
+            ("Prepare the work area",
+             ["Ignition of combustibles", "Sparks to lower areas"],
+             ["Remove/shield combustibles within 35 ft; cover openings/drains",
+              "Never cut/weld on containers that held flammables until made safe",
+              "Provide fire blankets and spark containment"],
+             "Welding PPE, fire blankets"),
+        ]),
+        ("3", "Equipment &amp; Cylinder Setup", [
+            ("Set up equipment and cylinders",
+             ["Cylinder rupture", "Flashback", "Shock"],
+             ["Secure cylinders upright with caps when moving; separate fuel/oxygen",
+              "Use flashback arrestors/check valves; inspect hoses and leads",
+              "Ground the work; keep leads dry and undamaged"],
+             "Welding gloves, leathers, safety glasses"),
+        ]),
+        ("4", "Welding / Cutting &amp; Ventilation", [
+            ("Perform hot work with fume control",
+             ["Burns", "Arc radiation", "Fume inhalation"],
+             ["Wear correct shade and full welding PPE; screen the arc",
+              "Provide local exhaust/ventilation for the process and base metal",
+              "Use respiratory protection for coated metals or confined areas"],
+             "Welding hood with correct shade, leathers, gloves, respirator as needed"),
+        ]),
+        ("5", "Post-Work", [
+            ("Secure after hot work",
+             ["Smoldering fire", "Hot metal contact"],
+             ["Maintain fire watch 30+ minutes; inspect adjacent/opposite areas",
+              "Shut off and bleed gas supplies; secure cylinders",
+              "Allow hot metal to cool or barricade it"],
+             "Welding gloves, extinguisher"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1030-bloodborne-pathogens-exposure-control-plan"] = {
+    "subtitle": "Bloodborne Pathogens Exposure Control",
+    "legend": [
+        ("Biological", "Contact with blood/OPIM carrying bloodborne pathogens."),
+        ("Sharps", "Needlesticks and cuts from contaminated sharps."),
+        ("Contamination", "Surface, clothing, and take-home contamination."),
+    ],
+    "jobs": [
+        ("1", "Exposure Determination &amp; Training", [
+            ("Identify exposure and train",
+             ["Unrecognized exposure", "Untrained worker"],
+             ["Identify job tasks with occupational exposure to blood/OPIM",
+              "Train workers and offer the hepatitis B vaccination",
+              "Follow universal precautions&mdash;treat all blood/OPIM as infectious"],
+             "Gloves, standard PPE"),
+        ]),
+        ("2", "Work Practice &amp; Engineering Controls", [
+            ("Use controls to prevent exposure",
+             ["Sharps injury", "Splash exposure"],
+             ["Use sharps with engineered injury protection; do not recap needles",
+              "Dispose of sharps in labeled puncture-resistant containers",
+              "Use splash protection where spatter is possible"],
+             "Gloves, gown, face/eye protection as needed"),
+        ]),
+        ("3", "Handling Contaminated Materials &amp; Cleanup", [
+            ("Clean and handle contaminated items",
+             ["Contact with contamination", "Spread of pathogens"],
+             ["Clean/disinfect surfaces with appropriate disinfectant",
+              "Handle contaminated laundry/waste in labeled bags/containers",
+              "Do not pick up broken glass by hand; use mechanical means"],
+             "Gloves, gown, face/eye protection"),
+        ]),
+        ("4", "Exposure Incident Response", [
+            ("Respond to an exposure incident",
+             ["Delayed treatment", "Untracked exposure"],
+             ["Wash the area immediately; report the incident right away",
+              "Provide confidential post-exposure medical evaluation and follow-up",
+              "Document the route of exposure and source where known"],
+             "Gloves, standard PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-22-30-walking-working-surfaces-fall-protection-general-industry"] = {
+    "subtitle": "Walking-Working Surfaces &amp; Fall Protection (General Industry)",
+    "legend": [
+        ("Falls", "Falls to a lower level from elevated surfaces and openings."),
+        ("Slips / Trips", "Wet, cluttered, or uneven walking surfaces."),
+        ("Struck-By", "Falling objects through openings/edges."),
+        ("Access", "Unsafe ladders, stairs, and fixed ladders."),
+    ],
+    "jobs": [
+        ("1", "Surface Inspection &amp; Housekeeping", [
+            ("Maintain safe walking surfaces",
+             ["Slips/trips", "Structural weakness"],
+             ["Inspect walking-working surfaces; keep them clean, dry, and clear",
+              "Correct/mark damaged surfaces; ensure adequate load capacity",
+              "Provide drainage or non-slip measures for wet areas"],
+             "Safety-toe non-slip footwear, standard PPE"),
+        ]),
+        ("2", "Guarding Openings &amp; Edges", [
+            ("Protect open sides and holes",
+             ["Falls through openings", "Falls from edges"],
+             ["Guard floor holes/openings with covers or guardrails",
+              "Provide standard guardrails at elevated open sides &ge; 4 ft",
+              "Install toeboards where objects could fall on workers below"],
+             "Standard PPE"),
+        ]),
+        ("3", "Elevated Work &amp; Fall Protection", [
+            ("Work at height",
+             ["Falls from height", "Improper anchorage"],
+             ["Use guardrails, or personal fall arrest with a rated anchor at &ge; 4 ft",
+              "Inspect harness/lanyard before use; ensure adequate fall clearance",
+              "Use fixed-ladder fall protection systems where required"],
+             "Full-body harness/lanyard, hard hat, non-slip footwear"),
+        ]),
+        ("4", "Stairs, Ladders &amp; Access", [
+            ("Use stairs and fixed ladders",
+             ["Falls on stairs/ladders", "Defective access"],
+             ["Maintain handrails and stair rails; keep access clear",
+              "Inspect fixed/portable ladders; remove defective ones from service",
+              "Maintain three points of contact on ladders"],
+             "Non-slip footwear, standard PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-157-portable-fire-extinguishers"] = {
+    "subtitle": "Portable Fire Extinguisher Use &amp; Maintenance",
+    "legend": [
+        ("Fire", "Incipient-stage fires; wrong extinguisher for the class."),
+        ("Burns / Smoke", "Heat and products of combustion."),
+        ("Physical", "Handling and mounting of extinguishers."),
+    ],
+    "jobs": [
+        ("1", "Selection &amp; Placement", [
+            ("Provide the right extinguishers",
+             ["Wrong extinguisher class", "Inaccessible units"],
+             ["Select extinguishers matched to the hazard class (A/B/C/D/K)",
+              "Mount and identify units with unobstructed access and travel distance",
+              "Keep areas around units clear"],
+             "Standard PPE"),
+        ]),
+        ("2", "Inspection &amp; Maintenance", [
+            ("Inspect and maintain units",
+             ["Discharged/defective extinguisher", "Overdue service"],
+             ["Perform monthly visual inspections and annual maintenance",
+              "Recharge/hydrotest per schedule; tag and record service",
+              "Replace damaged or discharged units immediately"],
+             "Standard PPE"),
+        ]),
+        ("3", "Use on an Incipient Fire", [
+            ("Fight an incipient fire (if trained)",
+             ["Fire growth beyond control", "Burns/smoke inhalation", "Trapped"],
+             ["Only trained personnel attempt incipient fires; sound the alarm first",
+              "Keep an exit at your back; use the PASS technique",
+              "Evacuate if the fire grows, smoke builds, or the extinguisher empties"],
+             "N/A &mdash; evacuate if unsafe"),
+        ]),
+        ("4", "Training", [
+            ("Train users",
+             ["Improper use", "Hesitation/panic"],
+             ["Train employees on extinguisher use upon assignment and annually",
+              "Cover fire classes, PASS technique, and when to evacuate",
+              "Document training"],
+             "Standard PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-269-electric-power-generation-transmission-distribution"] = {
+    "subtitle": "Electric Power Generation, Transmission &amp; Distribution",
+    "legend": [
+        ("Electrical", "Contact, induced voltage, step/touch potential, arc flash."),
+        ("Falls", "Falls from poles, structures, and aerial devices."),
+        ("Struck-By", "Falling conductors, hardware, equipment."),
+        ("Rigging / Hoisting", "Dropped loads during framing and stringing."),
+    ],
+    "jobs": [
+        ("1", "Job Briefing &amp; Clearances", [
+            ("Brief the job and obtain clearances",
+             ["Unrecognized hazards", "Work without clearance"],
+             ["Hold a documented job briefing on hazards and procedures",
+              "Obtain switching/clearance orders before work",
+              "Confirm minimum approach distances for the voltage"],
+             "Arc-rated clothing, voltage-rated gloves, hard hat"),
+        ]),
+        ("2", "De-energize, Test &amp; Ground", [
+            ("Isolate and ground",
+             ["Contact with energized line", "Induced voltage", "Re-energization"],
+             ["De-energize, test for absence of voltage, and apply protective grounds",
+              "Treat lines as energized until tested and grounded",
+              "Install grounds to control induced/fault voltage at the work site"],
+             "Voltage-rated gloves/sleeves, grounds, rated tester"),
+        ]),
+        ("3", "Climbing &amp; Aerial Access", [
+            ("Access poles and structures",
+             ["Falls", "Pole/structure failure", "Aerial device tip-over"],
+             ["Inspect/test poles before climbing; use fall protection continuously",
+              "Set aerial devices on firm level ground with outriggers",
+              "Maintain line clearances during positioning"],
+             "Full-body harness, climbing gear, hard hat, voltage-rated gloves"),
+        ]),
+        ("4", "Energized-Line Work", [
+            ("Perform live-line work (when required)",
+             ["Electrocution", "Flashover", "Burns"],
+             ["Only qualified line workers with rated cover-up and live-line tools",
+              "Maintain minimum approach distances; insulate/isolate the worker",
+              "Follow the approved hot-stick or barehand procedure"],
+             "Voltage-rated gloves/sleeves, arc-rated suit, insulated tools"),
+        ]),
+        ("5", "Stringing &amp; Rigging", [
+            ("String and rig conductors",
+             ["Dropped/backlash conductor", "Struck-by", "Adjacent energized lines"],
+             ["Use rated pulling/tensioning gear and signals",
+              "Keep clear of conductors under tension; guard structures at crossings",
+              "Ground conductors/equipment to control induced voltage"],
+             "Hard hat, voltage-rated gloves, high-visibility vest"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-179-cranes-derricks-hoists-slings-general-industry-rigging"] = {
+    "subtitle": "Cranes, Hoists &amp; Rigging (General Industry)",
+    "legend": [
+        ("Struck-By / Caught-Between", "Swinging/dropped loads, pinch points."),
+        ("Rigging Failure", "Overloaded or damaged slings, shackles, hooks."),
+        ("Overhead", "Contact with power lines and structures."),
+        ("Mechanical", "Hoist/crane defects, two-blocking."),
+    ],
+    "jobs": [
+        ("1", "Equipment &amp; Rigging Inspection", [
+            ("Inspect crane, hoist, and rigging",
+             ["Defective equipment", "Damaged slings/hooks"],
+             ["Perform pre-use and periodic inspections; remove defective gear",
+              "Verify rated capacity and inspection tags on slings/shackles/hooks",
+              "Only qualified operators/riggers perform lifts"],
+             "Hard hat, safety glasses, gloves, safety-toe boots"),
+        ]),
+        ("2", "Lift Planning &amp; Rigging the Load", [
+            ("Plan and rig the lift",
+             ["Overload", "Unbalanced/shifting load", "Dropped load"],
+             ["Determine load weight and center of gravity; stay within capacity",
+              "Select and attach rigging for the load; protect against sharp edges",
+              "Use tag lines; confirm the load is balanced before lifting"],
+             "Hard hat, gloves, safety glasses, high-visibility vest"),
+        ]),
+        ("3", "Hoisting &amp; Moving the Load", [
+            ("Hoist and move the load",
+             ["Struck by swinging load", "Two-blocking", "Power line contact"],
+             ["Keep personnel clear of and never under the suspended load",
+              "Use standard hand signals/qualified signal person",
+              "Maintain clearance from overhead power lines and structures"],
+             "Hard hat, gloves, safety glasses, high-visibility vest"),
+        ]),
+        ("4", "Landing &amp; Securing", [
+            ("Land and de-rig the load",
+             ["Caught-between", "Load tip-over"],
+             ["Land on stable dunnage; keep hands clear of pinch points",
+              "De-rig only when the load is stable and supported",
+              "Store rigging properly after use"],
+             "Hard hat, gloves, safety-toe boots"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-106-flammable-liquids"] = {
+    "subtitle": "Flammable Liquids Handling &amp; Storage",
+    "legend": [
+        ("Fire / Explosion", "Ignition of vapors; static discharge."),
+        ("Chemical", "Skin/eye contact, inhalation of vapors."),
+        ("Atmospheric", "Vapor accumulation in low/enclosed areas."),
+        ("Spill / Environmental", "Release to floor, drains, and soil."),
+    ],
+    "jobs": [
+        ("1", "Storage &amp; Segregation", [
+            ("Store flammable liquids",
+             ["Vapor ignition", "Incompatible storage"],
+             ["Store in approved flammable-storage cabinets/rooms with proper limits",
+              "Keep away from ignition sources and incompatible materials",
+              "Provide ventilation and fire protection for storage areas"],
+             "Chemical-resistant gloves, safety glasses"),
+        ]),
+        ("2", "Dispensing &amp; Transfer", [
+            ("Dispense and transfer liquids",
+             ["Static-spark ignition", "Splash/spill", "Vapor inhalation"],
+             ["Bond and ground containers during transfer",
+              "Use approved safety cans/pumps; transfer in ventilated areas",
+              "Eliminate ignition sources; no smoking/open flame"],
+             "Chemical-resistant gloves, face/eye protection, respirator as needed"),
+        ]),
+        ("3", "Use at the Work Area", [
+            ("Use flammable liquids in work",
+             ["Fire", "Vapor buildup", "Skin/eye contact"],
+             ["Keep only the minimum quantity needed at the point of use",
+              "Maintain ventilation; monitor for vapor accumulation in low areas",
+              "Keep an extinguisher available; control ignition sources"],
+             "Chemical-resistant gloves, safety glasses, extinguisher nearby"),
+        ]),
+        ("4", "Spill Response &amp; Waste", [
+            ("Respond to spills",
+             ["Fire from spill", "Environmental release"],
+             ["Stop the source; eliminate ignition; ventilate the area",
+              "Contain and absorb with compatible spill materials; keep from drains",
+              "Manage waste and used absorbent as hazardous waste"],
+             "Chemical-resistant gloves/suit, face/eye protection, respirator as needed"),
+        ]),
+    ],
+}
+
+
+# ── General Industry — chemical &amp; specialty programs ──────────────────────
+JHA_LIBRARY["29-cfr-1910-119-process-safety-management-of-highly-hazardous-chemicals-psm"] = {
+    "subtitle": "Process Safety Management &mdash; Highly Hazardous Chemicals",
+    "legend": [
+        ("Chemical Release", "Loss of containment of highly hazardous chemicals."),
+        ("Fire / Explosion", "Ignition of flammable/reactive process materials."),
+        ("Stored Energy", "Pressure, temperature, and mechanical energy in process."),
+        ("Atmospheric", "Toxic exposure from leaks and openings."),
+    ],
+    "jobs": [
+        ("1", "Process Review &amp; Permitting", [
+            ("Review process safety information before work",
+             ["Unknown process hazards", "Work without authorization"],
+             ["Review process safety information and hazards before the task",
+              "Obtain required permits (hot work, line break, confined space)",
+              "Apply operating procedures and management-of-change requirements"],
+             "Task PPE per the process hazard"),
+        ]),
+        ("2", "Line/Equipment Opening &amp; Isolation", [
+            ("Open lines and equipment safely",
+             ["Release of hazardous chemical", "Stored pressure/energy"],
+             ["Isolate, depressurize, drain, and purge before opening lines/equipment",
+              "Apply lockout/tagout and blinds/blanks; verify zero energy",
+              "Test the atmosphere before and during the work"],
+             "Chemical PPE, gas monitor, LOTO devices"),
+        ]),
+        ("3", "Maintenance on Process Equipment", [
+            ("Perform mechanical integrity work",
+             ["Chemical exposure", "Ignition", "Equipment failure"],
+             ["Follow safe work practices and mechanical integrity procedures",
+              "Control ignition sources; maintain ventilation",
+              "Use pre-startup safety review before returning to service"],
+             "Chemical-resistant PPE, respirator as required"),
+        ]),
+        ("4", "Emergency Response &amp; Shutdown", [
+            ("Respond to a process upset/release",
+             ["Escalating release", "Responder exposure"],
+             ["Follow emergency shutdown and response procedures",
+              "Isolate, evacuate, and account for personnel",
+              "Only trained responders act with proper PPE"],
+             "SCBA/supplied air as required, chemical suit"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1200-hazard-communication-hazcom-ghs"] = {
+    "subtitle": "Hazard Communication (HazCom / GHS)",
+    "legend": [
+        ("Chemical", "Skin/eye contact, inhalation, ingestion of hazardous chemicals."),
+        ("Fire / Reactivity", "Flammable, oxidizer, and reactive chemical hazards."),
+        ("Information", "Unlabeled containers, missing safety data sheets."),
+    ],
+    "jobs": [
+        ("1", "Inventory, Labels &amp; SDS", [
+            ("Maintain chemical information",
+             ["Unknown chemical hazards", "Unlabeled containers"],
+             ["Maintain a chemical inventory and accessible safety data sheets (SDS)",
+              "Ensure all containers are labeled per GHS; label secondary containers",
+              "Review the SDS before using an unfamiliar chemical"],
+             "Gloves, safety glasses per SDS"),
+        ]),
+        ("2", "Safe Chemical Handling", [
+            ("Handle and use chemicals",
+             ["Skin/eye contact", "Inhalation", "Incompatible mixing"],
+             ["Use PPE and controls specified on the SDS/label",
+              "Provide ventilation; avoid mixing incompatible chemicals",
+              "Keep containers closed; use the minimum quantity needed"],
+             "SDS-specified gloves, eye/face protection, respirator as needed"),
+        ]),
+        ("3", "Storage &amp; Segregation", [
+            ("Store chemicals",
+             ["Fire/reaction from incompatible storage", "Spill"],
+             ["Segregate incompatibles (acids/bases, oxidizers/flammables)",
+              "Store flammables in approved cabinets; provide secondary containment",
+              "Keep storage areas ventilated, labeled, and orderly"],
+             "Gloves, safety glasses"),
+        ]),
+        ("4", "Spill Response &amp; Training", [
+            ("Respond to spills and train workers",
+             ["Exposure during cleanup", "Untrained workers"],
+             ["Follow SDS spill procedures; use compatible spill kit and PPE",
+              "Train employees on hazards, labels, SDS, and controls",
+              "Report and document spills and exposures"],
+             "Chemical-resistant gloves, eye/face protection, respirator as needed"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1450-laboratory-chemical-hygiene-plan"] = {
+    "subtitle": "Laboratory Chemical Hygiene",
+    "legend": [
+        ("Chemical", "Exposure to lab chemicals, carcinogens, reproductive toxins."),
+        ("Fire / Reactivity", "Flammables, pyrophorics, oxidizers, explosives."),
+        ("Physical", "Compressed gas, cryogens, glassware, sharps."),
+        ("Contamination", "Surface and personnel contamination."),
+    ],
+    "jobs": [
+        ("1", "Planning &amp; Chemical Hygiene", [
+            ("Plan lab work under the CHP",
+             ["Unassessed hazards", "Improper procedures"],
+             ["Follow the Chemical Hygiene Plan and standard operating procedures",
+              "Review SDS and identify particularly hazardous substances",
+              "Designate and consult the chemical hygiene officer"],
+             "Lab coat, safety glasses/goggles, gloves"),
+        ]),
+        ("2", "Fume Hood &amp; Engineering Controls", [
+            ("Work with hazardous chemicals",
+             ["Inhalation exposure", "Fire/explosion"],
+             ["Perform work with volatile/hazardous chemicals in a certified fume hood",
+              "Verify hood airflow before use; keep the sash at the working height",
+              "Use designated areas for particularly hazardous substances"],
+             "Lab coat, chemical goggles, gloves, respirator if required"),
+        ]),
+        ("3", "Handling, Storage &amp; Compressed Gas", [
+            ("Handle and store lab materials",
+             ["Incompatible reaction", "Cylinder/cryogen hazard", "Glass cuts"],
+             ["Segregate incompatibles; store flammables/acids/bases properly",
+              "Secure compressed gas cylinders; handle cryogens with proper PPE",
+              "Inspect glassware; use mechanical means for broken glass"],
+             "Lab coat, goggles, cryo/chemical gloves, face shield as needed"),
+        ]),
+        ("4", "Waste, Decon &amp; Emergency", [
+            ("Manage waste and respond to spills",
+             ["Chemical waste exposure", "Uncontrolled spill"],
+             ["Collect and label chemical waste by compatibility",
+              "Know locations of eyewash/safety shower and spill kits",
+              "Follow spill and exposure response procedures"],
+             "Lab coat, goggles, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1001-asbestos-general-industry"] = {
+    "subtitle": "Asbestos Exposure Control (General Industry)",
+    "legend": [
+        ("Respiratory", "Inhalation of asbestos fibers (asbestosis, mesothelioma)."),
+        ("Regulated Area", "Uncontrolled fiber release beyond containment."),
+        ("Housekeeping", "Re-entrained fibers from dry debris/clothing."),
+        ("Waste", "Improperly contained asbestos-containing waste."),
+    ],
+    "jobs": [
+        ("1", "Identify &amp; Assess", [
+            ("Identify asbestos and assess exposure",
+             ["Unknown asbestos material", "Unprotected work"],
+             ["Identify presumed/known asbestos-containing material before disturbance",
+              "Assess exposures; apply the required work class and controls",
+              "Only trained workers perform asbestos work"],
+             "Respirator per exposure, coveralls, gloves"),
+        ]),
+        ("2", "Regulated Area &amp; Controls", [
+            ("Establish controls",
+             ["Fiber release", "Unauthorized entry"],
+             ["Establish a regulated area with warning signs and access control",
+              "Use wet methods, HEPA local exhaust, and enclosures as required",
+              "Prohibit eating/drinking/smoking in the area"],
+             "Respirator, disposable coveralls, gloves"),
+        ]),
+        ("3", "Disturbance / Maintenance Work", [
+            ("Disturb ACM during maintenance",
+             ["Airborne fibers", "Dry handling"],
+             ["Wet the material; use HEPA-filtered tools; avoid breaking/aggressive methods",
+              "Bag material at the point of removal; minimize handling",
+              "Monitor exposures during the work"],
+             "Respirator per exposure, coveralls, gloves"),
+        ]),
+        ("4", "Decon, Housekeeping &amp; Waste", [
+            ("Decontaminate and dispose",
+             ["Take-home contamination", "Re-entrained dust"],
+             ["HEPA-vacuum suits; use decon procedures; never dry sweep or use compressed air",
+              "Double-bag and label asbestos waste; dispose at an approved site",
+              "Verify cleanup before releasing the area"],
+             "Respirator, coveralls, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1025-lead-general-industry"] = {
+    "subtitle": "Lead Exposure Control (General Industry)",
+    "legend": [
+        ("Respiratory / Ingestion", "Inhalation of lead fume/dust; hand-to-mouth ingestion."),
+        ("Environmental", "Lead dust migration and surface contamination."),
+        ("Housekeeping", "Accumulated lead dust re-entrained by traffic/cleaning."),
+        ("Waste", "Hazardous lead-containing waste."),
+    ],
+    "jobs": [
+        ("1", "Exposure Assessment", [
+            ("Assess lead exposure",
+             ["Underestimated exposure", "Unprotected work"],
+             ["Conduct exposure monitoring; apply initial protective measures for trigger tasks",
+              "Implement the written compliance program",
+              "Provide medical surveillance/blood-lead monitoring where required"],
+             "Respirator per exposure, coveralls, gloves"),
+        ]),
+        ("2", "Engineering &amp; Work-Practice Controls", [
+            ("Control lead exposure",
+             ["Airborne lead fume/dust", "Contamination spread"],
+             ["Use local exhaust ventilation and wet/enclosed methods as feasible",
+              "Establish a regulated area; prohibit eating/drinking/smoking",
+              "Substitute lower-exposure methods where possible"],
+             "Respirator, coveralls, gloves, safety glasses"),
+        ]),
+        ("3", "Lead Disturbance / Hot Work", [
+            ("Cut, grind, or torch lead materials",
+             ["High fume from heat/abrasion", "Fire"],
+             ["Prefer low-fume methods; provide LEV at the point of generation",
+              "Control ignition sources for torch/heat work",
+              "Monitor exposures during the task"],
+             "Respirator per exposure, coveralls, gloves, face shield as needed"),
+        ]),
+        ("4", "Hygiene, Housekeeping &amp; Waste", [
+            ("Decontaminate and manage waste",
+             ["Ingestion", "Take-home lead", "Improper disposal"],
+             ["Provide wash/change facilities; wash before eating; leave work clothes on site",
+              "HEPA-vacuum and wet-clean; never dry sweep or use compressed air",
+              "Containerize/label lead waste; characterize and dispose per RCRA"],
+             "Respirator as needed, gloves, coveralls"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1026-hexavalent-chromium-general-industry"] = {
+    "subtitle": "Hexavalent Chromium Exposure Control",
+    "legend": [
+        ("Respiratory", "Inhalation of Cr(VI) fume/dust/mist (lung cancer, ulceration)."),
+        ("Skin / Eye", "Contact causing ulcers, dermatitis, eye damage."),
+        ("Housekeeping", "Re-entrained Cr(VI) dust; surface contamination."),
+        ("Waste", "Chromium-containing waste handling."),
+    ],
+    "jobs": [
+        ("1", "Identify Sources &amp; Assess", [
+            ("Identify Cr(VI) tasks",
+             ["Unrecognized Cr(VI) exposure", "Unprotected work"],
+             ["Identify tasks generating Cr(VI): welding stainless, painting, plating, thermal cutting",
+              "Assess exposures; establish controls to keep exposure below the PEL",
+              "Provide medical surveillance where required"],
+             "Respirator per exposure, gloves, safety glasses"),
+        ]),
+        ("2", "Engineering Controls", [
+            ("Control Cr(VI) at the source",
+             ["Airborne fume/dust/mist", "Continued overexposure"],
+             ["Use local exhaust ventilation on welding/grinding/plating operations",
+              "Enclose or isolate high-exposure processes",
+              "Maintain and verify ventilation performance"],
+             "Respirator as required, gloves, face/eye protection"),
+        ]),
+        ("3", "Performing the Work", [
+            ("Weld, grind, paint, or plate",
+             ["Inhalation", "Skin/eye ulceration"],
+             ["Position workers upwind; keep LEV running throughout",
+              "Prevent skin/eye contact with chromate solutions and dust",
+              "Limit access to the regulated/controlled area"],
+             "Respirator, chemical-resistant gloves, face shield, welding PPE as applicable"),
+        ]),
+        ("4", "Hygiene, Housekeeping &amp; Waste", [
+            ("Decontaminate and clean",
+             ["Ingestion", "Re-entrained dust", "Contaminated PPE"],
+             ["Provide wash facilities; wash before eating; no eating in work areas",
+              "HEPA-vacuum or wet methods; never dry sweep or use compressed air",
+              "Containerize/label Cr(VI) waste and contaminated PPE"],
+             "Respirator as needed, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1027-cadmium-general-industry"] = {
+    "subtitle": "Cadmium Exposure Control",
+    "legend": [
+        ("Respiratory", "Inhalation of cadmium fume/dust (kidney damage, lung cancer)."),
+        ("Ingestion", "Hand-to-mouth ingestion of cadmium dust."),
+        ("Housekeeping", "Re-entrained cadmium dust; surface contamination."),
+        ("Waste", "Cadmium-containing waste."),
+    ],
+    "jobs": [
+        ("1", "Identify Sources &amp; Assess", [
+            ("Identify cadmium tasks",
+             ["Unrecognized exposure", "Unprotected work"],
+             ["Identify tasks: welding/brazing cadmium-coated metal, cutting, soldering, plating",
+              "Assess exposures; establish controls to stay below the PEL",
+              "Provide medical surveillance where required"],
+             "Respirator per exposure, gloves, safety glasses"),
+        ]),
+        ("2", "Engineering Controls &amp; Regulated Area", [
+            ("Control cadmium at the source",
+             ["Airborne fume/dust", "Contamination spread"],
+             ["Provide local exhaust ventilation for fume/dust-generating tasks",
+              "Establish a regulated area; prohibit eating/drinking/smoking",
+              "Verify ventilation before starting"],
+             "Respirator as required, gloves, face/eye protection"),
+        ]),
+        ("3", "Performing the Work", [
+            ("Weld, braze, cut, or solder",
+             ["High cadmium fume from heat", "Inhalation"],
+             ["Never torch-cut/weld cadmium-plated metal without LEV and respiratory protection",
+              "Position workers upwind; keep LEV running throughout",
+              "Limit access to the regulated area"],
+             "Respirator, welding/leather gloves, face shield, welding PPE as applicable"),
+        ]),
+        ("4", "Hygiene, Housekeeping &amp; Waste", [
+            ("Decontaminate and clean",
+             ["Ingestion", "Take-home dust", "Improper disposal"],
+             ["Provide wash/change facilities; wash before eating; no eating in the area",
+              "HEPA-vacuum or wet-clean; never dry sweep or use compressed air",
+              "Containerize/label cadmium waste and contaminated PPE"],
+             "Respirator as needed, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1048-formaldehyde"] = {
+    "subtitle": "Formaldehyde Exposure Control",
+    "legend": [
+        ("Respiratory", "Inhalation of formaldehyde vapor (irritant, sensitizer, carcinogen)."),
+        ("Skin / Eye", "Contact causing irritation, burns, sensitization."),
+        ("Fire", "Formaldehyde solutions/vapors can be flammable."),
+        ("Contamination", "Spills and surface contamination."),
+    ],
+    "jobs": [
+        ("1", "Identify Sources &amp; Assess", [
+            ("Identify formaldehyde tasks",
+             ["Unrecognized exposure", "Sensitized workers"],
+             ["Identify sources: preserving/embalming, resins, labs, treated products",
+              "Assess exposures against the PEL/STEL; establish controls",
+              "Provide medical surveillance/removal for signs of sensitization"],
+             "Respirator per exposure, chemical goggles, gloves"),
+        ]),
+        ("2", "Ventilation &amp; Engineering Controls", [
+            ("Control formaldehyde vapor",
+             ["Inhalation", "Vapor accumulation"],
+             ["Use fume hoods/local exhaust for formaldehyde processes",
+              "Verify ventilation; keep containers closed when not in use",
+              "Establish a regulated area where the STEL/PEL may be exceeded"],
+             "Respirator as required, goggles, chemical gloves"),
+        ]),
+        ("3", "Handling &amp; Use", [
+            ("Handle formaldehyde solutions",
+             ["Skin/eye burns", "Sensitization", "Fire"],
+             ["Prevent skin/eye contact; use chemical-resistant PPE",
+              "Keep away from ignition sources; control flammable vapor",
+              "Provide eyewash/safety shower nearby"],
+             "Chemical goggles/face shield, chemical gloves, apron, respirator as needed"),
+        ]),
+        ("4", "Spill Response &amp; Waste", [
+            ("Respond to spills",
+             ["Vapor exposure during cleanup", "Environmental release"],
+             ["Ventilate; use compatible spill kit and PPE; control ignition",
+              "Contain and neutralize/absorb; keep out of drains",
+              "Manage waste per regulations; document exposures"],
+             "Respirator, chemical suit/gloves, goggles"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1028-benzene"] = {
+    "subtitle": "Benzene Exposure Control",
+    "legend": [
+        ("Respiratory", "Inhalation of benzene vapor (leukemia, blood disorders)."),
+        ("Fire / Explosion", "Highly flammable vapor; static ignition."),
+        ("Skin / Eye", "Contact/absorption; irritation."),
+        ("Atmospheric", "Vapor accumulation in tanks and low areas."),
+    ],
+    "jobs": [
+        ("1", "Identify Sources &amp; Assess", [
+            ("Identify benzene exposure",
+             ["Unrecognized exposure", "Unprotected work"],
+             ["Identify sources: crude/gasoline handling, tank gauging, sampling, refining",
+              "Assess exposures against the PEL/STEL; establish regulated areas",
+              "Provide medical surveillance where required"],
+             "Respirator per exposure, chemical gloves, safety glasses"),
+        ]),
+        ("2", "Vapor &amp; Ignition Control", [
+            ("Control vapor and ignition sources",
+             ["Vapor inhalation", "Fire/explosion", "Static discharge"],
+             ["Use closed systems, LEV, and vapor recovery where feasible",
+              "Bond and ground during transfer; eliminate ignition sources",
+              "Monitor atmospheres; ventilate tanks and low areas before entry"],
+             "Respirator/supplied air as required, chemical gloves, FR clothing"),
+        ]),
+        ("3", "Sampling / Gauging / Tank Work", [
+            ("Sample, gauge, or enter benzene service",
+             ["Peak vapor exposure", "Confined space", "Skin contact"],
+             ["Stand upwind; use closed sampling/gauging methods where possible",
+              "Apply confined space entry procedures for tanks/vessels",
+              "Prevent skin contact and absorption"],
+             "Supplied-air respirator for entry, chemical suit/gloves, gas monitor"),
+        ]),
+        ("4", "Spill Response &amp; Hygiene", [
+            ("Respond to spills and decontaminate",
+             ["Fire from spill", "Continued exposure"],
+             ["Stop the source; eliminate ignition; ventilate; contain the spill",
+              "Keep spills from drains; manage as hazardous waste",
+              "Remove contaminated clothing; wash exposed skin"],
+             "Respirator, chemical suit/gloves, goggles"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1053-respirable-crystalline-silica-general-industry"] = {
+    "subtitle": "Respirable Crystalline Silica Control (General Industry)",
+    "legend": [
+        ("Respiratory", "Inhalation of respirable crystalline silica (silicosis, cancer)."),
+        ("Environmental", "Dust migration to other workers/areas."),
+        ("Housekeeping", "Accumulated dust re-entrained by cleaning/traffic."),
+    ],
+    "jobs": [
+        ("1", "Exposure Assessment", [
+            ("Assess silica exposure",
+             ["Unrecognized exposure", "Overexposure above PEL"],
+             ["Identify silica-generating tasks; assess exposures against the PEL",
+              "Implement the written exposure control plan",
+              "Provide medical surveillance for highly exposed workers"],
+             "Respirator per exposure, safety glasses, gloves"),
+        ]),
+        ("2", "Engineering Controls", [
+            ("Control dust at the source",
+             ["Airborne silica dust", "Failed control"],
+             ["Use wet methods or local exhaust/dust collection on tools/processes",
+              "Verify water flow/vacuum airflow; maintain filters",
+              "Isolate/enclose high-dust processes where feasible"],
+             "Respirator as required, safety glasses, gloves"),
+        ]),
+        ("3", "Performing Dusty Work", [
+            ("Perform silica-generating work",
+             ["Silica inhalation", "Exposure to nearby workers"],
+             ["Keep engineering controls running throughout",
+              "Position workers upwind; restrict access to the dust area",
+              "Rotate/limit duration per the control plan"],
+             "Respirator, safety glasses, gloves, hearing protection as needed"),
+        ]),
+        ("4", "Housekeeping &amp; Cleanup", [
+            ("Clean up silica dust",
+             ["Re-entrained dust", "Contaminated clothing"],
+             ["HEPA-vacuum or wet methods; never dry sweep or use compressed air",
+              "Contain and dispose of silica waste to prevent re-suspension",
+              "Provide wash facilities; do not carry dust home"],
+             "Respirator as needed, gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-1096-ionizing-radiation"] = {
+    "subtitle": "Ionizing Radiation Safety",
+    "legend": [
+        ("Radiation", "External exposure and internal contamination from sources."),
+        ("Contamination", "Spread of radioactive material."),
+        ("Access", "Uncontrolled entry to restricted/high-radiation areas."),
+    ],
+    "jobs": [
+        ("1", "Source Control &amp; Planning", [
+            ("Plan work with radiation sources",
+             ["Unrecognized source", "Overexposure"],
+             ["Work under the radiation safety program and radiation safety officer",
+              "Only trained/authorized personnel handle sources or enter areas",
+              "Plan work to keep doses ALARA (as low as reasonably achievable)"],
+             "Dosimeter, standard PPE"),
+        ]),
+        ("2", "Area Posting &amp; Access Control", [
+            ("Establish restricted areas",
+             ["Uncontrolled exposure", "Unauthorized entry"],
+             ["Post radiation/high-radiation areas; control and log access",
+              "Use time, distance, and shielding to reduce exposure",
+              "Survey areas and verify boundaries before work"],
+             "Dosimeter, survey meter, standard PPE"),
+        ]),
+        ("3", "Working with Sources / Radiography", [
+            ("Perform radiation work",
+             ["External dose", "Source loss/exposure device failure"],
+             ["Maintain distance and shielding; minimize time near the source",
+              "Verify source retraction with a survey after each exposure (radiography)",
+              "Never handle a source directly; use remote handling tools"],
+             "Dosimeter, survey meter, task PPE"),
+        ]),
+        ("4", "Contamination Control &amp; Emergency", [
+            ("Control contamination and respond",
+             ["Internal contamination", "Lost/stuck source"],
+             ["Survey personnel/areas for contamination; decontaminate as needed",
+              "Follow emergency procedures for a stuck/lost source",
+              "Report incidents and monitor doses"],
+             "Dosimeter, contamination PPE as required"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-268-telecommunications"] = {
+    "subtitle": "Telecommunications Work (Poles, Towers &amp; Manholes)",
+    "legend": [
+        ("Falls", "Falls from poles, towers, aerial lifts, and ladders."),
+        ("Electrical", "Contact with power lines and energized equipment."),
+        ("Atmospheric", "Manhole/vault confined-space and gas hazards."),
+        ("Struck-By / RF", "Traffic, falling tools, RF exposure on towers."),
+    ],
+    "jobs": [
+        ("1", "Job Planning &amp; Access", [
+            ("Plan the task and set up access",
+             ["Unrecognized hazards", "Traffic exposure"],
+             ["Identify hazards (power, traffic, RF, atmospheres) before starting",
+              "Set up traffic control/work-zone protection as needed",
+              "Verify pole/structure integrity before climbing"],
+             "Hard hat, high-visibility vest, safety glasses, gloves"),
+        ]),
+        ("2", "Pole / Tower Climbing", [
+            ("Climb poles and towers",
+             ["Falls", "Structure failure", "RF overexposure"],
+             ["Use fall protection continuously; inspect climbing equipment",
+              "Verify RF is de-energized/reduced or maintain safe distance on towers",
+              "Test pole integrity; use aerial lifts on firm ground with outriggers"],
+             "Full-body harness, climbing gear, hard hat, RF monitor as needed"),
+        ]),
+        ("3", "Manhole / Vault Entry", [
+            ("Enter manholes and vaults",
+             ["Oxygen deficiency/toxic gas", "Engulfment", "Electrical"],
+             ["Test the atmosphere and ventilate before and during entry",
+              "Apply confined space procedures; use attendant and retrieval",
+              "Control traffic around the opening; guard the opening"],
+             "Gas monitor, harness/retrieval, ventilation, gloves"),
+        ]),
+        ("4", "Working Near Power &amp; Cables", [
+            ("Work near power and pull cable",
+             ["Electrical contact", "Strain/ergonomic", "Struck-by"],
+             ["Maintain clearances from power conductors; treat lines as energized",
+              "Use proper cable-pulling techniques and equipment",
+              "Protect against falling tools; keep the public clear"],
+             "Voltage-rated gloves as needed, hard hat, gloves, high-visibility vest"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-266-logging-operations"] = {
+    "subtitle": "Logging Operations",
+    "legend": [
+        ("Struck-By", "Falling trees/limbs, rolling logs, chainsaw kickback."),
+        ("Caught-Between", "Machinery, logs, and equipment."),
+        ("Cuts / Amputation", "Chainsaws and processing equipment."),
+        ("Terrain / Environmental", "Uneven ground, weather, remote location."),
+    ],
+    "jobs": [
+        ("1", "Planning &amp; Site Assessment", [
+            ("Assess the site and plan felling",
+             ["Unrecognized hazards", "Struck-by hazards"],
+             ["Assess terrain, weather, lean, and hazards before work",
+              "Maintain safe distances (2 tree-lengths) between workers",
+              "Establish communication and emergency/first-aid provisions on site"],
+             "Hard hat, eye/face screen, hearing protection, cut-resistant chaps"),
+        ]),
+        ("2", "Felling", [
+            ("Fell trees",
+             ["Struck by falling tree/limb", "Kickback", "Barber-chair split"],
+             ["Use proper undercut/back-cut and hinge; plan the escape path",
+              "Clear the retreat path; watch for overhead/dead limbs (widow-makers)",
+              "Keep others out of the felling area"],
+             "Hard hat, face screen, hearing protection, cut-resistant chaps, gloves"),
+        ]),
+        ("3", "Limbing &amp; Bucking", [
+            ("Limb and buck logs",
+             ["Chainsaw cuts/kickback", "Rolling/springing logs"],
+             ["Maintain firm footing; keep the saw at proper position; avoid the kickback zone",
+              "Watch for spring poles and log roll; stand on the uphill side",
+              "Do not cut above shoulder height"],
+             "Cut-resistant chaps/boots, hard hat, face screen, hearing protection, gloves"),
+        ]),
+        ("4", "Skidding, Yarding &amp; Loading", [
+            ("Move and load logs",
+             ["Struck by/caught in machinery", "Rolling logs", "Rollover"],
+             ["Keep clear of machine travel paths and cable/rigging under tension",
+              "Use ROPS/seat belts on machines; communicate with operators",
+              "Secure loads; keep workers out of the loading zone"],
+             "Hard hat, high-visibility vest, hearing protection, safety-toe boots"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1910-272-grain-handling-facilities"] = {
+    "subtitle": "Grain Handling Facility Operations",
+    "legend": [
+        ("Fire / Explosion", "Combustible grain dust deflagration."),
+        ("Engulfment", "Suffocation in bins, silos, and flowing grain."),
+        ("Atmospheric", "Oxygen deficiency, fumigants, toxic gases."),
+        ("Mechanical", "Augers, sweeps, and moving equipment."),
+    ],
+    "jobs": [
+        ("1", "Dust Control &amp; Hot Work", [
+            ("Control combustible dust and ignition",
+             ["Dust explosion", "Fire from hot work"],
+             ["Control grain dust accumulation with housekeeping and dust collection",
+              "Use a hot work permit; remove/wet dust before hot work",
+              "Control ignition sources; bond/ground where needed"],
+             "Standard PPE, extinguisher for hot work"),
+        ]),
+        ("2", "Bin / Silo Entry", [
+            ("Enter grain storage structures",
+             ["Engulfment in flowing grain", "Oxygen deficiency/toxic atmosphere"],
+             ["Turn off and lock out all grain-moving equipment before entry",
+              "Test/ventilate the atmosphere; use permit-required confined space procedures",
+              "Never walk down grain; use a harness, lifeline, and attendant"],
+             "Full-body harness, lifeline, gas monitor, attendant"),
+        ]),
+        ("3", "Equipment Operation &amp; Maintenance", [
+            ("Operate and service equipment",
+             ["Caught in augers/sweeps", "Unexpected startup"],
+             ["Guard augers/sweeps; never enter with the sweep auger energized",
+              "Apply lockout/tagout before servicing equipment",
+              "Keep clear of moving parts and pinch points"],
+             "Standard PPE, LOTO devices, gloves"),
+        ]),
+        ("4", "Fumigation &amp; Emergency", [
+            ("Handle fumigants and respond to emergencies",
+             ["Fumigant exposure", "Engulfment rescue"],
+             ["Only trained applicators handle fumigants; post and control treated areas",
+              "Use the emergency action plan; never enter a bin to rescue without protection",
+              "Provide rescue equipment and trained rescue procedures"],
+             "Respirator as required for fumigants, harness/retrieval for rescue"),
+        ]),
+    ],
+}
