@@ -1160,6 +1160,24 @@ function currentDocHtml(){
   const inner=document.getElementById('ed-body').innerHTML;
   return '<!doctype html><html><head>'+EDIT_HEAD+'</head><body>'+inner+'</body></html>';
 }
+/* Auto-publish a just-saved customer doc into that customer's portal.
+   Publishes the HTML "(web version)" AND a rendered PDF so the portal shows both.
+   Silently no-ops if the project isn't portal-linked. Returns company name on success. */
+async function autoPublishToPortal(path, title){
+  if(!ACTIVE) return null;
+  const rh=await api('/api/portal/publish',
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({project_slug:ACTIVE.slug, path:path, name:(title||'Document')+' (web version)'})});
+  if(!rh||!rh.ok) return null;   // not portal-linked (or failed) → skip quietly
+  const pr=await api('/api/projects/'+ACTIVE.slug+'/compliance/render',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:path})});
+  if(pr&&pr.rendered){
+    await api('/api/portal/publish',
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({project_slug:ACTIVE.slug, path:pr.path, name:title||'Document'})});
+  }
+  return rh.company||true;
+}
 async function saveDoc(){
   const st=document.getElementById('ed-status'); st.textContent='Saving…';
   let r;
@@ -1171,7 +1189,11 @@ async function saveDoc(){
   } else {
     r=await api('/api/projects/'+ACTIVE.slug+'/compliance/save',
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:EDIT_PATH,html:currentDocHtml()})});
-    if(r&&r.saved){ st.textContent='Saved ✓'; loadFiles(); }
+    if(r&&r.saved){
+      st.textContent='Saved ✓'; loadFiles();
+      const co=await autoPublishToPortal(EDIT_PATH, (EDIT_TITLE||''));
+      if(co) st.textContent='Saved ✓ · sent to '+(co===true?'portal':(co+'\u2019s portal'));
+    }
     else st.textContent='Save failed';
   }
   return !!(r&&r.saved);
@@ -1242,7 +1264,12 @@ async function saveWDoc(){
   WDOC.status.textContent='Saving…';
   const r=await api('/api/projects/'+ACTIVE.slug+'/compliance/save',
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:WDOC.path,html:wdocHtml()})});
-  if(r&&r.saved){ WDOC.status.textContent='Saved ✓'; loadFiles(); return true; }
+  if(r&&r.saved){
+    WDOC.status.textContent='Saved ✓'; loadFiles();
+    const co=await autoPublishToPortal(WDOC.path, (WDOC.title||''));
+    if(co) WDOC.status.textContent='Saved ✓ · sent to '+(co===true?'portal':(co+'\u2019s portal'));
+    return true;
+  }
   WDOC.status.textContent='Save failed'; return false;
 }
 async function pdfWDoc(){
@@ -1309,12 +1336,12 @@ async function assignMasterToProject(mid, slug){
   const r=await api('/api/projects/'+slug+'/compliance/assign',
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({master_id:mid})});
   if(!r||r.error){ alert('Could not add to job: '+((r&&r.error)||'unknown')); return; }
+  closeEditor();
   await openProject(slug);
   switchFilesTab('workspace'); await loadFiles();
-  addBubble('assistant','📄 A copy of “'+(r.title||'document')+'” is now saved in this job and open below. Fill it in here. Flip to 💬 Chat and Claude can read this exact document to help — the master never changes.');
-  insertDocCard(r.path, r.title||slug, '');
   const c=await api('/api/projects/'+slug+'/compliance/content?path='+encodeURIComponent(r.path));
-  if(c&&c.html && WDOC && WDOC.path===r.path){ const p=docToParts(c.html); WDOC.head=p.head; WDOC.body.innerHTML=p.body; }
+  addBubble('assistant','📄 A copy of “'+(r.title||'document')+'” is now saved in this job and open below. Fill it in here. Flip to 💬 Chat and Claude can read this exact document to help — the master never changes.');
+  insertDocCard(r.path, r.title||slug, (c&&c.html)||'');
 }
 
 /* ---- Clicking a file in a project: compliance docs open inline in the chat ---- */
