@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Origin Management Solutions — Client Compliance Portal</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --charcoal2:#2a2e35; --orange:#E8551F; --orange2:#F2712F;
+    --ink:#2B2F36; --muted:#6B7280; --line:#E3E6EA; --bg:#F2F0EE; --card:#fff;
+    --green:#1E7A46; --greenbg:#e7f4ec; --amber:#B7791F; --amberbg:#fbf1dd;
+    --red:#C8461A; --redbg:#fbe9e7; --slate:#9AA1AB;
+    --shadow:0 1px 3px rgba(20,25,30,.08),0 6px 20px rgba(20,25,30,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .hidden{display:none !important}
+  /* login */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#1C1F24,#0d0f12);padding:24px}
+  .login-card{background:#fff;border-radius:16px;box-shadow:var(--shadow);width:100%;max-width:400px;padding:34px 30px;text-align:center}
+  .brandmark{display:inline-flex;align-items:center;gap:9px}
+  .word{font-weight:800;font-size:19px;letter-spacing:.02em;color:var(--charcoal)}
+  .word span{color:var(--orange)}
+  .login-card h1{font-size:18px;margin:16px 0 4px}
+  .login-card p{color:var(--muted);font-size:13.5px;margin:0 0 20px}
+  .field{text-align:left;margin-bottom:13px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  .field input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:#f8fafc}
+  .btn{background:var(--charcoal);color:#fff;border:0;border-radius:9px;padding:12px 16px;font-size:14.5px;font-weight:600;width:100%;cursor:pointer}
+  .btn:hover{background:var(--charcoal2)}
+  .btn.orange{background:var(--orange)}.btn.orange:hover{background:var(--orange2)}
+  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+  .login-hint{margin-top:14px;font-size:12px;color:var(--muted)}
+  /* app */
+  #app{display:none}
+  header.topbar{background:var(--charcoal);color:#fff}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .topbar .word{color:#fff}
+  .who{display:flex;align-items:center;gap:12px;font-size:13px}
+  .who .co{font-weight:600}
+  .who .out{color:#e6c6b6;font-size:12.5px;border:1px solid rgba(255,255,255,.3);padding:5px 10px;border-radius:7px;cursor:pointer}
+  nav.tabs{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto}
+  .tab{padding:14px 16px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+  .tab.active{color:var(--charcoal);border-bottom-color:var(--orange)}
+  main{padding:26px 0 60px}
+  .page{display:none}.page.active{display:block}
+  .hello{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+  .hello h2{margin:0;font-size:22px}.hello .sub{color:var(--muted);font-size:13.5px;margin-top:4px}
+  .score-pill{background:var(--greenbg);color:var(--green);border:1px solid #bfe3cd;border-radius:999px;padding:8px 16px;font-weight:700;font-size:14px}
+  .grid{display:grid;gap:16px}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g4{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+  @media(max-width:520px){.g4{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:18px}
+  .card h3{margin:0 0 3px;font-size:14px}
+  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:26px 0 12px}
+  .plat{display:flex;flex-direction:column;gap:10px}
+  .plat .logo{font-weight:800;font-size:15px;color:var(--charcoal)}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .b-green{background:var(--greenbg);color:var(--green)}.b-amber{background:var(--amberbg);color:var(--amber)}
+  .b-red{background:var(--redbg);color:var(--red)}.b-grey{background:#eef1f4;color:var(--muted)}
+  .plat .meta{font-size:12px;color:var(--muted)}
+  .gradeltr{font-size:30px;font-weight:800;line-height:1}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line)}
+  td{padding:12px;border-bottom:1px solid #eef2f6}tr:last-child td{border-bottom:0}
+  .dot-s{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:middle}
+  .countdown{font-weight:700}.mini{font-size:12px;color:var(--muted)}
+  .doc-row{display:flex;align-items:center;justify-content:space-between;padding:13px 4px;border-bottom:1px solid #eef2f6;gap:12px}
+  .doc-row:last-child{border-bottom:0}
+  .doc-left{display:flex;align-items:center;gap:12px;min-width:0}
+  .doc-ico{width:34px;height:40px;border-radius:5px;background:#eef2f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--charcoal);font-weight:700;font-size:10px;border:1px solid var(--line)}
+  .doc-name{font-weight:600;font-size:13.5px}.doc-sub{font-size:12px;color:var(--muted)}
+  .lnk{color:var(--charcoal);font-weight:600;font-size:12.5px;border:1px solid var(--line);padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px}
+  .lnk:hover{background:#f4f7fa}
+  .lnk.req{border-color:var(--orange);color:var(--orange)}
+  .locked{opacity:.6}
+  .lock-tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);background:#f2f4f7;border:1px dashed #cdd6df;padding:5px 10px;border-radius:7px}
+  .callout{background:#fff;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--muted);margin-top:18px}
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:24px 0 40px}
+  /* modal */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(15,17,20,.55);z-index:50;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.open{display:flex}
+  .modal{background:#fff;border-radius:15px;box-shadow:0 12px 40px rgba(10,12,15,.35);width:100%;max-width:440px;padding:26px}
+  .modal h3{margin:0 0 4px;font-size:18px;color:var(--charcoal)}
+  .modal .msub{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .modal .row{font-size:13px;margin:8px 0}.modal .row b{color:var(--charcoal)}
+  .modal textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px;font-size:13.5px;font-family:inherit;min-height:64px;background:#f8fafc;margin-top:4px}
+  .modal .mactions{display:flex;gap:10px;margin-top:18px}
+  .btn.ghost{background:#fff;color:var(--muted);border:1px solid var(--line)}.btn.ghost:hover{background:#f4f7fa}
+  .check{width:52px;height:52px;border-radius:50%;background:var(--greenbg);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <div class="login-card">
+    <div class="brandmark"><span class="word">Orig<span>in</span></span></div>
+    <h1>Client Compliance Portal</h1>
+    <p>Your prequal grades, certificates, and safety documents — one login, always current.</p>
+    <div class="field"><label>Company Email</label><input id="email" type="email" autocomplete="username" placeholder="you@yourcompany.com"></div>
+    <div class="field"><label>PIN</label><input id="pin" type="password" autocomplete="current-password" placeholder="••••"></div>
+    <button class="btn" onclick="doLogin()">Log In</button>
+    <div class="err" id="loginErr"></div>
+    <div class="login-hint">Your login was provided by Origin Management Solutions.</div>
+  </div>
+</section>
+
+<div id="app">
+  <header class="topbar"><div class="wrap">
+    <div class="brandmark"><span class="word">Orig<span>in</span></span></div>
+    <div class="who"><span class="co" id="coName">—</span><span class="out" onclick="doLogout()">Sign out</span></div>
+  </div></header>
+
+  <nav class="tabs"><div class="wrap">
+    <div class="tab active" data-page="overview" onclick="go(this)">Overview</div>
+    <div class="tab" data-page="prequal" id="tabPrequal" onclick="go(this)">Prequal Status</div>
+    <div class="tab" data-page="coi" onclick="go(this)">Insurance &amp; COI</div>
+    <div class="tab" data-page="docs" onclick="go(this)">My Documents</div>
+  </div></nav>
+
+  <main><div class="wrap">
+    <section id="overview" class="page active"></section>
+    <section id="prequal" class="page"></section>
+    <section id="coi" class="page"></section>
+    <section id="docs" class="page"></section>
+    <div class="foot">Origin Management Solutions · Client Compliance Portal</div>
+  </div></main>
+
+  <!-- request modal -->
+  <div class="modal-bg" id="reqModal">
+    <div class="modal" id="reqStep1">
+      <h3>Request a program</h3>
+      <p class="msub">Origin will prepare this for you, send a quote, and add it to your portal once approved.</p>
+      <div class="row">Program: <b id="reqName">—</b></div>
+      <label class="row" style="display:block;color:var(--muted);margin-top:12px">Add a note (optional)
+        <textarea id="reqNote" placeholder="e.g. Need this for an upcoming bid — how soon can you turn it around?"></textarea>
+      </label>
+      <div class="mactions">
+        <button class="btn ghost" onclick="closeReq()">Cancel</button>
+        <button class="btn orange" onclick="sendReq()">Send request</button>
+      </div>
+    </div>
+    <div class="modal" id="reqStep2" style="display:none;text-align:center">
+      <div class="check">✓</div>
+      <h3 style="text-align:center">Request sent</h3>
+      <p class="msub">Origin has received your request for <b id="reqNameOk">—</b>. You'll get a quote by email, and once approved it appears in <b>My Documents</b>.</p>
+      <button class="btn" onclick="closeReq()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var DATA=null, pendingReq=null;
+function api(path,opts){opts=opts||{};opts.credentials='same-origin';
+  if(opts.body&&typeof opts.body!=='string'){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(opts.body);}
+  return fetch(path,opts).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});});}
+
+function doLogin(){
+  var email=document.getElementById('email').value.trim();
+  var pin=document.getElementById('pin').value.trim();
+  document.getElementById('loginErr').textContent='';
+  api('/portal/api/login',{method:'POST',body:{email:email,pin:pin}}).then(function(r){
+    if(!r.ok){document.getElementById('loginErr').textContent=r.j.error||'Login failed';return;}
+    loadMe();
+  });
+}
+function doLogout(){api('/portal/api/logout',{method:'POST'}).then(function(){location.reload();});}
+function loadMe(){
+  api('/portal/api/me').then(function(r){
+    if(!r.ok){return;} DATA=r.j; render();
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    window.scrollTo(0,0);
+  });
+}
+function go(el){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+  var id=el.getAttribute('data-page');
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function statusClass(s){s=(s||'').toLowerCase();
+  if(/compl|green|active|approved/.test(s))return 'b-green';
+  if(/action|yellow|pending|progress/.test(s))return 'b-amber';
+  if(/not|red|inactive|lapsed/.test(s))return 'b-red';return 'b-grey';}
+function daysUntil(d){var t=new Date(d+'T00:00:00');if(isNaN(t))return null;return Math.round((t-new Date())/86400000);}
+function coiColor(days){if(days==null)return ['var(--slate)','b-grey'];if(days<=7)return ['var(--red)','b-red'];if(days<=30)return ['var(--amber)','b-amber'];return ['var(--green)','b-green'];}
+
+function render(){
+  var d=DATA, prequal=(d.client_type!=='docs');
+  document.getElementById('coName').textContent=d.company||'—';
+  document.getElementById('tabPrequal').classList.toggle('hidden',!prequal);
+  // if prequal tab was active but now hidden, jump to overview
+  if(!prequal&&document.getElementById('prequal').classList.contains('active')){go(document.querySelector('.tab'));}
+  renderOverview(prequal); renderPrequal(); renderCOI(); renderDocs();
+}
+function renderOverview(prequal){
+  var d=DATA, h='';
+  h+='<div class="hello"><div><h2>Welcome back, '+esc((d.company||'').replace(/,?\\s*(LLC|Inc\\.?)$/i,''))+'</h2>'
+    +'<div class="sub">Managed by Origin Management Solutions · Plan: <b>'+esc(d.plan||'')+'</b></div></div>'
+    +'<div class="score-pill">Overall Compliance: Good ✓</div></div>';
+  if(prequal){
+    var p=d.platforms||{}; h+='<div class="grid g4">';
+    ['isnetworld','avetta','pec','veriforce'].forEach(function(k){var v=p[k]||{};
+      h+='<div class="card plat"><div class="logo">'+esc(v.label||k)+'</div>'
+        +'<div class="gradeltr">'+esc(v.grade||'—')+'</div>'
+        +'<span class="badge '+statusClass(v.status)+'">'+esc(v.status||'—')+'</span></div>';});
+    h+='</div>';
+  }else{
+    var nProg=(d.documents||[]).length;
+    var soon=(d.coi||[]).map(function(c){return daysUntil(c.expires);}).filter(function(x){return x!=null;});
+    var minDays=soon.length?Math.min.apply(null,soon):null;
+    var coiTxt=minDays==null?'Tracked':(minDays<=30?'1 renewing':'Tracked');
+    h+='<div class="grid g4">'
+      +'<div class="card plat"><div class="logo">Required OSHA Programs</div><div class="gradeltr" style="font-size:20px;color:var(--green)">'+(nProg?'Complete':'In setup')+'</div><span class="badge b-green">'+nProg+' on file</span></div>'
+      +'<div class="card plat"><div class="logo">Recordkeeping</div><div class="gradeltr" style="font-size:20px;color:var(--green)">Current</div><span class="badge b-green">Up to date</span></div>'
+      +'<div class="card plat"><div class="logo">Insurance / COI</div><div class="gradeltr" style="font-size:20px;color:var(--amber)">'+esc(coiTxt)+'</div><span class="badge '+(minDays!=null&&minDays<=30?'b-amber':'b-green')+'">'+(minDays!=null&&minDays<=30?minDays+' days':'Tracked')+'</span></div>'
+      +'<div class="card plat"><div class="logo">Compliance Home Base</div><div class="gradeltr" style="font-size:20px;color:var(--charcoal)">Ready</div><span class="badge b-grey">Audit-ready</span></div>'
+      +'</div>';
+  }
+  h+='<div class="callout">Everything on this portal is prepared and kept current for you by Origin Management Solutions. View or print any document anytime — so whether an inspector, a client, or a general contractor asks, you\\'re always audit-ready.</div>';
+  document.getElementById('overview').innerHTML=h;
+}
+function renderPrequal(){
+  var p=DATA.platforms||{}, h='';
+  h+='<div class="hello"><div><h2>Prequalification Status</h2><div class="sub">All your contractor prequal accounts on one page.</div></div></div><div class="grid g2">';
+  ['isnetworld','avetta','pec','veriforce'].forEach(function(k){var v=p[k]||{};
+    h+='<div class="card"><h3>'+esc(v.label||k)+'</h3><span class="badge '+statusClass(v.status)+'">'+esc(v.status||'—')+' · '+esc(v.grade||'')+'</span></div>';});
+  h+='</div>';
+  document.getElementById('prequal').innerHTML=h;
+}
+function renderCOI(){
+  var coi=DATA.coi||[], h='';
+  h+='<div class="hello"><div><h2>Insurance &amp; COI Tracker</h2><div class="sub">We watch every expiration date so a lapsed cert never costs you a job.</div></div></div>';
+  h+='<div class="card" style="padding:6px 8px"><table><thead><tr><th>Certificate</th><th>Carrier</th><th>Expires</th><th>Status</th></tr></thead><tbody>';
+  if(!coi.length){h+='<tr><td colspan="4" class="mini" style="padding:16px">No certificates on file yet.</td></tr>';}
+  coi.forEach(function(c){var dd=daysUntil(c.expires),col=coiColor(dd)[0];
+    var txt=dd==null?'—':(dd<0?'Expired':dd+' days');
+    h+='<tr><td><span class="dot-s" style="background:'+col+'"></span>'+esc(c.name)+'</td><td>'+esc(c.carrier||'')+'</td><td>'+esc(c.expires||'')+'</td><td><span class="countdown" style="color:'+col+'">'+txt+'</span></td></tr>';});
+  h+='</tbody></table></div>';
+  h+='<div class="callout">Green = good. Amber = renewal window. Red = urgent. You get an email at 30, 14, and 7 days — you never have to remember a date again.</div>';
+  document.getElementById('coi').innerHTML=h;
+}
+function renderDocs(){
+  var d=DATA, h='';
+  h+='<div class="hello"><div><h2>My Documents</h2><div class="sub">Your completed safety programs and records. View or print anytime.</div></div></div>';
+  h+='<div class="section-title">Included in your plan · view &amp; print</div><div class="card">';
+  var docs=d.documents||[];
+  if(!docs.length){h+='<div class="mini" style="padding:6px">No documents yet — Origin will add them here as they\\'re completed.</div>';}
+  docs.forEach(function(doc){
+    var actions;
+    if(doc.file){var url='/portal/api/doc?file='+encodeURIComponent(doc.file);
+      actions='<span class="lnk" onclick="window.open(\\''+url+'\\',\\'_blank\\')">View</span>'
+             +'<span class="lnk" onclick="printDoc(\\''+url+'\\')">Print</span>';}
+    else{actions='<span class="lock-tag">Preparing…</span>';}
+    h+='<div class="doc-row"><div class="doc-left"><div class="doc-ico">DOC</div><div><div class="doc-name">'+esc(doc.name)+'</div><div class="doc-sub">'+esc(doc.sub||'')+'</div></div></div><div>'+actions+'</div></div>';});
+  h+='</div>';
+  var avail=d.available||[];
+  if(avail.length){
+    h+='<div class="section-title">Available to add · request from Origin</div><div class="card">';
+    avail.forEach(function(a){
+      h+='<div class="doc-row"><div class="doc-left"><div class="doc-ico">＋</div><div><div class="doc-name">'+esc(a.name)+'</div><div class="doc-sub">'+esc(a.code||'')+' · not in your current plan</div></div></div>'
+        +'<div><span class="lnk req" onclick="requestDoc(\\''+esc(a.name).replace(/'/g,"\\\\'")+'\\')">Request this program</span></div></div>';});
+    h+='</div>';
+  }
+  h+='<div class="card" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;background:#fff7f2;border-color:#f0d4c4">'
+    +'<div style="font-size:13px;color:var(--muted)"><b style="color:var(--orange)">Need a program you don\\'t see?</b> Request any OSHA or prequal program and Origin will prepare it, quote it, and add it here.</div>'
+    +'<button class="btn orange" style="width:auto;padding:10px 18px" onclick="requestDoc(\\'a custom program\\')">Request a program</button></div>';
+  document.getElementById('docs').innerHTML=h;
+}
+function printDoc(url){var w=window.open(url,'_blank');if(w){w.addEventListener('load',function(){try{w.print();}catch(e){}});}}
+function requestDoc(name){pendingReq=name;
+  document.getElementById('reqName').textContent=name;
+  document.getElementById('reqNameOk').textContent=name;
+  document.getElementById('reqNote').value='';
+  document.getElementById('reqStep1').style.display='block';
+  document.getElementById('reqStep2').style.display='none';
+  document.getElementById('reqModal').classList.add('open');}
+function sendReq(){
+  api('/portal/api/request',{method:'POST',body:{program:pendingReq,note:document.getElementById('reqNote').value.trim()}}).then(function(){
+    document.getElementById('reqStep1').style.display='none';
+    document.getElementById('reqStep2').style.display='block';});}
+function closeReq(){document.getElementById('reqModal').classList.remove('open');}
+document.getElementById('pin').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+</script>
+</body>
+</html>

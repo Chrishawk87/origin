@@ -1209,5 +1209,13 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception as exc:  # never 500 the button
             return JSONResponse({"error": f"seed failed: {exc}"}, status_code=400)
 
+    # ── Client Compliance Portal (customer storefront + admin console) ──
+    # Isolated module; wrapped so a portal bug can never break the main app.
+    try:
+        from . import portal as _portal
+        _portal.register_portal(app)
+    except Exception as _portal_exc:  # pragma: no cover
+        print(f"[portal] disabled — registration failed: {_portal_exc}")
+
     app.state.engine = eng
     return app

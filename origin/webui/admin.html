@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Origin Management Solutions — Admin Console</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --charcoal2:#2a2e35; --orange:#E8551F; --orange2:#F2712F;
+    --ink:#2B2F36; --muted:#6B7280; --line:#E3E6EA; --bg:#F2F0EE; --card:#fff;
+    --green:#1E7A46; --greenbg:#e7f4ec; --amber:#B7791F; --amberbg:#fbf1dd;
+    --red:#C8461A; --redbg:#fbe9e7;
+    --shadow:0 1px 3px rgba(20,25,30,.08),0 6px 20px rgba(20,25,30,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .hidden{display:none !important}
+  .word{font-weight:800;font-size:18px;color:var(--charcoal)}.word span{color:var(--orange)}
+  /* login */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#1C1F24,#0d0f12);padding:24px}
+  .login-card{background:#fff;border-radius:16px;box-shadow:var(--shadow);width:100%;max-width:380px;padding:32px 28px;text-align:center}
+  .adminbadge{font-size:11px;background:var(--orange);color:#fff;padding:3px 9px;border-radius:6px;font-weight:700;margin-left:6px}
+  .login-card h1{font-size:17px;margin:16px 0 4px}.login-card p{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .field{text-align:left;margin-bottom:12px}
+  .field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .field input,.field select{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:#f8fafc;font-family:inherit}
+  .btn{background:var(--charcoal);color:#fff;border:0;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer}
+  .btn:hover{background:var(--charcoal2)}.btn.orange{background:var(--orange)}.btn.orange:hover{background:var(--orange2)}
+  .btn.ghost{background:#fff;color:var(--muted);border:1px solid var(--line)}.btn.ghost:hover{background:#f4f7fa}
+  .btn.sm{padding:7px 12px;font-size:12.5px}
+  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:16px}
+  /* app */
+  #app{display:none}
+  header.topbar{background:var(--charcoal);color:#fff}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+  .topbar .word{color:#fff}
+  .who{font-size:12.5px;color:#e6c6b6;cursor:pointer;border:1px solid rgba(255,255,255,.3);padding:5px 10px;border-radius:7px}
+  nav.tabs{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  nav.tabs .wrap{display:flex;gap:4px}
+  .tab{padding:13px 16px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+  .tab.active{color:var(--charcoal);border-bottom-color:var(--orange)}
+  .tab .pip{background:var(--orange);color:#fff;font-size:11px;border-radius:999px;padding:1px 7px;margin-left:6px;font-weight:700}
+  main{padding:22px 0 70px}.page{display:none}.page.active{display:block}
+  .hello{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+  .hello h2{margin:0;font-size:21px}.hello .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .bar select{padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:#fff;font-weight:600}
+  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:22px 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:18px}
+  label.lbl{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  input.f,select.f,textarea.f{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:#f8fafc;font-family:inherit}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .platrow{display:grid;grid-template-columns:1.1fr 1fr 1.2fr;gap:10px;align-items:end;margin-bottom:10px}
+  .platlbl{font-weight:700;color:var(--charcoal);font-size:13.5px;padding-bottom:9px}
+  .listrow{display:grid;gap:8px;align-items:center;margin-bottom:8px}
+  .coirow{grid-template-columns:1.3fr 1fr 1fr auto}
+  .docrow{grid-template-columns:1.4fr 1fr auto auto}
+  .availrow{grid-template-columns:1.4fr 1fr auto}
+  .x{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--red);cursor:pointer;padding:8px 11px;font-weight:700}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .savebar{display:flex;align-items:center;gap:14px;margin-top:16px}
+  .saved{color:var(--green);font-weight:700;font-size:13px;display:none}.saved.show{display:inline}
+  .fileok{font-size:12px;color:var(--green);font-weight:600}.fileno{font-size:12px;color:var(--muted)}
+  /* requests */
+  .req{border:1px solid var(--line);border-radius:11px;padding:16px;margin-bottom:12px;background:#fff;box-shadow:var(--shadow)}
+  .req.done{opacity:.6}
+  .req .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .req .prog{font-weight:700;font-size:15px;color:var(--charcoal)}.req .from{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .req .note{background:#f6f7f8;border-left:3px solid var(--line);border-radius:6px;padding:9px 12px;font-size:12.5px;margin:12px 0}
+  .pill{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .pill.new{background:var(--redbg);color:var(--red)}.pill.quoted{background:var(--amberbg);color:var(--amber)}
+  .qrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .qrow input{width:120px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:#f8fafc}
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:24px 0 40px}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <div class="login-card">
+    <div class="word">Orig<span>in</span> <span class="adminbadge">ADMIN</span></div>
+    <h1>Admin Console</h1>
+    <p>Private back office — clients never see this page.</p>
+    <div class="field"><label>Master Password</label><input id="pw" type="password" placeholder="••••••••"></div>
+    <button class="btn" onclick="adminLogin()">Log In</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</section>
+
+<div id="app">
+  <header class="topbar"><div class="wrap">
+    <div class="word">Orig<span>in</span> <span class="adminbadge">ADMIN</span></div>
+    <div class="who" onclick="adminLogout()">Sign out</div>
+  </div></header>
+  <nav class="tabs"><div class="wrap">
+    <div class="tab active" data-page="update" onclick="tab(this)">Update Client Status</div>
+    <div class="tab" data-page="requests" onclick="tab(this)">Document Requests <span class="pip" id="reqPip" style="display:none">0</span></div>
+  </div></nav>
+
+  <main><div class="wrap">
+    <section id="update" class="page active">
+      <div class="hello">
+        <div><h2>Update Client Status</h2><div class="sub">Type each grade and expiration date. Save publishes it to the client's portal instantly.</div></div>
+        <div class="bar">
+          <select id="clientPick" onchange="pick(this.value)"></select>
+          <button class="btn ghost sm" onclick="newClient()">+ New client</button>
+          <button class="btn ghost sm" onclick="seedTest()">Seed test client</button>
+        </div>
+      </div>
+      <div id="editor"></div>
+    </section>
+
+    <section id="requests" class="page">
+      <div class="hello"><div><h2>Document Requests</h2><div class="sub">When a client requests a program, it lands here. Quote it, charge per document, then deliver.</div></div></div>
+      <div id="reqList"></div>
+    </section>
+    <div class="foot">Origin Management Solutions · Internal Admin Console</div>
+  </div></div></main>
+</div>
+
+<script>
+var CUR=null; // current client record being edited
+function api(path,opts){opts=opts||{};opts.credentials='same-origin';
+  if(opts.body&&typeof opts.body!=='string'&&!(opts.body instanceof FormData)){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(opts.body);}
+  return fetch(path,opts).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};}).catch(function(){return {ok:r.ok,j:{}};});});}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+function adminLogin(){
+  document.getElementById('loginErr').textContent='';
+  api('/portal/api/admin/login',{method:'POST',body:{password:document.getElementById('pw').value}}).then(function(r){
+    if(!r.ok){document.getElementById('loginErr').textContent=r.j.error||'Login failed';return;}
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    loadClients(); loadRequests();
+  });
+}
+function adminLogout(){api('/portal/api/admin/logout',{method:'POST'}).then(function(){location.reload();});}
+function tab(el){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');
+  var id=el.getAttribute('data-page');document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();}
+
+function loadClients(cb){
+  api('/portal/api/admin/clients').then(function(r){
+    var list=(r.j.clients||[]);
+    var sel=document.getElementById('clientPick');
+    sel.innerHTML='<option value="">— pick a client —</option>'+list.map(function(c){
+      return '<option value="'+esc(c.slug)+'">'+esc(c.company)+'</option>';}).join('');
+    if(cb)cb(list);
+    else if(list.length&&!CUR){sel.value=list[0].slug;pick(list[0].slug);}
+    else if(!list.length){document.getElementById('editor').innerHTML='<div class="card">No clients yet. Click <b>Seed test client</b> to create a sample, or <b>+ New client</b>.</div>';}
+  });
+}
+function pick(slug){
+  if(!slug){CUR=null;document.getElementById('editor').innerHTML='';return;}
+  api('/portal/api/admin/client/'+slug).then(function(r){if(r.ok){CUR=r.j;renderEditor();}});
+}
+function newClient(){CUR={slug:'',company:'',email:'',client_type:'prequal',plan:'Professional',
+  platforms:{isnetworld:{label:'ISNetworld',grade:'',status:'Compliant'},avetta:{label:'Avetta',grade:'',status:'Compliant'},pec:{label:'PEC Premier',grade:'',status:'Green'},veriforce:{label:'Veriforce',grade:'',status:'Active'}},
+  coi:[],documents:[],available:[],pin_set:false};
+  document.getElementById('clientPick').value='';renderEditor();}
+function seedTest(){api('/portal/api/admin/seed',{method:'POST'}).then(function(r){
+  if(r.ok){alert('Test client created.\\nLogin: '+r.j.login.email+' / PIN '+r.j.login.pin);CUR=null;loadClients();}});}
+
+var STAT_PREQ=['Compliant','Action needed','Not compliant'],STAT_GREEN=['Green','Yellow','Red'],STAT_ACT=['Active','Pending','Inactive'];
+function opts(list,cur){return list.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('');}
+function renderEditor(){
+  var c=CUR,isNew=!c.slug,docs=(c.client_type==='docs');
+  var p=c.platforms||{};
+  var h='';
+  h+='<div class="section-title">Client details</div><div class="card">';
+  h+='<div class="row3">'
+    +'<div><label class="lbl">Company name</label><input class="f" id="f_company" value="'+esc(c.company)+'"></div>'
+    +'<div><label class="lbl">Login email</label><input class="f" id="f_email" value="'+esc(c.email)+'"></div>'
+    +'<div><label class="lbl">Set / reset PIN '+(c.pin_set?'(leave blank to keep)':'') +'</label><input class="f" id="f_pin" placeholder="'+(c.pin_set?'•••• set':'e.g. 1234')+'"></div>'
+    +'</div>';
+  h+='<div class="row2">'
+    +'<div><label class="lbl">Client type</label><select class="f" id="f_type" onchange="CUR.client_type=this.value;renderEditor()">'
+      +'<option value="prequal"'+(docs?'':' selected')+'>Prequal-managed — has ISN / Avetta / PEC / Veriforce</option>'
+      +'<option value="docs"'+(docs?' selected':'')+'>Documentation-only — safety programs, no prequal accounts</option></select></div>'
+    +'<div><label class="lbl">Plan label</label><input class="f" id="f_plan" value="'+esc(c.plan)+'"></div>'
+    +'</div></div>';
+
+  if(!docs){
+    h+='<div class="section-title">Prequal platform grades</div><div class="card">';
+    h+=platRow('isnetworld','ISNetworld',p.isnetworld||{},STAT_PREQ);
+    h+=platRow('avetta','Avetta',p.avetta||{},STAT_PREQ);
+    h+=platRow('pec','PEC Premier',p.pec||{},STAT_GREEN);
+    h+=platRow('veriforce','Veriforce',p.veriforce||{},STAT_ACT);
+    h+='</div>';
+  }
+
+  h+='<div class="section-title">Insurance &amp; COI expiration dates</div><div class="card"><div id="coiList">';
+  (c.coi||[]).forEach(function(x,i){h+=coiRow(x,i);});
+  h+='</div><button class="btn ghost sm" onclick="addCoi()">+ Add certificate</button></div>';
+
+  h+='<div class="section-title">Documents (included in plan)</div><div class="card"><div id="docList">';
+  (c.documents||[]).forEach(function(x,i){h+=docRow(x,i);});
+  h+='</div><button class="btn ghost sm" onclick="addDoc()">+ Add document</button>'
+    +'<div class="hint">Add a row, Save, then use <b>Upload</b> to attach the finished file the client can view &amp; print.</div></div>';
+
+  h+='<div class="section-title">Available to request (upsell)</div><div class="card"><div id="availList">';
+  (c.available||[]).forEach(function(x,i){h+=availRow(x,i);});
+  h+='</div><button class="btn ghost sm" onclick="addAvail()">+ Add requestable program</button></div>';
+
+  h+='<div class="savebar"><button class="btn" onclick="saveClient()">Save &amp; publish to client portal</button>'
+    +'<span class="saved" id="savedMsg">✓ Saved — the client\\'s portal now shows these values.</span>';
+  if(!isNew)h+='<button class="btn ghost sm" style="margin-left:auto" onclick="delClient()">Delete client</button>';
+  h+='</div>';
+  document.getElementById('editor').innerHTML=h;
+}
+function platRow(key,label,v,stat){
+  return '<div class="platrow" data-plat="'+key+'"><div class="platlbl">'+label+'</div>'
+    +'<div><label class="lbl">Grade / score</label><input class="f pf-grade" value="'+esc(v.grade||'')+'"></div>'
+    +'<div><label class="lbl">Status</label><select class="f pf-status">'+opts(stat,v.status||stat[0])+'</select></div></div>';
+}
+function coiRow(x,i){return '<div class="listrow coirow">'
+  +'<input class="f c-name" placeholder="e.g. General Liability" value="'+esc(x.name||'')+'">'
+  +'<input class="f c-carrier" placeholder="Carrier" value="'+esc(x.carrier||'')+'">'
+  +'<input class="f c-exp" type="date" value="'+esc(x.expires||'')+'">'
+  +'<button class="x" onclick="this.parentNode.remove()">✕</button></div>';}
+function docRow(x,i){var f=x.file?'<span class="fileok">✓ '+esc(x.file)+'</span>':'<span class="fileno">no file</span>';
+  var up=CUR.slug?'<button class="btn ghost sm" onclick="uploadDoc(\\''+esc(x.name).replace(/'/g,"\\\\'")+'\\')">Upload</button>':'<span class="fileno">save first</span>';
+  return '<div class="listrow docrow" data-file="'+esc(x.file||'')+'">'
+  +'<input class="f d-name" placeholder="Document name" value="'+esc(x.name||'')+'">'
+  +'<input class="f d-sub" placeholder="Subtitle / standard" value="'+esc(x.sub||'')+'">'
+  +'<span>'+f+' '+up+'</span>'
+  +'<button class="x" onclick="this.parentNode.remove()">✕</button></div>';}
+function availRow(x,i){return '<div class="listrow availrow">'
+  +'<input class="f a-name" placeholder="Program name" value="'+esc(x.name||'')+'">'
+  +'<input class="f a-code" placeholder="e.g. OSHA 1910.146" value="'+esc(x.code||'')+'">'
+  +'<button class="x" onclick="this.parentNode.remove()">✕</button></div>';}
+function addCoi(){document.getElementById('coiList').insertAdjacentHTML('beforeend',coiRow({},0));}
+function addDoc(){document.getElementById('docList').insertAdjacentHTML('beforeend',docRow({},0));}
+function addAvail(){document.getElementById('availList').insertAdjacentHTML('beforeend',availRow({},0));}
+
+function gather(){
+  var c=CUR;c.company=val('f_company');c.email=val('f_email');c.client_type=val('f_type');c.plan=val('f_plan');
+  var pin=val('f_pin');
+  c.platforms=c.platforms||{};
+  document.querySelectorAll('.platrow').forEach(function(row){var k=row.getAttribute('data-plat');
+    c.platforms[k]=c.platforms[k]||{};c.platforms[k].grade=row.querySelector('.pf-grade').value.trim();
+    c.platforms[k].status=row.querySelector('.pf-status').value;});
+  c.coi=[].map.call(document.querySelectorAll('#coiList .coirow'),function(r){
+    return {name:r.querySelector('.c-name').value.trim(),carrier:r.querySelector('.c-carrier').value.trim(),expires:r.querySelector('.c-exp').value};})
+    .filter(function(x){return x.name;});
+  c.documents=[].map.call(document.querySelectorAll('#docList .docrow'),function(r){
+    return {name:r.querySelector('.d-name').value.trim(),sub:r.querySelector('.d-sub').value.trim(),file:r.getAttribute('data-file')||''};})
+    .filter(function(x){return x.name;});
+  c.available=[].map.call(document.querySelectorAll('#availList .availrow'),function(r){
+    return {name:r.querySelector('.a-name').value.trim(),code:r.querySelector('.a-code').value.trim()};})
+    .filter(function(x){return x.name;});
+  var body={company:c.company,email:c.email,client_type:c.client_type,plan:c.plan,
+    platforms:c.platforms,coi:c.coi,documents:c.documents,available:c.available};
+  if(c.slug)body.slug=c.slug;
+  if(pin)body.pin=pin;
+  return body;
+}
+function val(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function saveClient(){
+  if(!val('f_company')){alert('Company name is required.');return;}
+  api('/portal/api/admin/client',{method:'POST',body:gather()}).then(function(r){
+    if(!r.ok){alert(r.j.error||'Save failed');return;}
+    var m=document.getElementById('savedMsg');if(m){m.classList.add('show');setTimeout(function(){m.classList.remove('show');},3500);}
+    CUR.slug=r.j.slug;loadClients(function(){document.getElementById('clientPick').value=r.j.slug;});
+    pick(r.j.slug);
+  });
+}
+function delClient(){if(!CUR.slug||!confirm('Delete '+CUR.company+'? This removes their portal access and documents.'))return;
+  api('/portal/api/admin/client/'+CUR.slug+'/delete',{method:'POST'}).then(function(){CUR=null;loadClients();document.getElementById('editor').innerHTML='';});}
+function uploadDoc(name){
+  var inp=document.createElement('input');inp.type='file';
+  inp.onchange=function(){var f=inp.files[0];if(!f)return;var fd=new FormData();fd.append('file',f);fd.append('name',name);
+    api('/portal/api/admin/client/'+CUR.slug+'/upload',{method:'POST',body:fd}).then(function(r){
+      if(!r.ok){alert(r.j.error||'Upload failed');return;}pick(CUR.slug);});};
+  inp.click();
+}
+
+function loadRequests(){
+  api('/portal/api/admin/requests').then(function(r){
+    var rows=(r.j.requests||[]),nNew=rows.filter(function(x){return x.status==='new';}).length;
+    var pip=document.getElementById('reqPip');if(pip){pip.style.display=nNew?'inline-block':'none';pip.textContent=nNew;}
+    var el=document.getElementById('reqList');
+    if(!rows.length){el.innerHTML='<div class="card">No document requests yet. When a client clicks "Request this program" in their portal, it shows up here.</div>';return;}
+    el.innerHTML=rows.map(function(q){var quoted=(q.status!=='new');
+      return '<div class="req'+(quoted?' done':'')+'"><div class="top">'
+        +'<div><div class="prog">'+esc(q.program)+'</div><div class="from">Requested by '+esc(q.company)+' · '+esc(q.ts||'')+'</div></div>'
+        +'<span class="pill '+(quoted?'quoted':'new')+'">'+(quoted?'Quoted'+(q.price?' '+esc(q.price):''):'New')+'</span></div>'
+        +(q.note?'<div class="note">"'+esc(q.note)+'"</div>':'')
+        +'<div class="qrow"><input placeholder="$ price" value="'+esc(q.price||'')+'" id="pr_'+esc(q.slug)+'_'+q.index+'">'
+        +'<button class="btn orange sm" onclick="quote(\\''+esc(q.slug)+'\\','+q.index+')">Send quote</button></div></div>';}).join('');
+  });
+}
+function quote(slug,index){
+  var price=document.getElementById('pr_'+slug+'_'+index).value.trim();
+  api('/portal/api/admin/request/quote',{method:'POST',body:{slug:slug,index:index,price:price,status:'quoted'}}).then(function(){loadRequests();});
+}
+document.getElementById('pw').addEventListener('keydown',function(e){if(e.key==='Enter')adminLogin();});
+</script>
+</body>
+</html>
