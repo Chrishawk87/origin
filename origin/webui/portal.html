@@ -155,7 +155,8 @@
 var DATA=null, pendingReq=null;
 function api(path,opts){opts=opts||{};opts.credentials='same-origin';
   if(opts.body&&typeof opts.body!=='string'){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(opts.body);}
-  return fetch(path,opts).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});});}
+  return fetch(path,opts).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};}).catch(function(){return {ok:r.ok,j:{error:'Server error ('+r.status+'). Please try again.'}};});})
+    .catch(function(){return {ok:false,j:{error:'Network error — please try again.'}};});}
 
 function doLogin(){
   var email=document.getElementById('email').value.trim();
@@ -223,7 +224,7 @@ function renderOverview(prequal){
       +'<div class="card plat"><div class="logo">Compliance Home Base</div><div class="gradeltr" style="font-size:20px;color:var(--charcoal)">Ready</div><span class="badge b-grey">Audit-ready</span></div>'
       +'</div>';
   }
-  h+='<div class="callout">Everything on this portal is prepared and kept current for you by Origin Management Solutions. View or print any document anytime — so whether an inspector, a client, or a general contractor asks, you\\'re always audit-ready.</div>';
+  h+='<div class="callout">Everything on this portal is prepared and kept current for you by Origin Management Solutions. View or print any document anytime — so whether an inspector, a client, or a general contractor asks, you&#39;re always audit-ready.</div>';
   document.getElementById('overview').innerHTML=h;
 }
 function renderPrequal(){
@@ -251,12 +252,12 @@ function renderDocs(){
   h+='<div class="hello"><div><h2>My Documents</h2><div class="sub">Your completed safety programs and records. View or print anytime.</div></div></div>';
   h+='<div class="section-title">Included in your plan · view &amp; print</div><div class="card">';
   var docs=d.documents||[];
-  if(!docs.length){h+='<div class="mini" style="padding:6px">No documents yet — Origin will add them here as they\\'re completed.</div>';}
+  if(!docs.length){h+='<div class="mini" style="padding:6px">No documents yet — Origin will add them here as they&#39;re completed.</div>';}
   docs.forEach(function(doc){
     var actions;
     if(doc.file){var url='/portal/api/doc?file='+encodeURIComponent(doc.file);
-      actions='<span class="lnk" onclick="window.open(\\''+url+'\\',\\'_blank\\')">View</span>'
-             +'<span class="lnk" onclick="printDoc(\\''+url+'\\')">Print</span>';}
+      actions='<span class="lnk" onclick="window.open(\''+url+'\',\'_blank\')">View</span>'
+             +'<span class="lnk" onclick="printDoc(\''+url+'\')">Print</span>';}
     else{actions='<span class="lock-tag">Preparing…</span>';}
     h+='<div class="doc-row"><div class="doc-left"><div class="doc-ico">DOC</div><div><div class="doc-name">'+esc(doc.name)+'</div><div class="doc-sub">'+esc(doc.sub||'')+'</div></div></div><div>'+actions+'</div></div>';});
   h+='</div>';
@@ -265,12 +266,12 @@ function renderDocs(){
     h+='<div class="section-title">Available to add · request from Origin</div><div class="card">';
     avail.forEach(function(a){
       h+='<div class="doc-row"><div class="doc-left"><div class="doc-ico">＋</div><div><div class="doc-name">'+esc(a.name)+'</div><div class="doc-sub">'+esc(a.code||'')+' · not in your current plan</div></div></div>'
-        +'<div><span class="lnk req" onclick="requestDoc(\\''+esc(a.name).replace(/'/g,"\\\\'")+'\\')">Request this program</span></div></div>';});
+        +'<div><span class="lnk req" onclick="requestDoc(\''+esc(a.name).replace(/'/g,"\\'")+'\')">Request this program</span></div></div>';});
     h+='</div>';
   }
   h+='<div class="card" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;background:#fff7f2;border-color:#f0d4c4">'
-    +'<div style="font-size:13px;color:var(--muted)"><b style="color:var(--orange)">Need a program you don\\'t see?</b> Request any OSHA or prequal program and Origin will prepare it, quote it, and add it here.</div>'
-    +'<button class="btn orange" style="width:auto;padding:10px 18px" onclick="requestDoc(\\'a custom program\\')">Request a program</button></div>';
+    +'<div style="font-size:13px;color:var(--muted)"><b style="color:var(--orange)">Need a program you don&#39;t see?</b> Request any OSHA or prequal program and Origin will prepare it, quote it, and add it here.</div>'
+    +'<button class="btn orange" style="width:auto;padding:10px 18px" onclick="requestDoc(\'a custom program\')">Request a program</button></div>';
   document.getElementById('docs').innerHTML=h;
 }
 function printDoc(url){var w=window.open(url,'_blank');if(w){w.addEventListener('load',function(){try{w.print();}catch(e){}});}}

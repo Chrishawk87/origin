@@ -205,7 +205,7 @@ function renderEditor(){
   h+='</div><button class="btn ghost sm" onclick="addAvail()">+ Add requestable program</button></div>';
 
   h+='<div class="savebar"><button class="btn" onclick="saveClient()">Save &amp; publish to client portal</button>'
-    +'<span class="saved" id="savedMsg">✓ Saved — the client\\'s portal now shows these values.</span>';
+    +'<span class="saved" id="savedMsg">✓ Saved — the client&#39;s portal now shows these values.</span>';
   if(!isNew)h+='<button class="btn ghost sm" style="margin-left:auto" onclick="delClient()">Delete client</button>';
   h+='</div>';
   document.getElementById('editor').innerHTML=h;
@@ -221,7 +221,7 @@ function coiRow(x,i){return '<div class="listrow coirow">'
   +'<input class="f c-exp" type="date" value="'+esc(x.expires||'')+'">'
   +'<button class="x" onclick="this.parentNode.remove()">✕</button></div>';}
 function docRow(x,i){var f=x.file?'<span class="fileok">✓ '+esc(x.file)+'</span>':'<span class="fileno">no file</span>';
-  var up=CUR.slug?'<button class="btn ghost sm" onclick="uploadDoc(\\''+esc(x.name).replace(/'/g,"\\\\'")+'\\')">Upload</button>':'<span class="fileno">save first</span>';
+  var up=CUR.slug?'<button class="btn ghost sm" onclick="uploadDoc(\''+esc(x.name).replace(/'/g,"\\'")+'\')">Upload</button>':'<span class="fileno">save first</span>';
   return '<div class="listrow docrow" data-file="'+esc(x.file||'')+'">'
   +'<input class="f d-name" placeholder="Document name" value="'+esc(x.name||'')+'">'
   +'<input class="f d-sub" placeholder="Subtitle / standard" value="'+esc(x.sub||'')+'">'
@@ -289,7 +289,7 @@ function loadRequests(){
         +'<span class="pill '+(quoted?'quoted':'new')+'">'+(quoted?'Quoted'+(q.price?' '+esc(q.price):''):'New')+'</span></div>'
         +(q.note?'<div class="note">"'+esc(q.note)+'"</div>':'')
         +'<div class="qrow"><input placeholder="$ price" value="'+esc(q.price||'')+'" id="pr_'+esc(q.slug)+'_'+q.index+'">'
-        +'<button class="btn orange sm" onclick="quote(\\''+esc(q.slug)+'\\','+q.index+')">Send quote</button></div></div>';}).join('');
+        +'<button class="btn orange sm" onclick="quote(\''+esc(q.slug)+'\','+q.index+')">Send quote</button></div></div>';}).join('');
   });
 }
 function quote(slug,index){
