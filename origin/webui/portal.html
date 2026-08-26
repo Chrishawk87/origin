@@ -167,7 +167,7 @@
 <script>
 var DATA=null, pendingReq=null;
 function api(path,opts){opts=opts||{};opts.credentials='same-origin';
-  if(opts.body&&typeof opts.body!=='string'){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(opts.body);}
+  if(opts.body&&typeof opts.body!=='string'&&!(opts.body instanceof FormData)){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(opts.body);}
   return fetch(path,opts).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};}).catch(function(){return {ok:r.ok,j:{error:'Server error ('+r.status+'). Please try again.'}};});})
     .catch(function(){return {ok:false,j:{error:'Network error — please try again.'}};});}
 
@@ -279,6 +279,14 @@ function renderCOI(){
 function renderDocs(){
   var d=DATA, h='';
   h+='<div class="hello"><div><h2>My Documents</h2><div class="sub">Your completed safety programs and records. View or print anytime.</div></div></div>';
+  h+='<div class="card" style="background:#f7f9fc;border-color:#d9e2ec;margin-bottom:14px">'
+    +'<div style="font-size:14px;font-weight:600;margin-bottom:4px">Already have safety documents?</div>'
+    +'<div class="mini" style="margin-bottom:10px">Upload what you already have \u2014 manuals, programs, certificates, your OSHA 300 log. We review them so we only build what\u2019s actually missing, and never rebuild something that already works.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<input type="text" id="upName" placeholder="Document name (optional)" style="flex:1;min-width:170px;padding:9px 11px;border:1px solid #d9e2ec;border-radius:8px">'
+    +'<input type="file" id="upFile" style="flex:1;min-width:170px">'
+    +'<button class="btn orange" style="width:auto;padding:10px 18px" onclick="doUpload()">Upload</button>'
+    +'</div><div class="err" id="upErr" style="margin-top:8px"></div></div>';
   h+='<div class="section-title">Included in your plan · view &amp; print</div><div class="card">';
   var docs=d.documents||[];
   if(!docs.length){h+='<div class="mini" style="padding:6px">No documents yet — Origin will add them here as they&#39;re completed.</div>';}
@@ -302,6 +310,17 @@ function renderDocs(){
     +'<div style="font-size:13px;color:var(--muted)"><b style="color:var(--orange)">Need a program you don&#39;t see?</b> Request any OSHA or prequal program and Origin will prepare it, quote it, and add it here.</div>'
     +'<button class="btn orange" style="width:auto;padding:10px 18px" onclick="requestDoc(\'a custom program\')">Request a program</button></div>';
   document.getElementById('docs').innerHTML=h;
+}
+function doUpload(){
+  var f=document.getElementById('upFile');var err=document.getElementById('upErr');err.textContent='';
+  if(!f||!f.files||!f.files.length){err.textContent='Choose a file to upload first.';return;}
+  var name=(document.getElementById('upName').value||'').trim();
+  var fd=new FormData();fd.append('file',f.files[0]);fd.append('name',name);
+  err.textContent='Uploading\u2026';
+  api('/portal/api/upload',{method:'POST',body:fd}).then(function(r){
+    if(!r.ok){err.textContent=r.j.error||'Upload failed. Please try again.';return;}
+    api('/portal/api/me').then(function(m){if(m.ok){DATA=m.j;renderDocs();}});
+  });
 }
 function printDoc(url){var w=window.open(url,'_blank');if(w){w.addEventListener('load',function(){try{w.print();}catch(e){}});}}
 function requestDoc(name){pendingReq=name;

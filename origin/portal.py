@@ -367,6 +367,37 @@ def register_portal(app) -> None:
             print(f"[portal] request email skipped: {exc}")
         return {"ok": True}
 
+    @app.post("/portal/api/upload")
+    def portal_upload(request: Request, file: UploadFile = File(...), name: str = Form("")):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        safe = os.path.basename(file.filename or "document")
+        dest = _client_dir(sess["slug"]) / "docs"
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / safe).write_bytes(file.file.read())
+        doc_name = (name or os.path.splitext(safe)[0]).strip() or safe
+        rec.setdefault("documents", []).append(
+            {"name": doc_name, "sub": "Uploaded by you", "file": safe, "source": "client"})
+        rec["updated"] = _now()
+        save_client(rec)
+        # let Chris know the client submitted something to review for gap analysis
+        try:
+            from .compliance import send_email
+            send_email(
+                to=os.environ.get("ORIGIN_MAIL_FROM", "info@originmanagementsolutions.com"),
+                subject=f"Client upload — {rec.get('company')}",
+                body=(f"{rec.get('company')} uploaded a document: {doc_name} ({safe}).\n\n"
+                      f"Review it in the admin console and run a gap analysis to see "
+                      f"what still needs to be built."),
+            )
+        except Exception as exc:
+            print(f"[portal] upload email skipped: {exc}")
+        return {"ok": True, "file": safe}
+
     @app.get("/portal/api/doc")
     def portal_doc(request: Request, file: str = ""):
         sess = client_session(request)
