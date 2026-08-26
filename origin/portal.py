@@ -277,6 +277,52 @@ def register_portal(app) -> None:
                         secure=_secure(request))
         return resp
 
+    @app.post("/portal/api/signup")
+    def portal_signup(request: Request, body: dict = Body(...)):
+        company = (body.get("company") or "").strip()
+        email = (body.get("email") or "").strip()
+        pin = (body.get("pin") or "").strip()
+        if not company or not email or not pin:
+            return JSONResponse({"error": "Company, email, and a PIN are all required."}, status_code=400)
+        if len(pin) < 4:
+            return JSONResponse({"error": "Your PIN must be at least 4 digits."}, status_code=400)
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return JSONResponse({"error": "Please enter a valid email address."}, status_code=400)
+        if find_by_email(email):
+            return JSONResponse({"error": "An account with that email already exists — try logging in."}, status_code=409)
+        # new self-signups start as documentation-only; Chris switches them to a
+        # prequal-managed plan in the admin console once he knows their platforms.
+        rec = _blank_client(company, email, "docs")
+        base = rec.get("slug") or "client"
+        slug = base
+        n = 2
+        while True:
+            existing = load_client(slug)
+            if not existing or (existing.get("email", "").strip().lower() == email.lower()):
+                break
+            slug = f"{base}-{n}"
+            n += 1
+        rec["slug"] = slug
+        rec["pin_hash"] = hash_pin(slug, pin)
+        save_client(rec)
+        # let Chris know a new client just signed themselves up
+        try:
+            from .compliance import send_email
+            send_email(
+                to=os.environ.get("ORIGIN_MAIL_FROM", "info@originmanagementsolutions.com"),
+                subject=f"New portal signup — {company}",
+                body=(f"{company} ({email}) just created a portal account.\n\n"
+                      f"Open the admin console to set their platforms, grades, "
+                      f"COI dates, and documents."),
+            )
+        except Exception as exc:
+            print(f"[portal] signup email skipped: {exc}")
+        resp = JSONResponse({"ok": True, "company": company})
+        resp.set_cookie(CLIENT_COOKIE, _session("client", slug),
+                        httponly=True, samesite="lax", max_age=SESSION_TTL,
+                        secure=_secure(request))
+        return resp
+
     @app.post("/portal/api/logout")
     def portal_logout():
         resp = JSONResponse({"ok": True})
