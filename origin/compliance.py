@@ -33,6 +33,34 @@ ASSIGN_SUBDIR = "Compliance"                                  # inside a project
 # stored masters so existing documents on the Railway volume pick up the change.
 STYLE_VERSION = "2026-08-26-premium-cover-2"
 
+# Bump LIBRARY_SET_VERSION to re-run the library consolidation migration on the
+# Railway volume (retire duplicate trade starters, fold the unique ones into the
+# canonical KB categories). Runs once per version, then records a marker.
+LIBRARY_SET_VERSION = "2026-08-26-consolidate-1"
+
+# Legacy trade starter templates that duplicate a canonical KB program-* master.
+# The KB set is authoritative, so these are retired from the live library.
+_DUPLICATE_TRADE_IDS = {
+    "general-construction-01", "general-construction-02", "general-construction-03",
+    "general-construction-04", "general-construction-05", "general-construction-06",
+    "general-construction-07", "general-construction-08",
+    "oilfield-01", "oilfield-02", "oilfield-03", "oilfield-04", "oilfield-05",
+    "oilfield-06", "oilfield-07",
+    "trucking-07", "trucking-08",
+}
+
+# Unique trade programs with NO KB equivalent — kept, but regrouped into the
+# existing canonical categories so the library reads as one clean set.
+_KEEP_TRADE_REGROUP = {
+    "trucking-01": "04 - DOT and FMCSA (49 CFR)",
+    "trucking-02": "04 - DOT and FMCSA (49 CFR)",
+    "trucking-03": "04 - DOT and FMCSA (49 CFR)",
+    "trucking-04": "04 - DOT and FMCSA (49 CFR)",
+    "trucking-05": "04 - DOT and FMCSA (49 CFR)",
+    "trucking-06": "04 - DOT and FMCSA (49 CFR)",
+    "oilfield-08": "09 - Management Systems & Prequal Programs",
+}
+
 # IMPORTANT: these documents are the CLIENT's own written programs — the client
 # uploads them to ISNetworld/Avetta as their company's program. So Origin
 # Management Solutions must NOT appear anywhere on them. The letterhead is driven
@@ -346,10 +374,56 @@ def ensure_library() -> None:
     _sync_program_masters()
     _sync_jha_masters()
     _restyle_masters_if_needed()
+    _consolidate_library_if_needed()
 
 
 def _style_marker_path() -> Path:
     return LIBRARY_DIR / ".style_version"
+
+
+def _library_set_marker_path() -> Path:
+    return LIBRARY_DIR / ".library_set_version"
+
+
+def _consolidate_library_if_needed() -> None:
+    """Retire the trade starter templates that duplicate a canonical KB program
+    master, and regroup the few unique ones (trucking/DOT + SSE) into existing
+    canonical categories so the Asset Library reads as one clean set. Guarded by
+    a marker so it runs once per LIBRARY_SET_VERSION on the Railway volume."""
+    marker = _library_set_marker_path()
+    try:
+        current = marker.read_text(encoding="utf-8").strip() if marker.is_file() else ""
+    except Exception:
+        current = ""
+    if current == LIBRARY_SET_VERSION:
+        return
+    records = _read_index_raw()
+    kept: List[Dict[str, Any]] = []
+    changed = False
+    for rec in records:
+        rid = rec.get("id", "")
+        if rid in _DUPLICATE_TRADE_IDS:
+            # remove the duplicate: drop from index and delete its file
+            f = LIBRARY_DIR / rec.get("file", "")
+            try:
+                if f.is_file():
+                    f.unlink()
+            except Exception:
+                pass
+            changed = True
+            continue
+        if rid in _KEEP_TRADE_REGROUP:
+            new_trade = _KEEP_TRADE_REGROUP[rid]
+            if rec.get("trade") != new_trade:
+                rec["trade"] = new_trade
+                changed = True
+        kept.append(rec)
+    if changed:
+        _write_index(kept)
+    try:
+        marker.write_text(LIBRARY_SET_VERSION, encoding="utf-8")
+    except Exception:
+        pass
 
 
 def _restyle_masters_if_needed() -> None:
