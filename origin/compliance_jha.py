@@ -918,3 +918,768 @@ JHA_LIBRARY["29-cfr-1926-subpart-aa-1926-1200-1213-confined-spaces-in-constructi
         ]),
     ],
 }
+
+
+# ── Construction category — remaining field programs ──────────────────────────
+JHA_LIBRARY["29-cfr-1926-subpart-r-1926-750-761-steel-erection"] = {
+    "subtitle": "Structural Steel Erection Operations",
+    "legend": [
+        ("Falls", "Falls from connecting points, leading edges, and open-web steel."),
+        ("Struck-By / Caught-Between", "Swinging loads, moving steel, crane counterweights."),
+        ("Structural Collapse", "Unstable columns/beams before bracing; overload of connections."),
+        ("Rigging / Hoisting", "Dropped loads, rigging failure, load contact."),
+        ("Electrical", "Contact with overhead power lines during hoisting."),
+    ],
+    "jobs": [
+        ("1", "Site Layout &amp; Pre-Planning", [
+            ("Verify site readiness &amp; approvals",
+             ["Inadequate foundations", "Unstable ground for cranes"],
+             ["Obtain written notification that concrete/anchor bolts have cured to strength",
+              "Confirm adequate access roads and firm, level crane setup areas",
+              "Hold a pre-erection planning meeting covering the erection sequence"],
+             "Hard hat, safety glasses, gloves, high-visibility vest"),
+        ]),
+        ("2", "Crane &amp; Hoisting Setup", [
+            ("Set up and stabilize the crane",
+             ["Crane tip-over", "Contact with overhead power lines"],
+             ["Set crane on firm level ground with mats and fully extended outriggers",
+              "Maintain minimum clearance from overhead power lines; use a spotter",
+              "Verify load charts, rated capacity, and inspection before lifting"],
+             "Hard hat, safety glasses, gloves, high-visibility vest"),
+        ]),
+        ("3", "Rigging &amp; Hoisting Steel", [
+            ("Rig and hoist structural members",
+             ["Dropped load", "Rigging failure", "Struck by swinging load"],
+             ["Use a qualified rigger and inspected slings/shackles rated for the load",
+              "Use tag lines to control the load; keep workers clear of the swing radius",
+              "Do not walk or work under a suspended load"],
+             "Hard hat, safety glasses, gloves, high-visibility vest"),
+        ]),
+        ("4", "Connecting &amp; Bolting-Up", [
+            ("Make initial connections",
+             ["Falls from connecting points", "Struck by member during landing"],
+             ["Connectors tie off at heights &gt; 15 ft (and per employer policy &ge; 6 ft)",
+              "Install a minimum of two bolts per connection before releasing the load",
+              "Use controlled load-landing; guide members with tag lines"],
+             "Full-body harness, positioning lanyard, hard hat, gloves"),
+            ("Torque and final bolt-up",
+             ["Falls", "Pinch points", "Dropped tools"],
+             ["Work from stable footing, boom lift, or floated platform tied off",
+              "Secure/tether tools to prevent dropped objects",
+              "Verify bolt pattern and torque per the erection drawings"],
+             "Full-body harness, hard hat, gloves, tool tethers"),
+        ]),
+        ("5", "Decking &amp; Metal Deck Installation", [
+            ("Install and secure metal decking",
+             ["Falls through openings/leading edge", "Slips on loose deck", "Wind"],
+             ["Establish a controlled decking zone; guard/cover openings immediately",
+              "Secure deck bundles; do not stack near leading edge",
+              "Tack/fasten deck as laid; stop work in high winds"],
+             "Full-body harness, hard hat, gloves"),
+        ]),
+        ("6", "Column &amp; Beam Stability / Guying", [
+            ("Brace and stabilize erected steel",
+             ["Structural collapse", "Overload before bracing complete"],
+             ["Guy or brace columns until permanent bracing is installed",
+              "Do not remove temporary bracing until the frame is self-supporting",
+              "Competent person inspects stability before releasing the crane"],
+             "Hard hat, safety glasses, gloves, high-visibility vest"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-subpart-x-1926-1053-1060-ladders-construction"] = {
+    "subtitle": "Portable &amp; Fixed Ladder Use",
+    "legend": [
+        ("Falls", "Falls from ladders, overreaching, sliding/tipping ladders."),
+        ("Electrical", "Metal ladder contact with energized equipment/overhead lines."),
+        ("Struck-By", "Dropped tools, falling objects near the ladder base."),
+        ("Ergonomic", "Awkward posture, overexertion carrying/positioning ladders."),
+    ],
+    "jobs": [
+        ("1", "Ladder Selection &amp; Inspection", [
+            ("Select and inspect the ladder",
+             ["Defective ladder", "Wrong ladder for the task", "Conductive ladder near power"],
+             ["Select a ladder rated for the load and duty; correct length for the task",
+              "Use non-conductive (fiberglass) ladders near electrical hazards",
+              "Inspect for cracked rails, missing feet, damaged rungs before each use; remove defective ladders"],
+             "Hard hat, safety glasses, gloves"),
+        ]),
+        ("2", "Setup &amp; Positioning", [
+            ("Position and secure the ladder",
+             ["Ladder slides/tips", "Set up on unstable ground"],
+             ["Set extension ladders at a 4:1 pitch on firm, level footing",
+              "Extend &ge; 3 ft above the landing; secure top and bottom or have it held",
+              "Do not place in front of doorways unless barricaded/locked"],
+             "Hard hat, safety glasses, gloves"),
+        ]),
+        ("3", "Climbing &amp; Descending", [
+            ("Climb and descend safely",
+             ["Falls", "Loss of grip", "Overloading"],
+             ["Face the ladder and maintain three points of contact",
+              "One person on the ladder at a time; do not carry loads by hand while climbing",
+              "Raise/lower tools and materials with a hand line"],
+             "Hard hat, safety glasses, gloves, non-slip footwear"),
+        ]),
+        ("4", "Working from the Ladder", [
+            ("Perform work from the ladder",
+             ["Overreaching/tipping", "Dropped objects", "Electrical contact"],
+             ["Keep the body centered between the rails; do not overreach",
+              "Do not stand on the top two rungs of a stepladder",
+              "Keep clearances from energized parts; use a working platform for extended tasks"],
+             "Hard hat, safety glasses, gloves, tool lanyards"),
+        ]),
+        ("5", "Storage &amp; Removal from Service", [
+            ("Store or tag out ladders",
+             ["Reuse of a damaged ladder", "Struck-by during handling"],
+             ["Tag and remove defective ladders from service immediately",
+              "Store ladders on racks, supported to prevent sagging/warping",
+              "Use safe carrying techniques; watch for overhead lines when carrying"],
+             "Gloves, hard hat, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-404-b-1-assured-equipment-grounding-conductor-program-gfci-temporary-power"] = {
+    "subtitle": "Temporary Electrical Power &amp; GFCI Protection",
+    "legend": [
+        ("Electrical", "Shock and electrocution from faults, damaged cords, wet conditions."),
+        ("Fire", "Overloaded circuits, damaged insulation, improper connections."),
+        ("Struck-By / Trip", "Cords across walkways, energized equipment."),
+    ],
+    "jobs": [
+        ("1", "Temporary Power Setup", [
+            ("Install temporary power distribution",
+             ["Shock/electrocution", "Improper grounding", "Overload/fire"],
+             ["Qualified person installs distribution per NEC and manufacturer specs",
+              "Verify equipment grounding conductor is continuous and bonded",
+              "Protect boxes/panels from weather; size circuits for the load"],
+             "Voltage-rated gloves, safety glasses, hard hat"),
+        ]),
+        ("2", "GFCI Protection / AEGCP Testing", [
+            ("Provide fault protection",
+             ["Ground fault", "Undetected damaged conductor"],
+             ["Provide GFCI protection on all 120V, single-phase, 15/20A receptacles",
+              "Where GFCI is not feasible, implement the Assured Equipment Grounding Conductor Program",
+              "Test equipment grounding conductors on the required schedule and tag tested equipment"],
+             "Voltage-rated gloves, safety glasses"),
+        ]),
+        ("3", "Cord &amp; Tool Inspection", [
+            ("Inspect cords and tools before use",
+             ["Damaged insulation", "Missing ground pin", "Shock"],
+             ["Inspect cords/tools for damage, cut insulation, missing ground pin before each use",
+              "Remove damaged equipment from service and tag it",
+              "Use only cords rated for hard/extra-hard service outdoors"],
+             "Safety glasses, gloves"),
+        ]),
+        ("4", "Use of Temporary Power", [
+            ("Operate tools on temporary power",
+             ["Wet-condition shock", "Trip hazards", "Overload"],
+             ["Keep connections out of standing water; use covered/weatherproof devices",
+              "Route cords to avoid walkways/traffic; elevate or protect crossings",
+              "Do not daisy-chain power strips or overload circuits"],
+             "Voltage-rated gloves as required, safety glasses, non-slip footwear"),
+        ]),
+        ("5", "Maintenance &amp; Removal", [
+            ("De-energize and remove temporary power",
+             ["Contact with energized parts", "Stored energy"],
+             ["De-energize and lock out before servicing distribution equipment",
+              "Verify absence of voltage before working on conductors",
+              "Remove temporary wiring promptly when no longer needed"],
+             "Voltage-rated gloves, safety glasses, hard hat"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-1153-respirable-crystalline-silica-written-exposure-control-plan-construction"] = {
+    "subtitle": "Respirable Crystalline Silica Exposure Control",
+    "legend": [
+        ("Respiratory", "Inhalation of respirable crystalline silica dust (silicosis, cancer)."),
+        ("Environmental", "Visible dust migration to other workers and the public."),
+        ("Housekeeping", "Accumulated dust re-entrained by cleaning/traffic."),
+        ("Manual / Ergonomic", "Handling of water/vacuum equipment and materials."),
+    ],
+    "jobs": [
+        ("1", "Task Assessment &amp; Table 1 Selection", [
+            ("Identify silica-generating tasks",
+             ["Unrecognized exposure", "Wrong control method"],
+             ["Competent person identifies tasks that disturb silica-containing material",
+              "Select the matching Table 1 control (or perform exposure assessment)",
+              "Implement the written exposure control plan for the task"],
+             "Half-mask respirator as specified, safety glasses, gloves"),
+        ]),
+        ("2", "Engineering Controls (Water / Vacuum)", [
+            ("Set up dust controls",
+             ["Dry cutting dust", "Ineffective/failed control"],
+             ["Use integrated water delivery or on-tool HEPA dust collection per Table 1",
+              "Verify adequate water flow / vacuum airflow before starting",
+              "Maintain tools and filters; do not defeat the control"],
+             "Respirator per Table 1, safety glasses, gloves"),
+        ]),
+        ("3", "Cutting / Grinding / Drilling", [
+            ("Perform dust-generating work",
+             ["Respirable silica inhalation", "Dust exposure to nearby workers"],
+             ["Operate with the engineering control running continuously",
+              "Position workers upwind; restrict/limit access to the dust area",
+              "Rotate tasks and limit duration per the exposure control plan"],
+             "Respirator per Table 1, safety glasses, gloves, hearing protection as needed"),
+        ]),
+        ("4", "Respiratory Protection &amp; Housekeeping", [
+            ("Use respirators and control dust",
+             ["Improper respirator use", "Re-entrained dust"],
+             ["Use respirators specified for the task; users fit-tested and medically cleared",
+              "Never dry sweep or use compressed air on silica dust",
+              "Use HEPA vacuuming or wet methods for cleanup"],
+             "Fit-tested respirator, safety glasses, gloves"),
+        ]),
+        ("5", "Cleanup &amp; Waste", [
+            ("Clean the area and manage waste",
+             ["Dust exposure during cleanup", "Contaminated clothing"],
+             ["HEPA-vacuum or wet-wipe surfaces and equipment",
+              "Contain and dispose of silica waste to prevent re-suspension",
+              "Provide wash facilities; do not carry dust home on clothing"],
+             "Respirator as needed, gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-62-lead-in-construction"] = {
+    "subtitle": "Lead Exposure Control in Construction",
+    "legend": [
+        ("Respiratory / Ingestion", "Inhalation of lead fume/dust; hand-to-mouth ingestion."),
+        ("Environmental", "Lead dust migration and contamination of soil/adjacent areas."),
+        ("Housekeeping", "Accumulated lead dust re-entrained by traffic/cleaning."),
+        ("Waste", "Hazardous lead-containing waste handling and disposal."),
+    ],
+    "jobs": [
+        ("1", "Exposure Assessment", [
+            ("Determine lead exposure",
+             ["Unknown/underestimated exposure", "Unprotected work"],
+             ["Assume presumptive exposure for listed trigger tasks until assessed",
+              "Conduct exposure monitoring; apply the initial protective measures",
+              "Implement the written compliance program for the task"],
+             "Respirator per assessment, disposable coveralls, gloves"),
+        ]),
+        ("2", "Engineering &amp; Work Practice Controls", [
+            ("Set up controls before disturbing lead",
+             ["Airborne lead fume/dust", "Spread of contamination"],
+             ["Use local exhaust ventilation, wet methods, or containment as feasible",
+              "Establish a regulated area with warning signs and limited access",
+              "Prohibit eating, drinking, and smoking in the work area"],
+             "Respirator, disposable coveralls, gloves, safety glasses"),
+        ]),
+        ("3", "Disturbing Lead-Containing Material", [
+            ("Perform cutting/grinding/torch/abrasive work",
+             ["High lead fume from heat/abrasion", "Fire from torch work"],
+             ["Prefer methods that minimize fume/dust; avoid dry abrasive where possible",
+              "Provide LEV at the point of generation; monitor exposures",
+              "Control ignition sources for torch/heat tasks"],
+             "Respirator per exposure, coveralls, gloves, face shield as needed"),
+        ]),
+        ("4", "Hygiene &amp; Decontamination", [
+            ("Decontaminate personnel",
+             ["Ingestion of lead", "Take-home contamination"],
+             ["Provide change areas, hand/face wash, and showers where required",
+              "Remove and store contaminated clothing separately; do not blow off with air",
+              "Wash before eating; leave work clothes on site for laundering"],
+             "Disposable coveralls, gloves"),
+        ]),
+        ("5", "Waste Handling &amp; Cleanup", [
+            ("Clean the area and manage lead waste",
+             ["Re-entrained dust", "Improper waste disposal"],
+             ["HEPA-vacuum and wet-clean; never dry sweep or use compressed air",
+              "Containerize and label lead waste; characterize and dispose per RCRA",
+              "Verify clearance before releasing the area"],
+             "Respirator as needed, gloves, coveralls"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-1101-asbestos-in-construction"] = {
+    "subtitle": "Asbestos Disturbance &amp; Abatement",
+    "legend": [
+        ("Respiratory", "Inhalation of asbestos fibers (asbestosis, mesothelioma, cancer)."),
+        ("Regulated Area", "Uncontrolled fiber release beyond containment."),
+        ("Housekeeping", "Re-entrained fibers from dry debris/clothing."),
+        ("Waste", "Improperly contained asbestos-containing waste material."),
+    ],
+    "jobs": [
+        ("1", "Survey &amp; Classification", [
+            ("Identify and classify the work",
+             ["Unknown asbestos-containing material", "Wrong class of work"],
+             ["Review the asbestos survey; treat suspect materials as ACM until tested",
+              "Classify the work (Class I&ndash;IV) and assign a competent person",
+              "Assume/monitor exposures and apply the required controls for the class"],
+             "Respirator per class, disposable coveralls, gloves"),
+        ]),
+        ("2", "Regulated Area Setup / Containment", [
+            ("Establish containment and access control",
+             ["Fiber release to adjacent areas", "Unauthorized entry"],
+             ["Post the regulated area; restrict to authorized, trained workers",
+              "Establish negative-pressure enclosure and decon unit where required",
+              "Use critical barriers and HEPA filtration as specified"],
+             "Respirator, coveralls, gloves, boots"),
+        ]),
+        ("3", "Removal / Disturbance Work", [
+            ("Remove or disturb ACM",
+             ["Airborne asbestos fibers", "Dry removal releasing fibers"],
+             ["Wet the material; use amended water and HEPA-filtered tools",
+              "Avoid dry removal, breaking, or aggressive methods",
+              "Bag material at the point of removal; minimize handling"],
+             "Respirator per class, coveralls, gloves"),
+        ]),
+        ("4", "Decontamination", [
+            ("Decontaminate workers and equipment",
+             ["Fiber take-home", "Cross-contamination"],
+             ["Use the three-stage decon procedure; HEPA-vacuum suits before removal",
+              "Do not remove contaminated PPE outside the decon area",
+              "Shower where required; leave contaminated clothing in containment"],
+             "Respirator until decon complete, disposable coveralls, gloves"),
+        ]),
+        ("5", "Waste Disposal &amp; Clearance", [
+            ("Package waste and clear the area",
+             ["Release from torn bags", "Premature re-occupancy"],
+             ["Double-bag/label asbestos waste in leak-tight containers; dispose at an approved site",
+              "Perform visual inspection and clearance air sampling where required",
+              "Release the area only after clearance criteria are met"],
+             "Respirator, coveralls, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-subpart-t-1926-850-860-demolition"] = {
+    "subtitle": "Demolition Operations",
+    "legend": [
+        ("Structural Collapse", "Premature/uncontrolled collapse of walls, floors, structures."),
+        ("Falls", "Falls through openings, leading edges, unstable surfaces."),
+        ("Struck-By / Caught-Between", "Falling debris, moving equipment, flying material."),
+        ("Utilities / Energy", "Live electrical, gas, water, and stored energy."),
+        ("Atmospheric / Dust", "Silica, asbestos, lead, hazardous atmospheres."),
+        ("Fire", "Torch/hot work, residual flammables."),
+    ],
+    "jobs": [
+        ("1", "Engineering Survey &amp; Utility Isolation", [
+            ("Survey the structure and isolate utilities",
+             ["Unexpected collapse", "Live utilities", "Hidden hazards"],
+             ["Competent person completes a written engineering survey before demolition",
+              "Locate, shut off, cap, and control all utilities before work begins",
+              "Identify and abate hazardous materials (asbestos/lead) first"],
+             "Hard hat, safety glasses, gloves, high-visibility vest"),
+        ]),
+        ("2", "Preparation &amp; Access", [
+            ("Prepare the site and access routes",
+             ["Falls into openings", "Unauthorized entry", "Struck-by"],
+             ["Barricade the demolition zone; control public and worker access",
+              "Cover/guard floor openings and shaft openings not in use",
+              "Provide safe access/egress; brace weakened structures"],
+             "Hard hat, safety glasses, gloves, fall protection as needed"),
+        ]),
+        ("3", "Manual / Mechanical Demolition", [
+            ("Demolish walls, floors, and structures",
+             ["Uncontrolled collapse", "Struck by falling material", "Equipment rollover"],
+             ["Demolish in a planned top-down sequence; do not undermine supports",
+              "Keep workers clear of equipment swing and drop zones; use spotters",
+              "Do not overload floors with debris or equipment"],
+             "Hard hat, safety glasses, gloves, hearing protection, high-visibility vest"),
+        ]),
+        ("4", "Debris Handling &amp; Chutes", [
+            ("Remove debris safely",
+             ["Falling debris", "Dust exposure", "Chute failure"],
+             ["Use enclosed chutes for debris dropped more than 20 ft; gate the discharge",
+              "Wet debris to control dust; keep the drop area barricaded",
+              "Do not exceed floor load limits with accumulated debris"],
+             "Hard hat, safety glasses, gloves, respirator/dust mask as needed"),
+        ]),
+        ("5", "Below-Grade / Selective Demolition", [
+            ("Perform below-grade or selective work",
+             ["Wall/embankment collapse", "Atmospheric hazards", "Confined space"],
+             ["Shore or brace walls and excavations per the survey/competent person",
+              "Test atmospheres in enclosed/below-grade areas before entry",
+              "Apply confined space procedures where applicable"],
+             "Hard hat, gloves, gas monitor as needed, fall/entry protection"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-95-106-personal-protective-equipment-construction"] = {
+    "subtitle": "Personal Protective Equipment Selection &amp; Use",
+    "legend": [
+        ("Head / Eye / Face", "Impact, penetration, flying particles, splash, arc."),
+        ("Hand / Foot", "Cuts, punctures, crushing, chemical, electrical."),
+        ("Hearing", "Noise exposure above action levels."),
+        ("Respiratory", "Dusts, fumes, vapors, oxygen-deficient atmospheres."),
+        ("Fall Protection", "Falls to a lower level."),
+    ],
+    "jobs": [
+        ("1", "Hazard Assessment &amp; PPE Selection", [
+            ("Assess hazards and select PPE",
+             ["Wrong or missing PPE", "Unassessed hazards"],
+             ["Competent person performs a documented PPE hazard assessment per task",
+              "Select PPE rated for the specific hazard and properly fitted",
+              "Train workers on selection, use, limitations, and care"],
+             "Base PPE: hard hat, safety glasses, gloves, safety-toe boots"),
+        ]),
+        ("2", "Head, Eye &amp; Face Protection", [
+            ("Protect the head, eyes, and face",
+             ["Impact/penetration", "Flying particles", "Chemical splash", "Arc flash"],
+             ["Wear ANSI-rated hard hats where overhead/impact hazards exist",
+              "Wear ANSI Z87 eye protection; add face shields for grinding/chemical/arc tasks",
+              "Match lens/shade to the task (welding, cutting, chemical)"],
+             "Hard hat, Z87 safety glasses/goggles, face shield as needed"),
+        ]),
+        ("3", "Hand &amp; Foot Protection", [
+            ("Protect hands and feet",
+             ["Cuts/punctures", "Chemical contact", "Crushing", "Electrical"],
+             ["Select cut/chemical/voltage-rated gloves matched to the hazard",
+              "Wear safety-toe (and metatarsal/EH-rated where needed) footwear",
+              "Inspect gloves/boots before use; replace when damaged"],
+             "Task-rated gloves, safety-toe boots"),
+        ]),
+        ("4", "Hearing &amp; Respiratory Protection", [
+            ("Protect hearing and respiratory system",
+             ["Noise-induced hearing loss", "Inhalation of dusts/fumes/vapors"],
+             ["Provide hearing protection where noise meets/exceeds the action level",
+              "Use respirators only under a respiratory protection program (fit-test, medical, training)",
+              "Match respirator/cartridge to the contaminant and concentration"],
+             "Hearing protection, fit-tested respirator as required"),
+        ]),
+        ("5", "Inspection, Care &amp; Replacement", [
+            ("Maintain PPE",
+             ["Use of defective PPE", "Degraded protection"],
+             ["Inspect PPE before each use; remove damaged/expired items from service",
+              "Clean, store, and maintain PPE per the manufacturer",
+              "Replace PPE that no longer provides the intended protection"],
+             "Applicable task PPE"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-350-354-welding-cutting-brazing-hot-work-construction"] = {
+    "subtitle": "Welding, Cutting &amp; Hot Work",
+    "legend": [
+        ("Fire / Explosion", "Sparks, slag, hot work near combustibles/flammables."),
+        ("Burns", "Contact with hot metal, sparks, molten slag, UV."),
+        ("Fumes / Atmospheric", "Metal fumes, shielding gases, oxygen displacement."),
+        ("Electrical", "Shock from welding circuits and damaged leads."),
+        ("Radiation", "Arc UV/IR affecting eyes and skin."),
+        ("Compressed Gas", "Cylinder rupture, uncontrolled release, backflash."),
+    ],
+    "jobs": [
+        ("1", "Hot Work Permit &amp; Fire Watch", [
+            ("Authorize the hot work",
+             ["Fire from unpermitted work", "No fire watch"],
+             ["Complete a hot work permit; verify no safer alternative exists",
+              "Assign a trained fire watch with an extinguisher during and 30+ min after",
+              "Test for flammable atmospheres before starting where required"],
+             "Welding PPE, fire extinguisher on hand"),
+        ]),
+        ("2", "Area Prep &amp; Fire Prevention", [
+            ("Prepare the work area",
+             ["Ignition of combustibles", "Sparks to lower levels"],
+             ["Remove or shield combustibles within 35 ft; cover openings and drains",
+              "Use fire blankets/spark containment; wet down as appropriate",
+              "Never perform hot work on containers that held flammables until made safe"],
+             "Welding PPE, fire blankets"),
+        ]),
+        ("3", "Compressed Gas &amp; Equipment Setup", [
+            ("Set up gas and welding equipment",
+             ["Cylinder rupture", "Flashback", "Electrical shock"],
+             ["Secure cylinders upright; caps on when moving; store fuel/oxygen apart",
+              "Use flashback arrestors/check valves; inspect hoses and leads",
+              "Ground the work; keep welding leads dry and undamaged"],
+             "Welding gloves, safety glasses, leathers"),
+        ]),
+        ("4", "Welding / Cutting Operations", [
+            ("Perform welding and cutting",
+             ["Burns", "Arc radiation", "Sparks/slag", "Electric shock"],
+             ["Wear the correct shade filter and full welding PPE",
+              "Screen the arc to protect nearby workers",
+              "Keep body/clothing dry; do not weld in wet conditions"],
+             "Welding hood with correct shade, leathers, gloves, respirator as needed"),
+        ]),
+        ("5", "Ventilation &amp; Fume Control", [
+            ("Control welding fumes",
+             ["Metal fume inhalation", "Oxygen displacement in enclosed areas"],
+             ["Provide local exhaust or general ventilation for the process/base metal",
+              "Use respiratory protection for coated metals or confined areas",
+              "Monitor atmospheres in enclosed/confined spaces"],
+             "Fit-tested respirator as required, welding PPE"),
+        ]),
+        ("6", "Post-Work / Fire Watch", [
+            ("Secure the area after hot work",
+             ["Smoldering fire after work", "Hot metal contact"],
+             ["Maintain fire watch for at least 30 minutes after completion",
+              "Inspect the area and adjacent/opposite sides for smoldering",
+              "Shut off/secure gas supplies and bleed lines"],
+             "Fire extinguisher, welding gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-400-449-electrical-safety-construction"] = {
+    "subtitle": "Electrical Safety in Construction",
+    "legend": [
+        ("Shock / Electrocution", "Contact with energized conductors and equipment."),
+        ("Arc Flash / Burn", "Arc blast, thermal burns from faults."),
+        ("Fire", "Overloads, faults, improper wiring."),
+        ("Overhead Lines", "Contact by equipment, materials, or workers."),
+        ("Struck-By", "Blast pressure, ejected parts."),
+    ],
+    "jobs": [
+        ("1", "Identify Energized Systems / Overhead Lines", [
+            ("Identify electrical hazards",
+             ["Unrecognized energized equipment", "Overhead power lines"],
+             ["Identify and mark energized systems and overhead line locations",
+              "Maintain required clearances from overhead lines; use spotters",
+              "Only qualified persons work on/near exposed energized parts"],
+             "Voltage-rated gloves, arc-rated clothing, hard hat, safety glasses"),
+        ]),
+        ("2", "De-energize &amp; Lockout/Tagout", [
+            ("De-energize before work",
+             ["Unexpected energization", "Stored energy"],
+             ["De-energize and apply lockout/tagout to the energy source",
+              "Test for absence of voltage with a rated tester before touching",
+              "Discharge stored energy (capacitors); ground where required"],
+             "Voltage-rated gloves, rated voltage tester, LOTO devices"),
+        ]),
+        ("3", "Temporary Wiring &amp; GFCI", [
+            ("Manage temporary electrical supply",
+             ["Ground fault", "Damaged cords", "Wet conditions"],
+             ["Provide GFCI protection or implement the AEGCP",
+              "Inspect cords/tools; remove damaged equipment from service",
+              "Keep connections out of water; protect from damage/traffic"],
+             "Voltage-rated gloves as needed, safety glasses"),
+        ]),
+        ("4", "Working On / Near Energized Equipment", [
+            ("Perform energized work (only when justified)",
+             ["Shock", "Arc flash/blast", "Burns"],
+             ["Perform work de-energized unless infeasible and justified in writing",
+              "Establish an arc-flash/shock boundary; use rated PPE and insulated tools",
+              "Use an attendant and an emergency response plan for energized work"],
+             "Arc-rated suit/face shield, voltage-rated gloves, insulated tools"),
+        ]),
+        ("5", "Restoration &amp; Verification", [
+            ("Re-energize safely",
+             ["Premature re-energization", "Faulty connection"],
+             ["Verify work complete, tools/personnel clear before removing LOTO",
+              "Reinstall guards/covers; test circuits before returning to service",
+              "Only the authorized person removes their own lock/tag"],
+             "Voltage-rated gloves, safety glasses"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-700-706-concrete-masonry-construction"] = {
+    "subtitle": "Concrete &amp; Masonry Construction",
+    "legend": [
+        ("Struck-By / Caught-Between", "Formwork/shoring collapse, rebar, pump lines, block."),
+        ("Chemical", "Wet concrete/mortar skin burns and eye injury."),
+        ("Falls", "Falls from formwork, walls, and elevated placement."),
+        ("Manual / Ergonomic", "Lifting rebar/block, awkward placement postures."),
+        ("Environmental", "Silica dust from cutting block/concrete."),
+    ],
+    "jobs": [
+        ("1", "Formwork &amp; Shoring Erection", [
+            ("Erect formwork and shoring",
+             ["Formwork/shoring collapse", "Falls", "Struck-by"],
+             ["Erect per drawings designed/approved by a qualified person",
+              "Brace and inspect shoring before and during placement",
+              "Provide fall protection at elevated forms"],
+             "Hard hat, safety glasses, gloves, fall protection as needed"),
+        ]),
+        ("2", "Reinforcing Steel (Rebar) Placement", [
+            ("Place and tie rebar",
+             ["Impalement on protruding rebar", "Cuts", "Ergonomic strain"],
+             ["Cap or bend exposed rebar ends to prevent impalement",
+              "Use proper lifting/team lifts; stage materials to reduce carrying",
+              "Guard against falls onto vertical rebar"],
+             "Hard hat, gloves, safety glasses, safety-toe boots"),
+        ]),
+        ("3", "Concrete Placement &amp; Pumping", [
+            ("Place concrete",
+             ["Skin/eye burns from wet concrete", "Pump line whip/blockage", "Struck-by bucket"],
+             ["Wear waterproof gloves/boots; rinse skin contact immediately",
+              "Secure pump lines; relieve blockages per procedure; keep clear of the discharge",
+              "Communicate with the pump/crane operator; control the bucket"],
+             "Rubber gloves, rubber boots, safety glasses/face shield, hard hat"),
+        ]),
+        ("4", "Formwork Stripping / Shore Removal", [
+            ("Strip forms and remove shores",
+             ["Premature removal collapse", "Falling forms", "Nail puncture"],
+             ["Do not strip forms/shores until concrete reaches required strength",
+              "Remove and stack forms in a controlled sequence; keep clear below",
+              "Remove or bend over protruding nails immediately"],
+             "Hard hat, gloves, safety glasses, safety-toe boots"),
+        ]),
+        ("5", "Masonry Wall Construction", [
+            ("Build masonry walls",
+             ["Wall collapse during construction", "Struck-by falling block", "Silica dust"],
+             ["Establish a limited-access zone on unsupported walls per the standard",
+              "Brace walls until permanently supported",
+              "Use wet cutting/dust control when sawing block"],
+             "Hard hat, gloves, safety glasses, dust protection as needed"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-900-914-blasting-use-of-explosives-construction"] = {
+    "subtitle": "Blasting &amp; Use of Explosives",
+    "legend": [
+        ("Explosion / Detonation", "Premature or accidental detonation."),
+        ("Fly Rock", "Ejected rock and debris from the blast."),
+        ("Fire", "Ignition sources near explosives."),
+        ("Atmospheric", "Toxic post-blast fumes in enclosed/below-grade areas."),
+        ("Storage / Security", "Theft, unauthorized access, improper storage."),
+    ],
+    "jobs": [
+        ("1", "Storage &amp; Transport of Explosives", [
+            ("Store and move explosives",
+             ["Accidental detonation", "Theft/unauthorized access"],
+             ["Only a licensed/authorized blaster handles explosives",
+              "Store in approved, locked magazines; keep detonators separate from explosives",
+              "Transport in approved vehicles; maintain inventory and security"],
+             "Cotton/anti-static clothing, no spark-producing items"),
+        ]),
+        ("2", "Loading the Blast Holes", [
+            ("Load charges",
+             ["Premature detonation", "Static/stray current ignition"],
+             ["Stop all drilling within the blast area before loading",
+              "Prohibit smoking, open flames, and radio transmitters near loading",
+              "Use non-sparking tamping tools; follow the loading plan"],
+             "Anti-static clothing, gloves, hard hat"),
+        ]),
+        ("3", "Connecting &amp; Wiring the Shot", [
+            ("Connect the initiation system",
+             ["Stray current initiation", "Faulty circuit"],
+             ["Keep the circuit shunted/disconnected until ready to fire",
+              "Protect against stray/static current; test the circuit with a blasting galvanometer",
+              "Follow manufacturer instructions for the initiation system"],
+             "Anti-static clothing, gloves"),
+        ]),
+        ("4", "Firing the Blast", [
+            ("Clear the area and fire",
+             ["Fly rock injury", "Personnel in blast zone", "Misfire"],
+             ["Sound audible warning signals; verify all personnel are clear and sheltered",
+              "Guard access roads and post guards at the danger zone",
+              "Fire only on the blaster's command from a protected location"],
+             "Hard hat, hearing protection, high-visibility vest"),
+        ]),
+        ("5", "Post-Blast Inspection &amp; Misfires", [
+            ("Inspect after the blast",
+             ["Toxic fumes", "Undetonated charges (misfires)"],
+             ["Wait the required time; ventilate and test atmosphere before re-entry",
+              "Only the blaster inspects; handle misfires per procedure",
+              "Do not resume work until the area is declared safe"],
+             "Gas monitor as needed, hard hat, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-950-968-power-transmission-distribution-construction"] = {
+    "subtitle": "Power Line Construction &amp; Maintenance",
+    "legend": [
+        ("Electrical", "Contact, induced voltage, step/touch potential, flashover."),
+        ("Falls", "Falls from poles, structures, and aerial devices."),
+        ("Struck-By", "Falling conductors, hardware, and equipment."),
+        ("Rigging / Hoisting", "Dropped loads during stringing and framing."),
+        ("Environmental", "Weather, heat/cold, remote-site response."),
+    ],
+    "jobs": [
+        ("1", "Job Briefing &amp; Clearances", [
+            ("Hold the job briefing",
+             ["Unrecognized hazards", "Working without a clearance"],
+             ["Conduct a documented job briefing covering hazards and procedures",
+              "Obtain and verify clearances/switching orders before work",
+              "Confirm minimum approach distances for the voltage"],
+             "Arc-rated clothing, voltage-rated gloves, hard hat"),
+        ]),
+        ("2", "De-energize, Test &amp; Ground", [
+            ("Isolate and ground the line",
+             ["Contact with energized line", "Induced voltage", "Re-energization"],
+             ["De-energize, test for absence of voltage, and apply protective grounds",
+              "Treat lines as energized until tested and grounded",
+              "Install grounds to control induced and fault voltage at the work site"],
+             "Voltage-rated gloves/sleeves, grounding cluster, rated tester"),
+        ]),
+        ("3", "Pole / Structure Climbing &amp; Access", [
+            ("Climb poles and structures",
+             ["Falls", "Pole failure", "Aerial device tip-over"],
+             ["Inspect and test poles for integrity before climbing",
+              "Use fall protection (climbing system/harness) continuously at height",
+              "Set aerial devices on firm level ground with outriggers; maintain line clearance"],
+             "Full-body harness, climbing equipment, hard hat, voltage-rated gloves"),
+        ]),
+        ("4", "Working On / Near Energized Lines", [
+            ("Perform energized-line work (when required)",
+             ["Electrocution", "Flashover", "Burns"],
+             ["Only qualified line workers using rated cover-up and live-line tools",
+              "Maintain minimum approach distances; insulate/isolate the worker",
+              "Use the barehand or hot-stick method per the approved procedure"],
+             "Voltage-rated gloves/sleeves, arc-rated suit, insulated tools/covers"),
+        ]),
+        ("5", "Stringing &amp; Rigging Conductors", [
+            ("String and sag conductors",
+             ["Dropped/backlashing conductor", "Struck-by", "Contact with adjacent energized lines"],
+             ["Use rated pulling/tensioning equipment and communication signals",
+              "Keep clear of conductors under tension; use guard structures at crossings",
+              "Ground conductors and equipment to control induced voltage"],
+             "Hard hat, voltage-rated gloves, high-visibility vest, gloves"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["29-cfr-1926-52-occupational-noise-exposure-construction"] = {
+    "subtitle": "Occupational Noise Exposure Control",
+    "legend": [
+        ("Noise / Hearing", "Exposure above permissible limits causing hearing loss."),
+        ("Communication", "Masking of alarms, signals, and warnings by noise."),
+        ("Environmental", "High-noise equipment and enclosed reflective areas."),
+    ],
+    "jobs": [
+        ("1", "Noise Exposure Assessment", [
+            ("Assess noise exposure",
+             ["Unrecognized overexposure", "Unprotected workers"],
+             ["Identify high-noise tasks/equipment and monitor exposure levels",
+              "Compare exposures to permissible/action levels",
+              "Establish the hearing conservation measures for affected work"],
+             "Hearing protection, safety glasses, hard hat"),
+        ]),
+        ("2", "Engineering &amp; Administrative Controls", [
+            ("Reduce noise at the source",
+             ["Continued overexposure", "Ineffective controls"],
+             ["Apply engineering controls (mufflers, enclosures, maintenance) where feasible",
+              "Use administrative controls: rotate tasks, limit exposure time, distance",
+              "Post high-noise areas and restrict unnecessary access"],
+             "Hearing protection, standard PPE"),
+        ]),
+        ("3", "Hearing Protection Use", [
+            ("Use hearing protection",
+             ["Inadequate attenuation", "Improper fit/use"],
+             ["Provide hearing protectors with adequate NRR for the exposure",
+              "Train workers on fit and use; double protection for very high noise",
+              "Replace worn/damaged protectors"],
+             "Earplugs and/or earmuffs, standard PPE"),
+        ]),
+        ("4", "Audiometric Monitoring &amp; Training", [
+            ("Monitor hearing and train",
+             ["Undetected hearing shift", "Untrained workers"],
+             ["Provide baseline/annual audiograms for exposed workers where required",
+              "Train on noise hazards, protector use, and program requirements",
+              "Follow up on standard threshold shifts"],
+             "Hearing protection as required"),
+        ]),
+    ],
+}
