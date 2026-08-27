@@ -66,6 +66,13 @@
   .cta a.alt{background:#33373E}
   .caveat{font-size:11.5px;color:var(--grey);font-style:italic;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
   .err{color:var(--red);font-size:14px;font-weight:600;margin-top:10px;min-height:1em}
+  /* citation flow */
+  .cband{background:var(--cream);border:1.5px solid var(--orange);border-radius:10px;padding:12px 15px;margin:0 0 18px;font-size:14.5px;color:var(--charcoal);font-weight:600;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between}
+  .cband a{color:var(--orange);cursor:pointer;text-decoration:underline;font-weight:800}
+  .back{background:transparent;border:0;color:var(--grey);font-size:13px;cursor:pointer;padding:0;margin-bottom:8px}
+  .pill{display:inline-block;background:var(--charcoal);color:#fff;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:5px 11px;border-radius:20px;margin-bottom:10px}
+  .elist{margin:8px 0 0;padding-left:18px}
+  .elist li{font-size:14px;color:var(--ink);margin-bottom:4px}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:16px;font-size:13px}
   footer.foot b{display:block;font-size:14px;margin-top:3px}
 </style>
@@ -86,6 +93,10 @@
 
       <!-- STEP 0: intro / platform -->
       <div class="step active" id="s0">
+        <div class="cband">
+          <span>Just got an OSHA citation?</span>
+          <a id="goCite">See the exact program it requires &rarr;</a>
+        </div>
         <h1>Failing your ISN, Avetta or PEC grade? Find out exactly why &mdash; free.</h1>
         <p class="lede">Answer a few quick questions and get an instant, plain-English read on what's dragging your grade and what it takes to fix it. Takes about 60 seconds.</p>
         <label class="fld">Which platform are you graded on?</label>
@@ -142,6 +153,41 @@
           <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=Grade%20Rescue%20Review">Email us</a>
         </div>
         <div class="caveat" id="rCaveat"></div>
+      </div>
+
+      <!-- CITATION FLOW: Cited by OSHA? -->
+      <div class="step" id="cite">
+        <button class="back" id="citeBack">&larr; Back to grade review</button>
+        <div class="pill">Cited by OSHA?</div>
+        <h1>Type the standard on your citation &mdash; we'll show the exact written program it requires.</h1>
+        <p class="lede">Find the cited standard on your OSHA citation (e.g. <b>1910.147</b> or <b>1926.501</b>). We'll map it to the written program you need to prove abatement &mdash; instantly.</p>
+        <label class="fld">Cited OSHA standard <span style="color:var(--orange)">*</span></label>
+        <input type="text" id="cStd" placeholder="e.g. 1910.147" autocomplete="off">
+        <label class="fld">Your name</label>
+        <input type="text" id="cName" autocomplete="name">
+        <label class="fld">Company</label>
+        <input type="text" id="cCompany" autocomplete="organization">
+        <label class="fld">Email <span style="color:var(--orange)">*</span></label>
+        <input type="email" id="cEmail" autocomplete="email" required>
+        <label class="fld">Phone</label>
+        <input type="tel" id="cPhone" autocomplete="tel">
+        <div class="err" id="cErr"></div>
+        <div class="nav">
+          <span></span>
+          <button class="btn primary" id="cSubmit">Show my required program &rarr;</button>
+        </div>
+        <p class="fineprint">We use your details only to send your plan and follow up. We never sell your information.</p>
+
+        <div id="cResult" style="display:none">
+          <div id="cBody"></div>
+          <div class="cta">
+            <div class="h">Want us to build it and prove abatement?</div>
+            <div class="s">We draft the written program, assemble your training records, and package the abatement documentation ISN and OSHA want to see &mdash; handled by a real compliance pro, not just software.</div>
+            <a href="tel:+18327101558">Call 832-710-1558</a>
+            <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=OSHA%20Citation%20Help">Email us</a>
+          </div>
+          <div class="caveat">Origin is a safety-compliance service, not a law firm. We help you document and abate the cited condition &mdash; we don't provide legal representation or file appeals on your behalf.</div>
+        </div>
       </div>
 
     </div>
@@ -248,6 +294,66 @@
     $('rScope').innerHTML=sh;
     $('rScope').style.display = s? 'block':'none';
     $('rCaveat').textContent=res.caveat||'';
+  }
+
+  // ── Cited by OSHA? flow ───────────────────────────────────────────────
+  var goCite=$('goCite');
+  if(goCite){ goCite.addEventListener('click',function(){
+    document.querySelectorAll('.step').forEach(function(s){s.classList.remove('active');});
+    $('cite').classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }); }
+  var citeBack=$('citeBack');
+  if(citeBack){ citeBack.addEventListener('click',function(){
+    $('cite').classList.remove('active'); show(0);
+  }); }
+
+  var cSubmit=$('cSubmit');
+  if(cSubmit){ cSubmit.addEventListener('click',function(){
+    var email=$('cEmail').value.trim(), std=$('cStd').value.trim();
+    var err=$('cErr'); err.textContent='';
+    if(!std){ err.textContent='Enter the OSHA standard from your citation (e.g. 1910.147).'; return; }
+    if(email.indexOf('@')<0 || email.split('@')[1].indexOf('.')<0){ err.textContent='Please enter a valid email so we can send your plan.'; return; }
+    var btn=this; btn.disabled=true; btn.textContent='Looking it up\u2026';
+    var payload={citation:std,name:$('cName').value.trim(),company:$('cCompany').value.trim(),email:email,phone:$('cPhone').value.trim()};
+    fetch('/citation/lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(res.error){ err.textContent=res.error; btn.disabled=false; btn.textContent='Show my required program \u2192'; return; }
+        renderCite(res);
+      })
+      .catch(function(){ err.textContent='Something went wrong. Please call us at 832-710-1558.'; btn.disabled=false; btn.textContent='Show my required program \u2192'; });
+  }); }
+
+  function renderCite(res){
+    var h='';
+    if(res.found){
+      h+='<div class="finding"><span class="sev">Cited standard</span>'+
+         '<div class="t">'+esc(res.citation)+' \u2014 '+esc(res.title)+'</div>';
+      if(res.needs_program){
+        h+='<div class="d">This standard requires a <b>written '+esc(res.title)+' program</b>. To close the citation you need this document in place and be able to prove your employees are trained to it.</div>';
+      } else {
+        h+='<div class="d">'+esc(res.applicability||'This standard applies to your operation. We\u2019ll confirm exactly what documentation abatement requires.')+'</div>';
+      }
+      h+='</div>';
+      if(res.required_elements && res.required_elements.length){
+        h+='<div class="scope"><div class="h">What the program must cover</div><ul class="elist">';
+        res.required_elements.forEach(function(e){ h+='<li>'+esc(e)+'</li>'; });
+        h+='</ul>';
+        if(res.element_count>res.required_elements.length){
+          h+='<div style="font-size:13px;color:var(--grey)">\u2026and '+(res.element_count-res.required_elements.length)+' more required elements.</div>';
+        }
+        h+='</div>';
+      }
+    } else {
+      h+='<div class="finding"><span class="sev">We\u2019ve got you</span>'+
+         '<div class="t">'+esc(res.typed||'Your citation')+'</div>'+
+         '<div class="d">'+esc(res.message)+'</div></div>';
+    }
+    $('cBody').innerHTML=h;
+    $('cResult').style.display='block';
+    var b=$('cSubmit'); if(b) b.style.display='none';
+    window.scrollTo({top:$('cResult').offsetTop-20,behavior:'smooth'});
   }
 })();
 </script>
