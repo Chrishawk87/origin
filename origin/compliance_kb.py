@@ -62,6 +62,49 @@ def by_citation(citation: str) -> Optional[dict]:
     return next((r for r in _records().values() if r["citation"] == citation), None)
 
 
+# ── OSHA 2254 verbatim training-requirement corpus ───────────────────────────
+# The full "Training Requirements in OSHA Standards" (OSHA 2254-09R 2015) package,
+# 172 sections of exact regulatory training language keyed by CFR citation. The
+# 153-record corpus above cross-links the relevant ones into a `training_verbatim`
+# field; this loader exposes ALL of them so the agent can quote the precise wording
+# for any section, not just the ones that map to a written program.
+@functools.lru_cache(maxsize=1)
+def _training_reqs() -> Dict[str, dict]:
+    idx: Dict[str, dict] = {}
+    path = KB_DIR / "training_requirements_osha2254.jsonl"
+    if not path.exists():
+        return idx
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        r = json.loads(line)
+        # key by bare section ("1910.147") and full citation ("29 CFR 1910.147")
+        idx[r["section"]] = r
+        idx[r["citation"]] = r
+    return idx
+
+
+def training_requirement(citation: str) -> Optional[dict]:
+    """Return the verbatim OSHA 2254 training-requirement record for a citation.
+
+    Accepts a bare section ('1910.147'), a full citation ('29 CFR 1910.147'), or
+    any string containing one. Returns None if the section isn't in the package
+    (e.g. post-2015 standards like silica 1910.1053, or standards with no training
+    requirement). Never fabricates — absence means the package has no entry.
+    """
+    q = (citation or "").strip()
+    if not q:
+        return None
+    idx = _training_reqs()
+    if q in idx:
+        return idx[q]
+    m = re.search(r"\b(19\d\d)\.(\d+[A-Za-z]?)", q)
+    if m:
+        return idx.get(m.group(1) + "." + m.group(2))
+    return None
+
+
 def search(query: str, limit: int = 5) -> List[dict]:
     """Keyword fallback ranking by term overlap (no vector store required)."""
     q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
@@ -195,6 +238,11 @@ def render_program(entry_id: str) -> Optional[str]:
     L += ["## 4. Training"]
     if training:
         L += [f"*Standard requirement:* {training}", ""]
+    verbatim = (r.get("training_verbatim") or "").strip()
+    if verbatim:
+        vsrc = (r.get("training_verbatim_source") or {}).get("citation", cite)
+        L += [f"*Verbatim training language (from {vsrc}, OSHA 2254 — Training Requirements "
+              "in OSHA Standards):*", "", verbatim, ""]
     L += ["[[State who is trained, by whom, how often, the topics, and how training is "
           "documented.]]", "",
           "## 5. Recordkeeping and Retention"]

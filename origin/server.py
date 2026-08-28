@@ -1163,6 +1163,169 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             headers={"Content-Disposition": 'attachment; filename="origin-draft-programs.zip"'},
         )
 
+    # ── PUBLIC "Cited by OSHA?" citation → required-program mapper ──────────
+    # A contractor who just got an OSHA citation types the cited CFR standard
+    # and instantly learns which written program that standard requires and
+    # what abatement looks like. Public + email-gated (captures the lead) like
+    # /rescue. The branded draft itself is built with the /api/gaps/draft
+    # pipeline once the lead is qualified — this is the front door to it.
+    import re as _cite_re
+
+    def _resolve_citation(raw: str):
+        """Map a messy user-typed OSHA citation to a KB record. Accepts
+        '1910.147', '29 CFR 1910.147', '1910.147(c)(1)', '1926.501', '1904'."""
+        raw = (raw or "").strip()
+        if not raw:
+            return None
+        rec = _kb.by_citation(raw)                       # exact canonical
+        if rec:
+            return rec
+        part = sec = None
+        m = _cite_re.search(r"(\d{3,4})\.(\d+)", raw)    # pull part.section
+        if m:
+            part, sec = m.group(1), m.group(2)
+        if part and sec:
+            canon = f"29 CFR {part}.{sec}"
+            rec = _kb.by_citation(canon)
+            if rec:
+                return rec
+            for r in _kb.all_records():                  # prefix / range start
+                c = r.get("citation") or ""
+                if c.startswith(canon) or c.startswith(f"29 CFR {part}.{sec}-"):
+                    return r
+            for r in _kb.all_records():                  # inside a .a-.b range
+                c = r.get("citation") or ""
+                rm = _cite_re.search(rf"29 CFR {part}\.(\d+)-\.(\d+)", c)
+                if rm and int(rm.group(1)) <= int(sec) <= int(rm.group(2)):
+                    return r
+        mp = _cite_re.search(r"\b(\d{3,4})\b", raw)       # part-only e.g. 1904
+        if mp:
+            rec = _kb.by_citation(f"29 CFR {mp.group(1)}")
+            if rec:
+                return rec
+        hits = _kb.search(raw, limit=1)                   # last resort keyword
+        return hits[0] if hits else None
+
+    def _capture_citation_lead(body, matched, raw):
+        import json as _json, time as _time
+        lead = {
+            "ts": _time.strftime("%Y-%m-%d %H:%M:%S"),
+            "source": "citation",
+            "name": (body.get("name") or "").strip(),
+            "company": (body.get("company") or "").strip(),
+            "email": (body.get("email") or "").strip(),
+            "phone": (body.get("phone") or "").strip(),
+            "typed_citation": raw,
+            "matched_citation": (matched.get("citation") if matched else None),
+            "matched_program": (matched.get("title") if matched else None),
+        }
+        try:
+            _rescue.DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with _rescue.LEADS_FILE.open("a", encoding="utf-8") as fh:
+                fh.write(_json.dumps(lead) + "\n")
+        except Exception:
+            pass
+        try:
+            from .compliance import send_email, resend_configured, smtp_configured
+            if resend_configured() or smtp_configured():
+                prog = f" - {lead['matched_program']}" if lead["matched_program"] else ""
+                b = (f"New OSHA-citation lead from the site.\n\n"
+                     f"Name:     {lead['name'] or '(not given)'}\n"
+                     f"Company:  {lead['company'] or '(not given)'}\n"
+                     f"Email:    {lead['email']}\n"
+                     f"Phone:    {lead['phone'] or '(not given)'}\n"
+                     f"Typed:    {lead['typed_citation']}\n"
+                     f"Matched:  {lead['matched_citation'] or '(no direct map)'}{prog}\n")
+                send_email(_rescue.NOTIFY_TO,
+                           f"OSHA citation lead: {lead['company'] or lead['email']}", b)
+        except Exception:
+            pass
+
+    @app.post("/citation/lookup")
+    def citation_lookup(body: dict = Body(...)):
+        email = (body.get("email") or "").strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return JSONResponse(
+                {"error": "A valid email is required to see your citation plan."},
+                status_code=400)
+        raw = (body.get("citation") or "").strip()
+        if not raw:
+            return JSONResponse(
+                {"error": "Enter the OSHA standard you were cited under (e.g. 1910.147)."},
+                status_code=400)
+        rec = _resolve_citation(raw)
+        if not rec:
+            _capture_citation_lead(body, matched=None, raw=raw)
+            return {
+                "found": False,
+                "typed": raw,
+                "message": ("We don't have that exact standard pre-mapped — that's "
+                            "precisely what our review is for. We'll pull the cited "
+                            "standard, confirm the written program it requires, and "
+                            "build your abatement packet. Call 832-710-1558 and we'll "
+                            "walk it with you now."),
+            }
+        wp = (rec.get("written_program") or "").strip().lower()
+        elems = rec.get("required_elements") or []
+        _capture_citation_lead(body, matched=rec, raw=raw)
+        return {
+            "found": True,
+            "typed": raw,
+            "citation": rec.get("citation"),
+            "title": rec.get("title"),
+            "needs_program": wp in ("yes", "conditional"),
+            "written_program": rec.get("written_program"),
+            "applicability": rec.get("applicability"),
+            "required_elements": elems[:8],
+            "element_count": len(elems),
+            "training": rec.get("training"),
+            "recordkeeping": rec.get("recordkeeping"),
+            "program_id": rec["id"],
+            "can_build": _kb.render_program(rec["id"]) is not None,
+        }
+
+    @app.post("/api/citation/draft")
+    def citation_draft(body: dict = Body(...)):
+        """Internal (token-gated): paste an OSHA citation, get the branded
+        written program(s) that standard requires as a downloadable .zip.
+        Wires citation → document end to end on top of the Gap Finder drafter."""
+        rec = _resolve_citation(body.get("citation") or "")
+        if not rec:
+            return JSONResponse(
+                {"error": "could not map that citation to a standard"}, status_code=400)
+        drafts = _gaps.draft_programs(
+            [rec["id"]], company=body.get("company"),
+            effective_date=body.get("effective_date"))
+        if not drafts:
+            return JSONResponse(
+                {"error": "that standard has no draftable written program"},
+                status_code=400)
+        import io as _io
+        import zipfile as _zip
+        want_md = str(body.get("format") or "").lower() in ("md", "markdown")
+        buf = _io.BytesIO()
+        with _zip.ZipFile(buf, "w", _zip.ZIP_DEFLATED) as z:
+            index = [f"# Written program(s) required by {rec.get('citation')}",
+                     "",
+                     "Fill every {{PLACEHOLDER}} and replace each [[prompt]] with your "
+                     "company-specific procedure before submitting for abatement.", ""]
+            for d in drafts:
+                docx_bytes = None if want_md else _gaps.program_docx_bytes(d["title"], d["markdown"])
+                if docx_bytes:
+                    name = d["filename"].rsplit(".", 1)[0] + ".docx"
+                    z.writestr(name, docx_bytes)
+                else:
+                    name = d["filename"]
+                    z.writestr(name, d["markdown"])
+                index.append(f"- {d['title']} ({d['citation']}) — {name}")
+            z.writestr("00_INDEX.md", "\n".join(index))
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition":
+                     'attachment; filename="origin-citation-programs.zip"'},
+        )
+
     # ── INTERNAL Contractor Compliance Dashboard (Chris-only) ───────────────
     # A living roll-up of every contractor run through the Gap Finder. Page is
     # a public shell; the /api endpoints are token-gated like the rest.

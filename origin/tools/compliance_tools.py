@@ -47,6 +47,12 @@ def _fmt_standard(r: dict, full: bool = True) -> str:
     if full:
         if r.get("training"):
             lines.append(f"Training: {r['training']}")
+        if r.get("training_verbatim"):
+            vsrc = (r.get("training_verbatim_source") or {}).get("citation", r.get("citation", ""))
+            lines.append(f"Training — VERBATIM regulatory language (from {vsrc}, OSHA 2254 "
+                         "Training Requirements in OSHA Standards). Quote this exact wording "
+                         "when drafting the program's training section:")
+            lines.append(r["training_verbatim"])
         if r.get("recordkeeping"):
             lines.append(f"Recordkeeping: {r['recordkeeping']}")
         fp = r.get("failure_points") or []
@@ -67,12 +73,39 @@ def build_compliance_tools() -> List[Tool]:
         query = (args.get("query") or args.get("citation") or "").strip()
         if not query:
             return "ERROR: 'query' (a topic, program name, or citation) is required."
-        # exact citation first, then keyword search
+        import re as _re
+
+        def _fmt_2254(tr: dict) -> str:
+            out = [
+                f"# {tr.get('standard_title','')}",
+                f"Citation: {tr.get('citation','')}",
+                f"Part: {tr.get('part_name','')}  |  Subpart: {tr.get('subpart','')}".rstrip(),
+            ]
+            if tr.get("training_paragraphs"):
+                out.append(f"Paragraphs requiring training: {tr['training_paragraphs']}")
+            out.append("Training — VERBATIM regulatory language (quote this exact wording):")
+            out.append(tr.get("training_requirement", ""))
+            out.append(f"Source: {tr.get('source','')}")
+            return "\n".join(out)
+
+        # exact codified standard first
         rec = kb.by_citation(query)
         if rec:
             return _fmt_standard(rec, full=True)
+        # a citation-shaped query resolves to the exact 2254 section before any
+        # fuzzy keyword search (so '1926.761' returns steel-erection training, not
+        # three loose title matches).
+        if _re.search(r"\b19\d\d\.\d+[A-Za-z]?\b", query):
+            tr = kb.training_requirement(query)
+            if tr:
+                return _fmt_2254(tr)
         hits = kb.search(query, limit=int(args.get("limit", 3)))
         if not hits:
+            # final fallback: the full OSHA 2254 training-requirement package
+            # (172 sections) — covers citations that aren't one of the 153 programs.
+            tr = kb.training_requirement(query)
+            if tr:
+                return _fmt_2254(tr)
             return (f"No codified standard matched '{query}'. Do NOT invent requirements — "
                     "say the KB has no entry for it.")
         # one strong hit → full detail; several → summaries so the agent can pick
