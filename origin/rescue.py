@@ -623,6 +623,54 @@ def capture_generic_lead(payload: Dict[str, Any], *, source: str,
     return {"saved": saved, "notified": notified}
 
 
+def capture_handle(payload: Dict[str, Any], *, tool: str,
+                   summary: str = "") -> Dict[str, Any]:
+    """High-intent capture: the visitor clicked 'let us handle it for you' on a
+    free tool. Log it as a hot lead and send an unmistakable notification so
+    Chris knows a fix was requested — no call or email required of the visitor."""
+    lead = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source": f"{tool}-handle",
+        "intent": "wants_fix",
+        "name": (payload.get("name") or "").strip(),
+        "company": (payload.get("company") or "").strip(),
+        "email": (payload.get("email") or "").strip(),
+        "phone": (payload.get("phone") or "").strip(),
+        "platform": (payload.get("platform") or "").strip(),
+    }
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with LEADS_FILE.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(lead) + "\n")
+        saved = True
+    except Exception:
+        saved = False
+
+    notified = False
+    try:
+        from .compliance import send_email, resend_configured, smtp_configured
+        if resend_configured() or smtp_configured():
+            body = (
+                f"HOT LEAD — they clicked 'let us handle it for you' on the {tool} tool.\n"
+                f"They want us to build/fix it. Reach out today.\n\n"
+                f"Name:     {lead['name'] or '(not given)'}\n"
+                f"Company:  {lead['company'] or '(not given)'}\n"
+                f"Email:    {lead['email']}\n"
+                f"Phone:    {lead['phone'] or '(not given)'}\n"
+                f"Platform: {lead['platform'] or '(not given)'}\n\n"
+                f"{summary}\n"
+            )
+            res = send_email(
+                NOTIFY_TO,
+                f"HOT LEAD — wants us to handle it ({tool}): {lead['company'] or lead['email']}",
+                body)
+            notified = bool(res.get("sent"))
+    except Exception:
+        notified = False
+
+    return {"saved": saved, "notified": notified}
+
+
 def capture_lead(payload: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
     """Persist the lead and try to notify the business inbox."""
     lead = {

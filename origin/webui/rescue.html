@@ -64,6 +64,11 @@
   .cta .s{color:#C9CED6;font-size:14px;margin:6px 0 14px}
   .cta a{display:inline-block;background:var(--orange);color:#fff;text-decoration:none;font-weight:700;border-radius:8px;padding:12px 20px;margin:4px}
   .cta a.alt{background:#33373E}
+  .cta .hbtn{display:inline-block;background:var(--orange);color:#fff;border:none;cursor:pointer;font-weight:800;font-size:16px;border-radius:8px;padding:14px 28px;margin:2px 0 6px}
+  .cta .hbtn:hover{filter:brightness(1.06)}
+  .cta .hbtn:disabled{opacity:.6;cursor:default}
+  .cta .orcall{color:#9AA0A8;font-size:13px;margin-top:8px}
+  .cta .orcall a{display:inline;background:none;color:#C9CED6;padding:0;margin:0;text-decoration:underline;font-weight:600;border-radius:0}
   .caveat{font-size:11.5px;color:var(--grey);font-style:italic;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
   .err{color:var(--red);font-size:14px;font-weight:600;margin-top:10px;min-height:1em}
   /* citation flow */
@@ -191,11 +196,11 @@
         <div id="rGrade"></div>
         <div id="rFindings"></div>
         <div class="scope" id="rScope"></div>
-        <div class="cta">
-          <div class="h">Want us to fix it?</div>
-          <div class="s">Your free 15-minute review is the next step &mdash; we'll walk your deficiency report and give you a straight plan.</div>
-          <a href="tel:+18327101558">Call 832-710-1558</a>
-          <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=Grade%20Rescue%20Review">Email us</a>
+        <div class="cta" id="ctaGrade">
+          <div class="h">We have your fix.</div>
+          <div class="s">We rebuild your program to the exact standard, load the training and records behind it, and get your grade back to passing &mdash; done for you by a real compliance pro, not just software.</div>
+          <button class="hbtn" data-handle="grade">Let us handle it for you &rarr;</button>
+          <div class="orcall">Rather talk first? Call <a href="tel:+18327101558">832-710-1558</a> or <a href="mailto:info@originmanagementsolutions.com?subject=Grade%20Rescue%20Review">email us</a>.</div>
         </div>
         <div class="caveat" id="rCaveat"></div>
       </div>
@@ -263,11 +268,11 @@
         <div id="rjResult" style="display:none">
           <h1 id="rjHead" style="margin-top:20px"></h1>
           <div id="rjBody"></div>
-          <div class="cta">
-            <div class="h">Want us to fix every one of these?</div>
-            <div class="s">We rewrite each rejected item to the exact standard, scope-matched, and resubmit it for you &mdash; handled by a real compliance pro.</div>
-            <a href="tel:+18327101558">Call 832-710-1558</a>
-            <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=RAVS%20Rejection%20Help">Email us</a>
+          <div class="cta" id="ctaRej">
+            <div class="h">We have your fix.</div>
+            <div class="s">We rewrite every rejected item to the exact standard, scope-matched to your work, and resubmit it for you &mdash; done for you by a real compliance pro until it's accepted.</div>
+            <button class="hbtn" data-handle="rejection">Let us handle it for you &rarr;</button>
+            <div class="orcall">Rather talk first? Call <a href="tel:+18327101558">832-710-1558</a> or <a href="mailto:info@originmanagementsolutions.com?subject=RAVS%20Rejection%20Help">email us</a>.</div>
           </div>
           <div class="caveat" id="rjCaveat"></div>
         </div>
@@ -300,11 +305,11 @@
           <h1 id="qzHead" style="margin-top:20px"></h1>
           <div id="qzScore"></div>
           <div id="qzBody"></div>
-          <div class="cta">
-            <div class="h">Want us to close these gaps?</div>
-            <div class="s">Your free 15-minute review is the next step &mdash; we'll walk your scorecard and give you a straight plan to a passing grade.</div>
-            <a href="tel:+18327101558">Call 832-710-1558</a>
-            <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=Readiness%20Review">Email us</a>
+          <div class="cta" id="ctaQuiz">
+            <div class="h">We have your fix.</div>
+            <div class="s">We close every gap on your scorecard &mdash; build the missing programs, line up the records, and get you submit-ready for a passing grade, done for you by a real compliance pro.</div>
+            <button class="hbtn" data-handle="readiness">Let us handle it for you &rarr;</button>
+            <div class="orcall">Rather talk first? Call <a href="tel:+18327101558">832-710-1558</a> or <a href="mailto:info@originmanagementsolutions.com?subject=Readiness%20Review">email us</a>.</div>
           </div>
           <div class="caveat" id="qzCaveat"></div>
         </div>
@@ -346,6 +351,35 @@
     else { openNamed(f); }
   });});
   document.querySelectorAll('[data-home]').forEach(function(b){b.addEventListener('click',goHome);});
+
+  // One-click "let us handle it for you" — captures a hot lead + notifies the
+  // inbox so the visitor never has to call or email to get the fix started.
+  var HANDLE_MAP={
+    grade:   {cta:'ctaGrade', name:'name',   company:'company',   email:'email',   phone:'phone',   plat:function(){return state.platform;}},
+    rejection:{cta:'ctaRej',  name:'rjName', company:'rjCompany', email:'rjEmail', phone:'rjPhone', plat:function(){var e=$('rjPlatform');return e?e.value:'';}},
+    readiness:{cta:'ctaQuiz', name:'qzName', company:'qzCompany', email:'qzEmail', phone:'qzPhone', plat:function(){var e=$('qzPlatform');return e?e.value:'';}}
+  };
+  function val(id){var e=$(id);return e?e.value.trim():'';}
+  function handleFix(tool, btn){
+    var m=HANDLE_MAP[tool]; if(!m) return;
+    var email=val(m.email);
+    if(email.indexOf('@')<0){ email=(prompt('What email should we use to start your fix?')||'').trim(); }
+    if(email.indexOf('@')<0){ return; }
+    btn.disabled=true; btn.textContent='Starting your fix\u2026';
+    var payload={tool:tool,name:val(m.name),company:val(m.company),email:email,phone:val(m.phone),platform:m.plat()};
+    var cta=$(m.cta);
+    function confirmDone(){
+      cta.innerHTML='<div class="h">\u2713 You\u2019re in &mdash; we\u2019re on it.</div>'+
+        '<div class="s">A compliance pro will reach out within one business day with your fix. Nothing else you need to do.</div>'+
+        '<div class="orcall">Need it sooner? Call <a href="tel:+18327101558">832-710-1558</a>.</div>';
+    }
+    fetch('/rescue/handle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){return r.json();}).then(function(){ confirmDone(); })
+      .catch(function(){ confirmDone(); });
+  }
+  document.querySelectorAll('[data-handle]').forEach(function(b){
+    b.addEventListener('click',function(){ handleFix(b.getAttribute('data-handle'), b); });
+  });
   // load config
   fetch('/rescue/config').then(function(r){return r.json();}).then(function(cfg){
     var ps=$('platform'); (cfg.platforms||[]).forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;ps.appendChild(o);});

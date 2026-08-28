@@ -1139,6 +1139,20 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         result["lead"] = lead
         return result
 
+    @app.post("/rescue/handle")
+    def rescue_handle(body: dict = Body(...)):
+        """One-click 'let us handle it for you' from any free tool. Logs a
+        high-intent lead and fires a hot-lead notification to the inbox so the
+        visitor never has to call or email to get the fix started."""
+        email = (body.get("email") or "").strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return JSONResponse({"error": "A valid email is required so we can start your fix."},
+                                status_code=400)
+        tool = (body.get("tool") or "tool").strip() or "tool"
+        summary = (body.get("summary") or "").strip()
+        lead = _rescue.capture_handle(body, tool=tool, summary=summary)
+        return {"ok": True, "lead": lead}
+
     # ── INTERNAL "Gap Finder" (Chris-only) ──────────────────────────────────
     # Load a contractor's documents + industry/state/operators and get back
     # every compliance gap. The PAGE is a shell (like the main UI); the WORK
