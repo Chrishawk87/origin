@@ -103,6 +103,7 @@
   </div></div>
   <nav class="tabs"><div class="wrap">
     <div class="tab active" data-page="update" onclick="tab(this)">Update Client Status</div>
+    <div class="tab" data-page="leads" onclick="tab(this)">New Leads <span class="pip" id="leadPip" style="display:none">0</span></div>
     <div class="tab" data-page="requests" onclick="tab(this)">Document Requests <span class="pip" id="reqPip" style="display:none">0</span></div>
   </div></nav>
 
@@ -117,6 +118,14 @@
         </div>
       </div>
       <div id="editor"></div>
+    </section>
+
+    <section id="leads" class="page">
+      <div class="hello">
+        <div><h2>New Leads</h2><div class="sub">Captured from your free tools (citation check, grade rescue, RAVS decoder, readiness quiz). Convert a lead to spin up their portal account and email an invite.</div></div>
+        <div class="bar"><button class="btn ghost sm" onclick="loadLeads()">\u21bb Refresh</button></div>
+      </div>
+      <div id="leadList"></div>
     </section>
 
     <section id="requests" class="page">
@@ -140,13 +149,13 @@ function adminLogin(){
     if(!r.ok){document.getElementById('loginErr').textContent=r.j.error||'Login failed';return;}
     document.getElementById('login').style.display='none';
     document.getElementById('app').style.display='block';
-    loadClients(); loadRequests();
+    loadClients(); loadRequests(); loadLeads();
   });
 }
 function adminLogout(){api('/portal/api/admin/logout',{method:'POST'}).then(function(){location.reload();});}
 function tab(el){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');
   var id=el.getAttribute('data-page');document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();}
+  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();}
 
 function loadClients(cb){
   api('/portal/api/admin/clients').then(function(r){
@@ -225,8 +234,10 @@ function renderEditor(){
   h+='</div><button class="btn ghost sm" onclick="addDoc()">+ Add document</button> '
     +'<button class="btn sm" onclick="uploadNewDoc()">\u2191 Upload finished document</button> '
     +(CUR.slug?'<button class="btn sm" onclick="openLibrary()">\u2295 Load from Asset Library</button> ':'')
-    +(CUR.slug?'<button class="btn ghost sm" onclick="syncDocs()">\u21bb Sync AI documents</button>':'')
-    +'<div class="hint"><b>Upload finished document</b> puts a file you built and reviewed straight into the client\u2019s vault in one step. <b>Load from Asset Library</b> renders one of your master programs into their vault. <b>Sync AI documents</b> pulls in anything the Origin AI built into this company\u2019s project folder. Or add a row + Save, then <b>Upload</b> to attach a file to it.</div>'
+    +(CUR.slug?'<button class="btn ghost sm" onclick="syncDocs()">\u21bb Sync AI documents</button> ':'')
+    +(CUR.slug?'<button class="btn sm" onclick="emailDocs()">\u2709 Email documents to client</button>':'')
+    +'<span class="saved" id="emailDocsMsg" style="margin-left:8px"></span>'
+    +'<div class="hint"><b>Upload finished document</b> puts a file you built and reviewed straight into the client\u2019s vault in one step. <b>Load from Asset Library</b> renders one of your master programs into their vault. <b>Sync AI documents</b> pulls in anything the Origin AI built into this company\u2019s project folder. <b>Email documents to client</b> sends every published document to them as attachments plus a portal link. Or add a row + Save, then <b>Upload</b> to attach a file to it.</div>'
     +'<div id="libraryPanel"></div></div>';
 
   if(CUR.slug){
@@ -438,6 +449,76 @@ function loadRequests(){
 function quote(slug,index){
   var price=document.getElementById('pr_'+slug+'_'+index).value.trim();
   api('/portal/api/admin/request/quote',{method:'POST',body:{slug:slug,index:index,price:price,status:'quoted'}}).then(function(){loadRequests();});
+}
+
+/* ── New Leads → Convert to client ── */
+var LEADS=[];
+function loadLeads(){
+  api('/portal/api/admin/leads').then(function(r){
+    LEADS=(r.j&&r.j.leads)||[];
+    renderLeads();
+    var open=LEADS.filter(function(l){return !l.converted;}).length;
+    var pip=document.getElementById('leadPip');
+    if(pip){pip.style.display=open?'inline-block':'none';pip.textContent=open;}
+  });
+}
+function renderLeads(){
+  var el=document.getElementById('leadList');if(!el)return;
+  if(!LEADS.length){el.innerHTML='<div class="card">No leads yet. When someone submits one of your free tools, they show up here.</div>';return;}
+  var h='';
+  LEADS.forEach(function(l,i){
+    var hot=(l.intent==='wants_fix');
+    h+='<div class="card" style="margin-bottom:10px'+(hot?';border-left:3px solid #e8813a':'')+'">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'
+      +'<div><div style="font-weight:600">'+esc(l.company||l.name||l.email||'(no name)')
+      +(hot?' <span class="pip" style="background:#e8813a">HOT — wants us to handle it</span>':'')
+      +(l.converted?' <span class="pip" style="background:#3a7">client</span>':'')+'</div>'
+      +'<div class="hint" style="margin-top:2px">'+esc(l.email||'(no email)')
+      +(l.phone?' · '+esc(l.phone):'')+(l.platform?' · '+esc(l.platform):'')
+      +(l.projected_grade?' · projected '+esc(l.projected_grade):'')+'</div>'
+      +'<div class="hint">'+esc(l.source||'')+(l.ts?' · '+esc(l.ts):'')+'</div></div>'
+      +'<div>'+(l.converted
+          ? '<button class="btn ghost sm" onclick="openLead(\''+escq(l.slug)+'\')">Open client</button>'
+          : '<button class="btn sm" onclick="convertLead('+i+')">Convert to client \u2192</button>')
+      +'</div></div></div>';
+  });
+  el.innerHTML=h;
+}
+function openLead(slug){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelector('.tab[data-page="update"]').classList.add('active');
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('update').classList.add('active');
+  loadClients(function(){var sel=document.getElementById('clientPick');sel.value=slug;pick(slug);});
+}
+function convertLead(i){
+  var l=LEADS[i];if(!l)return;
+  if(!l.email){alert('This lead has no email, so an account can\u2019t be created. Reach out by phone instead.');return;}
+  if(!confirm('Create a portal account for '+(l.company||l.email)+' and email them an invite?'))return;
+  api('/portal/api/admin/lead/convert',{method:'POST',body:{email:l.email,company:l.company,name:l.name,phone:l.phone,source:l.source}}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Could not convert this lead.');return;}
+    var j=r.j;
+    if(j.already){alert((j.company||'This lead')+' already has a portal account. Opening it.');loadLeads();openLead(j.slug);return;}
+    var msg='Portal account created for '+(j.company||l.email)+'.\n\n';
+    if(j.invited){msg+='\u2713 Invite emailed to '+l.email+' with their login link and temporary PIN ('+j.temp_pin+').';}
+    else{msg+='\u26a0 Invite NOT emailed'+(j.invite_error?': '+j.invite_error:'')+'\n\nSend it yourself:\nLogin: '+(j.portal_url||'/portal')+'\nEmail: '+l.email+'\nTemporary PIN: '+j.temp_pin;}
+    alert(msg);
+    loadLeads();openLead(j.slug);
+  });
+}
+
+/* ── Email finished documents to the client ── */
+function emailDocs(){
+  if(!CUR||!CUR.slug){alert('Save the client first.');return;}
+  if(!CUR.email){alert('Add a login email for this client first, then Save.');return;}
+  var pub=(CUR.documents||[]).filter(function(d){return d.file;});
+  if(!pub.length){alert('There are no published documents with files to send yet.');return;}
+  if(!confirm('Email '+pub.length+' document'+(pub.length>1?'s':'')+' to '+CUR.email+' (attached) plus a portal link?'))return;
+  var msg=document.getElementById('emailDocsMsg');if(msg){msg.textContent='Sending\u2026';}
+  api('/portal/api/admin/client/'+CUR.slug+'/email-docs',{method:'POST',body:{}}).then(function(r){
+    if(!r.ok){if(msg)msg.textContent='';alert((r.j&&r.j.error)||'Could not send.');return;}
+    if(msg){msg.textContent='\u2713 Emailed '+r.j.count+' to '+r.j.to;}
+  });
 }
 function runGap(){
   if(!CUR.slug){alert('Save the client first, then run the gap analysis.');return;}

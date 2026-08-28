@@ -989,6 +989,198 @@ def register_portal(app) -> None:
         save_client(rec)
         return {"ok": True}
 
+    @app.get("/portal/api/admin/leads")
+    def admin_leads(request: Request):
+        """List the leads captured by the public free tools (rescue_leads.jsonl)
+        so Chris can turn a hot lead into a portal client in one click. Each row
+        is flagged `converted` if a portal account already exists for that email."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rows: List[Dict[str, Any]] = []
+        try:
+            from .rescue import LEADS_FILE
+        except Exception:
+            return {"leads": []}
+        try:
+            if LEADS_FILE.is_file():
+                for line in LEADS_FILE.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        d = json.loads(line)
+                    except Exception:
+                        continue
+                    email = (d.get("email") or "").strip()
+                    existing = find_by_email(email) if email else None
+                    rows.append({
+                        "ts": d.get("ts", ""),
+                        "name": d.get("name", ""),
+                        "company": d.get("company", ""),
+                        "email": email,
+                        "phone": d.get("phone", ""),
+                        "platform": d.get("platform") or d.get("industry") or "",
+                        "source": d.get("source") or "grade-rescue",
+                        "intent": d.get("intent", ""),
+                        "projected_grade": d.get("projected_grade", ""),
+                        "converted": bool(existing),
+                        "slug": existing.get("slug") if existing else "",
+                    })
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"could not read leads: {exc}"}, status_code=500)
+        # newest first; collapse repeat submissions from the same email to the
+        # most recent so the list stays actionable.
+        rows.sort(key=lambda r: r.get("ts", ""), reverse=True)
+        seen = set()
+        deduped = []
+        for r in rows:
+            key = (r["email"] or "").lower()
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            deduped.append(r)
+        return {"leads": deduped}
+
+    @app.post("/portal/api/admin/lead/convert")
+    def admin_lead_convert(request: Request, body: dict = Body(...)):
+        """Turn a captured lead into a portal client account and email them an
+        invite with their login link + a temporary PIN. Idempotent: if a client
+        already exists for that email, returns it instead of making a duplicate."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        email = (body.get("email") or "").strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return JSONResponse({"error": "A valid email is required to create the account."},
+                                status_code=400)
+        existing = find_by_email(email)
+        if existing:
+            return {"ok": True, "already": True, "slug": existing["slug"],
+                    "company": existing.get("company", "")}
+        company = (body.get("company") or "").strip() or email.split("@")[0]
+        rec = _blank_client(company, email, "docs")
+        base = rec.get("slug") or "client"
+        slug, n = base, 2
+        while load_client(slug):
+            slug = f"{base}-{n}"
+            n += 1
+        rec["slug"] = slug
+        # extra context carried from the lead (save_client persists the whole rec)
+        if body.get("phone"):
+            rec["phone"] = (body.get("phone") or "").strip()
+        rec["lead_source"] = (body.get("source") or "free tool").strip()
+        # temporary PIN so they can sign in immediately; they can be told to
+        # change it later. Emailed to the client and returned to Chris.
+        import random
+        temp_pin = f"{random.randint(0, 999999):06d}"
+        rec["pin_hash"] = hash_pin(slug, temp_pin)
+        _ensure_project(rec)  # mirror as an Origin project on the main site
+        save_client(rec)
+        # invite the client with their login link + temp PIN
+        invited = False
+        invite_err = ""
+        try:
+            base_url = str(request.base_url).rstrip("/")
+        except Exception:
+            base_url = "https://origin-production-1352.up.railway.app"
+        portal_url = f"{base_url}/portal"
+        try:
+            from .compliance import send_email, resend_configured, smtp_configured
+            if resend_configured() or smtp_configured():
+                res = send_email(
+                    to=email,
+                    subject="Your compliance portal is ready",
+                    body=(
+                        f"Hi{(' ' + (body.get('name') or '').strip()) if body.get('name') else ''},\n\n"
+                        f"We've set up a private portal for {company} where you can view and "
+                        f"download the compliance documents we prepare for you, and track your "
+                        f"prequal status in one place.\n\n"
+                        f"Sign in here: {portal_url}\n"
+                        f"Email: {email}\n"
+                        f"Temporary PIN: {temp_pin}\n\n"
+                        f"You'll be able to set your own PIN after your first sign-in.\n\n"
+                        f"— Origin Management Solutions\n"
+                        f"info@originmanagementsolutions.com"
+                    ),
+                )
+                invited = bool(res.get("sent"))
+                if not invited:
+                    invite_err = res.get("error", "")
+            else:
+                invite_err = ("Email isn't turned on yet (no RESEND_API_KEY), so no invite "
+                              "was sent. Give them the login link, email, and PIN below yourself.")
+        except Exception as exc:  # pragma: no cover
+            invite_err = str(exc)
+        return {"ok": True, "slug": slug, "company": company,
+                "temp_pin": temp_pin, "invited": invited,
+                "invite_error": invite_err, "portal_url": portal_url}
+
+    @app.post("/portal/api/admin/client/{slug}/email-docs")
+    def admin_email_docs(slug: str, request: Request, body: dict = Body(...)):
+        """Email the client the finished documents in their vault (attached), plus
+        a link to sign in to their portal. Delivery = portal + auto-email."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        to = (rec.get("email") or "").strip()
+        if "@" not in to:
+            return JSONResponse({"error": "This client has no email on file."}, status_code=400)
+        docs_dir = _client_dir(slug) / "docs"
+        # optionally limit to specific files; default = every published document
+        wanted = set(body.get("files") or [])
+        paths, names = [], []
+        for d in rec.get("documents", []):
+            fn = d.get("file")
+            if not fn:
+                continue
+            if wanted and fn not in wanted:
+                continue
+            p = docs_dir / os.path.basename(fn)
+            if p.is_file():
+                paths.append(p)
+                names.append(d.get("name") or fn)
+        if not paths:
+            return JSONResponse(
+                {"error": "There are no published documents with files to send yet."},
+                status_code=400)
+        try:
+            base_url = str(request.base_url).rstrip("/")
+        except Exception:
+            base_url = "https://origin-production-1352.up.railway.app"
+        portal_url = f"{base_url}/portal"
+        doc_list = "\n".join(f"  \u2022 {n}" for n in names)
+        try:
+            from .compliance import send_email, resend_configured, smtp_configured
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"mailer unavailable: {exc}"}, status_code=500)
+        if not (resend_configured() or smtp_configured()):
+            return JSONResponse(
+                {"error": "Email isn't turned on yet. Add a RESEND_API_KEY on Railway to "
+                          "send documents by email. (They're already in the client's portal.)"},
+                status_code=503)
+        res = send_email(
+            to=to,
+            subject=f"Your compliance documents from Origin Management Solutions",
+            body=(
+                f"Hi{(' ' + (rec.get('contact') or '')) if rec.get('contact') else ''},\n\n"
+                f"Your documents are ready. They're attached to this email, and you can also "
+                f"view or re-download them anytime in your portal:\n\n"
+                f"{portal_url}\n\n"
+                f"Included:\n{doc_list}\n\n"
+                f"Reply to this email if you need anything adjusted.\n\n"
+                f"— Origin Management Solutions\n"
+                f"info@originmanagementsolutions.com"
+            ),
+            attachments=paths,
+        )
+        if res.get("sent"):
+            rec["docs_emailed_at"] = _now()
+            save_client(rec)
+            return {"ok": True, "sent": True, "count": len(paths), "to": to}
+        return JSONResponse({"error": res.get("error", "send failed")}, status_code=502)
+
     @app.post("/portal/api/admin/seed")
     def admin_seed(request: Request):
         if not admin_session(request):

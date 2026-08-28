@@ -792,8 +792,42 @@ def _mail_from() -> str:
             or "info@originmanagementsolutions.com")
 
 
+def _mail_reply_to() -> str:
+    """Where client replies should land. The From address must be on a Resend-
+    VERIFIED domain (e.g. originprequal.com on Cloudflare), but replies should go
+    to the real business inbox (info@originmanagementsolutions.com on Wix).
+    Defaults to that inbox so replies reach Chris even if the From is a different
+    domain; override with ORIGIN_MAIL_REPLY_TO."""
+    return (os.environ.get("ORIGIN_MAIL_REPLY_TO")
+            or "info@originmanagementsolutions.com")
+
+
+def _collect_files(attachment=None, attachments=None) -> List[Path]:
+    """Normalize a single attachment and/or a list into one de-duplicated list of
+    existing files. Keeps the old single-attachment callers working while letting
+    newer callers (e.g. emailing a client all their finished docs) pass many."""
+    out: List[Path] = []
+    seen = set()
+    for item in list(attachments or []) + ([attachment] if attachment else []):
+        if not item:
+            continue
+        p = Path(item)
+        try:
+            if not p.is_file():
+                continue
+        except Exception:
+            continue
+        key = str(p.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(p)
+    return out
+
+
 def _send_via_resend(to: str, subject: str, body: str,
-                     attachment: Optional[Path] = None) -> Dict[str, Any]:
+                     attachment: Optional[Path] = None,
+                     attachments=None) -> Dict[str, Any]:
     """Send over Resend's HTTPS API (port 443). Works on every Railway plan —
     unlike raw SMTP, which Railway blocks on Free/Trial/Hobby plans."""
     import json as _json
@@ -805,11 +839,15 @@ def _send_via_resend(to: str, subject: str, body: str,
         "subject": subject or "Compliance document",
         "text": body or "Please find the attached compliance document.",
     }
-    if attachment and attachment.is_file():
+    reply_to = _mail_reply_to()
+    if reply_to and reply_to != _mail_from():
+        payload["reply_to"] = [reply_to]
+    files = _collect_files(attachment, attachments)
+    if files:
         payload["attachments"] = [{
-            "filename": attachment.name,
-            "content": _b64.b64encode(attachment.read_bytes()).decode("ascii"),
-        }]
+            "filename": p.name,
+            "content": _b64.b64encode(p.read_bytes()).decode("ascii"),
+        } for p in files]
     req = _url.Request(
         "https://api.resend.com/emails",
         data=_json.dumps(payload).encode("utf-8"),
@@ -842,11 +880,12 @@ def _send_via_resend(to: str, subject: str, body: str,
 
 
 def send_email(to: str, subject: str, body: str,
-               attachment: Optional[Path] = None) -> Dict[str, Any]:
+               attachment: Optional[Path] = None,
+               attachments=None) -> Dict[str, Any]:
     # Prefer Resend (HTTPS) — reliable on every Railway plan. Fall back to SMTP
     # if only SMTP is configured (works on Railway Pro or off-Railway hosts).
     if resend_configured():
-        return _send_via_resend(to, subject, body, attachment)
+        return _send_via_resend(to, subject, body, attachment, attachments)
     if not smtp_configured():
         return {"sent": False,
                 "error": "Email isn't set up yet. Add a RESEND_API_KEY (recommended — "
@@ -860,13 +899,16 @@ def send_email(to: str, subject: str, body: str,
     msg = EmailMessage()
     msg["From"] = sender
     msg["To"] = to
+    reply_to = _mail_reply_to()
+    if reply_to and reply_to != sender:
+        msg["Reply-To"] = reply_to
     msg["Subject"] = subject or "Compliance document"
     msg.set_content(body or "Please find the attached compliance document.")
-    if attachment and attachment.is_file():
-        data = attachment.read_bytes()
-        sub = "pdf" if attachment.suffix.lower() == ".pdf" else "octet-stream"
+    for p in _collect_files(attachment, attachments):
+        data = p.read_bytes()
+        sub = "pdf" if p.suffix.lower() == ".pdf" else "octet-stream"
         msg.add_attachment(data, maintype="application", subtype=sub,
-                           filename=attachment.name)
+                           filename=p.name)
     # Railway containers often have an IPv6 address but no routable IPv6 egress,
     # so smtplib picking the AAAA record fails with "[Errno 101] Network is
     # unreachable". Force IPv4 resolution for the duration of the send, and try
