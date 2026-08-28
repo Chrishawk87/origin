@@ -29,6 +29,27 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import compliance_kb as kb
 
+
+def _has_jha(program_id: str) -> bool:
+    """True if Origin has an industry job-hazard analysis (JSA) for this program.
+    Isolated in a try/except so a missing/broken JHA module never breaks the
+    recommendation engine."""
+    try:
+        from . import compliance_jha as _jha
+        return bool(_jha.has_jha(program_id))
+    except Exception:
+        return False
+
+
+def _sub_sections(program_id: str) -> List[str]:
+    """The required elements (the sub-sections a complete program must contain)
+    for one standard, straight from the KB record. Empty list if unknown."""
+    try:
+        rec = kb.get(program_id) or {}
+        return [str(e) for e in (rec.get("required_elements") or [])]
+    except Exception:
+        return []
+
 try:
     from .tools import document_tools as _doc
 except Exception:  # pragma: no cover - tools package layout guard
@@ -548,6 +569,10 @@ def recommend_documents(
                 "priority": prio,
                 "reason": reason,
                 "can_autodraft": bool(g.get("can_autodraft")),
+                # Build-plan detail: the sub-sections this program must contain,
+                # and whether it also needs an industry JSA/JHA built alongside it.
+                "sub_sections": _sub_sections(g["id"]),
+                "needs_jha": needs and _has_jha(g["id"]),
             })
             seen.add(g["id"])
 
@@ -568,6 +593,8 @@ def recommend_documents(
                 "priority": "must-fix",
                 "reason": "The written program your OSHA citation requires — build this first.",
                 "can_autodraft": kb.render_program(citation_program_id) is not None,
+                "sub_sections": _sub_sections(citation_program_id),
+                "needs_jha": needs and _has_jha(citation_program_id),
             })
             seen.add(citation_program_id)
 
@@ -579,9 +606,11 @@ def recommend_documents(
                                   d["title"].lower()))
 
     programs = [d for d in documents if d["needs_program"]]
+    jha_docs = [d for d in documents if d.get("needs_jha")]
     summary = {
         "total": len(documents),
         "programs": len(programs),
+        "jhas": len(jha_docs),
         "must_fix": sum(1 for d in documents if d["priority"] == "must-fix"),
         "required": sum(1 for d in documents if d["priority"] == "required"),
         "recommended": sum(1 for d in documents if d["priority"] == "recommended"),

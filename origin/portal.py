@@ -992,6 +992,24 @@ def register_portal(app) -> None:
             pass
         return {"ok": True, "templates": _cmp.list_templates()}
 
+    @app.get("/portal/api/admin/library/preview", response_class=HTMLResponse)
+    def admin_library_preview(request: Request, mid: str = ""):
+        """Render an Asset Library master straight to the browser so Chris can
+        eyeball the exact document BEFORE dropping it into a client's vault.
+        Read-only: nothing is written or published."""
+        if not admin_session(request):
+            return HTMLResponse("<h1>Admin only</h1>", status_code=401)
+        try:
+            from . import compliance as _cmp
+        except Exception as exc:  # pragma: no cover
+            return HTMLResponse(f"<h1>Asset library unavailable</h1><p>{exc}</p>",
+                                status_code=500)
+        mid = (mid or "").strip()
+        html = _cmp.read_master_html(mid) if mid else None
+        if not html:
+            return HTMLResponse("<h1>Document not found</h1>", status_code=404)
+        return HTMLResponse(html, headers=_NO_STORE)
+
     @app.post("/portal/api/admin/client/{slug}/from-library")
     def admin_from_library(slug: str, request: Request, body: dict = Body(...)):
         """Render an Asset Library master into THIS client's vault as a finished,
@@ -1238,6 +1256,7 @@ def register_portal(app) -> None:
         # the gap analysis and seeds the "Documents (included in plan)" tab with
         # a build target for each required written program.
         recommended_count = 0
+        jha_count = 0
         try:
             lead_dx = _latest_lead_for(email)
         except Exception:
@@ -1270,13 +1289,20 @@ def register_portal(app) -> None:
                 sub = f"Recommended \u2014 {d['priority']}"
                 if d.get("citation"):
                     sub += f" \u00b7 {d['citation']}"
+                needs_jha = bool(d.get("needs_jha"))
+                if needs_jha:
+                    sub += " \u00b7 + JSA"
                 rec.setdefault("documents", []).append({
                     "name": d["title"], "sub": sub, "file": "",
                     "source": "recommended", "to_build": True,
                     "program_id": d["id"], "priority": d["priority"],
+                    "needs_jha": needs_jha,
+                    "sub_sections": d.get("sub_sections") or [],
                 })
                 existing_names.add(d["title"])
                 recommended_count += 1
+                if needs_jha:
+                    jha_count += 1
 
         save_client(rec)
         # invite the client with their login link + temp PIN
@@ -1317,7 +1343,8 @@ def register_portal(app) -> None:
         return {"ok": True, "slug": slug, "company": company,
                 "temp_pin": temp_pin, "invited": invited,
                 "invite_error": invite_err, "portal_url": portal_url,
-                "recommended_count": recommended_count}
+                "recommended_count": recommended_count,
+                "jha_count": jha_count}
 
     @app.post("/portal/api/admin/client/{slug}/email-docs")
     def admin_email_docs(slug: str, request: Request, body: dict = Body(...)):

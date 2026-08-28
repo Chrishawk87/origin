@@ -407,13 +407,18 @@ function openLibrary(){
     if(!t.length){panel.innerHTML='<div class="hint" style="margin-top:10px">No master documents in the Asset Library yet.</div>';return;}
     var rows=t.map(function(m){
       var meta=[m.trade,m.num].filter(Boolean).join(' \u00b7 ');
-      return '<div class="listrow" style="grid-template-columns:1fr auto;align-items:center">'
+      var eid=esc(m.id).replace(/'/g,"\\'");
+      return '<div class="listrow" style="grid-template-columns:1fr auto auto;align-items:center;gap:6px">'
         +'<div><b>'+esc(m.title||m.id)+'</b>'+(meta?'<br><span class="fileno">'+esc(meta)+'</span>':'')+'</div>'
-        +'<button class="btn ghost sm" onclick="loadFromLibrary(\''+esc(m.id).replace(/'/g,"\\'")+'\')">Load into vault</button></div>';
+        +'<button class="btn ghost sm" onclick="previewLibrary(\''+eid+'\')">Preview</button>'
+        +'<button class="btn ghost sm" onclick="loadFromLibrary(\''+eid+'\')">Load into vault</button></div>';
     }).join('');
     panel.innerHTML='<div style="margin-top:10px;border:1px solid #e2e6ea;border-radius:8px;padding:10px">'
-      +'<div class="lbl" style="margin-bottom:6px">Asset Library \u2014 pick a master to render into this client\u2019s vault</div>'+rows+'</div>';
+      +'<div class="lbl" style="margin-bottom:6px">Asset Library \u2014 Preview a master to check it looks right, then Load it into this client\u2019s vault</div>'+rows+'</div>';
   });
+}
+function previewLibrary(mid){
+  window.open('/portal/api/admin/library/preview?mid='+encodeURIComponent(mid),'_blank');
 }
 function loadFromLibrary(mid){
   if(!CUR.slug)return;
@@ -508,7 +513,7 @@ function convertLead(i){
     var j=r.j;
     if(j.already){alert((j.company||'This lead')+' already has a portal account. Opening it.');loadLeads();openLead(j.slug);return;}
     var msg='Portal account created for '+(j.company||l.email)+'.\n\n';
-    if(j.recommended_count){msg+='\u2713 '+j.recommended_count+' required document'+(j.recommended_count===1?'':'s')+' pre-loaded into their plan (with priorities flagged). Origin AI can build each one \u2014 open the client and use \u201cBuild \u0026 publish\u201d.\n\n';}
+    if(j.recommended_count){msg+='\u2713 '+j.recommended_count+' required document'+(j.recommended_count===1?'':'s')+' pre-loaded into their plan (with priorities flagged).';if(j.jha_count){msg+=' '+j.jha_count+' of them also need a job-hazard analysis (JSA) \u2014 flagged \u201c+ JSA\u201d.';}msg+=' Origin AI can build each one \u2014 open the client and use \u201cBuild \u0026 publish\u201d.\n\n';}
     if(j.invited){msg+='\u2713 Invite emailed to '+l.email+' with their login link and temporary PIN ('+j.temp_pin+').';}
     else{msg+='\u26a0 Invite NOT emailed'+(j.invite_error?': '+j.invite_error:'')+'\n\nSend it yourself:\nLogin: '+(j.portal_url||'/portal')+'\nEmail: '+l.email+'\nTemporary PIN: '+j.temp_pin;}
     alert(msg);
