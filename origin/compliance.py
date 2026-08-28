@@ -373,6 +373,7 @@ def ensure_library() -> None:
         _write_index(records)
     _sync_program_masters()
     _sync_jha_masters()
+    _sync_sector_masters()
     _restyle_masters_if_needed()
     _consolidate_library_if_needed()
 
@@ -448,6 +449,29 @@ def _restyle_masters_if_needed() -> None:
             continue
         mid = rec.get("id", "")
         try:
+            # Sector masters: regenerate the exact industry-specific body from
+            # the sector layer (identified by the stored sector/kind/pid), so a
+            # style bump refreshes both the chrome and the trade content.
+            _sec = rec.get("sector"); _kind = rec.get("kind"); _pid = rec.get("pid")
+            if _sec and _pid and _kind == "program" and _kb is not None:
+                md = _kb.render_program(_pid, sector=_sec)
+                if md:
+                    krec = _kb.get(_pid) or {}
+                    f.write_text(
+                        wrap_program_document(_md_to_html(md), rec.get("title", ""),
+                                              krec.get("citation", "")),
+                        encoding="utf-8")
+                    continue
+            if _sec and _pid and _kind == "jha":
+                try:
+                    from . import compliance_jha as _jha
+                    inner = _jha.render_jha(_pid, sector=_sec)
+                except Exception:
+                    inner = None
+                if inner:
+                    f.write_text(wrap_document(inner, rec.get("title", mid)),
+                                 encoding="utf-8")
+                    continue
             # Program masters: regenerate from the KB so any change to the
             # template body (e.g. the new client letterhead) flows into the
             # already-stored masters — not just the CSS chrome.
@@ -617,6 +641,70 @@ def _sync_jha_masters() -> None:
                         "num": "", "title": title, "file": fname})
         have.add(mid)
         added = True
+    if added:
+        _write_index(records)
+
+
+def _sync_sector_masters() -> None:
+    """Populate the Asset Library with the industry-specific document set: for every
+    NAICS sector that has authored content, one master per written program AND its
+    companion JSA, drafted in that sector's trade context (real Scope, Industry
+    Hazard Profile, hazard-anchored prompts; JSAs carry the Industry Applicability
+    band). Masters are grouped in the Library by industry via the ``trade`` field so
+    they browse cleanly (pick "Construction" → its programs + JSAs).
+
+    Master ids are ``sector-<safe>-program-<pid>`` / ``sector-<safe>-jha-<pid>`` and
+    each record carries ``sector``/``kind``/``pid`` so a later restyle can regenerate
+    the exact industry body. Idempotent — only missing masters are added; neutral
+    ``program-<id>`` / ``jha-<id>`` masters are untouched. Safe on every startup."""
+    try:
+        from . import compliance_kb as _kb
+        from . import sector_content as _sc
+    except Exception:
+        return
+    try:
+        from . import compliance_jha as _jha
+    except Exception:
+        _jha = None
+
+    records = _read_index_raw()
+    have = {r["id"] for r in records}
+    added = False
+    for skey in _sc.sector_keys():
+        trade = _sc.label(skey) or skey
+        safe = _kb._sector_key_safe(skey)
+        for pid in _kb.sector_program_ids(skey):
+            krec = _kb.get(pid) or {}
+            # Industry-specific written program.
+            pmid = f"sector-{safe}-program-{pid}"
+            if pmid not in have:
+                md = _kb.render_program(pid, sector=skey)
+                if md:
+                    title = krec.get("title", pid)
+                    html = wrap_program_document(_md_to_html(md), title,
+                                                 krec.get("citation", ""))
+                    fname = f"{pmid}.html"
+                    (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
+                    records.append({"id": pmid, "trade": trade, "num": "",
+                                    "title": title, "file": fname,
+                                    "sector": skey, "kind": "program", "pid": pid})
+                    have.add(pmid)
+                    added = True
+            # Industry-specific companion JSA, when one is authored.
+            if _jha is not None and _jha.has_jha(pid):
+                jmid = f"sector-{safe}-jha-{pid}"
+                if jmid not in have:
+                    inner = _jha.render_jha(pid, sector=skey)
+                    if inner:
+                        title = _jha.jha_title(pid)
+                        html = wrap_document(inner, title)
+                        fname = f"{jmid}.html"
+                        (LIBRARY_DIR / fname).write_text(html, encoding="utf-8")
+                        records.append({"id": jmid, "trade": trade, "num": "",
+                                        "title": title, "file": fname,
+                                        "sector": skey, "kind": "jha", "pid": pid})
+                        have.add(jmid)
+                        added = True
     if added:
         _write_index(records)
 
