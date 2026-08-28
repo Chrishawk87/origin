@@ -68,6 +68,26 @@ def _fmt_standard(r: dict, full: bool = True) -> str:
     return "\n".join(lines)
 
 
+def _fmt_osha_index(sec: dict) -> str:
+    """Render one OSHA structural-index record (citation → title/subpart/URL)."""
+    typ = sec.get("type", "section")
+    label = {"section": "Section", "appendix": "Appendix",
+             "subpart": "Subpart", "subpart_appendix": "Subpart appendix"}.get(typ, "Entry")
+    lines = [
+        f"# {sec.get('citation','')} — {sec.get('title','')}",
+        f"OSHA {label}",
+        f"Part {sec.get('part','')}: {sec.get('part_name','')}",
+    ]
+    if sec.get("subpart"):
+        st = f" — {sec.get('subpart_title','')}" if sec.get("subpart_title") else ""
+        lines.append(f"Subpart {sec['subpart']}{st}")
+    if sec.get("url"):
+        lines.append(f"Official text: {sec['url']}")
+    lines.append("(Structural index — official title/location only; this entry has no "
+                 "written-program or verbatim-training record in the KB.)")
+    return "\n".join(lines)
+
+
 def build_compliance_tools() -> List[Tool]:
     def compliance_lookup(args: Dict[str, Any]) -> str:
         query = (args.get("query") or args.get("citation") or "").strip()
@@ -106,6 +126,11 @@ def build_compliance_tools() -> List[Tool]:
             tr = kb.training_requirement(query)
             if tr:
                 return _fmt_2254(tr)
+            # then the OSHA structural index — resolves ANY real CFR citation to its
+            # official title/subpart/URL even when there's no program or 2254 entry.
+            sec = kb.osha_section(query)
+            if sec:
+                return _fmt_osha_index(sec)
             return (f"No codified standard matched '{query}'. Do NOT invent requirements — "
                     "say the KB has no entry for it.")
         # one strong hit → full detail; several → summaries so the agent can pick
@@ -114,6 +139,81 @@ def build_compliance_tools() -> List[Tool]:
         parts = [f"{len(hits)} matches — call compliance_lookup with the exact citation for full detail:"]
         parts += [_fmt_standard(h, full=False) for h in hits]
         return "\n\n".join(parts)
+
+    def osha_index(args: Dict[str, Any]) -> str:
+        """Navigate the full OSHA regulatory tree: resolve any citation, list a
+        part's subpart/section tree, search titles, or pull the whistleblower/
+        preamble reference lists."""
+        citation = (args.get("citation") or "").strip()
+        part = (args.get("part") or "").strip()
+        query = (args.get("search") or args.get("query") or "").strip()
+        reference = (args.get("reference") or "").strip().lower()
+
+        if reference:
+            if reference.startswith("whistle"):
+                rows = kb.osha_whistleblower_statutes()
+                if not rows:
+                    return "No whistleblower statute list loaded."
+                out = [f"OSHA-ADMINISTERED WHISTLEBLOWER STATUTES ({len(rows)}):"]
+                for r in rows:
+                    out.append(f"  - {r.get('title','')}  [{r.get('statute_citation','')}]  {r.get('url','')}")
+                return "\n".join(out)
+            if reference.startswith("pream"):
+                rows = kb.osha_preambles()
+                if not rows:
+                    return "No preamble list loaded."
+                out = [f"OSHA PREAMBLES TO FINAL RULES — {len(rows)} rulemakings (1971–present, newest first):"]
+                for r in rows:
+                    out.append(f"  - {r.get('date','')}  {r.get('title','')}\n      standards: {r.get('standard_numbers','')}\n      {r.get('url','')}")
+                return "\n".join(out)
+            return "ERROR: 'reference' must be 'whistleblower' or 'preambles'."
+
+        if citation:
+            sec = kb.osha_section(citation)
+            if sec:
+                return _fmt_osha_index(sec)
+            return (f"'{citation}' is not an OSHA citation in the indexed parts "
+                    "(1904, 1910, 1915/1917/1918/1919, 1926, 1928). Do not fabricate one.")
+
+        if part:
+            tree = kb.osha_part_tree(part)
+            if not tree:
+                return (f"'{part}' is not an indexed OSHA part. Indexed: 1904, 1910, "
+                        "1915, 1917, 1918, 1919, 1926, 1928.")
+            c = tree["counts"]
+            out = [f"OSHA PART {tree['part']} — {tree['part_name']}",
+                   f"{c['subparts']} subparts, {c['sections']} sections:"]
+            for sp in tree["subparts"]:
+                if sp["subpart"]:
+                    out.append(f"\nSubpart {sp['subpart']} — {sp['subpart_title']}")
+                else:
+                    out.append("\n(sections without a subpart)")
+                for s in sp["sections"]:
+                    tag = "" if s["type"] == "section" else f" ({s['type']})"
+                    out.append(f"  {s['citation']}  {s['title']}{tag}")
+            return "\n".join(out)
+
+        if query:
+            hits = kb.osha_search(query, limit=int(args.get("limit", 15)))
+            if not hits:
+                return f"No OSHA section title matched '{query}'."
+            out = [f"OSHA INDEX SEARCH — '{query}' ({len(hits)} hits):"]
+            for h in hits:
+                out.append(f"  {h['citation']}  {h['title']}  "
+                           f"[Part {h['part']} Subpart {h.get('subpart','')}]".rstrip())
+            return "\n".join(out)
+
+        # nothing specified → inventory
+        st = kb.osha_index_stats()
+        out = [f"OSHA STRUCTURAL INDEX — {st['total_rows']} entries mapped across the tree:"]
+        for p, d in st["parts"].items():
+            out.append(f"  Part {p} — {d['part_name']}: {d['subparts']} subparts, "
+                       f"{d['sections']} sections, {d['appendices']} appendices")
+        out.append(f"  + {st['whistleblower_statutes']} whistleblower statutes, "
+                   f"{st['preambles_indexed']} recent preambles")
+        out.append("\nPass 'citation' to resolve one, 'part' for its full tree, "
+                   "'search' to find sections by title, or reference='whistleblower'|'preambles'.")
+        return "\n".join(out)
 
     def compliance_profile(args: Dict[str, Any]) -> str:
         target = (args.get("industry") or args.get("naics") or args.get("code")
@@ -700,6 +800,35 @@ def build_compliance_tools() -> List[Tool]:
                 "required": ["query"],
             },
             handler=compliance_lookup,
+            source="builtin",
+        ),
+        Tool(
+            name="osha_index",
+            description=(
+                "Navigate the ENTIRE OSHA regulatory tree — the complete structural index of "
+                "every part, subpart, section, and appendix (Parts 1904 Recordkeeping, 1910 "
+                "General Industry, 1915/1917/1918/1919 Maritime, 1926 Construction, 1928 "
+                "Agriculture), each with its official title and osha.gov URL, plus the 25 "
+                "whistleblower statutes OSHA administers and recent Preambles to Final Rules. "
+                "Use it to resolve ANY citation to its official title/subpart/location "
+                "(citation='1926.501'), list a whole part's tree (part='1926'), find sections "
+                "by topic (search='excavation'), or pull reference lists "
+                "(reference='whistleblower' or 'preambles'). This is the MAP of OSHA — for a "
+                "standard's required written-program elements or verbatim training language use "
+                "compliance_lookup instead. Never invent a citation this tool doesn't return."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "citation": {"type": "string", "description": "Resolve one citation, e.g. '1926.501' or '29 CFR 1910.147'"},
+                    "part": {"type": "string", "description": "List a part's full subpart/section tree, e.g. '1926'"},
+                    "search": {"type": "string", "description": "Find sections by title keyword, e.g. 'fall protection'"},
+                    "reference": {"type": "string", "description": "'whistleblower' or 'preambles' reference list"},
+                    "limit": {"type": "integer", "description": "Max search hits (default 15)"},
+                },
+                "required": [],
+            },
+            handler=osha_index,
             source="builtin",
         ),
         Tool(

@@ -105,6 +105,208 @@ def training_requirement(citation: str) -> Optional[dict]:
     return None
 
 
+# ── OSHA full structural index (every part / subpart / section) ──────────────
+# osha_index.jsonl is the complete table of contents of the OSHA regulatory tree
+# scraped from OSHA's standardnumber index: Parts 1904, 1910, 1915/1917/1918/1919
+# (Maritime), 1926, 1928 — every subpart, section, and appendix with its title and
+# canonical osha.gov URL (~1,400 rows). This does NOT carry each section's full
+# verbatim body; it is the map, so the agent can resolve ANY citation to its
+# official title/subpart/URL, list a part's tree, and know a citation is real even
+# when it has no written-program record. Two companion reference lists ship too:
+# the 25 whistleblower statutes OSHA administers, and recent Preambles to Final Rules.
+@functools.lru_cache(maxsize=1)
+def _osha_index_records() -> List[dict]:
+    path = KB_DIR / "osha_index.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+@functools.lru_cache(maxsize=1)
+def _osha_index() -> Dict[str, dict]:
+    idx: Dict[str, dict] = {}
+    for r in _osha_index_records():
+        cit = r.get("citation")
+        sec = r.get("section")
+        if cit:
+            idx[cit] = r
+        if sec:
+            idx.setdefault(sec, r)  # bare section falls back to its base record
+    return idx
+
+
+_OSHA_PART_NAMES = {
+    "1904": "Recording and Reporting Occupational Injuries and Illnesses",
+    "1910": "General Industry",
+    "1915": "Shipyard Employment (Maritime)",
+    "1917": "Marine Terminals (Maritime)",
+    "1918": "Longshoring (Maritime)",
+    "1919": "Gear Certification (Maritime)",
+    "1926": "Construction",
+    "1928": "Agriculture",
+}
+
+
+def osha_section(citation: str) -> Optional[dict]:
+    """Resolve any OSHA citation to its official title, subpart, part, and URL.
+
+    Accepts a bare section ('1926.501'), a full citation ('29 CFR 1926.501'), an
+    appendix ('1910.7 App A'), or a subpart ('1926 Subpart M'), or any string
+    containing one. Returns the structural-index record (part/part_name/subpart/
+    subpart_title/citation/section/title/type/url) or None if it isn't a real
+    OSHA citation in the indexed parts. Never fabricates.
+    """
+    q = (citation or "").strip()
+    if not q:
+        return None
+    idx = _osha_index()
+    if q in idx:
+        return idx[q]
+    # subpart form, e.g. "1926 Subpart M"
+    sm = re.search(r"\b(\d{4})\s+Subpart\s+([A-Z]+)\b", q, re.I)
+    if sm:
+        key = "%s Subpart %s" % (sm.group(1), sm.group(2).upper())
+        if key in idx:
+            return idx[key]
+    # appendix, e.g. "1910.7 App A"
+    am = re.search(r"\b(\d{4}\.\w+)\s+App\s+([A-Za-z0-9]+)\b", q, re.I)
+    if am:
+        key = "%s App %s" % (am.group(1), am.group(2).upper())
+        if key in idx:
+            return idx[key]
+    # bare section number
+    m = re.search(r"\b(\d{4}\.\w+)\b", q)
+    if m and m.group(1) in idx:
+        return idx[m.group(1)]
+    return None
+
+
+def osha_part_tree(part: str) -> Optional[dict]:
+    """Return the full subpart→section tree for an OSHA part (e.g. '1926').
+
+    Accepts '1926', '29 CFR 1926', or any string containing the part number.
+    Returns {part, part_name, subparts:[{subpart, subpart_title, url, sections:[
+    {citation, title, type, url}...]}...], counts} or None if the part isn't
+    indexed. Sections without a subpart (rare) are grouped under ''.
+    """
+    digits = re.sub(r"\D", "", str(part or ""))
+    p = digits[:4]
+    if p not in _OSHA_PART_NAMES:
+        return None
+    recs = [r for r in _osha_index_records() if r.get("part") == p]
+    if not recs:
+        return None
+    order: List[str] = []
+    groups: Dict[str, dict] = {}
+    for r in recs:
+        sp = r.get("subpart", "")
+        if sp not in groups:
+            groups[sp] = {"subpart": sp, "subpart_title": "", "url": "", "sections": []}
+            order.append(sp)
+        if r.get("type") == "subpart":
+            groups[sp]["subpart_title"] = r.get("title", "")
+            groups[sp]["url"] = r.get("url", "")
+        else:
+            groups[sp]["sections"].append({
+                "citation": r.get("citation", ""),
+                "title": r.get("title", ""),
+                "type": r.get("type", ""),
+                "url": r.get("url", ""),
+            })
+    subparts = [groups[k] for k in order]
+    n_sec = sum(1 for r in recs if r.get("type") == "section")
+    return {
+        "part": p,
+        "part_name": _OSHA_PART_NAMES[p],
+        "subparts": subparts,
+        "counts": {"subparts": sum(1 for s in subparts if s["subpart"]),
+                   "sections": n_sec, "total_rows": len(recs)},
+    }
+
+
+def osha_search(query: str, limit: int = 15) -> List[dict]:
+    """Keyword search over the OSHA structural index by section title.
+
+    Ranks indexed sections/subparts whose title or citation contains the query
+    terms. Returns lightweight hits (citation/title/part/subpart/url) so the agent
+    can find 'the fall protection sections' or 'excavation' across the whole tree.
+    """
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _osha_index_records():
+        hay = (r.get("title", "") + " " + r.get("citation", "") + " "
+               + r.get("subpart_title", "")).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: (-x[0], len(x[1].get("citation", ""))))
+    return [{
+        "citation": r.get("citation", ""), "title": r.get("title", ""),
+        "part": r.get("part", ""), "part_name": r.get("part_name", ""),
+        "subpart": r.get("subpart", ""), "type": r.get("type", ""),
+        "url": r.get("url", ""),
+    } for _, r in scored[:limit]]
+
+
+@functools.lru_cache(maxsize=1)
+def _osha_reference(name: str) -> List[dict]:
+    path = KB_DIR / name
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def osha_whistleblower_statutes() -> List[dict]:
+    """The 25 statutes OSHA administers whistleblower/anti-retaliation provisions
+    for, each with its U.S.C. citation, title, and whistleblowers.gov URL."""
+    return _osha_reference("osha_whistleblower_statutes.jsonl")
+
+
+def osha_preambles() -> List[dict]:
+    """OSHA Preambles to Final Rules (Federal Register rulemaking records) — the
+    complete index, ~900 rulemakings from 1971 to present, each with date, title,
+    affected standard numbers, and URL, newest first."""
+    return _osha_reference("osha_preambles.jsonl")
+
+
+def osha_index_stats() -> dict:
+    """Inventory of the OSHA structural index: total rows, and per-part counts of
+    subparts and sections. Lets the agent state exactly how much of the OSHA tree
+    it has mapped."""
+    recs = _osha_index_records()
+    parts: Dict[str, dict] = {}
+    for r in recs:
+        p = r.get("part", "")
+        d = parts.setdefault(p, {"part_name": r.get("part_name", ""),
+                                 "subparts": set(), "sections": 0, "appendices": 0})
+        if r.get("type") == "section":
+            d["sections"] += 1
+        elif r.get("type") in ("appendix", "subpart_appendix"):
+            d["appendices"] += 1
+        if r.get("subpart"):
+            d["subparts"].add(r["subpart"])
+    return {
+        "total_rows": len(recs),
+        "parts": {p: {"part_name": d["part_name"], "subparts": len(d["subparts"]),
+                      "sections": d["sections"], "appendices": d["appendices"]}
+                  for p, d in sorted(parts.items())},
+        "whistleblower_statutes": len(osha_whistleblower_statutes()),
+        "preambles_indexed": len(osha_preambles()),
+    }
+
+
 def search(query: str, limit: int = 5) -> List[dict]:
     """Keyword fallback ranking by term overlap (no vector store required)."""
     q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
