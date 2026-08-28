@@ -237,9 +237,13 @@ def build_compliance_tools() -> List[Tool]:
                    f"  whistleblower statutes:                 {s['whistleblower_statutes']}",
                    f"  rulemaking preambles:                   {s['preambles']}",
                    f"  NAICS industry codes:                   {s['naics_codes']}",
+                   f"  prequal-platform expert knowledge:      {s.get('prequal_platform', 0)}",
+                   f"  abatement/corrective-action playbook:   {s.get('abatement_playbook', 0)}",
+                   f"  self-learned records:                   {s.get('learned', 0)}",
                    f"\nSend-gate scope: {st['send_gate_scope']} — reference knowledge never dilutes validation.",
-                   "Pass 'query' to search everything, or 'kinds' to restrict "
-                   "(program, osha_section, training, whistleblower, preamble, naics)."]
+                   "Pass 'query' to search everything, or 'kinds' to restrict (program, "
+                   "osha_section, training, whistleblower, preamble, naics, prequal_platform, "
+                   "abatement, learned)."]
             return "\n".join(out)
 
         hits = kb.brain_search(query, limit=int(args.get("limit", 20)), kinds=kinds)
@@ -247,7 +251,9 @@ def build_compliance_tools() -> List[Tool]:
             return f"Nothing in the brain matched '{query}'."
         label = {"program": "PROGRAM", "osha_section": "OSHA §",
                  "training": "TRAINING", "whistleblower": "WHISTLEBLOWER",
-                 "preamble": "PREAMBLE", "naics": "NAICS"}
+                 "preamble": "PREAMBLE", "naics": "NAICS",
+                 "prequal_platform": "PREQUAL", "abatement": "ABATEMENT",
+                 "learned": "LEARNED"}
         out = [f"BRAIN SEARCH — '{query}' ({len(hits)} hits across all knowledge):"]
         for h in hits:
             k = h.get("kind", "")
@@ -265,6 +271,15 @@ def build_compliance_tools() -> List[Tool]:
             elif k == "naics":
                 out.append(f"  [{tag}] {h.get('code','')}  {h.get('title','')} "
                            f"({h.get('level_name','')}, sector: {h.get('sector_title','')})")
+            elif k == "prequal_platform":
+                out.append(f"  [{tag}] {h.get('platform','')} — {h.get('title','')} "
+                           f"({h.get('topic','')})  id={h.get('id','')}")
+            elif k == "abatement":
+                out.append(f"  [{tag}] {h.get('title','')}  ({h.get('context','')})  "
+                           f"id={h.get('id','')}")
+            elif k == "learned":
+                out.append(f"  [{tag}] {h.get('title','')}  (taught {h.get('learned_at','')})  "
+                           f"id={h.get('id','')}")
         out.append("\nPrograms are the authoritative written-program records "
                    "(draft with compliance_template); the rest is reference knowledge.")
         return "\n".join(out)
@@ -296,6 +311,91 @@ def build_compliance_tools() -> List[Tool]:
                 out.append(f"  {h['code']}  {h['title']}  ({h['level_name']})")
             return "\n".join(out)
         return "ERROR: provide a 'code' (e.g. '213112') or a 'query' (e.g. 'roofing')."
+
+    def prequal(args: Dict[str, Any]) -> str:
+        """Expert knowledge on the prequalification platforms — how ISN, Avetta,
+        Veriforce/PEC, BROWZ and ComplyWorks grade contractors, review programs,
+        and why submissions get rejected."""
+        query = (args.get("query") or args.get("search") or args.get("platform") or "").strip()
+        if not query:
+            recs = kb.prequal_knowledge()
+            plats: Dict[str, list] = {}
+            for r in recs:
+                plats.setdefault(r.get("platform", "Other"), []).append(r)
+            out = [f"PREQUAL-PLATFORM KNOWLEDGE — {len(recs)} expert records:"]
+            for p in sorted(plats):
+                out.append(f"\n{p}:")
+                for r in plats[p]:
+                    out.append(f"  - {r.get('title','')}  ({r.get('topic','')})  id={r.get('id','')}")
+            out.append("\nPass 'query' (e.g. 'why did my RAVS get rejected', "
+                       "'how does Avetta grade', 'Veriforce OQ') to pull the detail.")
+            return "\n".join(out)
+        hits = kb.prequal_search(query, limit=int(args.get("limit", 6)))
+        if not hits:
+            return f"No prequal-platform knowledge matched '{query}'."
+        out = [f"PREQUAL KNOWLEDGE — '{query}' ({len(hits)} records):"]
+        for r in hits:
+            out.append(f"\n## {r.get('platform','')} — {r.get('title','')}  [{r.get('topic','')}]")
+            out.append(r.get("body", ""))
+            if r.get("rejection_reasons"):
+                out.append("Rejection reasons:")
+                out += [f"  - {x}" for x in r["rejection_reasons"]]
+        return "\n".join(out)
+
+    def abatement(args: Dict[str, Any]) -> str:
+        """The abatement / corrective-action playbook — how to resolve, document,
+        certify, and submit OSHA citation abatements and rejected-program
+        deficiency fixes, with sample language."""
+        query = (args.get("query") or args.get("search") or "").strip()
+        if not query:
+            recs = kb.abatement_playbook()
+            out = [f"ABATEMENT PLAYBOOK — {len(recs)} records:"]
+            for r in recs:
+                out.append(f"  - {r.get('title','')}  ({r.get('context','')})  id={r.get('id','')}")
+            out.append("\nPass 'query' (e.g. 'certify abatement to OSHA', "
+                       "'fix a rejected confined space program', 'PMA deadline').")
+            return "\n".join(out)
+        hits = kb.abatement_search(query, limit=int(args.get("limit", 6)))
+        if not hits:
+            return f"No abatement playbook record matched '{query}'."
+        out = [f"ABATEMENT PLAYBOOK — '{query}' ({len(hits)} records):"]
+        for r in hits:
+            out.append(f"\n## {r.get('title','')}  [{r.get('context','')}]")
+            out.append(r.get("body", ""))
+            if r.get("sample_language"):
+                out.append("\nSample language:")
+                out.append(r["sample_language"])
+        return "\n".join(out)
+
+    def learn(args: Dict[str, Any]) -> str:
+        """Teach Origin something new so it is remembered in every future
+        conversation. Writes a durable reference record to the persistent volume
+        and federates it into the brain. Never alters the send-gate."""
+        text = (args.get("text") or args.get("content") or args.get("knowledge") or "").strip()
+        if not text:
+            return ("ERROR: 'text' (what to teach Origin) is required. Optionally add "
+                    "'title', 'source', 'category', and 'tags'.")
+        tags = args.get("tags")
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        elif isinstance(tags, list):
+            tags = [str(t).strip() for t in tags if str(t).strip()]
+        else:
+            tags = None
+        try:
+            rec = kb.learn(text, title=(args.get("title") or None),
+                           source=(args.get("source") or None),
+                           category=(args.get("category") or None), tags=tags)
+        except ValueError as e:
+            return f"ERROR: {e}"
+        except OSError as e:
+            return ("Could NOT persist the learned record (read-only filesystem?). "
+                    f"Set ORIGIN_DATA_DIR to a writable volume. [{e}]")
+        total = len(kb.learned_knowledge())
+        return (f"Learned and stored: \"{rec['title']}\" (id={rec['id']}). "
+                f"Origin now holds {total} self-learned record(s); this is searchable "
+                "via the brain in every future conversation. Reference knowledge only — "
+                "it does not change document validation.")
 
     def compliance_profile(args: Dict[str, Any]) -> str:
         target = (args.get("industry") or args.get("naics") or args.get("code")
@@ -962,6 +1062,81 @@ def build_compliance_tools() -> List[Tool]:
                 "required": [],
             },
             handler=naics_lookup,
+            source="builtin",
+        ),
+        Tool(
+            name="prequal",
+            description=(
+                "Expert knowledge on the contractor PREQUALIFICATION PLATFORMS — "
+                "ISNetworld/RAVS, Avetta, Veriforce/PEC, BROWZ, and ComplyWorks. Explains how "
+                "each one grades contractors, how it reviews written safety programs (RAVS / "
+                "Safety Manual Audit / T-RAVS), what insurance/EMR/OQ it demands, and — most "
+                "usefully — the concrete reasons submissions get REJECTED or flagged. Use this "
+                "whenever the user asks about a platform ('how does Avetta grade', 'why did my "
+                "RAVS get rejected', 'what does Veriforce OQ require', 'ISN vs Avetta'). Call "
+                "with no query to list every record."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Platform question, e.g. 'why RAVS rejected', 'Avetta grading'"},
+                    "platform": {"type": "string", "description": "Or just a platform name, e.g. 'Veriforce'"},
+                    "limit": {"type": "integer", "description": "Max records (default 6)"},
+                },
+                "required": [],
+            },
+            handler=prequal,
+            source="builtin",
+        ),
+        Tool(
+            name="abatement",
+            description=(
+                "The ABATEMENT / corrective-action playbook. Covers both OSHA citation abatement "
+                "(the 15-day clock, certification vs. documentation vs. abatement plan under 29 "
+                "CFR 1903.19, PMA extensions, posting, hierarchy of controls, failure-to-abate "
+                "penalties) AND fixing a REJECTED prequal program (mapping each RAVS/T-RAVS "
+                "deficiency to a fix, assertive language, evidence packages), with sample "
+                "certification and corrective-action language. Use when the user asks how to "
+                "respond to a citation, resolve a deficiency, document a fix, or explain an "
+                "over-threshold EMR/TRIR. Call with no query to list every record."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "e.g. 'certify abatement to OSHA', 'fix rejected confined space program'"},
+                    "limit": {"type": "integer", "description": "Max records (default 6)"},
+                },
+                "required": [],
+            },
+            handler=abatement,
+            source="builtin",
+        ),
+        Tool(
+            name="learn",
+            description=(
+                "TEACH Origin something new so it gets smarter permanently. Give 'text' with the "
+                "knowledge — a fact learned from a document, a real reviewer rejection and its "
+                "fix, an operator's confirmed requirement, a correction the user made — and it is "
+                "stored durably on the persistent data volume and federated into the brain, so "
+                "every FUTURE conversation can find it via the brain/prequal/abatement tools. "
+                "This is how the system 'gets smarter and smarter.' Optionally add 'title', "
+                "'source', 'category', and 'tags'. IMPORTANT: learned knowledge is reference only "
+                "— it never enters the curated program corpus or the document send-gate, so it "
+                "improves answers without ever weakening validation. Use whenever the user says "
+                "'remember this', teaches a rule, or confirms a real-world outcome worth keeping."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "The knowledge to store (required)"},
+                    "title": {"type": "string", "description": "Short label (optional; defaults to the first line)"},
+                    "source": {"type": "string", "description": "Where it came from, e.g. 'Chevron ISN scorecard 2026'"},
+                    "category": {"type": "string", "description": "Optional grouping, e.g. 'operator-requirement', 'rejection'"},
+                    "tags": {"type": "string", "description": "Optional comma-separated tags"},
+                },
+                "required": ["text"],
+            },
+            handler=learn,
             source="builtin",
         ),
         Tool(

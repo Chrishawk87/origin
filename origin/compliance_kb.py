@@ -26,6 +26,16 @@ from typing import Any, Dict, List, Optional
 # Data ships inside the package so it deploys with Origin.
 KB_DIR = Path(__file__).parent / "compliance_kb_data" / "Compliance Knowledge Base"
 
+# Runtime-written, self-learned knowledge lives on the persistent data volume
+# (ORIGIN_DATA_DIR, e.g. /data on Railway) so it survives redeploys — NOT in the
+# in-code KB dir, which is overwritten on every deploy.
+try:  # package import (normal app runtime)
+    from .paths import DATA_DIR
+except ImportError:  # bare import in ad-hoc scripts
+    import os as _os
+    DATA_DIR = Path(_os.environ.get("ORIGIN_DATA_DIR") or (Path.home() / ".origin"))
+LEARNED_PATH = DATA_DIR / "learned_knowledge.jsonl"
+
 _STOP = {
     "the", "and", "for", "with", "that", "this", "each", "from", "into", "your",
     "are", "not", "all", "any", "per", "its", "over", "under", "must", "shall",
@@ -307,6 +317,143 @@ def osha_index_stats() -> dict:
     }
 
 
+# ── prequalification-platform expert knowledge ───────────────────────────────
+# prequal_platforms.jsonl — expert-level records on how the contractor
+# prequalification networks (ISNetworld/RAVS, Avetta, Veriforce/PEC, BROWZ,
+# ComplyWorks) grade contractors, review written programs, and — most usefully —
+# WHY submissions get rejected. Retrieval only; never feeds the send-gate.
+@functools.lru_cache(maxsize=1)
+def _prequal_records() -> List[dict]:
+    path = KB_DIR / "prequal_platforms.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def prequal_knowledge() -> List[dict]:
+    """Every expert record about the prequalification platforms (ISN, Avetta,
+    Veriforce/PEC, BROWZ, ComplyWorks) — overview, grading, program review,
+    insurance, and rejection reasons."""
+    return _prequal_records()
+
+
+def prequal_search(query: str, limit: int = 10) -> List[dict]:
+    """Search the prequal-platform knowledge for a plain-English question, e.g.
+    'why did my RAVS get rejected' or 'how does Avetta grade'."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _prequal_records():
+        hay = " ".join([r.get("platform", ""), r.get("topic", ""),
+                        r.get("title", ""), r.get("body", ""),
+                        " ".join(r.get("rejection_reasons", [])),
+                        " ".join(r.get("tags", []))]).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:limit]]
+
+
+# ── abatement / corrective-action playbook ───────────────────────────────────
+# abatement_playbook.jsonl — how to resolve, document, and submit abatements,
+# both OSHA citation abatement (1903.19 certification/documentation/PMA) and
+# prequal deficiency correction (fixing a rejected RAVS/T-RAVS program), with
+# sample language. Retrieval only.
+@functools.lru_cache(maxsize=1)
+def _abatement_records() -> List[dict]:
+    path = KB_DIR / "abatement_playbook.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def abatement_playbook() -> List[dict]:
+    """The full abatement/corrective-action playbook records."""
+    return _abatement_records()
+
+
+def abatement_search(query: str, limit: int = 10) -> List[dict]:
+    """Search the abatement playbook, e.g. 'how do I certify abatement to OSHA'
+    or 'fix a rejected confined space program'."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _abatement_records():
+        hay = " ".join([r.get("context", ""), r.get("title", ""),
+                        r.get("body", ""), r.get("sample_language", ""),
+                        " ".join(r.get("tags", []))]).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:limit]]
+
+
+# ── self-learning intake loop ────────────────────────────────────────────────
+# The brain gets smarter over time: anything Origin is taught — a document it
+# ingested, a reviewer rejection it saw, a correction Chris made — can be written
+# as a durable `learned` record to LEARNED_PATH on the persistent volume. These
+# records are federated into brain_search like any other source, so the next
+# question benefits from what the last one taught. IMPORTANT: learned knowledge
+# is REFERENCE only — it is never promoted into the curated `program` corpus and
+# never enters the send-gate (validate_document), so self-learning can improve
+# the agent's answers without ever weakening document validation.
+def learned_knowledge() -> List[dict]:
+    """All records the system has taught itself (read fresh each call — this file
+    grows at runtime, so it is intentionally NOT cached)."""
+    if not LEARNED_PATH.exists():
+        return []
+    out: List[dict] = []
+    for line in LEARNED_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return out
+
+
+def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = None,
+          tags: Optional[List[str]] = None, category: Optional[str] = None) -> dict:
+    """Teach Origin something new. Appends a durable `learned` record to the
+    persistent knowledge store so it is searchable in every future conversation
+    via the brain. Returns the stored record. Reference knowledge only — this
+    never alters the curated program corpus or the document send-gate."""
+    import datetime
+    body = (text or "").strip()
+    if not body:
+        raise ValueError("learn(): text is required")
+    ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    rec_id = "learned-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    record = {
+        "id": rec_id,
+        "learned_at": ts,
+        "title": (title or body[:80]).strip(),
+        "text": body,
+        "source": (source or "").strip(),
+        "category": (category or "").strip(),
+        "tags": tags or [],
+    }
+    LEARNED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with LEARNED_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
+
+
 # ── unified brain: one federated search across every knowledge source ────────
 # Origin's "system brain." Rather than duplicating every corpus into one giant
 # file (which would go stale), brain_search() queries ALL loaded knowledge stores
@@ -317,12 +464,15 @@ def osha_index_stats() -> dict:
 #   whistleblower OSHA-administered anti-retaliation statutes (25)
 #   preamble     OSHA preambles to final rules, 1971–present (923)
 #   naics        every 2022 NAICS industry code (2,125)
+#   prequal_platform  ISN/Avetta/Veriforce/PEC/BROWZ/ComplyWorks expert knowledge
+#   abatement    OSHA + prequal abatement/corrective-action playbook
+#   learned      self-taught records written at runtime to the persistent volume
 # IMPORTANT: this is retrieval only. The compliance send-gate (validate_document /
 # resolve_standards) still draws ONLY from curated `program` records, so adding
-# structural/reference knowledge here never dilutes what a document is validated
-# against — it only makes the agent better-informed.
+# structural/reference/self-learned knowledge here never dilutes what a document
+# is validated against — it only makes the agent better-informed.
 _BRAIN_KINDS = ("program", "osha_section", "training", "whistleblower",
-                "preamble", "naics")
+                "preamble", "naics", "prequal_platform", "abatement", "learned")
 
 
 def _brain_score(hay: str, q: set) -> int:
@@ -413,6 +563,50 @@ def brain_search(query: str, limit: int = 20,
                          "level_name": r.get("level_name", ""),
                          "sector_title": r.get("sector_title", "")})
 
+    if "prequal_platform" in want:
+        for r in _prequal_records():
+            hay = " ".join([r.get("platform", ""), r.get("topic", ""),
+                            r.get("title", ""), r.get("body", ""),
+                            " ".join(r.get("rejection_reasons", [])),
+                            " ".join(r.get("tags", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "prequal_platform",
+                             "source": "prequal_platforms.jsonl",
+                             "score": s + 1,  # scarce, high-value domain knowledge
+                             "id": r.get("id", ""),
+                             "platform": r.get("platform", ""),
+                             "title": r.get("title", ""),
+                             "topic": r.get("topic", "")})
+
+    if "abatement" in want:
+        for r in _abatement_records():
+            hay = " ".join([r.get("context", ""), r.get("title", ""),
+                            r.get("body", ""), r.get("sample_language", ""),
+                            " ".join(r.get("tags", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "abatement",
+                             "source": "abatement_playbook.jsonl",
+                             "score": s + 1,
+                             "id": r.get("id", ""),
+                             "title": r.get("title", ""),
+                             "context": r.get("context", "")})
+
+    if "learned" in want:
+        for r in learned_knowledge():
+            hay = " ".join([r.get("title", ""), r.get("text", ""),
+                            r.get("category", ""), r.get("source", ""),
+                            " ".join(r.get("tags", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "learned",
+                             "source": "learned_knowledge.jsonl",
+                             "score": s + 1,  # self-taught, prioritized
+                             "id": r.get("id", ""),
+                             "title": r.get("title", ""),
+                             "learned_at": r.get("learned_at", "")})
+
     hits.sort(key=lambda h: h.get("score", 0), reverse=True)
     return hits[:limit]
 
@@ -430,6 +624,9 @@ def brain_stats() -> dict:
         "whistleblower_statutes": len(osha_whistleblower_statutes()),
         "preambles": len(osha_preambles()),
         "naics_codes": len(_naics_catalog()),
+        "prequal_platform": len(_prequal_records()),
+        "abatement_playbook": len(_abatement_records()),
+        "learned": len(learned_knowledge()),
     }
     return {
         "total_records": sum(sources.values()),
