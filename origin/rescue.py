@@ -305,6 +305,324 @@ def analyze(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# ── Tool 2: RAVS / prequal rejection decoder ────────────────────────────────
+# A contractor whose written program (or account) got kicked back picks the
+# reason(s) they were given and gets a plain-English read on what the reviewer
+# actually means and what they want to see — WITHOUT us handing over the fix
+# language. Each entry is authored from the curated prequal-platform KB
+# (rejection_reasons lists). Free-typed reasons fall back to the curated brain.
+REJECTIONS: List[Dict[str, Any]] = [
+    {
+        "id": "template_generic", "group": "Written program",
+        "label": "Generic / template manual (not company-specific)",
+        "meaning": ("The reviewer can tell the program came off a shelf \u2014 it reads like a "
+                    "template with a cover page changed. That's the single most common reason "
+                    "a written program is rejected across every platform."),
+        "wants": ("A program written as YOUR company: legal name, your sites, your equipment, "
+                  "and your actual job tasks woven all the way through \u2014 not just on page one."),
+    },
+    {
+        "id": "scope_mismatch", "group": "Written program",
+        "label": "Program doesn't match my declared scope of work",
+        "meaning": ("Reviewers cross-check every program against the scope you declared. If you "
+                    "do hot work, confined space, or DOT driving and the program doesn't cover "
+                    "it \u2014 or it promises work you don't actually do \u2014 it gets kicked back."),
+        "wants": ("Programs that mirror your declared scope exactly: everything you do is "
+                  "covered, and nothing you don't do is over-promised."),
+    },
+    {
+        "id": "missing_element", "group": "Written program",
+        "label": "A required element is missing (rescue plan, periodic inspection, competent person\u2026)",
+        "meaning": ("The standard behind the program names specific mandatory elements and one "
+                    "is absent \u2014 e.g. a confined-space rescue plan, the LOTO annual inspection, "
+                    "or a named fall-protection competent person."),
+        "wants": ("Every mandatory element present and clearly labeled so the reviewer can check "
+                  "each one off against the standard."),
+    },
+    {
+        "id": "non_assertive", "group": "Written program",
+        "label": "Non-assertive language (\u201cshould\u201d instead of \u201cwill / shall\u201d)",
+        "meaning": ("Reviewers reject conditional wording. A program has to commit the company "
+                    "to doing things, not suggest them."),
+        "wants": ("Mandatory \u201cwill / shall\u201d language throughout \u2014 the program reads as a "
+                  "commitment, not a recommendation."),
+    },
+    {
+        "id": "no_responsible_party", "group": "Written program",
+        "label": "No named responsible person / program administrator",
+        "meaning": ("There's no accountable owner named in the program, so the reviewer can't "
+                    "see who's responsible for running it."),
+        "wants": ("A named responsible party (title is fine) with their duties spelled out."),
+    },
+    {
+        "id": "wrong_citation", "group": "Written program",
+        "label": "Wrong, missing, or outdated OSHA / DOT citation",
+        "meaning": ("The program cites the wrong standard, an old revision, or none at all. "
+                    "Reviewers check that the citations are current and correct."),
+        "wants": ("The correct, current CFR citations tied to each covered topic."),
+    },
+    {
+        "id": "undated_stale", "group": "Written program",
+        "label": "Undated or stale program (old revision date)",
+        "meaning": ("The program has no revision date or an obviously old one, which signals it "
+                    "isn't being maintained."),
+        "wants": ("A current, dated revision with a stated review cycle."),
+    },
+    {
+        "id": "coi_defect", "group": "Insurance",
+        "label": "Insurance / COI defect (limits, endorsements, named insured, dates)",
+        "meaning": ("Your certificate doesn't meet the client's requirement \u2014 a limit is short, "
+                    "an endorsement (waiver of subrogation, additional insured) is missing, the "
+                    "named insured is off, or the dates lapsed. This is a hard fail on most "
+                    "platforms and can hold the whole grade red."),
+        "wants": ("A COI with the exact limits, endorsements, named insured, and valid dates "
+                  "the client requires \u2014 not close, exact."),
+    },
+    {
+        "id": "emr_letter", "group": "Insurance",
+        "label": "EMR submitted as a broker summary, not a carrier letter",
+        "meaning": ("Reviewers require the experience-modification rate on the official letter "
+                    "from your carrier or rating bureau \u2014 a broker recap doesn't count."),
+        "wants": ("The official EMR rate letter for each year they ask for."),
+    },
+    {
+        "id": "stats_mismatch", "group": "Safety stats",
+        "label": "Reported TRIR / DART doesn't reconcile with my OSHA 300 / 300A",
+        "meaning": ("The numbers you entered don't tie to the OSHA logs you uploaded. That "
+                    "contradiction is an automatic flag \u2014 reviewers assume the worse of the two."),
+        "wants": ("Reported rates that reconcile exactly with your 300A, hours, and case counts."),
+    },
+    {
+        "id": "citation_no_capa", "group": "Safety stats",
+        "label": "OSHA citation with no attached corrective action",
+        "meaning": ("An open or past citation is showing with no abatement documentation, so "
+                    "the reviewer has nothing proving you fixed it."),
+        "wants": ("Corrective-action / abatement proof attached to the citation."),
+    },
+    {
+        "id": "missing_uploads", "group": "Account setup",
+        "label": "Missing or incomplete required uploads",
+        "meaning": ("One or more required documents simply aren't uploaded, so the review "
+                    "stalls before it can even score you."),
+        "wants": ("The full required document set uploaded in the right slots."),
+    },
+    {
+        "id": "drug_alcohol", "group": "Account setup",
+        "label": "Missing Drug & Alcohol program documentation",
+        "meaning": ("A required Drug & Alcohol policy is absent \u2014 and if you're DOT-regulated, "
+                    "the DOT parts are expected too."),
+        "wants": ("A compliant Drug & Alcohol program (plus DOT testing provisions if they "
+                  "apply to you)."),
+    },
+    {
+        "id": "oq_records", "group": "Account setup",
+        "label": "OQ records at company level, not per individual + task (Veriforce / PEC)",
+        "meaning": ("Operator Qualification has to be proven per person per covered task. A "
+                    "company-level statement doesn't satisfy it."),
+        "wants": ("Individual OQ records mapped to each covered task and worker."),
+    },
+    {
+        "id": "training_docs", "group": "Account setup",
+        "label": "Training / T-RAVS records missing names, dates, or competency",
+        "meaning": ("Rosters were submitted that don't prove who was trained, on what, and "
+                    "when \u2014 so they don't back up the programs."),
+        "wants": ("Per-person training records with name, date, topic, and how competency was "
+                  "confirmed, lined up with your programs."),
+    },
+    {
+        "id": "ai_overcommit", "group": "Written program",
+        "label": "AI-generated / over-committed program (promises more than I do)",
+        "meaning": ("The program commits to procedures or equipment you don't actually have in "
+                    "the field. Reviewers increasingly catch this \u2014 and an operator audit will too."),
+        "wants": ("An honest program scoped to what you can actually prove on site."),
+    },
+]
+REJECTION_BY_ID = {r["id"]: r for r in REJECTIONS}
+
+
+def decode_rejections(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Decode the rejection reasons a contractor was given into plain English:
+    what each one means and what the reviewer wants to see. Does NOT hand over
+    the fix language or a finished program. Does NOT capture a lead."""
+    platform = (payload.get("platform") or "").strip() or "your platform"
+    chosen = [r for r in (payload.get("reasons") or []) if r in REJECTION_BY_ID]
+    other = (payload.get("other") or "").strip()
+
+    decoded: List[Dict[str, Any]] = []
+    for rid in chosen:
+        r = REJECTION_BY_ID[rid]
+        decoded.append({
+            "id": rid, "group": r["group"], "title": r["label"],
+            "meaning": r["meaning"], "wants": r["wants"],
+        })
+
+    # Free-typed reason: pull the closest curated prequal knowledge so the read
+    # is still grounded rather than generic. Retrieval only.
+    intel: List[Dict[str, Any]] = []
+    if other:
+        try:
+            from . import compliance_kb as _kb
+            q = " ".join(p for p in (platform, other) if p and p != "your platform")
+            intel = _kb.brain_intel(q, limit=3, kinds=["prequal_platform", "abatement"])
+        except Exception:
+            intel = []
+
+    n = len(decoded) + (1 if other else 0)
+    if n == 0:
+        headline = "Tell us what you were told and we'll translate it into plain English."
+    elif n == 1:
+        headline = "Here's exactly what that rejection means \u2014 and it's fixable."
+    else:
+        headline = f"Here's what all {n} of those really mean \u2014 and every one is fixable."
+
+    return {
+        "platform": platform,
+        "headline": headline,
+        "decoded": decoded,
+        "other": other,
+        "intel": intel,
+        "count": n,
+        "caveat": ("This is a plain-English read of standard reviewer feedback, not a legal or "
+                   "platform ruling. When we do your Grade Rescue we rewrite each rejected item "
+                   "to the exact standard and resubmit it for you."),
+    }
+
+
+# ── Tool 3: Readiness quiz ───────────────────────────────────────────────────
+# A fast "are you ready to pass?" check. Yes/No/Unsure across the things that
+# actually decide a prequal grade, weighted by how much each one moves the
+# needle. Returns a readiness score, a band, and the gaps (the No/Unsure items)
+# — without handing over the fixes.
+QUIZ: List[Dict[str, Any]] = [
+    {"id": "programs_scope", "weight": 3,
+     "q": "Do you have a written safety program for every task in your declared scope of work?",
+     "gap": "Missing scope-matched written programs is the #1 reason grades fail."},
+    {"id": "company_specific", "weight": 2,
+     "q": "Are your programs company-specific (your name, sites, equipment) \u2014 not a generic template?",
+     "gap": "Template manuals get rejected on sight; they have to read like your company."},
+    {"id": "citations_language", "weight": 2,
+     "q": "Do your programs cite current OSHA/DOT standards and use \u201cwill / shall\u201d language?",
+     "gap": "Old citations and \u201cshould\u201d language get programs kicked back."},
+    {"id": "training_records", "weight": 2,
+     "q": "Can you produce training records with names, dates, and topics for each program?",
+     "gap": "Training records without names/dates/competency fail review."},
+    {"id": "coi_current", "weight": 3,
+     "q": "Is your COI current with the exact limits and endorsements your clients require?",
+     "gap": "A single COI/endorsement defect can hold your whole grade red."},
+    {"id": "emr_letter", "weight": 1,
+     "q": "Do you have your EMR as an official carrier / bureau letter (not a broker summary)?",
+     "gap": "Reviewers require the carrier EMR letter, not a broker recap."},
+    {"id": "stats_reconcile", "weight": 2,
+     "q": "Do your reported TRIR/DART numbers match your OSHA 300/300A logs exactly?",
+     "gap": "Numbers that don't reconcile with your 300A are an automatic flag."},
+    {"id": "no_open_citation", "weight": 2,
+     "q": "Are you free of open OSHA citations that have no abatement documentation attached?",
+     "gap": "An open citation with no corrective action attached spooks reviewers."},
+    {"id": "msq_complete", "weight": 1,
+     "q": "Is your MSQ / questionnaire fully completed and consistent with your uploads?",
+     "gap": "An incomplete or contradictory questionnaire leaves easy points on the table."},
+    {"id": "responsible_party", "weight": 1,
+     "q": "Does each program name a responsible person / administrator?",
+     "gap": "Programs with no named responsible party get rejected."},
+]
+QUIZ_BY_ID = {q["id"]: q for q in QUIZ}
+_QUIZ_TOTAL = sum(q["weight"] for q in QUIZ)
+
+
+def score_readiness(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Score the readiness quiz. answers = {id: 'yes'|'no'|'unsure'}. 'yes'
+    earns full weight; 'no'/'unsure' earn nothing and surface as a gap. Does
+    NOT capture a lead."""
+    platform = (payload.get("platform") or "").strip() or None
+    answers = payload.get("answers") or {}
+
+    earned = 0
+    gaps: List[Dict[str, Any]] = []
+    for q in QUIZ:
+        a = str(answers.get(q["id"], "")).strip().lower()
+        if a == "yes":
+            earned += q["weight"]
+        else:
+            gaps.append({"id": q["id"], "title": q["q"], "gap": q["gap"],
+                         "answer": a or "unanswered", "weight": q["weight"]})
+
+    pct = round(100 * earned / _QUIZ_TOTAL) if _QUIZ_TOTAL else 0
+    # heaviest gaps first
+    gaps.sort(key=lambda g: -g["weight"])
+
+    if pct >= 90:
+        band, light = "Ready to pass", "GREEN"
+        headline = "You're in strong shape \u2014 just a couple of things to lock down."
+    elif pct >= 70:
+        band, light = "Close", "AMBER"
+        headline = "You're close \u2014 a handful of fixable items stand between you and a clean grade."
+    elif pct >= 50:
+        band, light = "At risk", "AMBER"
+        headline = "You're at risk \u2014 several of the things reviewers weigh most are open."
+    else:
+        band, light = "Not ready yet", "RED"
+        headline = "Not ready yet \u2014 but every gap here is fixable, and we do exactly this."
+
+    return {
+        "platform": platform,
+        "score": pct,
+        "band": band,
+        "light": light,
+        "headline": headline,
+        "gaps": gaps,
+        "gap_count": len(gaps),
+        "total_questions": len(QUIZ),
+        "caveat": ("This is a quick self-check, not a platform score. Your real grade depends "
+                   "on your specific scorecard \u2014 which is exactly what our free 15-minute review "
+                   "walks with you."),
+    }
+
+
+def capture_generic_lead(payload: Dict[str, Any], *, source: str,
+                         summary: str = "", extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Persist a lead from any of the public tools and notify the inbox.
+    `source` tags which tool it came from (e.g. 'rejection', 'readiness')."""
+    lead = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source": source,
+        "name": (payload.get("name") or "").strip(),
+        "company": (payload.get("company") or "").strip(),
+        "email": (payload.get("email") or "").strip(),
+        "phone": (payload.get("phone") or "").strip(),
+        "platform": (payload.get("platform") or "").strip(),
+    }
+    if extra:
+        lead.update(extra)
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with LEADS_FILE.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(lead) + "\n")
+        saved = True
+    except Exception:
+        saved = False
+
+    notified = False
+    try:
+        from .compliance import send_email, resend_configured, smtp_configured
+        if resend_configured() or smtp_configured():
+            body = (
+                f"New {source} lead from the site tool.\n\n"
+                f"Name:     {lead['name'] or '(not given)'}\n"
+                f"Company:  {lead['company'] or '(not given)'}\n"
+                f"Email:    {lead['email']}\n"
+                f"Phone:    {lead['phone'] or '(not given)'}\n"
+                f"Platform: {lead['platform'] or '(not given)'}\n\n"
+                f"{summary}\n"
+            )
+            res = send_email(NOTIFY_TO,
+                             f"New {source} lead: {lead['company'] or lead['email']}", body)
+            notified = bool(res.get("sent"))
+    except Exception:
+        notified = False
+
+    return {"saved": saved, "notified": notified}
+
+
 def capture_lead(payload: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
     """Persist the lead and try to notify the business inbox."""
     lead = {

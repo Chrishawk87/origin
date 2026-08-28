@@ -75,6 +75,26 @@
   .elist li{font-size:14px;color:var(--ink);margin-bottom:4px}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:16px;font-size:13px}
   footer.foot b{display:block;font-size:14px;margin-top:3px}
+  /* tool chooser */
+  .tools{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+  .toolcard{display:flex;align-items:center;gap:14px;border:1.5px solid var(--line);border-radius:11px;padding:15px 16px;cursor:pointer;transition:.12s;text-align:left;background:#fff;width:100%}
+  .toolcard:hover{border-color:var(--orange);background:var(--cream)}
+  .toolcard .ic{flex:0 0 auto;width:42px;height:42px;border-radius:9px;background:var(--charcoal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800}
+  .toolcard .tt{font-weight:800;color:var(--charcoal);font-size:15.5px}
+  .toolcard .td{font-size:13px;color:var(--grey);margin-top:2px}
+  .toolcard .ar{margin-left:auto;color:var(--orange);font-weight:800;font-size:18px}
+  /* quiz answers */
+  .qrow{border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+  .qrow .qq{font-size:14.5px;color:var(--charcoal);font-weight:600;margin-bottom:9px}
+  .ans{display:flex;gap:8px}
+  .ans button{flex:1;border:1.5px solid var(--line);background:#fff;border-radius:7px;padding:8px 4px;font-size:13.5px;font-weight:700;color:var(--grey);cursor:pointer}
+  .ans button.on{color:#fff;border-color:transparent}
+  .ans button.yes.on{background:var(--green)}
+  .ans button.no.on{background:var(--red)}
+  .ans button.unsure.on{background:var(--amber)}
+  .score{display:inline-flex;align-items:baseline;gap:8px;background:var(--charcoal);color:#fff;border-radius:10px;padding:14px 20px;margin:4px 0 14px}
+  .score .n{font-size:34px;font-weight:800;line-height:1}
+  .score .b{font-size:13px;opacity:.9}
 </style>
 </head>
 <body>
@@ -86,17 +106,42 @@
     </header>
     <div class="rule"></div>
     <div class="pad">
-      <div class="dots">
+      <div class="dots" id="dots" style="display:none">
         <div class="dot on" data-d="0"></div><div class="dot" data-d="1"></div>
         <div class="dot" data-d="2"></div><div class="dot" data-d="3"></div>
       </div>
 
-      <!-- STEP 0: intro / platform -->
-      <div class="step active" id="s0">
-        <div class="cband">
-          <span>Just got an OSHA citation?</span>
-          <a id="goCite">See the exact program it requires &rarr;</a>
+      <!-- HOME: choose a free tool -->
+      <div class="step active" id="home">
+        <h1>Free ISN, Avetta, Veriforce &amp; RAVS tools &mdash; instant answers.</h1>
+        <p class="lede">Pick what you're dealing with. Each one gives you a straight, plain-English read in about 60 seconds &mdash; no charge, no obligation.</p>
+        <div class="tools">
+          <button class="toolcard" data-flow="grade">
+            <div class="ic">A</div>
+            <div><div class="tt">Grade Rescue check</div><div class="td">Failing your ISN / Avetta / PEC grade? See exactly what's dragging it and what the fix takes.</div></div>
+            <div class="ar">&rarr;</div>
+          </button>
+          <button class="toolcard" data-flow="rej">
+            <div class="ic">R</div>
+            <div><div class="tt">RAVS rejection decoder</div><div class="td">Program or account got kicked back? Find out what the reviewer actually means &mdash; and wants.</div></div>
+            <div class="ar">&rarr;</div>
+          </button>
+          <button class="toolcard" data-flow="quiz">
+            <div class="ic">?</div>
+            <div><div class="tt">Readiness quiz</div><div class="td">Not sure if you'd pass? Get a readiness score and the gaps standing between you and a clean grade.</div></div>
+            <div class="ar">&rarr;</div>
+          </button>
+          <button class="toolcard" id="goCite">
+            <div class="ic">!</div>
+            <div><div class="tt">Cited by OSHA?</div><div class="td">Type the standard on your citation and see the exact written program it requires.</div></div>
+            <div class="ar">&rarr;</div>
+          </button>
         </div>
+      </div>
+
+      <!-- STEP 0: intro / platform -->
+      <div class="step" id="s0">
+        <button class="back" data-home>&larr; Back to tools</button>
         <h1>Failing your ISN, Avetta or PEC grade? Find out exactly why &mdash; free.</h1>
         <p class="lede">Answer a few quick questions and get an instant, plain-English read on what's dragging your grade and what it takes to fix it. Takes about 60 seconds.</p>
         <label class="fld">Which platform are you graded on?</label>
@@ -190,6 +235,81 @@
         </div>
       </div>
 
+      <!-- REJECTION DECODER -->
+      <div class="step" id="rej">
+        <button class="back" data-home>&larr; Back to tools</button>
+        <div class="pill">RAVS rejection decoder</div>
+        <h1>Your program or account got kicked back &mdash; here's what they really mean.</h1>
+        <p class="lede">Check the reason(s) you were given (or type it in). We'll translate the reviewer-speak into plain English &mdash; what it means and what they actually want &mdash; instantly.</p>
+        <label class="fld">Which platform?</label>
+        <select id="rjPlatform"></select>
+        <div id="rjReasons" style="margin-top:6px"></div>
+        <label class="fld">Something else they said? (optional)</label>
+        <input type="text" id="rjOther" placeholder="Paste or type the reason in your own words" autocomplete="off">
+        <label class="fld">Your name</label>
+        <input type="text" id="rjName" autocomplete="name">
+        <label class="fld">Company</label>
+        <input type="text" id="rjCompany" autocomplete="organization">
+        <label class="fld">Email <span style="color:var(--orange)">*</span></label>
+        <input type="email" id="rjEmail" autocomplete="email" required>
+        <label class="fld">Phone</label>
+        <input type="tel" id="rjPhone" autocomplete="tel">
+        <div class="err" id="rjErr"></div>
+        <div class="nav">
+          <span></span>
+          <button class="btn primary" id="rjSubmit">Decode it &rarr;</button>
+        </div>
+        <p class="fineprint">We use your details only to send your results and follow up. We never sell your information.</p>
+        <div id="rjResult" style="display:none">
+          <h1 id="rjHead" style="margin-top:20px"></h1>
+          <div id="rjBody"></div>
+          <div class="cta">
+            <div class="h">Want us to fix every one of these?</div>
+            <div class="s">We rewrite each rejected item to the exact standard, scope-matched, and resubmit it for you &mdash; handled by a real compliance pro.</div>
+            <a href="tel:+18327101558">Call 832-710-1558</a>
+            <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=RAVS%20Rejection%20Help">Email us</a>
+          </div>
+          <div class="caveat" id="rjCaveat"></div>
+        </div>
+      </div>
+
+      <!-- READINESS QUIZ -->
+      <div class="step" id="quiz">
+        <button class="back" data-home>&larr; Back to tools</button>
+        <div class="pill">Readiness quiz</div>
+        <h1>Are you ready to pass? Find out in 60 seconds.</h1>
+        <p class="lede">Answer honestly &mdash; Yes, No, or Not sure. We'll score your readiness and show you the gaps standing between you and a clean grade.</p>
+        <label class="fld">Which platform are you targeting?</label>
+        <select id="qzPlatform"></select>
+        <div id="qzQuestions" style="margin-top:14px"></div>
+        <label class="fld">Your name</label>
+        <input type="text" id="qzName" autocomplete="name">
+        <label class="fld">Company</label>
+        <input type="text" id="qzCompany" autocomplete="organization">
+        <label class="fld">Email <span style="color:var(--orange)">*</span></label>
+        <input type="email" id="qzEmail" autocomplete="email" required>
+        <label class="fld">Phone</label>
+        <input type="tel" id="qzPhone" autocomplete="tel">
+        <div class="err" id="qzErr"></div>
+        <div class="nav">
+          <span></span>
+          <button class="btn primary" id="qzSubmit">Score my readiness &rarr;</button>
+        </div>
+        <p class="fineprint">We use your details only to send your results and follow up. We never sell your information.</p>
+        <div id="qzResult" style="display:none">
+          <h1 id="qzHead" style="margin-top:20px"></h1>
+          <div id="qzScore"></div>
+          <div id="qzBody"></div>
+          <div class="cta">
+            <div class="h">Want us to close these gaps?</div>
+            <div class="s">Your free 15-minute review is the next step &mdash; we'll walk your scorecard and give you a straight plan to a passing grade.</div>
+            <a href="tel:+18327101558">Call 832-710-1558</a>
+            <a class="alt" href="mailto:info@originmanagementsolutions.com?subject=Readiness%20Review">Email us</a>
+          </div>
+          <div class="caveat" id="qzCaveat"></div>
+        </div>
+      </div>
+
     </div>
     <footer class="foot">
       Origin Compliance &mdash; a service of Origin Management Solutions
@@ -208,9 +328,24 @@
     cur=n;
     document.querySelectorAll('.step').forEach(function(s){s.classList.remove('active');});
     $('s'+n).classList.add('active');
+    $('dots').style.display='flex';
     document.querySelectorAll('.dot').forEach(function(d,i){d.classList.toggle('on', i<=n);});
     window.scrollTo({top:0,behavior:'smooth'});
   }
+  function openNamed(id){
+    document.querySelectorAll('.step').forEach(function(s){s.classList.remove('active');});
+    $(id).classList.add('active');
+    $('dots').style.display='none';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function goHome(){ openNamed('home'); }
+  // home tool cards
+  document.querySelectorAll('[data-flow]').forEach(function(b){b.addEventListener('click',function(){
+    var f=b.getAttribute('data-flow');
+    if(f==='grade'){ show(0); }
+    else { openNamed(f); }
+  });});
+  document.querySelectorAll('[data-home]').forEach(function(b){b.addEventListener('click',goHome);});
   // load config
   fetch('/rescue/config').then(function(r){return r.json();}).then(function(cfg){
     var ps=$('platform'); (cfg.platforms||[]).forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;ps.appendChild(o);});
@@ -298,15 +433,9 @@
 
   // ── Cited by OSHA? flow ───────────────────────────────────────────────
   var goCite=$('goCite');
-  if(goCite){ goCite.addEventListener('click',function(){
-    document.querySelectorAll('.step').forEach(function(s){s.classList.remove('active');});
-    $('cite').classList.add('active');
-    window.scrollTo({top:0,behavior:'smooth'});
-  }); }
+  if(goCite){ goCite.addEventListener('click',function(){ openNamed('cite'); }); }
   var citeBack=$('citeBack');
-  if(citeBack){ citeBack.addEventListener('click',function(){
-    $('cite').classList.remove('active'); show(0);
-  }); }
+  if(citeBack){ citeBack.addEventListener('click',goHome); }
 
   var cSubmit=$('cSubmit');
   if(cSubmit){ cSubmit.addEventListener('click',function(){
@@ -354,6 +483,135 @@
     $('cResult').style.display='block';
     var b=$('cSubmit'); if(b) b.style.display='none';
     window.scrollTo({top:$('cResult').offsetTop-20,behavior:'smooth'});
+  }
+
+  function validEmail(e){ return e.indexOf('@')>=0 && e.split('@')[1].indexOf('.')>=0; }
+  function fillPlatforms(sel){
+    fetch('/rescue/config').then(function(r){return r.json();}).then(function(cfg){
+      (cfg.platforms||[]).forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;sel.appendChild(o);});
+    });
+  }
+
+  // ── RAVS rejection decoder ────────────────────────────────────────────
+  var rjReasons=[];
+  fetch('/rescue/rejections/config').then(function(r){return r.json();}).then(function(cfg){
+    var ps=$('rjPlatform'); (cfg.platforms||[]).forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;ps.appendChild(o);});
+    var wrap=$('rjReasons');
+    (cfg.groups||[]).forEach(function(g){
+      var gd=document.createElement('div'); gd.className='grp';
+      var h=document.createElement('h3'); h.textContent=g.group; gd.appendChild(h);
+      (g.items||[]).forEach(function(it){
+        var lab=document.createElement('label'); lab.className='opt';
+        var cb=document.createElement('input'); cb.type='checkbox'; cb.value=it.id;
+        var sp=document.createElement('span'); sp.textContent=it.label;
+        cb.addEventListener('change',function(){
+          lab.classList.toggle('on',cb.checked);
+          rjReasons=Array.prototype.map.call(document.querySelectorAll('#rjReasons input:checked'),function(x){return x.value;});
+        });
+        lab.appendChild(cb); lab.appendChild(sp); gd.appendChild(lab);
+      });
+      wrap.appendChild(gd);
+    });
+  });
+
+  $('rjSubmit').addEventListener('click',function(){
+    var err=$('rjErr'); err.textContent='';
+    var email=$('rjEmail').value.trim(), other=$('rjOther').value.trim();
+    if(rjReasons.length===0 && !other){ err.textContent='Check at least one reason you were given (or type it in).'; return; }
+    if(!validEmail(email)){ err.textContent='Please enter a valid email so we can send your results.'; return; }
+    var btn=this; btn.disabled=true; btn.textContent='Decoding\u2026';
+    var payload={platform:$('rjPlatform').value,reasons:rjReasons,other:other,
+      name:$('rjName').value.trim(),company:$('rjCompany').value.trim(),email:email,phone:$('rjPhone').value.trim()};
+    fetch('/rescue/rejections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(res.error){ err.textContent=res.error; btn.disabled=false; btn.textContent='Decode it \u2192'; return; }
+        renderRej(res);
+      })
+      .catch(function(){ err.textContent='Something went wrong. Please call us at 832-710-1558.'; btn.disabled=false; btn.textContent='Decode it \u2192'; });
+  });
+
+  function renderRej(res){
+    $('rjHead').textContent=res.headline||'Here\u2019s what that means';
+    var h='';
+    (res.decoded||[]).forEach(function(d){
+      h+='<div class="finding"><span class="sev">'+esc(d.group)+'</span>'+
+         '<div class="t">'+esc(d.title)+'</div>'+
+         '<div class="d"><b>What it means:</b> '+esc(d.meaning)+'</div>'+
+         '<div class="d" style="margin-top:6px"><b>What they want:</b> '+esc(d.wants)+'</div></div>';
+    });
+    if(res.other){
+      h+='<div class="finding med"><span class="sev">Your note</span>'+
+         '<div class="t">'+esc(res.other)+'</div>'+
+         '<div class="d">We\u2019ll pin down exactly what the reviewer wants on this one during your free review \u2014 it\u2019s the kind of thing we resolve every week.</div></div>';
+    }
+    $('rjBody').innerHTML=h;
+    $('rjCaveat').textContent=res.caveat||'';
+    $('rjResult').style.display='block';
+    var b=$('rjSubmit'); if(b) b.style.display='none';
+    window.scrollTo({top:$('rjResult').offsetTop-20,behavior:'smooth'});
+  }
+
+  // ── Readiness quiz ────────────────────────────────────────────────────
+  var qzAnswers={};
+  fetch('/rescue/readiness/config').then(function(r){return r.json();}).then(function(cfg){
+    var ps=$('qzPlatform'); (cfg.platforms||[]).forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;ps.appendChild(o);});
+    var wrap=$('qzQuestions');
+    (cfg.questions||[]).forEach(function(q){
+      var row=document.createElement('div'); row.className='qrow';
+      var qq=document.createElement('div'); qq.className='qq'; qq.textContent=q.q; row.appendChild(qq);
+      var ans=document.createElement('div'); ans.className='ans';
+      [['yes','Yes'],['no','No'],['unsure','Not sure']].forEach(function(opt){
+        var b=document.createElement('button'); b.type='button'; b.className=opt[0]; b.textContent=opt[1];
+        b.addEventListener('click',function(){
+          qzAnswers[q.id]=opt[0];
+          Array.prototype.forEach.call(ans.children,function(c){c.classList.remove('on');});
+          b.classList.add('on');
+        });
+        ans.appendChild(b);
+      });
+      row.appendChild(ans); wrap.appendChild(row);
+    });
+  });
+
+  $('qzSubmit').addEventListener('click',function(){
+    var err=$('qzErr'); err.textContent='';
+    var email=$('qzEmail').value.trim();
+    if(Object.keys(qzAnswers).length===0){ err.textContent='Answer the questions so we can score your readiness.'; return; }
+    if(!validEmail(email)){ err.textContent='Please enter a valid email so we can send your results.'; return; }
+    var btn=this; btn.disabled=true; btn.textContent='Scoring\u2026';
+    var payload={platform:$('qzPlatform').value,answers:qzAnswers,
+      name:$('qzName').value.trim(),company:$('qzCompany').value.trim(),email:email,phone:$('qzPhone').value.trim()};
+    fetch('/rescue/readiness',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(res.error){ err.textContent=res.error; btn.disabled=false; btn.textContent='Score my readiness \u2192'; return; }
+        renderQuiz(res);
+      })
+      .catch(function(){ err.textContent='Something went wrong. Please call us at 832-710-1558.'; btn.disabled=false; btn.textContent='Score my readiness \u2192'; });
+  });
+
+  function renderQuiz(res){
+    $('qzHead').textContent=res.headline||'Your readiness';
+    var cls=res.light==='GREEN'?'GREEN':(res.light==='RED'?'RED':'AMBER');
+    $('qzScore').innerHTML='<div class="score"><div class="n">'+esc(res.score)+'%</div>'+
+      '<div><div class="b">Readiness</div><div class="light-'+cls+'" style="font-weight:800">'+esc(res.band)+'</div></div></div>';
+    var h='';
+    if((res.gaps||[]).length){
+      h+='<div style="font-weight:800;color:var(--charcoal);margin:6px 0 10px">What\u2019s standing between you and a clean grade:</div>';
+      (res.gaps||[]).forEach(function(g){
+        h+='<div class="finding'+(g.weight>=3?'':' med')+'"><span class="sev">'+(g.weight>=3?'High impact':'Worth fixing')+'</span>'+
+           '<div class="t">'+esc(g.title)+'</div><div class="d">'+esc(g.gap)+'</div></div>';
+      });
+    } else {
+      h+='<div class="finding"><div class="t">No open gaps flagged \u2014 nice.</div>'+
+         '<div class="d">You answered yes across the board. A free 15-minute review confirms it holds up against your specific scorecard before you submit.</div></div>';
+    }
+    $('qzBody').innerHTML=h;
+    $('qzCaveat').textContent=res.caveat||'';
+    $('qzResult').style.display='block';
+    var b=$('qzSubmit'); if(b) b.style.display='none';
+    window.scrollTo({top:$('qzResult').offsetTop-20,behavior:'smooth'});
   }
 })();
 </script>

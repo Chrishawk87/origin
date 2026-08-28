@@ -1054,6 +1054,78 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         result["lead"] = lead
         return result
 
+    # ── PUBLIC Tool 2: RAVS / prequal rejection decoder ─────────────────────
+    # A contractor whose program or account got kicked back picks the reason(s)
+    # they were given and gets a plain-English read on what the reviewer means
+    # and wants — without us handing over the fix. Public + email-gated; the
+    # lead lands in Origin's rescue_leads.jsonl like every other tool.
+    @app.get("/rescue/rejections/config")
+    def rescue_rejections_config():
+        groups: dict = {}
+        order: list = []
+        for r in _rescue.REJECTIONS:
+            g = r["group"]
+            if g not in groups:
+                groups[g] = []
+                order.append(g)
+            groups[g].append({"id": r["id"], "label": r["label"]})
+        return {
+            "platforms": _rescue.PLATFORMS,
+            "groups": [{"group": g, "items": groups[g]} for g in order],
+        }
+
+    @app.post("/rescue/rejections")
+    def rescue_rejections(body: dict = Body(...)):
+        email = (body.get("email") or "").strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return JSONResponse({"error": "A valid email is required to see your results."},
+                                status_code=400)
+        reasons = [r for r in (body.get("reasons") or []) if r in _rescue.REJECTION_BY_ID]
+        other = (body.get("other") or "").strip()
+        if not reasons and not other:
+            return JSONResponse(
+                {"error": "Pick at least one reason you were given (or type it in)."},
+                status_code=400)
+        result = _rescue.decode_rejections(body)
+        picked = ", ".join(_rescue.REJECTION_BY_ID[r]["label"] for r in reasons) or "(free text)"
+        summary = f"Rejection reasons decoded:\n  {picked}"
+        if other:
+            summary += f"\n  Other: {other}"
+        lead = _rescue.capture_generic_lead(
+            body, source="rejection", summary=summary,
+            extra={"reasons": reasons, "other": other})
+        result["lead"] = lead
+        return result
+
+    # ── PUBLIC Tool 3: prequal readiness quiz ───────────────────────────────
+    # A fast "are you ready to pass?" check across the things that actually
+    # decide a grade. Returns a readiness score + the open gaps. Public +
+    # email-gated; captures the lead into Origin.
+    @app.get("/rescue/readiness/config")
+    def rescue_readiness_config():
+        return {
+            "platforms": _rescue.PLATFORMS,
+            "questions": [{"id": q["id"], "q": q["q"]} for q in _rescue.QUIZ],
+        }
+
+    @app.post("/rescue/readiness")
+    def rescue_readiness(body: dict = Body(...)):
+        email = (body.get("email") or "").strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return JSONResponse({"error": "A valid email is required to see your results."},
+                                status_code=400)
+        if not (body.get("answers") or {}):
+            return JSONResponse({"error": "Answer the quiz so we can score your readiness."},
+                                status_code=400)
+        result = _rescue.score_readiness(body)
+        summary = (f"Readiness score: {result['score']}% ({result['band']}). "
+                   f"Open gaps: {result['gap_count']} of {result['total_questions']}.")
+        lead = _rescue.capture_generic_lead(
+            body, source="readiness", summary=summary,
+            extra={"score": result["score"], "band": result["band"]})
+        result["lead"] = lead
+        return result
+
     # ── INTERNAL "Gap Finder" (Chris-only) ──────────────────────────────────
     # Load a contractor's documents + industry/state/operators and get back
     # every compliance gap. The PAGE is a shell (like the main UI); the WORK
