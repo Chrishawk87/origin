@@ -533,6 +533,19 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     eng = engine or Engine(config or load_config())
     app = FastAPI(title="Origin")
 
+    # ── CORS (public free tools are called cross-origin from the marketing
+    # pages, e.g. the Netlify-hosted citation-check page → Railway) ──
+    try:
+        from fastapi.middleware.cors import CORSMiddleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["*"],
+        )
+    except Exception:
+        pass
+
     # ── access token (required when Origin is served over a network) ──
     @app.middleware("http")
     async def _auth(request, call_next):
