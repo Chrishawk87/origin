@@ -360,20 +360,42 @@
     readiness:{cta:'ctaQuiz', name:'qzName', company:'qzCompany', email:'qzEmail', phone:'qzPhone', plat:function(){var e=$('qzPlatform');return e?e.value:'';}}
   };
   function val(id){var e=$(id);return e?e.value.trim():'';}
+
+  // Direct email notification via the same Formspree inbox the citation-check
+  // page already delivers to — guarantees Chris is emailed on every lead even
+  // before Origin's own mailer (Resend) is configured. Fire-and-forget.
+  var NOTIFY_ENDPOINT='https://formspree.io/f/mzebpjgk';
+  function notifyInbox(subject, lead, message){
+    try{
+      var fd=new FormData();
+      fd.append('name', lead.name||'');
+      fd.append('company', lead.company||'');
+      fd.append('email', lead.email||'');
+      fd.append('phone', lead.phone||'');
+      fd.append('platform', lead.platform||'');
+      fd.append('message', message||'');
+      fd.append('_subject', subject);
+      fetch(NOTIFY_ENDPOINT,{method:'POST',body:fd,headers:{'Accept':'application/json'}}).catch(function(){});
+    }catch(_){}
+  }
+
   function handleFix(tool, btn){
     var m=HANDLE_MAP[tool]; if(!m) return;
     var email=val(m.email);
     if(email.indexOf('@')<0){ email=(prompt('What email should we use to start your fix?')||'').trim(); }
     if(email.indexOf('@')<0){ return; }
     btn.disabled=true; btn.textContent='Starting your fix\u2026';
-    var payload={tool:tool,name:val(m.name),company:val(m.company),email:email,phone:val(m.phone),platform:m.plat()};
+    var lead={tool:tool,name:val(m.name),company:val(m.company),email:email,phone:val(m.phone),platform:m.plat()};
     var cta=$(m.cta);
     function confirmDone(){
       cta.innerHTML='<div class="h">\u2713 You\u2019re in &mdash; we\u2019re on it.</div>'+
         '<div class="s">A compliance pro will reach out within one business day with your fix. Nothing else you need to do.</div>'+
         '<div class="orcall">Need it sooner? Call <a href="tel:+18327101558">832-710-1558</a>.</div>';
     }
-    fetch('/rescue/handle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    // Notify the inbox both ways: Origin's server route AND the Formspree pipe.
+    notifyInbox('HOT LEAD \u2014 wants us to handle it ('+tool+'): '+(lead.company||lead.email),
+                lead, 'Clicked "let us handle it for you" on the '+tool+' tool. They want us to build/fix it \u2014 reach out today. Platform: '+(lead.platform||'(not given)'));
+    fetch('/rescue/handle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lead)})
       .then(function(r){return r.json();}).then(function(){ confirmDone(); })
       .catch(function(){ confirmDone(); });
   }
@@ -426,6 +448,8 @@
       .then(function(r){return r.json();})
       .then(function(res){
         if(res.error){ err.textContent=res.error; btn.disabled=false; btn.textContent='See my results \u2192'; return; }
+        notifyInbox('Free tool lead \u2014 Grade Rescue: '+(payload.company||payload.email), payload,
+                    'Completed the Grade Rescue check. Platform: '+(payload.platform||'(n/a)')+'. Projected grade: '+((res.grade||{}).grade||'?')+'. Flagged '+((res.findings||[]).length)+' issue(s).');
         render(res); show(3);
       })
       .catch(function(){ err.textContent='Something went wrong. Please call us at 832-710-1558.'; btn.disabled=false; btn.textContent='See my results \u2192'; });
@@ -560,6 +584,8 @@
       .then(function(r){return r.json();})
       .then(function(res){
         if(res.error){ err.textContent=res.error; btn.disabled=false; btn.textContent='Decode it \u2192'; return; }
+        notifyInbox('Free tool lead \u2014 RAVS rejection decoder: '+(payload.company||payload.email), payload,
+                    'Used the RAVS rejection decoder. Platform: '+(payload.platform||'(n/a)')+'. Reasons: '+((payload.reasons||[]).join(', ')||'(free text)')+(payload.other?(' | Other: '+payload.other):''));
         renderRej(res);
       })
       .catch(function(){ err.textContent='Something went wrong. Please call us at 832-710-1558.'; btn.disabled=false; btn.textContent='Decode it \u2192'; });
@@ -620,6 +646,8 @@
       .then(function(r){return r.json();})
       .then(function(res){
         if(res.error){ err.textContent=res.error; btn.disabled=false; btn.textContent='Score my readiness \u2192'; return; }
+        notifyInbox('Free tool lead \u2014 Readiness quiz: '+(payload.company||payload.email), payload,
+                    'Took the readiness quiz. Platform: '+(payload.platform||'(n/a)')+'. Score: '+(res.score||'?')+'% ('+(res.band||'?')+'). Gaps: '+(res.gap_count||0)+'.');
         renderQuiz(res);
       })
       .catch(function(){ err.textContent='Something went wrong. Please call us at 832-710-1558.'; btn.disabled=false; btn.textContent='Score my readiness \u2192'; });
