@@ -26,6 +26,7 @@ import hmac
 import json
 import os
 import re
+import secrets
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -49,17 +50,71 @@ except Exception:  # pragma: no cover - standalone/test import
 PORTAL_DIR = DATA_DIR / "portal"
 CLIENTS_DIR = PORTAL_DIR / "clients"
 
-# --- secrets (set these on Railway for production) ---
-SECRET = (os.environ.get("ORIGIN_PORTAL_SECRET")
-          or os.environ.get("ORIGIN_TOKEN")
-          or "origin-portal-dev-secret-change-me")
+# --- secrets ---------------------------------------------------------------
+# The signing secret protects EVERY session cookie and is also the pepper mixed
+# into every client PIN hash. If an attacker knew it, they could forge a cookie
+# for ANY account and read another client's data — the exact "bleed over" we are
+# guarding against. So we NEVER ship a hardcoded default:
+#   1) ORIGIN_PORTAL_SECRET / ORIGIN_TOKEN from the environment always wins.
+#   2) Otherwise we generate a strong random secret ONCE and persist it on the
+#      data volume, so it stays stable across restarts/redeploys but is unique to
+#      this deployment and unknown to anyone.
+def _load_or_create_secret() -> str:
+    env = (os.environ.get("ORIGIN_PORTAL_SECRET")
+           or os.environ.get("ORIGIN_TOKEN") or "").strip()
+    if env:
+        return env
+    secret_file = PORTAL_DIR / ".portal_secret"
+    try:
+        if secret_file.is_file():
+            val = secret_file.read_text(encoding="utf-8").strip()
+            if val:
+                return val
+        PORTAL_DIR.mkdir(parents=True, exist_ok=True)
+        val = secrets.token_urlsafe(48)
+        secret_file.write_text(val, encoding="utf-8")
+        try:
+            os.chmod(secret_file, 0o600)
+        except Exception:
+            pass
+        return val
+    except Exception:
+        # Volume unavailable: fall back to a per-process random secret. Cookies
+        # still can't be forged; they just won't survive a restart (12h TTL).
+        return secrets.token_urlsafe(48)
+
+
+SECRET = _load_or_create_secret()
+
+# Admin console password. NO hardcoded default: if it isn't configured, admin
+# login is refused entirely (see admin_login) rather than left wide open.
 ADMIN_PASSWORD = (os.environ.get("ORIGIN_ADMIN_PASSWORD")
-                  or os.environ.get("ORIGIN_TOKEN")
-                  or "origin-admin")
+                  or os.environ.get("ORIGIN_TOKEN") or "").strip()
 
 CLIENT_COOKIE = "origin_portal"
 ADMIN_COOKIE = "origin_admin"
 SESSION_TTL = 60 * 60 * 12  # 12 hours
+
+# --- client-login brute-force lockout (in-memory, per email) ---------------
+# PINs are short, so we throttle guessing: too many misses within the window
+# temporarily locks that email. Resets on a correct login or a redeploy.
+_LOGIN_FAILS: Dict[str, List[float]] = {}
+_LOCK_WINDOW = 15 * 60   # 15 minutes
+_LOCK_MAX = 6            # allowed misses within the window before lockout
+
+
+def _login_locked(email: str) -> bool:
+    hits = [t for t in _LOGIN_FAILS.get(email, []) if t > time.time() - _LOCK_WINDOW]
+    _LOGIN_FAILS[email] = hits
+    return len(hits) >= _LOCK_MAX
+
+
+def _login_note_fail(email: str) -> None:
+    _LOGIN_FAILS.setdefault(email, []).append(time.time())
+
+
+def _login_clear(email: str) -> None:
+    _LOGIN_FAILS.pop(email, None)
 
 
 # ─────────────────────────── small helpers ───────────────────────────
@@ -81,8 +136,37 @@ def _b64d(s: str) -> bytes:
     return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
 
 
+_PBKDF2_ITERS = 200_000
+
+
 def hash_pin(slug: str, pin: str) -> str:
-    return hashlib.sha256(f"{SECRET}:{slug}:{pin}".encode()).hexdigest()
+    """Hash a PIN with PBKDF2-HMAC-SHA256 (slow by design) plus a per-hash random
+    salt and the deployment SECRET as pepper. Stored as
+    'pbkdf2$<iters>$<salt_hex>$<hash_hex>'."""
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256",
+                             f"{SECRET}:{slug}:{pin}".encode(),
+                             salt, _PBKDF2_ITERS)
+    return f"pbkdf2${_PBKDF2_ITERS}${salt.hex()}${dk.hex()}"
+
+
+def verify_pin(slug: str, pin: str, stored: str) -> bool:
+    """Constant-time PIN check. Understands the PBKDF2 format above AND the legacy
+    single-SHA256 format so existing accounts keep working after the upgrade."""
+    if not stored:
+        return False
+    if stored.startswith("pbkdf2$"):
+        try:
+            _, iters, salt_hex, hash_hex = stored.split("$")
+            dk = hashlib.pbkdf2_hmac("sha256",
+                                     f"{SECRET}:{slug}:{pin}".encode(),
+                                     bytes.fromhex(salt_hex), int(iters))
+            return hmac.compare_digest(dk.hex(), hash_hex)
+        except Exception:
+            return False
+    # legacy: plain SHA256 hex
+    legacy = hashlib.sha256(f"{SECRET}:{slug}:{pin}".encode()).hexdigest()
+    return hmac.compare_digest(legacy, stored)
 
 
 def _sign(payload: Dict[str, Any]) -> str:
@@ -414,7 +498,11 @@ def register_portal(app) -> None:
         return bool(p and p.get("role") == "admin")
 
     def _secure(request: Request) -> bool:
-        return request.url.scheme == "https"
+        # Railway terminates TLS at its edge and forwards plain HTTP internally,
+        # so request.url.scheme is "http" even for real HTTPS visitors. Honor the
+        # forwarded-proto header so session cookies still get the Secure flag.
+        xfp = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+        return request.url.scheme == "https" or xfp == "https"
 
     # ===================== PAGES =====================
     # Never let the browser cache these pages — a stale copy of the login JS is
@@ -440,9 +528,16 @@ def register_portal(app) -> None:
     def portal_login(request: Request, body: dict = Body(...)):
         email = (body.get("email") or "").strip()
         pin = (body.get("pin") or "").strip()
+        key = email.lower()
+        if _login_locked(key):
+            return JSONResponse(
+                {"error": "Too many attempts. Please wait a few minutes and try again."},
+                status_code=429)
         rec = find_by_email(email)
-        if not rec or not rec.get("pin_hash") or hash_pin(rec["slug"], pin) != rec["pin_hash"]:
+        if not rec or not rec.get("pin_hash") or not verify_pin(rec["slug"], pin, rec["pin_hash"]):
+            _login_note_fail(key)
             return JSONResponse({"error": "Wrong email or PIN."}, status_code=401)
+        _login_clear(key)
         resp = JSONResponse({"ok": True, "company": rec.get("company")})
         resp.set_cookie(CLIENT_COOKIE, _session("client", rec["slug"]),
                         httponly=True, samesite="lax", max_age=SESSION_TTL,
@@ -611,7 +706,14 @@ def register_portal(app) -> None:
     # ===================== ADMIN API =====================
     @app.post("/portal/api/admin/login")
     def admin_login(request: Request, body: dict = Body(...)):
-        if (body.get("password") or "") != ADMIN_PASSWORD:
+        # Fail closed: if no admin password is configured, do NOT fall back to a
+        # guessable default — refuse admin access entirely.
+        if not ADMIN_PASSWORD:
+            return JSONResponse(
+                {"error": "Admin console is not configured. Set ORIGIN_ADMIN_PASSWORD."},
+                status_code=503)
+        supplied = (body.get("password") or "")
+        if not hmac.compare_digest(supplied, ADMIN_PASSWORD):
             return JSONResponse({"error": "Wrong password."}, status_code=401)
         resp = JSONResponse({"ok": True})
         resp.set_cookie(ADMIN_COOKIE, _session("admin"),
