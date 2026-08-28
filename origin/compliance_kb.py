@@ -307,6 +307,137 @@ def osha_index_stats() -> dict:
     }
 
 
+# ── unified brain: one federated search across every knowledge source ────────
+# Origin's "system brain." Rather than duplicating every corpus into one giant
+# file (which would go stale), brain_search() queries ALL loaded knowledge stores
+# at once and returns typed, ranked hits tagged with their `kind` and `source`:
+#   program      curated written-program standards (corpus.jsonl, 153)
+#   osha_section OSHA structural index — every part/subpart/section (1,387)
+#   training     OSHA 2254 verbatim training requirements (172)
+#   whistleblower OSHA-administered anti-retaliation statutes (25)
+#   preamble     OSHA preambles to final rules, 1971–present (923)
+#   naics        every 2022 NAICS industry code (2,125)
+# IMPORTANT: this is retrieval only. The compliance send-gate (validate_document /
+# resolve_standards) still draws ONLY from curated `program` records, so adding
+# structural/reference knowledge here never dilutes what a document is validated
+# against — it only makes the agent better-informed.
+_BRAIN_KINDS = ("program", "osha_section", "training", "whistleblower",
+                "preamble", "naics")
+
+
+def _brain_score(hay: str, q: set) -> int:
+    hay = hay.lower()
+    return sum(t in hay for t in q)
+
+
+def brain_search(query: str, limit: int = 20,
+                 kinds: Optional[List[str]] = None) -> List[dict]:
+    """Search the entire Origin knowledge brain at once — curated programs, the
+    full OSHA regulatory tree, verbatim training requirements, whistleblower
+    statutes, rulemaking preambles, and every NAICS industry code — and return
+    ranked hits each tagged with its ``kind`` and ``source``. Optionally restrict
+    to certain kinds. This is the general 'what do we know about X' entry point;
+    it does NOT change how documents are validated."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    want = set(kinds) if kinds else set(_BRAIN_KINDS)
+    hits: List[dict] = []
+    if not q:
+        return []
+
+    if "program" in want:
+        for r in _records().values():
+            hay = " ".join([r.get("title", ""), r.get("citation", ""),
+                            r.get("category", ""), r.get("applicability", ""),
+                            " ".join(r.get("required_elements", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "program", "source": "corpus.jsonl",
+                             "score": s + 2,  # curated content ranks higher
+                             "id": r.get("id", ""), "title": r.get("title", ""),
+                             "citation": r.get("citation", ""),
+                             "category": r.get("category", "")})
+
+    if "osha_section" in want:
+        for r in _osha_index_records():
+            hay = (r.get("title", "") + " " + r.get("citation", "") + " "
+                   + r.get("subpart_title", ""))
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "osha_section", "source": "osha_index.jsonl",
+                             "score": s, "citation": r.get("citation", ""),
+                             "title": r.get("title", ""),
+                             "part_name": r.get("part_name", ""),
+                             "url": r.get("url", "")})
+
+    if "training" in want:
+        _seen_tr: set = set()  # loader keys each record twice (section + citation)
+        for r in _training_reqs().values():
+            rid = r.get("id") or r.get("citation")
+            if rid in _seen_tr:
+                continue
+            _seen_tr.add(rid)
+            hay = (r.get("standard_title", "") + " " + r.get("citation", "") + " "
+                   + r.get("training_requirement", ""))
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "training",
+                             "source": "training_requirements_osha2254.jsonl",
+                             "score": s, "citation": r.get("citation", ""),
+                             "title": r.get("standard_title", "")})
+
+    if "whistleblower" in want:
+        for r in osha_whistleblower_statutes():
+            hay = r.get("title", "") + " " + r.get("statute_citation", "")
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "whistleblower",
+                             "source": "osha_whistleblower_statutes.jsonl",
+                             "score": s,
+                             "citation": r.get("statute_citation", ""),
+                             "title": r.get("title", ""), "url": r.get("url", "")})
+
+    if "preamble" in want:
+        for r in osha_preambles():
+            hay = r.get("title", "") + " " + r.get("standard_numbers", "")
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "preamble", "source": "osha_preambles.jsonl",
+                             "score": s, "title": r.get("title", ""),
+                             "date": r.get("date", ""), "url": r.get("url", "")})
+
+    if "naics" in want:
+        for r in naics_search(query, limit=8):
+            hits.append({"kind": "naics", "source": "naics_2022.jsonl",
+                         "score": 1, "code": r.get("code", ""),
+                         "title": r.get("title", ""),
+                         "level_name": r.get("level_name", ""),
+                         "sector_title": r.get("sector_title", "")})
+
+    hits.sort(key=lambda h: h.get("score", 0), reverse=True)
+    return hits[:limit]
+
+
+def brain_stats() -> dict:
+    """A plain-English inventory of Origin's whole knowledge brain: how many
+    records it holds across every source. This is 'how much does the system
+    know' in one call."""
+    sources = {
+        "curated_programs": len(_records()),
+        "osha_sections": len(_osha_index_records()),
+        # loader keys each 2254 record twice (section + citation) → dedupe by id
+        "training_requirements": len({(r.get("id") or r.get("citation"))
+                                      for r in _training_reqs().values()}),
+        "whistleblower_statutes": len(osha_whistleblower_statutes()),
+        "preambles": len(osha_preambles()),
+        "naics_codes": len(_naics_catalog()),
+    }
+    return {
+        "total_records": sum(sources.values()),
+        "sources": sources,
+        "send_gate_scope": "curated_programs only (validate_document)",
+    }
+
+
 def search(query: str, limit: int = 5) -> List[dict]:
     """Keyword fallback ranking by term overlap (no vector store required)."""
     q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
@@ -476,6 +607,78 @@ def _naics_map() -> dict:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+# ── full 2022 NAICS catalog (every industry code) ────────────────────────────
+# naics_2022.jsonl is the complete official 2022 NAICS structure — all 2,125
+# entries from 2-digit sectors down to every 6-digit national industry, each with
+# code, title, level, and its parent sector. The thin naics_map.json above maps
+# ~11 broad sectors to KB standards (drives naics_applicable / the send-scope);
+# this catalog lets the agent resolve ANY company to its exact code + sector.
+@functools.lru_cache(maxsize=1)
+def _naics_catalog() -> List[dict]:
+    path = KB_DIR / "naics_2022.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+@functools.lru_cache(maxsize=1)
+def _naics_by_code() -> Dict[str, dict]:
+    return {r["code"]: r for r in _naics_catalog()}
+
+
+def naics_code(code: str) -> Optional[dict]:
+    """Look up a single NAICS code (any level, 2–6 digit) and return its record:
+    code, title, level_name, and parent sector. Also resolves a 6-digit code to
+    its shorter rollups so the agent can walk the hierarchy for any industry."""
+    raw = re.sub(r"\D", "", (code or ""))
+    if not raw:
+        return None
+    by = _naics_by_code()
+    rec = by.get(raw) or by.get(code.strip())
+    if not rec:
+        return None
+    out = dict(rec)
+    # attach the rollup chain (e.g. 213111 -> 21311 -> 2131 -> 213 -> 21)
+    chain = []
+    for n in (2, 3, 4, 5, 6):
+        parent = by.get(raw[:n])
+        if parent and parent["code"] != rec["code"]:
+            chain.append({"code": parent["code"], "title": parent["title"],
+                          "level_name": parent["level_name"]})
+    out["rollup"] = chain
+    return out
+
+
+def naics_search(query: str, limit: int = 15) -> List[dict]:
+    """Keyword search across every 2022 NAICS industry title. Lets the agent find
+    the code for a plain-English business description ('roofing', 'oil well
+    drilling', 'trucking') across all ~2,125 codes."""
+    raw = (query or "").strip()
+    # exact / prefix code match first
+    digits = re.sub(r"\D", "", raw)
+    if digits and digits == raw.replace("-", "").strip():
+        hits = [r for r in _naics_catalog() if r["code"].replace("-", "").startswith(digits)]
+        if hits:
+            return sorted(hits, key=lambda r: (r["level"], r["code"]))[:limit]
+    q = {t for t in re.split(r"\W+", raw.lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _naics_catalog():
+        hay = r.get("title", "").lower()
+        s = sum(t in hay for t in q)
+        if s:
+            # prefer more specific (6-digit) industries on ties
+            scored.append((s, r["level"], r))
+    scored.sort(key=lambda x: (-x[0], -x[1]))
+    return [r for _, _, r in scored[:limit]]
 
 
 def _sector_for(code_or_industry: str) -> Optional[str]:

@@ -12,6 +12,7 @@ the gate enforces at send are always identical.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List
 
 from .. import compliance_kb as kb
@@ -214,6 +215,87 @@ def build_compliance_tools() -> List[Tool]:
         out.append("\nPass 'citation' to resolve one, 'part' for its full tree, "
                    "'search' to find sections by title, or reference='whistleblower'|'preambles'.")
         return "\n".join(out)
+
+    def brain(args: Dict[str, Any]) -> str:
+        """Search Origin's entire knowledge brain at once, or report its inventory."""
+        query = (args.get("query") or args.get("search") or "").strip()
+        kinds_arg = args.get("kinds")
+        if isinstance(kinds_arg, str):
+            kinds = [k.strip() for k in kinds_arg.split(",") if k.strip()] or None
+        elif isinstance(kinds_arg, list):
+            kinds = [str(k).strip() for k in kinds_arg if str(k).strip()] or None
+        else:
+            kinds = None
+
+        if not query:
+            st = kb.brain_stats()
+            s = st["sources"]
+            out = [f"ORIGIN KNOWLEDGE BRAIN — {st['total_records']} records across all sources:",
+                   f"  curated programs (send-gate authority): {s['curated_programs']}",
+                   f"  OSHA structural sections:               {s['osha_sections']}",
+                   f"  verbatim training requirements:         {s['training_requirements']}",
+                   f"  whistleblower statutes:                 {s['whistleblower_statutes']}",
+                   f"  rulemaking preambles:                   {s['preambles']}",
+                   f"  NAICS industry codes:                   {s['naics_codes']}",
+                   f"\nSend-gate scope: {st['send_gate_scope']} — reference knowledge never dilutes validation.",
+                   "Pass 'query' to search everything, or 'kinds' to restrict "
+                   "(program, osha_section, training, whistleblower, preamble, naics)."]
+            return "\n".join(out)
+
+        hits = kb.brain_search(query, limit=int(args.get("limit", 20)), kinds=kinds)
+        if not hits:
+            return f"Nothing in the brain matched '{query}'."
+        label = {"program": "PROGRAM", "osha_section": "OSHA §",
+                 "training": "TRAINING", "whistleblower": "WHISTLEBLOWER",
+                 "preamble": "PREAMBLE", "naics": "NAICS"}
+        out = [f"BRAIN SEARCH — '{query}' ({len(hits)} hits across all knowledge):"]
+        for h in hits:
+            k = h.get("kind", "")
+            tag = label.get(k, k.upper())
+            if k == "program":
+                out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  id={h.get('id','')}")
+            elif k == "osha_section":
+                out.append(f"  [{tag}] {h.get('citation','')}  {h.get('title','')}")
+            elif k == "training":
+                out.append(f"  [{tag}] {h.get('citation','')}  {h.get('title','')}")
+            elif k == "whistleblower":
+                out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]")
+            elif k == "preamble":
+                out.append(f"  [{tag}] {h.get('date','')}  {h.get('title','')}")
+            elif k == "naics":
+                out.append(f"  [{tag}] {h.get('code','')}  {h.get('title','')} "
+                           f"({h.get('level_name','')}, sector: {h.get('sector_title','')})")
+        out.append("\nPrograms are the authoritative written-program records "
+                   "(draft with compliance_template); the rest is reference knowledge.")
+        return "\n".join(out)
+
+    def naics_lookup(args: Dict[str, Any]) -> str:
+        """Resolve a NAICS code to its title + hierarchy, or search every 2022
+        NAICS industry by description."""
+        code = (args.get("code") or args.get("naics") or "").strip()
+        query = (args.get("query") or args.get("search") or "").strip()
+        if code and re.sub(r"\D", "", code):
+            rec = kb.naics_code(code)
+            if not rec:
+                return f"'{code}' is not a 2022 NAICS code."
+            out = [f"NAICS {rec['code']} — {rec['title']}  ({rec['level_name']})",
+                   f"  Sector: {rec.get('sector_code','')} {rec.get('sector_title','')}"]
+            if rec.get("rollup"):
+                out.append("  Hierarchy:")
+                for p in rec["rollup"]:
+                    out.append(f"    {p['code']}  {p['title']}  ({p['level_name']})")
+            out.append("\nTo scope this company's required programs, call "
+                       "compliance_profile with this code.")
+            return "\n".join(out)
+        if query:
+            hits = kb.naics_search(query, limit=int(args.get("limit", 15)))
+            if not hits:
+                return f"No NAICS industry title matched '{query}'."
+            out = [f"NAICS SEARCH — '{query}' ({len(hits)} hits):"]
+            for h in hits:
+                out.append(f"  {h['code']}  {h['title']}  ({h['level_name']})")
+            return "\n".join(out)
+        return "ERROR: provide a 'code' (e.g. '213112') or a 'query' (e.g. 'roofing')."
 
     def compliance_profile(args: Dict[str, Any]) -> str:
         target = (args.get("industry") or args.get("naics") or args.get("code")
@@ -829,6 +911,57 @@ def build_compliance_tools() -> List[Tool]:
                 "required": [],
             },
             handler=osha_index,
+            source="builtin",
+        ),
+        Tool(
+            name="brain",
+            description=(
+                "Search Origin's ENTIRE knowledge brain in one call — every source at once: "
+                "curated written-program standards, the full OSHA regulatory tree (parts/"
+                "subparts/sections), verbatim OSHA 2254 training requirements, whistleblower "
+                "statutes, rulemaking preambles, and every 2022 NAICS industry code. Each hit is "
+                "tagged with its kind (program, osha_section, training, whistleblower, preamble, "
+                "naics). Use this as the general 'what do we know about X' entry point when you're "
+                "not sure which specific tool holds the answer — e.g. brain(query='confined "
+                "space') surfaces the written program, the CFR sections, the training language, "
+                "and any preambles together. Restrict with 'kinds' if needed. Call with no query "
+                "to see the brain's full inventory (how much the system knows). NOTE: 'program' "
+                "hits are the authoritative records used to validate documents; everything else is "
+                "reference knowledge and never changes how a document is validated."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "What to search for across all knowledge, e.g. 'fall protection'"},
+                    "kinds": {"type": "string", "description": "Optional comma list to restrict: program,osha_section,training,whistleblower,preamble,naics"},
+                    "limit": {"type": "integer", "description": "Max hits (default 20)"},
+                },
+                "required": [],
+            },
+            handler=brain,
+            source="builtin",
+        ),
+        Tool(
+            name="naics_lookup",
+            description=(
+                "Resolve any 2022 NAICS industry code to its official title and full hierarchy, "
+                "or search all ~2,125 NAICS codes by plain-English description. Give 'code' (e.g. "
+                "'213112' → 'Support Activities for Oil and Gas Operations', with its "
+                "sector/subsector rollup) or 'query' (e.g. 'roofing', 'trucking', 'oil well "
+                "drilling') to find the matching codes. This is the industry-classification lookup "
+                "covering every industry; once you have the code, call compliance_profile with it "
+                "to scope the client's required compliance programs."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "A NAICS code, any level 2–6 digit, e.g. '213112' or '23'"},
+                    "query": {"type": "string", "description": "Industry description to search for, e.g. 'roofing contractors'"},
+                    "limit": {"type": "integer", "description": "Max search hits (default 15)"},
+                },
+                "required": [],
+            },
+            handler=naics_lookup,
             source="builtin",
         ),
         Tool(
