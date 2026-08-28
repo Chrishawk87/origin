@@ -78,6 +78,21 @@
   .muted{color:var(--grey);font-size:13px}
   .hidden{display:none}
   .err{color:var(--red);font-weight:600;font-size:14px;margin-top:10px}
+  /* intel */
+  .intel{border:1px solid var(--line);border-left:5px solid var(--charcoal);border-radius:9px;padding:11px 14px;margin-bottom:8px;background:#FAFAFB}
+  .intel .ik{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;background:var(--charcoal);color:#fff;border-radius:4px;padding:2px 7px;margin-right:8px;vertical-align:middle}
+  .intel .ik.learned{background:var(--orange)}
+  .intel .it{font-weight:700;color:var(--charcoal);font-size:14px}
+  .intel .is{font-size:13px;color:var(--ink);margin-top:5px}
+  /* teach box */
+  .teachbox{border:1.5px solid var(--line);border-radius:11px;padding:16px 18px;margin-top:22px;background:#FAFAFB}
+  .teachbox .th{font-weight:800;color:var(--charcoal);font-size:15px}
+  .teachbox .tsub{font-size:13px;color:var(--grey);margin:4px 0 10px}
+  .teachbox textarea{width:100%;min-height:70px;padding:11px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;color:var(--ink);resize:vertical}
+  .teachbox textarea:focus,.teachbox input:focus{outline:none;border-color:var(--orange)}
+  .teachbox input{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;margin-top:8px}
+  .teachbox .btn{margin-top:12px}
+  .ok{color:var(--green);font-weight:600;font-size:14px;margin-top:10px}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
 </style>
 </head>
@@ -90,6 +105,16 @@
       <div id="list"></div>
       <div id="detail" class="hidden"></div>
       <div class="err" id="err"></div>
+
+      <div class="teachbox" id="teach">
+        <div class="th">Teach Origin something</div>
+        <div class="tsub">Type a fact, a reviewer rejection reason, or a rule you just learned. Origin remembers it and surfaces it across the Dashboard, Gap Finder, and chat. Reference knowledge only — it never changes document validation.</div>
+        <textarea id="teachtext" placeholder="e.g. Veriforce T-RAVS now requires an annual documented LOTO periodic inspection assigned by name."></textarea>
+        <input type="text" id="teachtags" placeholder="Optional tags, comma-separated (e.g. Veriforce, LOTO)" autocomplete="off">
+        <button class="btn" id="teachbtn" type="button">Teach Origin</button>
+        <div class="err" id="teacherr"></div>
+        <div class="ok" id="teachok"></div>
+      </div>
     </div>
     <footer class="foot">Origin Management Solutions · internal compliance tool</footer>
   </div>
@@ -206,13 +231,41 @@ function renderDetail(d){
   }
   if(!any) h+=`<p class="muted">No open deficiencies — every measured item is green.</p>`;
 
+  h+=`<div id="intelbox"></div>`;
   h+=`<button class="btn ghost" id="reanalyze">Re-analyze in Gap Finder</button>`;
   el.innerHTML=h;
   $('back').onclick=loadList;
   $('reanalyze').onclick=()=>{location.href='/gaps';};
   el.querySelectorAll('.pick').forEach(p=>p.onclick=()=>setDot(d.slug,p.dataset.dim,p.dataset.val));
   el.querySelectorAll('.clr').forEach(c=>c.onclick=()=>setDot(d.slug,c.dataset.dim,''));
+  loadIntel(d);
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Advisory intel for this contractor — what Origin already knows relevant to
+// their trade and open items. Draws from the reference brain (prequal/abatement
+// how-to + anything you've taught Origin), so it gets smarter over time.
+async function loadIntel(d){
+  const box=$('intelbox'); if(!box) return;
+  const titles=[];
+  for(const dim of (d.dimensions||[])){
+    for(const it of ((d.breakdown&&d.breakdown[dim.key])||[])) titles.push(it.title||'');
+  }
+  const q=[d.industry||'', titles.slice(0,10).join(' ')].filter(Boolean).join(' ').trim();
+  if(!q) return;
+  try{
+    const r=await api('/api/brain/intel?limit=5&q='+encodeURIComponent(q));
+    const intel=r.intel||[];
+    if(!intel.length) return;
+    let h=`<div class="grp"><h2>What Origin knows (intel)</h2></div>`;
+    for(const it of intel){
+      const k=it.kind==='learned'?'learned':'';
+      h+=`<div class="intel"><span class="ik ${k}">${esc(it.label||it.kind)}</span>
+        <span class="it">${esc(it.title||'')}</span>
+        <div class="is">${esc(it.snippet||'')}</div></div>`;
+    }
+    box.innerHTML=h;
+  }catch(e){ /* intel is advisory — never block the page */ }
 }
 
 function dimRow(slug,dim){
@@ -244,6 +297,21 @@ async function setDot(slug,dim,val){
     renderDetail(d);
   }catch(e){ $('err').textContent=String(e.message||e); }
 }
+
+// ── Teach Origin ─────────────────────────────────────────────────────────────
+$('teachbtn').addEventListener('click', async ()=>{
+  const text=$('teachtext').value.trim();
+  $('teacherr').textContent=''; $('teachok').textContent='';
+  if(!text){ $('teacherr').textContent='Type something to teach Origin first.'; return; }
+  const btn=$('teachbtn'), lab=btn.textContent; btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const j=await api('/api/learn',{method:'POST',
+      body:JSON.stringify({text,tags:$('teachtags').value.trim()})});
+    $('teachok').textContent='Learned ✓ Origin now knows this ('+j.total_learned+' taught fact'+(j.total_learned===1?'':'s')+').';
+    $('teachtext').value=''; $('teachtags').value='';
+  }catch(e){ $('teacherr').textContent=String(e.message||e); }
+  btn.disabled=false; btn.textContent=lab;
+});
 
 loadList();
 </script>

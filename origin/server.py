@@ -1163,6 +1163,42 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             headers={"Content-Disposition": 'attachment; filename="origin-draft-programs.zip"'},
         )
 
+    # ── Self-learning: teach Origin from the UI + read back brain intel ──────
+    # Both live under /api so the auth middleware gates them (Chris-only). learn()
+    # writes a durable `learned` record to the persistent data volume; it is
+    # REFERENCE knowledge only and never enters the document send-gate. The intel
+    # endpoint is the "what does Origin already know about this" lookup the pages
+    # use — it surfaces prequal/abatement/learned knowledge and so gets smarter
+    # every time Origin is taught something new.
+    @app.post("/api/learn")
+    def api_learn(body: dict = Body(...)):
+        text = (body.get("text") or "").strip()
+        if not text:
+            return JSONResponse({"error": "Type something to teach Origin first."},
+                                status_code=400)
+        tags = body.get("tags") or []
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        try:
+            rec = _kb.learn(
+                text,
+                title=(body.get("title") or None),
+                source=(body.get("source") or "taught in app"),
+                category=(body.get("category") or None),
+                tags=tags,
+            )
+        except (ValueError, OSError) as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        return {"saved": True, "id": rec["id"], "title": rec["title"],
+                "total_learned": len(_kb.learned_knowledge())}
+
+    @app.get("/api/brain/intel")
+    def api_brain_intel(q: str = "", limit: int = 6):
+        q = (q or "").strip()
+        if not q:
+            return {"query": q, "intel": []}
+        return {"query": q, "intel": _kb.brain_intel(q, limit=limit)}
+
     # ── PUBLIC "Cited by OSHA?" citation → required-program mapper ──────────
     # A contractor who just got an OSHA citation types the cited CFR standard
     # and instantly learns which written program that standard requires and

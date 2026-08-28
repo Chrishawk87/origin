@@ -427,8 +427,22 @@ def find_gaps(
 
     headline = _headline(prog_missing, prog_failing, prog_present, prog_total)
 
+    # Advisory intel — what Origin already knows that's relevant to this trade,
+    # these platforms, and the open items. Draws from the REFERENCE brain
+    # (prequal-platform how-to, abatement guidance, and anything Origin has been
+    # taught), so this panel gets smarter on its own every time the system
+    # learns. Retrieval only — it never affects the gap math above or the gate.
+    intel: List[dict] = []
+    try:
+        open_titles = " ".join(g["title"] for g in gaps if g["status"] != "PRESENT")
+        q = " ".join(p for p in (industry, " ".join(platforms), open_titles[:400]) if p)
+        intel = kb.brain_intel(q, limit=6)
+    except Exception:
+        intel = []
+
     return {
         "meta": meta,
+        "intel": intel,
         "documents": [{"name": d.get("name", ""),
                        "chars": len(d.get("text", "")),
                        "platforms": _detect_platforms(d.get("text", "")),

@@ -269,6 +269,21 @@ def analyze(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     scope = _price_and_scope(checked) if checked else None
 
+    # Advisory intel for the public tool. This is drawn ONLY from the curated
+    # reference brain (prequal-platform how-to + abatement guidance) — NOT from
+    # the self-taught `learned` store, so internal notes Chris teaches Origin
+    # are never exposed on a public lead-gen page. Gets richer as the curated
+    # knowledge grows. Retrieval only; never affects the grade or scope.
+    intel: List[Dict[str, Any]] = []
+    try:
+        from . import compliance_kb as _kb
+        finding_words = " ".join(f["title"] for f in findings)
+        q = " ".join(p for p in (platform, industry or "", finding_words) if p)
+        intel = _kb.brain_intel(q, limit=4,
+                                kinds=["prequal_platform", "abatement"])
+    except Exception:
+        intel = []
+
     if not checked:
         headline = "Tell us what's failing and we'll show you exactly where you stand."
     elif not on_platform:
@@ -285,6 +300,7 @@ def analyze(payload: Dict[str, Any]) -> Dict[str, Any]:
         "grade": grade,
         "findings": findings,
         "scope": scope,
+        "intel": intel,
         "caveat": CAVEAT,
     }
 

@@ -69,6 +69,21 @@
   .defrep .un{color:#E0C9BE}
   .flag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;background:var(--orange);color:#fff;border-radius:4px;padding:2px 7px;margin-left:6px;vertical-align:middle}
   .gap .plat{font-size:12.5px;color:var(--red);font-weight:600;margin-top:6px}
+  /* intel panel */
+  .intel{border:1px solid var(--line);border-left:5px solid var(--charcoal);border-radius:9px;padding:11px 14px;margin-bottom:8px;background:#FAFAFB}
+  .intel .ik{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;background:var(--charcoal);color:#fff;border-radius:4px;padding:2px 7px;margin-right:8px;vertical-align:middle}
+  .intel .ik.learned{background:var(--orange)}
+  .intel .it{font-weight:700;color:var(--charcoal);font-size:14px}
+  .intel .is{font-size:13px;color:var(--ink);margin-top:5px}
+  /* teach box */
+  .teachbox{border:1.5px solid var(--line);border-radius:11px;padding:16px 18px;margin-top:26px;background:#FAFAFB}
+  .teachbox .th{font-weight:800;color:var(--charcoal);font-size:15px}
+  .teachbox .tsub{font-size:13px;color:var(--grey);margin:4px 0 10px}
+  .teachbox textarea{width:100%;min-height:70px;padding:11px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;color:var(--ink);resize:vertical}
+  .teachbox textarea:focus,.teachbox input:focus{outline:none;border-color:var(--orange)}
+  .teachbox input{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;margin-top:8px}
+  .teachbox .btn{margin-top:12px}
+  .ok{color:var(--green);font-size:14px;font-weight:600;margin-top:10px;min-height:1em}
   .hidden{display:none}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
 </style>
@@ -104,6 +119,16 @@
         <div class="err" id="err"></div>
       </div>
       <div id="results" class="hidden"></div>
+
+      <div class="teachbox" id="teach">
+        <div class="th">Teach Origin something</div>
+        <div class="tsub">Type a fact, a reviewer rejection reason, or a rule you just learned. Origin remembers it and surfaces it across the Gap Finder, Dashboard, and chat. This is reference knowledge only — it never changes document validation.</div>
+        <textarea id="teachtext" placeholder="e.g. ISN now wants a written Stop Work Authority policy referenced in the safety manual, not just a standalone form."></textarea>
+        <input type="text" id="teachtags" placeholder="Optional tags, comma-separated (e.g. ISN, stop work)" autocomplete="off">
+        <button class="btn" id="teachbtn" type="button">Teach Origin</button>
+        <div class="err" id="teacherr"></div>
+        <div class="ok" id="teachok"></div>
+      </div>
     </div>
     <footer class="foot">Origin Management Solutions · internal compliance tool</footer>
   </div>
@@ -207,6 +232,18 @@ function render(d){
     for(const g of items){ html+=gapCard(g); }
     html+=`</div>`;
   }
+
+  if(d.intel&&d.intel.length){
+    html+=`<div class="grp"><h2>What Origin knows (intel)</h2></div>`;
+    html+=`<p class="muted" style="margin-top:-4px">Relevant know-how from Origin's brain — prequal-platform guidance, abatement steps, and anything you've taught it. Gets smarter every time you teach Origin below.</p>`;
+    for(const it of d.intel){
+      const k = it.kind==='learned' ? 'learned' : '';
+      html+=`<div class="intel"><span class="ik ${k}">${esc(it.label||it.kind)}</span>
+        <span class="it">${esc(it.title||'')}</span>
+        <div class="is">${esc(it.snippet||'')}</div></div>`;
+    }
+  }
+
   html+=`<button class="btn" onclick="location.reload()">Check another contractor</button>`;
   res.innerHTML=html;
 
@@ -255,6 +292,24 @@ function gapCard(g){
   h+=`</div>`;
   return h;
 }
+
+// ── Teach Origin ─────────────────────────────────────────────────────────────
+$('teachbtn').addEventListener('click', async ()=>{
+  const text=$('teachtext').value.trim();
+  $('teacherr').textContent=''; $('teachok').textContent='';
+  if(!text){ $('teacherr').textContent='Type something to teach Origin first.'; return; }
+  const btn=$('teachbtn'), lab=btn.textContent; btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const r=await fetch('/api/learn',{method:'POST',
+      headers:Object.assign({'Content-Type':'application/json'},TOKEN?{'X-Origin-Token':TOKEN}:{}),
+      body:JSON.stringify({text,tags:$('teachtags').value.trim()})});
+    const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
+    if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
+    $('teachok').textContent='Learned ✓ Origin now knows this ('+j.total_learned+' taught fact'+(j.total_learned===1?'':'s')+').';
+    $('teachtext').value=''; $('teachtags').value='';
+  }catch(e){ $('teacherr').textContent=String(e.message||e); }
+  btn.disabled=false; btn.textContent=lab;
+});
 </script>
 </body>
 </html>

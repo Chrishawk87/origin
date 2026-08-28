@@ -611,6 +611,59 @@ def brain_search(query: str, limit: int = 20,
     return hits[:limit]
 
 
+def brain_intel(query: str, limit: int = 6,
+                kinds: Optional[List[str]] = None) -> List[dict]:
+    """Advisory 'what does Origin already know about this' lookup for the tool
+    pages (Gap Finder, Dashboard, Rescue).
+
+    Returns the top REFERENCE hits — prequal-platform how-to, abatement /
+    corrective-action guidance, and anything Origin has been taught — enriched
+    with a short readable snippet so a page can display it directly. Because the
+    self-taught `learned` records are federated in, this panel gets smarter
+    automatically every time Origin is taught something new.
+
+    Retrieval only. This never touches the required-standard math, the gap
+    status, or the document send-gate."""
+    kinds = kinds or ["prequal_platform", "abatement", "learned"]
+    hits = brain_search(query, limit=limit * 3, kinds=kinds)
+    prequal = {r.get("id"): r for r in _prequal_records()}
+    abate = {r.get("id"): r for r in _abatement_records()}
+    learned = {r.get("id"): r for r in learned_knowledge()}
+    out: List[dict] = []
+    for h in hits:
+        rid = h.get("id")
+        kind = h.get("kind")
+        body = ""
+        label = ""
+        if kind == "prequal_platform":
+            r = prequal.get(rid, {})
+            body = r.get("body", "")
+            label = r.get("platform", "") or "Prequal platform"
+        elif kind == "abatement":
+            r = abate.get(rid, {})
+            body = r.get("body", "")
+            label = "Abatement"
+        elif kind == "learned":
+            r = learned.get(rid, {})
+            body = r.get("text", "")
+            label = "Taught to Origin"
+        else:
+            continue
+        snippet = " ".join((body or "").split())
+        if len(snippet) > 320:
+            snippet = snippet[:317].rstrip() + "\u2026"
+        out.append({
+            "kind": kind,
+            "label": label,
+            "title": h.get("title", ""),
+            "snippet": snippet,
+            "score": h.get("score", 0),
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
 def brain_stats() -> dict:
     """A plain-English inventory of Origin's whole knowledge brain: how many
     records it holds across every source. This is 'how much does the system
