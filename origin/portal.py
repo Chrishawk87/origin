@@ -174,6 +174,44 @@ def find_by_email(email: str) -> Optional[Dict[str, Any]]:
     return matches[0]
 
 
+def _latest_lead_for(email: str) -> Dict[str, Any]:
+    """Return the most recent captured lead for this email, merged across all of
+    that email's submissions so the diagnosis survives even if the visitor's
+    latest click (e.g. 'let us handle it') carried fewer fields than an earlier
+    tool run. Fields from newer submissions win; industry/issues/program_id from
+    any submission are kept. Returns {} if nothing is on file."""
+    email = (email or "").strip().lower()
+    if not email:
+        return {}
+    try:
+        from .rescue import LEADS_FILE
+    except Exception:
+        return {}
+    if not LEADS_FILE.is_file():
+        return {}
+    merged: Dict[str, Any] = {}
+    try:
+        for line in LEADS_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except Exception:
+                continue
+            if (d.get("email") or "").strip().lower() != email:
+                continue
+            # Newest line wins for scalar fields; but never overwrite a present
+            # diagnosis field with an empty one from a later, thinner submission.
+            for k, v in d.items():
+                if v in (None, "", [], {}):
+                    continue
+                merged[k] = v
+    except Exception:
+        return {}
+    return merged
+
+
 def _blank_client(company: str, email: str, client_type: str = "prequal") -> Dict[str, Any]:
     slug = slugify(company)
     return {
@@ -1023,6 +1061,11 @@ def register_portal(app) -> None:
                         "source": d.get("source") or "grade-rescue",
                         "intent": d.get("intent", ""),
                         "projected_grade": d.get("projected_grade", ""),
+                        # Diagnosis captured with the lead — lets the card preview
+                        # what will be built on convert (Phase 4).
+                        "industry": (d.get("industry") or "").strip(),
+                        "issue_count": len(d.get("issues") or []),
+                        "matched_program": d.get("matched_program") or "",
                         "converted": bool(existing),
                         "slug": existing.get("slug") if existing else "",
                     })
@@ -1031,14 +1074,24 @@ def register_portal(app) -> None:
         # newest first; collapse repeat submissions from the same email to the
         # most recent so the list stays actionable.
         rows.sort(key=lambda r: r.get("ts", ""), reverse=True)
-        seen = set()
+        seen: Dict[str, dict] = {}
         deduped = []
         for r in rows:
             key = (r["email"] or "").lower()
             if key and key in seen:
+                # Backfill the diagnosis onto the kept (newest) row from an older
+                # submission — a later "handle" click can carry fewer fields than
+                # the tool run that produced the actual diagnosis.
+                kept = seen[key]
+                if not kept.get("industry") and r.get("industry"):
+                    kept["industry"] = r["industry"]
+                if not kept.get("issue_count") and r.get("issue_count"):
+                    kept["issue_count"] = r["issue_count"]
+                if not kept.get("matched_program") and r.get("matched_program"):
+                    kept["matched_program"] = r["matched_program"]
                 continue
             if key:
-                seen.add(key)
+                seen[key] = r
             deduped.append(r)
         return {"leads": deduped}
 
@@ -1075,6 +1128,54 @@ def register_portal(app) -> None:
         temp_pin = f"{random.randint(0, 999999):06d}"
         rec["pin_hash"] = hash_pin(slug, temp_pin)
         _ensure_project(rec)  # mirror as an Origin project on the main site
+
+        # ── Phase 4: pre-load the exact documentation this client needs ──────
+        # Recover the diagnosis captured with their lead (trade + flagged issues,
+        # or the OSHA standard they were cited under) and turn it into the full
+        # required-program list — priorities flagged — so nothing is missed. Runs
+        # the gap analysis and seeds the "Documents (included in plan)" tab with
+        # a build target for each required written program.
+        recommended_count = 0
+        try:
+            lead_dx = _latest_lead_for(email)
+        except Exception:
+            lead_dx = {}
+        lead_industry = (lead_dx.get("industry") or "").strip()
+        if lead_industry and not rec.get("trade"):
+            rec["trade"] = lead_industry
+        try:
+            from . import gaps as _gaps
+            plan = _gaps.recommend_documents(
+                industry=lead_industry or None,
+                issues=lead_dx.get("issues") or [],
+                citation_program_id=lead_dx.get("program_id") or None,
+            )
+        except Exception:
+            plan = None
+        if plan:
+            rec["recommended_docs"] = plan.get("documents", [])
+            if plan.get("report"):
+                rec["gap_report"] = plan["report"]
+                rec["gap_run_at"] = _now()
+            existing_names = {d.get("name") for d in rec.get("documents", [])}
+            for d in plan.get("documents", []):
+                # Only draftable written programs become build rows; reference
+                # items (insurance/benchmarks) stay in recommended_docs as advice.
+                if not d.get("needs_program"):
+                    continue
+                if d.get("title") in existing_names:
+                    continue
+                sub = f"Recommended \u2014 {d['priority']}"
+                if d.get("citation"):
+                    sub += f" \u00b7 {d['citation']}"
+                rec.setdefault("documents", []).append({
+                    "name": d["title"], "sub": sub, "file": "",
+                    "source": "recommended", "to_build": True,
+                    "program_id": d["id"], "priority": d["priority"],
+                })
+                existing_names.add(d["title"])
+                recommended_count += 1
+
         save_client(rec)
         # invite the client with their login link + temp PIN
         invited = False
@@ -1113,7 +1214,8 @@ def register_portal(app) -> None:
             invite_err = str(exc)
         return {"ok": True, "slug": slug, "company": company,
                 "temp_pin": temp_pin, "invited": invited,
-                "invite_error": invite_err, "portal_url": portal_url}
+                "invite_error": invite_err, "portal_url": portal_url,
+                "recommended_count": recommended_count}
 
     @app.post("/portal/api/admin/client/{slug}/email-docs")
     def admin_email_docs(slug: str, request: Request, body: dict = Body(...)):

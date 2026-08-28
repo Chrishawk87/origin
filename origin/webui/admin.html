@@ -258,6 +258,9 @@ function renderEditor(){
   if(!isNew)h+='<button class="btn ghost sm" style="margin-left:auto" onclick="delClient()">Delete client</button>';
   h+='</div>';
   document.getElementById('editor').innerHTML=h;
+  // Show the recommended documentation plan straight away if we already have one
+  // (auto-generated when the lead was converted) so nothing gets missed.
+  if(CUR.gap_report)renderGapReport(CUR.gap_report);
   if(CUR.slug)loadAbate();
 }
 
@@ -476,7 +479,12 @@ function renderLeads(){
       +'<div class="hint" style="margin-top:2px">'+esc(l.email||'(no email)')
       +(l.phone?' · '+esc(l.phone):'')+(l.platform?' · '+esc(l.platform):'')
       +(l.projected_grade?' · projected '+esc(l.projected_grade):'')+'</div>'
-      +'<div class="hint">'+esc(l.source||'')+(l.ts?' · '+esc(l.ts):'')+'</div></div>'
+      +'<div class="hint">'+esc(l.source||'')+(l.ts?' · '+esc(l.ts):'')+'</div>'
+      +((l.industry||l.issue_count||l.matched_program)?'<div class="hint" style="margin-top:2px;color:#e8813a">Needs on convert: '
+         +[l.industry?esc(l.industry)+' program set':'',
+           l.issue_count?esc(l.issue_count)+' flagged issue'+(l.issue_count===1?'':'s'):'',
+           l.matched_program?'cited \u2192 '+esc(l.matched_program):''].filter(Boolean).join(' \u00b7 ')+'</div>':'')
+      +'</div>'
       +'<div>'+(l.converted
           ? '<button class="btn ghost sm" onclick="openLead(\''+escq(l.slug)+'\')">Open client</button>'
           : '<button class="btn sm" onclick="convertLead('+i+')">Convert to client \u2192</button>')
@@ -500,6 +508,7 @@ function convertLead(i){
     var j=r.j;
     if(j.already){alert((j.company||'This lead')+' already has a portal account. Opening it.');loadLeads();openLead(j.slug);return;}
     var msg='Portal account created for '+(j.company||l.email)+'.\n\n';
+    if(j.recommended_count){msg+='\u2713 '+j.recommended_count+' required document'+(j.recommended_count===1?'':'s')+' pre-loaded into their plan (with priorities flagged). Origin AI can build each one \u2014 open the client and use \u201cBuild \u0026 publish\u201d.\n\n';}
     if(j.invited){msg+='\u2713 Invite emailed to '+l.email+' with their login link and temporary PIN ('+j.temp_pin+').';}
     else{msg+='\u26a0 Invite NOT emailed'+(j.invite_error?': '+j.invite_error:'')+'\n\nSend it yourself:\nLogin: '+(j.portal_url||'/portal')+'\nEmail: '+l.email+'\nTemporary PIN: '+j.temp_pin;}
     alert(msg);

@@ -1353,6 +1353,9 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             "typed_citation": raw,
             "matched_citation": (matched.get("citation") if matched else None),
             "matched_program": (matched.get("title") if matched else None),
+            # The specific program id the cited standard requires — lets a
+            # convert-to-client pre-load the exact abatement document (Phase 4).
+            "program_id": (matched.get("id") if matched else None),
         }
         try:
             _rescue.DATA_DIR.mkdir(parents=True, exist_ok=True)

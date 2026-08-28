@@ -386,6 +386,9 @@
     if(email.indexOf('@')<0){ return; }
     btn.disabled=true; btn.textContent='Starting your fix\u2026';
     var lead={tool:tool,name:val(m.name),company:val(m.company),email:email,phone:val(m.phone),platform:m.plat()};
+    // Carry the diagnosis so converting this lead pre-loads the exact docs their
+    // trade + flagged issues require. The grade tool holds it in `state`.
+    if(state){ if(state.industry) lead.industry=state.industry; if(state.issues&&state.issues.length) lead.issues=state.issues; }
     var cta=$(m.cta);
     function confirmDone(){
       cta.innerHTML='<div class="h">\u2713 You\u2019re in &mdash; we\u2019re on it.</div>'+

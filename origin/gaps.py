@@ -475,6 +475,127 @@ def find_gaps(
     }
 
 
+# ── Phase 4: turn a captured LEAD's diagnosis into the exact doc plan ────────
+# A contractor who used a free tool told us WHAT is wrong (their trade + the
+# issues they flagged, or the OSHA standard they were cited under). This turns
+# that into the precise list of documentation that fixes it: every written
+# program their trade requires, with the ones tied to their reported problem
+# flagged as must-fix so nothing gets missed. Reuses find_gaps so the required
+# set stays identical to the internal Gap Finder.
+
+# Rescue-tool issue ids that mean "written programs are missing / rejected /
+# don't match scope" — when a lead flags any of these, every required written
+# program is a must-fix (that's exactly what they came to us to solve).
+_PROGRAM_ISSUE_IDS = {"missing_programs", "scope_mismatch", "outdated_programs",
+                      "open_citation"}
+
+
+def recommend_documents(
+    industry: Optional[str] = None,
+    state: Optional[str] = None,
+    issues: Optional[List[str]] = None,
+    citation_program_id: Optional[str] = None,
+) -> dict:
+    """Produce the exact documentation plan for a lead.
+
+    ``industry``  — the contractor's trade (drives the full required set).
+    ``issues``    — rescue-tool issue ids they flagged (marks priorities).
+    ``citation_program_id`` — for OSHA-citation leads, the specific program the
+                    cited standard requires (always the #1 must-fix).
+
+    Returns ``{industry, have_industry, documents, priority_ids, summary,
+    report}`` where each document is
+    ``{id, title, citation, category, needs_program, status, priority, reason,
+    can_autodraft}`` and priority is one of ``must-fix | required | recommended``.
+    """
+    issues = issues or []
+    prioritize_programs = any(i in _PROGRAM_ISSUE_IDS for i in issues)
+
+    report = None
+    have_industry = False
+    if industry and industry.strip():
+        try:
+            report = find_gaps(industry.strip(), state=state, operators=None, docs=[])
+            have_industry = True
+        except Exception:
+            report = None
+
+    documents: List[dict] = []
+    seen: set = set()
+
+    def _priority_for(gid: str, needs_program: bool) -> Tuple[str, str]:
+        if citation_program_id and gid == citation_program_id:
+            return "must-fix", "The written program your OSHA citation requires — build this first."
+        if needs_program and prioritize_programs:
+            return ("must-fix",
+                    "You flagged missing, rejected, or mismatched written programs — "
+                    "this one is required for your trade and Origin can draft it now.")
+        if needs_program:
+            return "required", "A written program your trade is required to have on file."
+        return "recommended", "Supporting item to verify (insurance, benchmark, or platform setup)."
+
+    if report:
+        for g in report.get("gaps", []):
+            needs = bool(g.get("needs_program"))
+            prio, reason = _priority_for(g["id"], needs)
+            documents.append({
+                "id": g["id"],
+                "title": g.get("title", ""),
+                "citation": g.get("citation", ""),
+                "category": g.get("category", ""),
+                "needs_program": needs,
+                "status": g.get("status", "MISSING"),
+                "priority": prio,
+                "reason": reason,
+                "can_autodraft": bool(g.get("can_autodraft")),
+            })
+            seen.add(g["id"])
+
+    # Make sure the cited standard's program is present even if we have no trade
+    # yet (citation leads don't collect an industry) — never lose the one doc
+    # that directly answers their citation.
+    if citation_program_id and citation_program_id not in seen:
+        rec = kb.get(citation_program_id)
+        if rec:
+            needs = (rec.get("written_program", "") or "").strip().lower() in ("yes", "conditional")
+            documents.append({
+                "id": citation_program_id,
+                "title": rec.get("title", ""),
+                "citation": rec.get("citation", ""),
+                "category": rec.get("category", ""),
+                "needs_program": needs,
+                "status": "MISSING",
+                "priority": "must-fix",
+                "reason": "The written program your OSHA citation requires — build this first.",
+                "can_autodraft": kb.render_program(citation_program_id) is not None,
+            })
+            seen.add(citation_program_id)
+
+    # Order: must-fix, then required, then recommended; draftable programs before
+    # reference items within each tier; alphabetical by title as a tiebreak.
+    _rank = {"must-fix": 0, "required": 1, "recommended": 2}
+    documents.sort(key=lambda d: (_rank.get(d["priority"], 3),
+                                  0 if d["needs_program"] else 1,
+                                  d["title"].lower()))
+
+    programs = [d for d in documents if d["needs_program"]]
+    summary = {
+        "total": len(documents),
+        "programs": len(programs),
+        "must_fix": sum(1 for d in documents if d["priority"] == "must-fix"),
+        "required": sum(1 for d in documents if d["priority"] == "required"),
+        "recommended": sum(1 for d in documents if d["priority"] == "recommended"),
+    }
+    return {
+        "industry": (industry or "").strip(),
+        "have_industry": have_industry,
+        "documents": documents,
+        "priority_ids": [d["id"] for d in documents if d["priority"] == "must-fix"],
+        "summary": summary,
+        "report": report,
+    }
+
+
 # ── Phase 2: auto-draft the missing / failing written programs ──────────────
 def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:60] or "program"

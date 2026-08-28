@@ -638,6 +638,15 @@ def capture_handle(payload: Dict[str, Any], *, tool: str,
         "phone": (payload.get("phone") or "").strip(),
         "platform": (payload.get("platform") or "").strip(),
     }
+    # Keep the diagnosis so converting this lead to a client can pre-load the
+    # exact documentation their trade + reported issues require (Phase 4). The
+    # front end passes these through from the tool the visitor just used.
+    industry = (payload.get("industry") or "").strip()
+    if industry:
+        lead["industry"] = industry
+    issues = [i for i in (payload.get("issues") or []) if isinstance(i, str)]
+    if issues:
+        lead["issues"] = issues
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         with LEADS_FILE.open("a", encoding="utf-8") as fh:
