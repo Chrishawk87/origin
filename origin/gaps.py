@@ -50,6 +50,23 @@ def _sub_sections(program_id: str) -> List[str]:
     except Exception:
         return []
 
+def _resolve_sector(sector: Optional[str]) -> Optional[str]:
+    """Accept either a naics_map sector key ('23', '31-33') or a free industry /
+    NAICS string and return the sector key that has authored industry content, or
+    None. Lets callers pass whatever they have (the client's trade text works)."""
+    s = (sector or "").strip()
+    if not s:
+        return None
+    try:
+        from . import sector_content as _sc
+        if _sc.has_sector(s):
+            return s
+        key = kb.sector_for(s)
+        return key if (key and _sc.has_sector(key)) else None
+    except Exception:
+        return None
+
+
 try:
     from .tools import document_tools as _doc
 except Exception:  # pragma: no cover - tools package layout guard
@@ -634,23 +651,29 @@ def draft_programs(
     ids: List[str],
     company: Optional[str] = None,
     effective_date: Optional[str] = None,
+    sector: Optional[str] = None,
 ) -> List[dict]:
     """Render a fillable written program for each standard id.
 
     Reuses compliance_kb.render_program (which serves the pre-generated template
     or builds one on the fly from the KB record, so a draft can never drift from
-    the standard). Pre-fills the company name / effective date when supplied;
-    every other {{PLACEHOLDER}} and [[prompt]] is left for Chris to complete.
+    the standard). When ``sector`` (a naics_map sector key, or an industry/NAICS
+    string that resolves to one) is given, each program is drafted in that
+    industry's context — real Scope, an Industry Hazard Profile, and hazard-anchored
+    element prompts — so the client's docs need only company/scope tweaks. Pre-fills
+    the company name / effective date when supplied; every other {{PLACEHOLDER}} and
+    [[prompt]] is left for Chris to complete.
     """
     company = (company or "").strip()
     effective_date = (effective_date or "").strip()
+    sector_key = _resolve_sector(sector)
     out: List[dict] = []
     seen: set = set()
     for eid in ids:
         if not eid or eid in seen:
             continue
         seen.add(eid)
-        md = kb.render_program(eid)
+        md = kb.render_program(eid, sector=sector_key)
         if not md:
             continue
         rec = kb.get(eid) or {}

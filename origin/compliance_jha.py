@@ -226,10 +226,51 @@ def _ack() -> str:
     )
 
 
-def render_jha(program_id: str) -> Optional[str]:
+def _industry_band(sector_key: Optional[str]) -> str:
+    """An industry-applicability band injected after the cover when a sector is
+    known. It anchors the JHA to the client's trade — the hazards, environments,
+    equipment and baseline PPE characteristic of that industry — so a
+    construction JHA reads differently from a manufacturing one even when the
+    underlying job-step matrix (which is genuinely program-driven) is shared.
+    Returns '' when no authored sector profile exists, so behavior is unchanged
+    for the industry-agnostic path."""
+    try:
+        from . import sector_content as _sc
+    except Exception:
+        return ""
+    p = _sc.profile(sector_key)
+    if not p:
+        return ""
+    lbl = p["label"].split("(")[0].strip()
+    haz = "".join(f"&bull; {_esc(h)}<br/>" for h in p.get("hazards", []))
+    return (
+        "<div class='pb'>"
+        f"<h2>Industry Applicability &mdash; {_esc(lbl)}</h2>"
+        "<p>This Job Hazard Analysis is applied in the context of "
+        f"<b>{_esc(lbl.lower())}</b> work. The competent person tailors it to the "
+        "day's scope, but the hazards, environments, equipment and baseline PPE "
+        "below are the trade conditions it is written to control.</p>"
+        "<table class='specs'>"
+        f"<tr><td class='k'>Primary operations</td><td class='fill'>{_esc(_sc.oxford(p.get('operations', [])))}</td></tr>"
+        f"<tr><td class='k'>Typical work environments</td><td class='fill'>{_esc(_sc.oxford(p.get('environments', [])))}</td></tr>"
+        f"<tr><td class='k'>Equipment &amp; materials in scope</td><td class='fill'>{_esc(_sc.oxford(p.get('equipment', [])))}</td></tr>"
+        f"<tr><td class='k'>Baseline PPE for this trade</td><td class='fill'>{_esc(p.get('ppe', ''))}</td></tr>"
+        "</table>"
+        "<div class='subhead'>Characteristic Industry Hazards</div>"
+        f"<p class='hz'>{haz}</p>"
+        "</div>"
+    )
+
+
+def render_jha(program_id: str, sector: Optional[str] = None) -> Optional[str]:
     """Return the inner HTML for the JHA that accompanies ``program_id``, or None
     if no JHA has been authored for that program yet. Wrap the result with
-    ``compliance.wrap_document`` to produce the stored/printable master."""
+    ``compliance.wrap_document`` to produce the stored/printable master.
+
+    When ``sector`` names a sector with an authored profile, an
+    industry-applicability band is injected after the cover so the JHA reads as
+    written for the client's trade. When ``sector`` is None or unknown, output
+    is byte-identical to the industry-agnostic version."""
     jha = JHA_LIBRARY.get(program_id)
     if not jha:
         return None
@@ -251,6 +292,7 @@ def render_jha(program_id: str) -> Optional[str]:
 
     return (
         _cover(title, subtitle, citation, program_title, program_std)
+        + _industry_band(sector)
         + _how_to(jha.get("legend", []))
         + _job_specifics()
         + _matrices(jha.get("jobs", []))

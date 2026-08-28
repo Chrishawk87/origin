@@ -925,8 +925,13 @@ def register_portal(app) -> None:
         except Exception as exc:  # pragma: no cover
             return JSONResponse({"error": f"gap engine unavailable: {exc}"}, status_code=500)
 
+        # Draft each program in the client's INDUSTRY context so the docs land
+        # already written for their trade (Phase 3) — only company/scope tweaks
+        # remain. Sector comes from their trade keyword, else their scope text.
+        _sector_src = (rec.get("trade") or rec.get("scope") or "").strip() or None
         drafts = _gaps.draft_programs(ids, company=rec.get("company"),
-                                      effective_date=body.get("effective_date"))
+                                      effective_date=body.get("effective_date"),
+                                      sector=_sector_src)
         if not drafts:
             return JSONResponse(
                 {"error": "none of those standards have a draftable written program"},

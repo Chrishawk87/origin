@@ -763,18 +763,67 @@ _PROGRAM_PLACEHOLDERS = [
 ]
 
 
-def render_program(entry_id: str) -> Optional[str]:
+# Prebuilt, industry-specific program markdown lives on the persistent data
+# volume so it survives redeploys and can be regenerated in bulk (Phase 3
+# "prebuild all sectors"). One file per sector+standard.
+SECTOR_PROGRAM_DIR = DATA_DIR / "sector_programs"
+
+
+def _sector_key_safe(sector: str) -> str:
+    return re.sub(r"[^0-9a-zA-Z]+", "-", (sector or "")).strip("-")
+
+
+def sector_program_path(sector: str, entry_id: str) -> Path:
+    """On-disk path for a prebuilt industry-specific program markdown file."""
+    return SECTOR_PROGRAM_DIR / _sector_key_safe(sector) / f"program-{entry_id}.md"
+
+
+def sector_jha_path(sector: str, entry_id: str) -> Path:
+    """On-disk path for a prebuilt industry-specific JSA (HTML) file. Lives beside
+    the sector's programs so a converted client's whole document set — programs and
+    the job-hazard analyses that accompany them — is trade-specific and cached."""
+    return SECTOR_PROGRAM_DIR / _sector_key_safe(sector) / f"jha-{entry_id}.html"
+
+
+def render_program(entry_id: str, sector: Optional[str] = None,
+                   use_cache: bool = True) -> Optional[str]:
     """Return a fillable, editable written-program document for a KB standard.
 
-    Serves the pre-generated file at ``Templates/programs/program-<id>.md`` when
-    it exists; otherwise builds the same document on the fly from the record so
-    any standard (including ones added later) yields a workable template. Section
-    headings, training and recordkeeping lines come verbatim from the record, so
-    the template can never drift from the KB. Returns ``None`` if no such record.
+    ``sector`` (a naics_map sector key such as "23" construction or "31-33"
+    manufacturing) makes the draft industry-specific: the Scope, an Industry
+    Hazard Profile section, and each element's fill-in prompt are written in the
+    client's real trade context. With no ``sector`` the output is identical to
+    before (industry-neutral), so every existing caller is unaffected.
+
+    Resolution order:
+      1. sector given → a prebuilt file at ``sector_programs/<sector>/program-<id>.md``
+         (Phase 3 cache), then a hand-authored override, then an on-the-fly build.
+      2. no sector → the shipped ``Templates/programs/program-<id>.md``, else an
+         on-the-fly build.
+
+    Section headings, training and recordkeeping lines come verbatim from the
+    record, so the template can never drift from the KB. Returns ``None`` if no
+    such record.
     """
-    static = KB_DIR / "Templates" / "programs" / f"program-{entry_id}.md"
-    if static.exists():
-        return static.read_text(encoding="utf-8")
+    # Sector fast paths (prebuilt cache, then hand-authored override).
+    try:
+        from . import sector_content as _sc
+    except Exception:
+        _sc = None
+    use_sector = bool(sector) and _sc is not None and _sc.has_sector(sector)
+    if use_sector and use_cache:
+        cached = sector_program_path(sector, entry_id)
+        if cached.exists():
+            return cached.read_text(encoding="utf-8")
+        authored = (KB_DIR / "Templates" / "programs" / _sector_key_safe(sector)
+                    / f"program-{entry_id}.md")
+        if authored.exists():
+            return authored.read_text(encoding="utf-8")
+
+    if not use_sector:
+        static = KB_DIR / "Templates" / "programs" / f"program-{entry_id}.md"
+        if static.exists():
+            return static.read_text(encoding="utf-8")
 
     r = get(entry_id)
     if not r:
@@ -799,10 +848,23 @@ def render_program(entry_id: str) -> Optional[str]:
     ]
     if appl:
         L += [f"*Applicability (from the standard):* {appl}", ""]
+    if use_sector:
+        # Industry-specific scope prose + hazard profile (Phase 3).
+        L += [
+            f"This program establishes {{{{COMPANY_NAME}}}}'s procedures to comply with {cite} "
+            "in the context of the operations described below.",
+            "",
+        ]
+        L += _sc.scope_block(sector)
+        L += [""]
+        L += _sc.hazard_profile_block(sector)
+    else:
+        L += [
+            f"This program establishes {{{{COMPANY_NAME}}}}'s procedures to comply with {cite}. "
+            "It applies to: {{SCOPE}}.",
+            "",
+        ]
     L += [
-        f"This program establishes {{{{COMPANY_NAME}}}}'s procedures to comply with {cite}. "
-        "It applies to: {{SCOPE}}.",
-        "",
         "## 2. Responsibilities",
         "{{PROGRAM_ADMINISTRATOR}} ({{ADMIN_TITLE}}) is accountable for implementing this "
         "program, training affected employees, keeping the records in Section 5, and reviewing "
@@ -815,9 +877,13 @@ def render_program(entry_id: str) -> Optional[str]:
         "",
     ]
     for i, el in enumerate(elems, 1):
-        L += [f"### 3.{i}  {el}",
-              "[[Describe how {{COMPANY_NAME}} does this — the procedure, who is responsible, "
-              "what equipment/forms are used, and how it is documented.]]", ""]
+        prompt = None
+        if use_sector:
+            prompt = _sc.element_prompt(sector, el)
+        if not prompt:
+            prompt = ("[[Describe how {{COMPANY_NAME}} does this — the procedure, who is "
+                      "responsible, what equipment/forms are used, and how it is documented.]]")
+        L += [f"### 3.{i}  {el}", prompt, ""]
     L += ["## 4. Training"]
     if training:
         L += [f"*Standard requirement:* {training}", ""]
@@ -847,7 +913,17 @@ def render_program(entry_id: str) -> Optional[str]:
           "Name: {{SIGNATURE_NAME}}  ",
           "Title: {{SIGNATURE_TITLE}}  ",
           "Date: {{SIGNATURE_DATE}}", ""]
-    return "\n".join(L)
+    md = "\n".join(L)
+    # Warm the sector cache on first build so subsequent draws are instant and the
+    # persistent volume ends up fully populated without a manual prebuild step.
+    if use_sector and use_cache:
+        try:
+            cpath = sector_program_path(sector, entry_id)
+            cpath.parent.mkdir(parents=True, exist_ok=True)
+            cpath.write_text(md, encoding="utf-8")
+        except Exception:
+            pass
+    return md
 
 
 # ── NAICS → required-standards resolver ─────────────────────────────────────
@@ -960,6 +1036,77 @@ def _sector_for(code_or_industry: str) -> Optional[str]:
         if score > best_score:
             best, best_score = key, score
     return best
+
+
+def sector_for(code_or_industry: str) -> Optional[str]:
+    """Public: resolve a NAICS code or industry name to its naics_map sector key
+    (e.g. '23' construction, '31-33' manufacturing). Returns None if unmatched.
+    Used to pick the industry-specific program content at convert time."""
+    return _sector_for(code_or_industry)
+
+
+def sector_program_ids(sector_key: str) -> List[str]:
+    """Every written-program standard id that applies to a sector (universal +
+    that sector's trade-specific standards), i.e. the programs to prebuild for it."""
+    base = naics_applicable(sector_key)
+    out: List[str] = []
+    for s in base.get("standards", []):
+        if (s.get("written_program", "") or "").strip().lower() in ("yes", "conditional"):
+            out.append(s["id"])
+    return out
+
+
+def prebuild_all_sectors(force: bool = True) -> dict:
+    """Phase 3: prebuild every industry-specific written program AND its companion
+    JSA (where one is authored) for every sector that has authored content, writing
+    each to the persistent sector cache so a converted client's whole document set —
+    programs and job-hazard analyses — renders instantly and reads as written for
+    their trade.
+
+    Returns per-sector program and JSA counts plus totals. Idempotent; ``force``
+    regenerates existing cache files (use after content edits)."""
+    try:
+        from . import sector_content as _sc
+    except Exception as exc:  # pragma: no cover
+        return {"error": f"sector_content unavailable: {exc}", "total": 0, "by_sector": {}}
+    try:
+        from . import compliance_jha as _jha
+    except Exception:  # pragma: no cover
+        _jha = None
+
+    by_sector: Dict[str, dict] = {}
+    total_programs = 0
+    total_jhas = 0
+    for skey in _sc.sector_keys():
+        progs = 0
+        jhas = 0
+        for eid in sector_program_ids(skey):
+            ppath = sector_program_path(skey, eid)
+            if ppath.exists() and not force:
+                progs += 1
+            else:
+                md = render_program(eid, sector=skey, use_cache=False)
+                if md:
+                    ppath.parent.mkdir(parents=True, exist_ok=True)
+                    ppath.write_text(md, encoding="utf-8")
+                    progs += 1
+            # Companion JSA, industry-anchored, when one is authored for this program.
+            if _jha is not None and _jha.has_jha(eid):
+                jpath = sector_jha_path(skey, eid)
+                if jpath.exists() and not force:
+                    jhas += 1
+                else:
+                    inner = _jha.render_jha(eid, sector=skey)
+                    if inner:
+                        jpath.parent.mkdir(parents=True, exist_ok=True)
+                        jpath.write_text(inner, encoding="utf-8")
+                        jhas += 1
+        by_sector[skey] = {"programs": progs, "jhas": jhas}
+        total_programs += progs
+        total_jhas += jhas
+    return {"total": total_programs, "total_jhas": total_jhas,
+            "sectors": len(by_sector), "by_sector": by_sector,
+            "cache_dir": str(SECTOR_PROGRAM_DIR)}
 
 
 def naics_applicable(code_or_industry: str, state: Optional[str] = None) -> dict:
