@@ -111,6 +111,8 @@
         </div>
         <label class="fld">Operators / hiring clients <span class="muted">(optional, comma-separated)</span></label>
         <input type="text" id="operators" placeholder="e.g. ExxonMobil, Chevron" autocomplete="off">
+        <label class="fld">What does this company actually do? <span class="muted">(optional — each pulls in the standard it triggers)</span></label>
+        <div id="activities" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px"></div>
         <label class="fld">Documents</label>
         <div class="drop" id="drop">Drop files here or click to choose — PDF, Word, images, or text</div>
         <input type="file" id="files" multiple class="hidden">
@@ -148,6 +150,25 @@ let TOKEN='';
 const $=id=>document.getElementById(id);
 let CHOSEN=[];
 
+// ── activity triggers (from scoping) — each pulls in the standard it triggers ──
+(async function loadTriggers(){
+  try{
+    const r=await fetch('/api/scoping/schema',{headers:TOKEN?{'X-Origin-Token':TOKEN}:{}});
+    const s=await r.json();
+    const acts=(s.triggers||s.activities||[]);
+    const box=$('activities');
+    if(!acts.length){ box.style.display='none'; return; }
+    box.innerHTML=acts.map(a=>{
+      const key=a.key||a.id||a.value, label=a.category||a.label||a.q||key;
+      return `<label title="${esc(a.q||'')}" style="display:flex;gap:6px;align-items:center;font-size:13px;font-weight:400;cursor:pointer">`
+        +`<input type="checkbox" class="actck" value="${esc(key)}"> ${esc(label)}</label>`;
+    }).join('');
+  }catch(e){ $('activities').style.display='none'; }
+})();
+function selectedActivities(){
+  return Array.from(document.querySelectorAll('.actck:checked')).map(c=>c.value);
+}
+
 const drop=$('drop'), fileInput=$('files');
 drop.addEventListener('click',()=>fileInput.click());
 drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
@@ -171,6 +192,8 @@ async function analyze(){
   fd.append('state',$('state').value.trim());
   fd.append('operators',$('operators').value.trim());
   fd.append('contractor',$('contractor').value.trim());
+  const acts=selectedActivities();
+  if(acts.length){ fd.append('activities',acts.join(',')); }
   for(const f of CHOSEN){ fd.append('files',f,f.name); }
   try{
     const r=await fetch('/api/gaps/analyze',{method:'POST',headers:TOKEN?{'X-Origin-Token':TOKEN}:{},body:fd});
@@ -200,6 +223,9 @@ function render(d){
     html+=`<p class="muted">Documents look like: <b>${d.platforms_detected.map(esc).join(', ')}</b> · ${d.documents.length} file(s) read.</p>`;
   if(d.meta&&d.meta.sector_label)
     html+=`<p class="muted">Scoped as: <b>${esc(d.meta.sector_label)}</b>${d.meta.state?(' · '+esc(d.meta.state)):''}.</p>`;
+  if(d.meta&&d.meta.scoped_triggered&&d.meta.scoped_triggered.length)
+    html+=`<p class="muted">Pulled in by what this company does: `
+      +d.meta.scoped_triggered.map(t=>`<b>${esc(t.title||t.id)}</b>`).join(', ')+`.</p>`;
 
   const dr=d.deficiency_report;
   if(dr&&dr.detected){

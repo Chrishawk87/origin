@@ -249,6 +249,31 @@ function renderEditor(){
     h+='</div>';
   }
 
+  if(CUR.slug){
+    h+='<div class="section-title">OSHA 300 Log</div><div class="card"><div id="log300">';
+    var lg=(c.osha_300_log||[]);
+    if(!lg.length){h+='<div class="hint">No recordable cases logged yet. Use the <b>Recordable?</b> advisor \u2014 when a case comes back RECORDABLE, log it straight to this client from there.</div>';}
+    else{
+      h+='<table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="text-align:left;color:#6b5d54">'
+        +'<th style="padding:4px 6px">#</th><th style="padding:4px 6px">Date</th><th style="padding:4px 6px">Employee</th><th style="padding:4px 6px">What happened</th><th style="padding:4px 6px">Col</th><th style="padding:4px 6px">Days</th><th style="padding:4px 6px"></th></tr>';
+      lg.forEach(function(x){
+        var days=(x.days_away!=null?x.days_away+' away':'')+(x.restricted_days!=null?(x.days_away!=null?' / ':'')+x.restricted_days+' restr.':'');
+        var rep=(x.reporting&&x.reporting.required)?' <span style="color:#c0392b">\u26a0 report</span>':'';
+        h+='<tr style="border-top:1px solid #eee">'
+          +'<td style="padding:4px 6px">'+x.case_no+'</td>'
+          +'<td style="padding:4px 6px">'+esc(x.incident_date||'')+'</td>'
+          +'<td style="padding:4px 6px">'+esc(x.employee||'')+'</td>'
+          +'<td style="padding:4px 6px">'+esc(x.description||'')+'</td>'
+          +'<td style="padding:4px 6px"><b>'+esc(x.column||'')+'</b> \u2013 '+esc(x.column_label||'')+rep+'</td>'
+          +'<td style="padding:4px 6px">'+esc(days)+'</td>'
+          +'<td style="padding:4px 6px"><a href="#" onclick="del300('+x.case_no+');return false" style="color:#c0392b;text-decoration:none">\u2715</a></td>'
+          +'</tr>';
+      });
+      h+='</table>';
+    }
+    h+='</div><div class="hint" style="margin-top:8px">These are the recordable cases Origin logged for this client. Column follows 29 CFR 1904.7 (G death \u203a H days-away \u203a I restricted \u203a J other). Privacy-concern cases show as \u201cPrivacy Case\u201d per 1904.29(b)(7).</div></div>';
+  }
+
   h+='<div class="section-title">Available to request (upsell)</div><div class="card"><div id="availList">';
   (c.available||[]).forEach(function(x,i){h+=availRow(x,i);});
   h+='</div><button class="btn ghost sm" onclick="addAvail()">+ Add requestable program</button></div>';
@@ -369,6 +394,9 @@ function saveClient(){
 }
 function delClient(){if(!CUR.slug||!confirm('Delete '+CUR.company+'? This removes their portal access and documents.'))return;
   api('/portal/api/admin/client/'+CUR.slug+'/delete',{method:'POST'}).then(function(){CUR=null;loadClients();document.getElementById('editor').innerHTML='';});}
+function del300(caseNo){if(!CUR.slug||!confirm('Remove case #'+caseNo+' from this client\u2019s 300 Log?'))return;
+  api('/portal/api/admin/client/'+CUR.slug+'/300log/delete',{method:'POST',body:{case_no:caseNo}}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Could not remove');return;}pick(CUR.slug);});}
 function uploadDoc(name){
   var inp=document.createElement('input');inp.type='file';
   inp.onchange=function(){var f=inp.files[0];if(!f)return;var fd=new FormData();fd.append('file',f);fd.append('name',name);

@@ -906,6 +906,98 @@ def register_portal(app) -> None:
         save_client(rec)
         return {"ok": True, "report": report}
 
+    @app.post("/portal/api/admin/client/{slug}/300log")
+    def admin_300log_add(slug: str, request: Request, body: dict = Body(...)):
+        """Run a recordability determination and, if the case is recordable,
+        append it to THIS client's OSHA 300 Log. The engine makes the 1904 call
+        (work-related? new case? recordable? which column? report to OSHA?) — this
+        route just writes the verdict onto the client's log so Chris never has to
+        re-key it. Body carries the recordability `facts` plus a little case
+        metadata (employee, job_title, description, incident_date, location)."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        try:
+            from . import recordability as _rec
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"recordability engine unavailable: {exc}"},
+                                status_code=500)
+        facts = body.get("facts")
+        if not isinstance(facts, dict):
+            return JSONResponse({"error": "missing recordability facts"}, status_code=400)
+        try:
+            det = _rec.evaluate(facts)
+        except Exception as exc:
+            return JSONResponse({"error": f"determination failed: {exc}"}, status_code=400)
+
+        # Only recordable cases belong on the 300 Log. If the engine still needs
+        # info, or found the case not recordable, hand the verdict back instead of
+        # writing a bad row — the caller can show it and fix the inputs.
+        if det.get("recordable") is not True:
+            return JSONResponse(
+                {"error": "not logged — this case is not recordable (or still needs info).",
+                 "determination": det}, status_code=422)
+
+        log = rec.setdefault("osha_300_log", [])
+        case_no = (max((c.get("case_no", 0) for c in log), default=0) or 0) + 1
+        # 1904.29(b)(6)-(9): privacy-concern cases must NOT name the employee on
+        # the log — store "Privacy Case" for display, keep the real name only in a
+        # separate, restricted field the client keeps off the public log.
+        privacy = bool(det.get("privacy_case"))
+        real_name = (body.get("employee") or "").strip()
+        case = {
+            "case_no": case_no,
+            "incident_date": (body.get("incident_date") or "").strip(),
+            "employee": "Privacy Case" if privacy else real_name,
+            "job_title": (body.get("job_title") or "").strip(),
+            "location": (body.get("location") or "").strip(),
+            "description": (body.get("description") or "").strip(),
+            "column": det.get("column"),
+            "column_label": det.get("column_label"),
+            "case_type": det.get("case_type"),
+            "days_away": det.get("days_away"),
+            "restricted_days": det.get("restricted_days"),
+            "privacy_case": privacy,
+            "reporting": det.get("reporting") or {},
+            "summary": det.get("summary"),
+            "basis": det.get("steps") or [],
+            "logged_at": _now(),
+        }
+        if privacy and real_name:
+            # 1904.29(b)(7): keep a separate confidential list of the names left
+            # off the log, so the employer can still tie the case back if needed.
+            rec.setdefault("osha_300_privacy_list", []).append(
+                {"case_no": case_no, "employee": real_name})
+        log.append(case)
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "case": case, "determination": det,
+                "log_count": len(log)}
+
+    @app.post("/portal/api/admin/client/{slug}/300log/delete")
+    def admin_300log_delete(slug: str, request: Request, body: dict = Body(...)):
+        """Remove one case from a client's 300 Log by case_no (a mis-keyed or
+        superseded entry). Also drops any matching confidential privacy-list row."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        try:
+            case_no = int(body.get("case_no"))
+        except Exception:
+            return JSONResponse({"error": "case_no required"}, status_code=400)
+        log = rec.get("osha_300_log", [])
+        rec["osha_300_log"] = [c for c in log if c.get("case_no") != case_no]
+        if "osha_300_privacy_list" in rec:
+            rec["osha_300_privacy_list"] = [
+                p for p in rec["osha_300_privacy_list"] if p.get("case_no") != case_no]
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "log_count": len(rec["osha_300_log"])}
+
     @app.post("/portal/api/admin/client/{slug}/draft")
     def admin_draft(slug: str, request: Request, body: dict = Body(...)):
         """Build the missing/failing written programs Origin identified and,

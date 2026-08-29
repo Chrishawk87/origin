@@ -176,6 +176,48 @@ def _stub_from_id(sid: str, why: str, source: str) -> Optional[Dict[str, Any]]:
     }
 
 
+def triggered_standards(industry: str, state: Optional[str],
+                        activities: Any) -> List[Dict[str, Any]]:
+    """
+    Resolve ONLY the activity-triggered standard stubs for a given trade —
+    without the NAICS baseline. This is what the Gap Finder unions on top of its
+    own baseline so a company profile drives the analysis.
+
+    `activities` may be a list of trigger keys or a {key: bool} dict.
+    Each stub carries `why`, `source="triggered"`, and the `trigger` key.
+    """
+    selected: set = set()
+    if isinstance(activities, dict):
+        selected = {k for k, v in activities.items() if v}
+    elif isinstance(activities, (list, tuple, set)):
+        selected = set(activities)
+    if not selected:
+        return []
+
+    base = kb.naics_applicable((industry or "").strip(), state=state)
+    is_construction = (base.get("sector") == "23")
+
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for key in selected:
+        t = _TRIGGER_BY_KEY.get(key)
+        if not t:
+            continue
+        sid = (t.get("con") if (is_construction and t.get("con")) else (t.get("gi") or t.get("con")))
+        if not sid or sid in seen:
+            continue
+        stub = _stub_from_id(
+            sid,
+            f"Triggered because the company reported: {t['category'].lower()} activity",
+            "triggered",
+        )
+        if stub:
+            stub["trigger"] = key
+            out.append(stub)
+            seen.add(sid)
+    return out
+
+
 def _recordkeeping_obligation(naics: str, headcount: Optional[int]) -> Dict[str, Any]:
     """
     29 CFR 1904.1 (size) and 1904.2 (industry) partial exemptions.

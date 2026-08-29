@@ -296,11 +296,17 @@ def find_gaps(
     state: Optional[str] = None,
     operators: Optional[List[str]] = None,
     docs: Optional[List[Dict[str, str]]] = None,
+    activities: Optional[List[str]] = None,
 ) -> dict:
     """Compute the full gap report.
 
     ``docs`` is a list of ``{"name": <filename>, "text": <extracted text>}``.
     (The route extracts the text; the engine stays pure so it's easy to test.)
+
+    ``activities`` is an optional list of company-scoping trigger keys (from
+    scoping.TRIGGERS — confined space, forklifts, silica, etc.). When supplied,
+    the standards those activities trigger are unioned into the required set so
+    the analysis reflects what THIS company actually does, not just the trade.
     """
     docs = docs or []
 
@@ -336,6 +342,31 @@ def find_gaps(
             flagged_by_id[sid] = it
 
     required, meta = _required_set(industry, state, operators)
+
+    # Company scoping: union the standards the company's actual activities
+    # trigger (forklifts, confined space, silica, ...) on top of the trade
+    # baseline, so the gap set is company-specific, not just trade-typical.
+    scoped_meta: List[dict] = []
+    if activities:
+        try:
+            from . import scoping as _scoping
+            have = {s["id"] for s in required}
+            for stub in _scoping.triggered_standards(industry, state, activities):
+                scoped_meta.append({"trigger": stub.get("trigger"),
+                                    "id": stub["id"], "title": stub.get("title", ""),
+                                    "citation": stub.get("citation", "")})
+                if stub["id"] not in have:
+                    required.append({
+                        "id": stub["id"], "title": stub.get("title", ""),
+                        "citation": stub.get("citation", ""),
+                        "category": stub.get("category", ""),
+                        "written_program": stub.get("written_program", ""),
+                    })
+                    have.add(stub["id"])
+        except Exception:
+            pass
+    meta["activities"] = list(activities or [])
+    meta["scoped_triggered"] = scoped_meta
 
     # A platform can flag a standard that the trade baseline didn't surface —
     # union those in so a confirmed deficiency is never silently dropped.

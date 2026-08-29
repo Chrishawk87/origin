@@ -1228,6 +1228,11 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         ops_raw = (form.get("operators") or "").strip()
         operators = [o.strip() for o in ops_raw.split(",") if o.strip()] or None
         contractor = (form.get("contractor") or "").strip()
+        # Company-scoping activity triggers (comma-separated keys or repeated field).
+        acts = form.getlist("activities")
+        if len(acts) == 1 and "," in acts[0]:
+            acts = [a.strip() for a in acts[0].split(",")]
+        activities = [a.strip() for a in acts if a and a.strip()] or None
         if not industry:
             return JSONResponse({"error": "industry is required"}, status_code=400)
 
@@ -1247,7 +1252,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                 text = _gaps.extract_text(str(dest))
                 docs.append({"name": f.filename, "text": text})
 
-        report = _gaps.find_gaps(industry, state=state, operators=operators, docs=docs)
+        report = _gaps.find_gaps(industry, state=state, operators=operators,
+                                 docs=docs, activities=activities)
         # If a contractor name was given, snapshot this analysis onto the
         # dashboard (preserving any manual status dots already set).
         if contractor:
