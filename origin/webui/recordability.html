@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recordability Advisor — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:880px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  .q{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;background:#fff}
+  .q.hidden{display:none}
+  .q .qt{font-weight:700;color:var(--charcoal);font-size:15px}
+  .q .help{font-size:12.5px;color:var(--grey);margin-top:4px}
+  .opts{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+  .opt{border:1.5px solid var(--line);border-radius:8px;padding:9px 15px;font-size:14px;cursor:pointer;background:#fff;color:var(--ink);transition:.1s}
+  .opt:hover{border-color:var(--orange)}
+  .opt.sel{background:var(--orange);border-color:var(--orange);color:#fff;font-weight:700}
+  .opt.sel.no{background:var(--charcoal);border-color:var(--charcoal)}
+  select,input[type=number]{width:100%;max-width:360px;padding:11px;border:1.5px solid var(--line);border-radius:8px;font-size:15px;color:var(--ink);background:#fff;margin-top:10px}
+  select:focus,input:focus{outline:none;border-color:var(--orange)}
+  .checks{margin-top:10px;display:grid;gap:6px}
+  .chk{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;cursor:pointer;background:#fff}
+  .chk:hover{border-color:var(--orange)}
+  .chk input{margin-top:3px}
+  .chk.beyond{border-left:4px solid var(--amber)}
+  .chk.firstaid{border-left:4px solid var(--green)}
+  .grouplbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--grey);margin:12px 0 2px}
+  .btn{appearance:none;border:0;border-radius:8px;padding:13px 24px;font-size:15px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff;margin-top:22px}
+  .btn:hover{background:var(--red)}
+  .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line);margin-left:8px}
+  .btn.ghost:hover{border-color:var(--orange);background:var(--cream)}
+  .sectlbl{font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:26px 0 4px;border-bottom:1px solid var(--line);padding-bottom:6px;font-weight:800}
+  /* verdict */
+  .verdict{border-radius:12px;padding:20px 22px;margin:8px 0 16px;color:#fff}
+  .verdict.yes{background:var(--red)}
+  .verdict.no{background:var(--green)}
+  .verdict.need{background:var(--charcoal)}
+  .verdict .big{font-size:20px;font-weight:800}
+  .verdict .sub{font-size:14px;opacity:.95;margin-top:6px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 16px}
+  .badge{border-radius:8px;padding:8px 13px;font-size:13px;font-weight:700;background:var(--light);color:var(--charcoal)}
+  .badge b{color:var(--orange)}
+  .badge.col{background:var(--charcoal);color:#fff}
+  .badge.rep{background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange)}
+  .trail{margin-top:6px}
+  .trail .st{border:1px solid var(--line);border-left:5px solid var(--orange);border-radius:9px;padding:12px 15px;margin-bottom:9px;background:#fff}
+  .trail .st .sh{font-weight:700;color:var(--charcoal);font-size:14px}
+  .trail .st .sr{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;background:var(--charcoal);color:#fff;border-radius:5px;padding:2px 8px;margin-left:8px}
+  .trail .st .sb{font-size:13.5px;color:var(--ink);margin-top:7px}
+  .trail .st .sc{font-size:12px;color:var(--grey);margin-top:6px;font-weight:600}
+  .needbox{background:var(--cream);border:1px solid var(--orange);border-radius:9px;padding:12px 15px;font-size:13.5px;color:var(--charcoal);margin-top:8px}
+  .disc{font-size:11.5px;color:var(--grey);margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
+  .hidden{display:none}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a href="/" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Home</a><span class="tag">Recordability Advisor · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+      <div id="intake">
+        <h1>Is this incident OSHA recordable?</h1>
+        <p class="lede">Answer the questions about one injury or illness. Origin applies 29 CFR 1904 — work-relatedness, new-case, and the general recording criteria — and tells you whether to log it, which OSHA 300 column, and whether OSHA must be notified. Every answer shows the rule it rests on.</p>
+        <div id="questions"></div>
+        <button class="btn" id="go">Determine recordability</button>
+        <button class="btn ghost" id="reset" type="button">Reset</button>
+        <div class="disc">This tool applies the recordkeeping rules to the facts you enter. It is decision support, not a substitute for the employer's own recordkeeping judgment or a physician/PLHCP's medical opinion.</div>
+      </div>
+
+      <div id="result" class="hidden">
+        <div id="verdict"></div>
+        <div id="badges" class="badges"></div>
+        <div class="sectlbl">How Origin decided</div>
+        <div id="trail" class="trail"></div>
+        <div id="needwrap"></div>
+        <button class="btn ghost" id="again" type="button" style="margin-left:0">← Start another case</button>
+      </div>
+    </div>
+    <footer class="foot">Origin · 29 CFR 1904 recordability &amp; reporting</footer>
+  </div>
+</div>
+
+<script>
+let SCHEMA = null;
+const facts = {};
+
+const qEl = document.getElementById('questions');
+
+function yesno(id){
+  return `<div class="opts" data-for="${id}">
+     <div class="opt" data-v="yes" onclick="pick('${id}','yes',this)">Yes</div>
+     <div class="opt no" data-v="no" onclick="pick('${id}','no',this)">No</div>
+   </div>`;
+}
+function pick(id,v,el){
+  facts[id] = v;
+  const box = el.parentElement;
+  [...box.children].forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  applyConditionals();
+}
+function pickSelect(id,el){ facts[id]=el.value||undefined; applyConditionals(); }
+function setNum(id,el){ const n=parseInt(el.value,10); facts[id]=isNaN(n)?undefined:n; }
+function toggleTx(key,el){
+  const cur = new Set(facts.treatments||[]);
+  if(el.checked) cur.add(key); else cur.delete(key);
+  facts.treatments=[...cur];
+}
+
+function render(){
+  const s=SCHEMA;
+  let h='';
+  const bySection = [
+    ['The case', ['is_injury_or_illness','work_related','exception','new_case']],
+    ['Outcome & treatment (29 CFR 1904.7)', ['death','days_away','days_away_count','restricted_or_transfer','restricted_count','loss_of_consciousness','significant_diagnosis','treatments','case_type']],
+    ['Severe-event reporting (29 CFR 1904.39)', ['hospitalized_inpatient','amputation','loss_of_eye']],
+    ['Recordkeeping', ['privacy_concern']],
+  ];
+  const qmap={}; s.questions.forEach(q=>qmap[q.id]=q);
+  bySection.forEach(([title,ids])=>{
+    h+=`<div class="sectlbl">${title}</div>`;
+    ids.forEach(id=>{ const q=qmap[id]; if(q) h+=qhtml(q,s); });
+  });
+  qEl.innerHTML=h;
+  applyConditionals();
+}
+
+function qhtml(q,s){
+  let inner='';
+  if(q.type==='yesno') inner=yesno(q.id);
+  else if(q.type==='select'){
+    inner=`<div class="opts" data-for="${q.id}">`+
+      q.options.map(o=>`<div class="opt" data-v="${o.key}" onclick="pick('${q.id}','${o.key}',this)">${o.label}</div>`).join('')+`</div>`;
+  }
+  else if(q.type==='select_exception'){
+    inner=`<select onchange="pickSelect('exception',this)"><option value="">— choose the exception —</option>`+
+      s.exceptions.map(e=>`<option value="${e.key}">${e.label}</option>`).join('')+`</select>`;
+  }
+  else if(q.type==='select_case_type'){
+    inner=`<select onchange="pickSelect('case_type',this)">`+
+      s.case_types.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')+`</select>`;
+  }
+  else if(q.type==='number'){
+    inner=`<input type="number" min="0" max="180" placeholder="days" oninput="setNum('${q.id}',this)">`;
+  }
+  else if(q.type==='multi_treatment'){
+    inner=`<div class="grouplbl">First aid — does NOT by itself make a case recordable</div><div class="checks">`+
+      s.first_aid.map(t=>`<label class="chk firstaid"><input type="checkbox" onchange="toggleTx('${t.key}',this)"><span>${t.label}</span></label>`).join('')+
+      `</div><div class="grouplbl">Beyond first aid — makes the case recordable</div><div class="checks">`+
+      s.beyond_first_aid.map(t=>`<label class="chk beyond"><input type="checkbox" onchange="toggleTx('${t.key}',this)"><span>${t.label}</span></label>`).join('')+
+      `</div>`;
+  }
+  const help=q.help?`<div class="help">${q.help}</div>`:'';
+  return `<div class="q" id="q_${q.id}" data-showif='${q.show_if?JSON.stringify(q.show_if):""}'>
+     <div class="qt">${q.q}</div>${help}${inner}</div>`;
+}
+
+function applyConditionals(){
+  document.querySelectorAll('.q[data-showif]').forEach(el=>{
+    const raw=el.getAttribute('data-showif'); if(!raw){return;}
+    let cond; try{cond=JSON.parse(raw);}catch(e){return;}
+    let show=true;
+    for(const k in cond){
+      let want=cond[k], got=facts[k];
+      if(want===true) want='yes'; if(want===false) want='no';
+      if(String(got)!==String(want)) show=false;
+    }
+    el.classList.toggle('hidden',!show);
+  });
+}
+
+async function determine(){
+  const r=await fetch('/api/recordability/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(facts)});
+  const d=await r.json();
+  showResult(d);
+}
+
+function showResult(d){
+  document.getElementById('intake').classList.add('hidden');
+  const res=document.getElementById('result'); res.classList.remove('hidden');
+  window.scrollTo(0,0);
+
+  const v=document.getElementById('verdict');
+  let cls,big;
+  if(d.needs && d.needs.length){ cls='need'; big='More information needed'; }
+  else if(d.recordable===true){ cls='yes'; big='RECORDABLE'; }
+  else { cls='no'; big='NOT recordable'; }
+  v.className='verdict '+cls;
+  v.innerHTML=`<div class="big">${big}</div><div class="sub">${d.summary||''}</div>`;
+
+  const b=document.getElementById('badges'); b.innerHTML='';
+  if(d.column){ b.innerHTML+=`<div class="badge col">OSHA 300 · Column ${d.column} — ${d.column_label}</div>`; }
+  if(d.days_away!=null){ b.innerHTML+=`<div class="badge">Days away: <b>${d.days_away}</b></div>`; }
+  if(d.restricted_days!=null){ b.innerHTML+=`<div class="badge">Restricted days: <b>${d.restricted_days}</b></div>`; }
+  if(d.reporting && d.reporting.required){
+    b.innerHTML+=`<div class="badge rep">⚠ Report to OSHA within ${d.reporting.deadline_hours}h — ${d.reporting.reason}</div>`;
+  }
+  if(d.privacy_case && d.recordable){ b.innerHTML+=`<div class="badge">Privacy case — omit name on 300 Log</div>`; }
+
+  const t=document.getElementById('trail'); t.innerHTML='';
+  (d.steps||[]).forEach(s=>{
+    t.innerHTML+=`<div class="st"><div><span class="sh">${s.step}</span><span class="sr">${s.result}</span></div>
+      <div class="sb">${s.basis}</div><div class="sc">${s.citation}</div></div>`;
+  });
+
+  const nw=document.getElementById('needwrap');
+  if(d.needs && d.needs.length){
+    nw.innerHTML=`<div class="needbox">Answer these to finalize: <b>${d.needs.join(', ')}</b>. Go back and complete them.</div>`;
+  } else { nw.innerHTML=''; }
+}
+
+function resetAll(){
+  for(const k in facts) delete facts[k];
+  render();
+  document.getElementById('result').classList.add('hidden');
+  document.getElementById('intake').classList.remove('hidden');
+}
+
+document.getElementById('go').onclick=determine;
+document.getElementById('reset').onclick=resetAll;
+document.getElementById('again').onclick=resetAll;
+
+fetch('/api/recordability/schema').then(r=>r.json()).then(s=>{SCHEMA=s;render();});
+</script>
+</body>
+</html>

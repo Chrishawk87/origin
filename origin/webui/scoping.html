@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company Scoping — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:900px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  label.fld{display:block;font-weight:700;color:var(--charcoal);font-size:14px;margin:14px 0 6px}
+  .help{font-size:12.5px;color:var(--grey);margin-top:3px;font-weight:400}
+  input[type=text],input[type=number]{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:8px;font-size:15px;color:var(--ink);background:#fff}
+  input:focus{outline:none;border-color:var(--orange)}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .row > div{flex:1;min-width:180px}
+  .sectlbl{font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px;font-weight:800}
+  .trigs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media(max-width:640px){.trigs{grid-template-columns:1fr}}
+  .trig{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:#fff}
+  .trig:hover{border-color:var(--orange)}
+  .trig.on{border-color:var(--orange);background:var(--cream)}
+  .trig input{margin-top:3px}
+  .trig .cat{font-weight:700;color:var(--charcoal)}
+  .trig .cit{font-size:11px;color:var(--grey)}
+  .btn{appearance:none;border:0;border-radius:8px;padding:13px 24px;font-size:15px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff;margin-top:22px}
+  .btn:hover{background:var(--red)}
+  .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line);margin-left:8px}
+  .btn.ghost:hover{border-color:var(--orange);background:var(--cream)}
+  /* results */
+  .summary{background:var(--charcoal);color:#fff;border-radius:11px;padding:18px 20px;margin:6px 0 16px}
+  .summary .h{font-size:17px;font-weight:800}
+  .summary .s{font-size:13.5px;color:#C9CED6;margin-top:6px}
+  .rkbox{border-radius:10px;padding:14px 16px;margin:6px 0 16px;font-size:14px}
+  .rkbox.yes{background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange)}
+  .rkbox.no{background:#12301F;color:#DDEFE4;border:1px solid var(--green)}
+  .rkbox .rh{font-weight:800;text-transform:uppercase;letter-spacing:.5px;font-size:12px;margin-bottom:5px}
+  .rkbox .note{font-size:12.5px;opacity:.9;margin-top:6px}
+  .rkbox .cit{font-size:11.5px;opacity:.75;margin-top:6px}
+  .std{border:1px solid var(--line);border-left:5px solid var(--green);border-radius:9px;padding:12px 15px;margin-bottom:9px;background:#fff}
+  .std.trig{border-left-color:var(--orange)}
+  .std .t{font-weight:700;color:var(--charcoal);font-size:14.5px}
+  .std .c{font-size:12px;color:var(--grey)}
+  .std .w{font-size:12.5px;color:var(--ink);margin-top:6px}
+  .badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;border-radius:5px;padding:2px 8px;color:#fff;float:right}
+  .badge.base{background:var(--green)} .badge.trig{background:var(--orange)}
+  .wp{display:inline-block;font-size:10px;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:5px;padding:1px 7px;margin-left:6px}
+  .disc{font-size:11.5px;color:var(--grey);margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
+  .hidden{display:none}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a href="/" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Home</a><span class="tag">Company Scoping · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+      <div id="intake">
+        <h1>Scope a company's real compliance requirements</h1>
+        <p class="lede">The trade tells you what a typical firm needs. This tells you what <b>this</b> company needs. Enter the trade, size, and what they actually do — Origin resolves the tailored required-standard set, flags what's triggered by their activities, and tells you whether they even have to keep a 300 Log.</p>
+
+        <div class="sectlbl">Company</div>
+        <div class="row">
+          <div><label class="fld">Company name</label><input type="text" id="company" placeholder="e.g. ABC Mechanical" autocomplete="off"></div>
+          <div><label class="fld">State <span class="help">(optional)</span></label><input type="text" id="state" placeholder="TX" maxlength="2" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label class="fld">Industry / trade</label><input type="text" id="industry" placeholder="e.g. industrial coating contractor" autocomplete="off"></div>
+          <div><label class="fld">NAICS code <span class="help">(optional)</span></label><input type="text" id="naics" placeholder="e.g. 238320" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label class="fld">Max employees at any time last year</label><input type="number" id="headcount" min="0" placeholder="e.g. 25"><div class="help">Drives the small-employer 300-Log exemption (≤10).</div></div>
+          <div><label class="fld">Operators / hiring clients <span class="help">(optional)</span></label><input type="text" id="operators" placeholder="ExxonMobil, Chevron" autocomplete="off"></div>
+        </div>
+
+        <div class="sectlbl">What does the company actually do? <span class="help" style="text-transform:none;letter-spacing:0;color:var(--grey)">(check all that apply — each pulls in the standard it triggers)</span></div>
+        <div class="trigs" id="trigs"></div>
+
+        <button class="btn" id="go">Resolve requirements</button>
+        <button class="btn ghost" id="reset" type="button">Reset</button>
+        <div class="disc">Scoping is decision support. Confirm exposure determinations (silica, lead, noise, PSM thresholds) with monitoring/assessment data before finalizing a company's written program set.</div>
+      </div>
+
+      <div id="result" class="hidden">
+        <div id="summary"></div>
+        <div id="rk"></div>
+        <div class="sectlbl">Required standards for this company</div>
+        <div id="stds"></div>
+        <button class="btn ghost" id="again" type="button" style="margin-left:0">← Scope another company</button>
+      </div>
+    </div>
+    <footer class="foot">Origin · company-specific compliance scoping</footer>
+  </div>
+</div>
+
+<script>
+let SCHEMA=null;
+const state={activities:new Set()};
+
+function renderTrigs(){
+  const el=document.getElementById('trigs');
+  el.innerHTML=SCHEMA.triggers.map(t=>`
+    <label class="trig" id="tr_${t.key}">
+      <input type="checkbox" onchange="toggleTrig('${t.key}',this)">
+      <span><span class="cat">${t.category}</span><br><span class="cit">${t.citation}</span></span>
+    </label>`).join('');
+}
+function toggleTrig(key,el){
+  if(el.checked) state.activities.add(key); else state.activities.delete(key);
+  document.getElementById('tr_'+key).classList.toggle('on',el.checked);
+}
+
+async function resolve(){
+  const body={
+    company:val('company'), industry:val('industry'), naics:val('naics'),
+    state:val('state'), headcount:val('headcount'), operators:val('operators'),
+    activities:[...state.activities],
+  };
+  const r=await fetch('/api/scoping/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  show(await r.json());
+}
+function val(id){return document.getElementById(id).value.trim();}
+
+function show(d){
+  document.getElementById('intake').classList.add('hidden');
+  const res=document.getElementById('result'); res.classList.remove('hidden'); window.scrollTo(0,0);
+
+  const label=d.sector_label||d.industry||'this company';
+  document.getElementById('summary').innerHTML=`<div class="summary">
+     <div class="h">${d.company||'Company'} — ${d.required_count} required standard${d.required_count===1?'':'s'}</div>
+     <div class="s">${label}${d.state?' · '+d.state:''}${d.headcount!=null?' · '+d.headcount+' employees':''} · ${d.baseline_count} from the trade baseline, ${d.triggered_count} triggered by reported activities.</div>
+   </div>`;
+
+  const rk=d.recordkeeping||{};
+  document.getElementById('rk').innerHTML=`<div class="rkbox ${rk.must_keep_300_log?'yes':'no'}">
+     <div class="rh">${rk.must_keep_300_log?'✔ Must keep the OSHA 300 Log':'○ Partially exempt from routine recordkeeping'}</div>
+     <div>${rk.reason||''}</div>
+     ${rk.note?`<div class="note">${rk.note}</div>`:''}
+     <div class="cit">${rk.citation||''}</div>
+   </div>`;
+
+  document.getElementById('stds').innerHTML=(d.required_standards||[]).map(s=>{
+    const trig=s.source==='triggered';
+    const wp=(s.written_program||'').toLowerCase();
+    const wpTag=(wp==='yes'||wp==='conditional')?`<span class="wp">written program</span>`:'';
+    return `<div class="std ${trig?'trig':''}">
+      <span class="badge ${trig?'trig':'base'}">${trig?'triggered':'baseline'}</span>
+      <div class="t">${s.title}${wpTag}</div>
+      <div class="c">${s.citation||''}</div>
+      <div class="w">${s.why||''}</div>
+    </div>`;
+  }).join('');
+}
+
+function resetAll(){
+  state.activities.clear();
+  ['company','industry','naics','state','headcount','operators'].forEach(id=>document.getElementById(id).value='');
+  renderTrigs();
+  document.getElementById('result').classList.add('hidden');
+  document.getElementById('intake').classList.remove('hidden');
+}
+
+document.getElementById('go').onclick=resolve;
+document.getElementById('reset').onclick=resetAll;
+document.getElementById('again').onclick=resetAll;
+
+fetch('/api/scoping/schema').then(r=>r.json()).then(s=>{SCHEMA=s;renderTrigs();});
+</script>
+</body>
+</html>

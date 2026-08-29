@@ -1163,6 +1163,48 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
 
     gaps_html = Path(__file__).parent / "webui" / "gaps.html"
     dashboard_html = Path(__file__).parent / "webui" / "dashboard.html"
+    recordability_html = Path(__file__).parent / "webui" / "recordability.html"
+
+    # ── Recordability Advisor (29 CFR 1904) — internal tool ────────────────
+    from . import recordability as _rec
+
+    @app.get("/recordability", response_class=HTMLResponse)
+    def recordability_page():
+        if recordability_html.is_file():
+            return recordability_html.read_text(encoding="utf-8")
+        return "<h1>Recordability Advisor</h1><p>Tool page missing.</p>"
+
+    @app.get("/api/recordability/schema")
+    def recordability_schema():
+        return _rec.intake_schema()
+
+    @app.post("/api/recordability/evaluate")
+    def recordability_evaluate(body: dict = Body(...)):
+        try:
+            return _rec.evaluate(body or {})
+        except Exception as e:  # never 500 on a bad-facts payload
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    # ── Company Scoping (tailored required-standard set) — internal tool ────
+    from . import scoping as _scoping
+    scoping_html = Path(__file__).parent / "webui" / "scoping.html"
+
+    @app.get("/scoping", response_class=HTMLResponse)
+    def scoping_page():
+        if scoping_html.is_file():
+            return scoping_html.read_text(encoding="utf-8")
+        return "<h1>Company Scoping</h1><p>Tool page missing.</p>"
+
+    @app.get("/api/scoping/schema")
+    def scoping_schema():
+        return _scoping.intake_schema()
+
+    @app.post("/api/scoping/resolve")
+    def scoping_resolve(body: dict = Body(...)):
+        try:
+            return _scoping.scope_company(body or {})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
 
     @app.get("/gaps", response_class=HTMLResponse)
     def gaps_page():
