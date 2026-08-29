@@ -112,6 +112,7 @@
         <label class="fld">Operators / hiring clients <span class="muted">(optional, comma-separated)</span></label>
         <input type="text" id="operators" placeholder="e.g. ExxonMobil, Chevron" autocomplete="off">
         <label class="fld">What does this company actually do? <span class="muted">(optional — each pulls in the standard it triggers)</span></label>
+        <div id="actnote" class="muted" style="font-size:12px;color:var(--orange,#c60);margin:2px 0 4px"></div>
         <div id="activities" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px"></div>
         <label class="fld">Documents</label>
         <div class="drop" id="drop">Drop files here or click to choose — PDF, Word, images, or text</div>
@@ -163,10 +164,50 @@ let CHOSEN=[];
       return `<label title="${esc(a.q||'')}" style="display:flex;gap:6px;align-items:center;font-size:13px;font-weight:400;cursor:pointer">`
         +`<input type="checkbox" class="actck" value="${esc(key)}"> ${esc(label)}</label>`;
     }).join('');
+    // Once the boxes exist, react to the trade the user types: pre-check the
+    // activities that trade usually involves so the gap run starts smarter.
+    wireTradeSuggest();
   }catch(e){ $('activities').style.display='none'; }
 })();
 function selectedActivities(){
   return Array.from(document.querySelectorAll('.actck:checked')).map(c=>c.value);
+}
+
+// ── pre-check the boxes that match the typed trade (e.g. "roofing") ──────────
+let SUGGEST_TIMER=null, LAST_SUGGEST_KEYS=[];
+function wireTradeSuggest(){
+  const ind=$('industry');
+  if(!ind) return;
+  const run=()=>{
+    const v=ind.value.trim();
+    if(!v){ return; }
+    fetch('/api/scoping/suggest?industry='+encodeURIComponent(v),{headers:TOKEN?{'X-Origin-Token':TOKEN}:{}})
+      .then(r=>r.json()).then(d=>applySuggested(d.suggested||[])).catch(()=>{});
+  };
+  ind.addEventListener('input',()=>{ clearTimeout(SUGGEST_TIMER); SUGGEST_TIMER=setTimeout(run,450); });
+  ind.addEventListener('blur',run);
+}
+function applySuggested(keys){
+  // Only auto-toggle boxes the user hasn't hand-set. We track the last set of
+  // suggested keys: clear the ones we previously auto-checked (if still auto),
+  // then check the new suggestions. Boxes the user manually ticked are left alone.
+  const boxes=document.querySelectorAll('.actck');
+  boxes.forEach(b=>{
+    const wasAuto=b.getAttribute('data-auto')==='1';
+    if(LAST_SUGGEST_KEYS.includes(b.value) && wasAuto && !keys.includes(b.value)){
+      b.checked=false; b.removeAttribute('data-auto');
+    }
+  });
+  keys.forEach(k=>{
+    const b=Array.from(boxes).find(x=>x.value===k);
+    if(b && !b.checked){ b.checked=true; b.setAttribute('data-auto','1'); }
+  });
+  // if the user unchecks an auto box, stop treating it as auto
+  boxes.forEach(b=>{ if(!b.dataset.bound){ b.dataset.bound='1';
+    b.addEventListener('change',()=>{ if(!b.checked) b.removeAttribute('data-auto'); else if(!b.getAttribute('data-auto')) {} }); } });
+  LAST_SUGGEST_KEYS=keys.slice();
+  const note=$('actnote');
+  if(note){ note.textContent = keys.length ? 'Pre-checked what this trade usually involves — adjust as needed.' : ''; }
 }
 
 const drop=$('drop'), fileInput=$('files');

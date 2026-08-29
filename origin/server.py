@@ -1206,6 +1206,14 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=400)
 
+    @app.get("/api/scoping/suggest")
+    def scoping_suggest(industry: str = ""):
+        # Which activity checkboxes should the Gap Finder pre-check for this trade?
+        try:
+            return _scoping.suggest_activities(industry)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     @app.get("/gaps", response_class=HTMLResponse)
     def gaps_page():
         if gaps_html.is_file():

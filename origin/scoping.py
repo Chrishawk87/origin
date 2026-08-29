@@ -127,6 +127,96 @@ TRIGGERS: List[Dict[str, Any]] = [
 ]
 _TRIGGER_BY_KEY = {t["key"]: t for t in TRIGGERS}
 
+# ─────────────────────────── trade → likely activities ───────────────────────
+# Given the free-text industry/trade a user types (e.g. "roofing", "commercial
+# electrical contractor"), which activity triggers are LIKELY to apply? These
+# are suggestions the Gap Finder pre-checks so the analysis starts with better
+# information — the user can always uncheck one or add others. Deliberately a
+# little over-inclusive ("extra boxes just in case"): a pre-checked box the user
+# clears costs nothing, a missed hazard costs a citation. Keys must exist in
+# TRIGGERS. Matching is case-insensitive substring on the industry text, so
+# "electrical & mechanical contractor" matches both "electrical" and "mechanical".
+TRADE_ACTIVITY_HINTS = {
+    "roof":            ["fall_exposure", "hot_work", "silica", "respirators"],
+    "electric":        ["electrical", "loto", "fall_exposure", "confined_space", "cranes_rigging"],
+    "plumb":           ["confined_space", "hot_work", "silica", "excavation", "loto"],
+    "hvac":            ["hot_work", "confined_space", "loto", "fall_exposure", "respirators"],
+    "mechanical":      ["hot_work", "confined_space", "loto", "cranes_rigging", "respirators", "fall_exposure"],
+    "concrete":        ["silica", "cranes_rigging", "fall_exposure", "noise"],
+    "mason":           ["silica", "fall_exposure", "noise", "cranes_rigging"],
+    "paint":           ["respirators", "silica", "lead", "confined_space", "fall_exposure"],
+    "coat":            ["respirators", "silica", "lead", "confined_space", "fall_exposure", "hazwoper"],
+    "blast":           ["respirators", "silica", "lead", "noise", "confined_space"],
+    "weld":            ["hot_work", "respirators", "cranes_rigging", "noise", "loto"],
+    "fabricat":        ["hot_work", "respirators", "cranes_rigging", "noise", "loto", "forklifts"],
+    "demolition":      ["silica", "lead", "asbestos", "fall_exposure", "noise", "hazwoper", "excavation"],
+    "demo":            ["silica", "lead", "asbestos", "fall_exposure", "noise", "excavation"],
+    "excavat":         ["excavation", "cranes_rigging", "silica", "noise"],
+    "earthwork":       ["excavation", "cranes_rigging", "silica", "noise"],
+    "grading":         ["excavation", "silica", "noise"],
+    "trench":          ["excavation", "confined_space", "silica"],
+    "scaffold":        ["fall_exposure", "cranes_rigging"],
+    "insulation":      ["asbestos", "respirators", "fall_exposure", "silica"],
+    "drywall":         ["silica", "fall_exposure", "noise"],
+    "glaz":            ["fall_exposure", "cranes_rigging"],
+    "glass":           ["fall_exposure", "cranes_rigging"],
+    "steel":           ["fall_exposure", "cranes_rigging", "hot_work", "noise"],
+    "iron":            ["fall_exposure", "cranes_rigging", "hot_work", "noise"],
+    "erect":           ["fall_exposure", "cranes_rigging", "hot_work"],
+    "oil":             ["hot_work", "confined_space", "psm", "hazwoper", "respirators", "fall_exposure", "loto"],
+    "gas":             ["hot_work", "confined_space", "psm", "hazwoper", "respirators", "fall_exposure", "loto"],
+    "well":            ["hot_work", "confined_space", "hazwoper", "respirators", "fall_exposure", "loto"],
+    "pipeline":        ["hot_work", "excavation", "confined_space", "hazwoper", "cranes_rigging"],
+    "pipe":            ["hot_work", "confined_space", "cranes_rigging", "excavation"],
+    "refinery":        ["hot_work", "confined_space", "psm", "hazwoper", "respirators", "loto"],
+    "petrochem":       ["hot_work", "confined_space", "psm", "hazwoper", "respirators", "loto"],
+    "hydroblast":      ["confined_space", "respirators", "hazwoper", "noise"],
+    "industrial clean":["confined_space", "respirators", "hazwoper", "noise"],
+    "environmental":   ["hazwoper", "asbestos", "lead", "respirators", "bloodborne"],
+    "remediation":     ["hazwoper", "asbestos", "lead", "respirators", "bloodborne"],
+    "abatement":       ["asbestos", "lead", "respirators", "hazwoper"],
+    "asbestos":        ["asbestos", "respirators", "hazwoper"],
+    "fire protect":    ["hot_work", "fall_exposure", "confined_space"],
+    "sprinkler":       ["hot_work", "fall_exposure", "confined_space"],
+    "crane":           ["cranes_rigging", "fall_exposure"],
+    "rigging":         ["cranes_rigging", "fall_exposure"],
+    "landscap":        ["noise", "silica"],
+    "manufactur":      ["loto", "forklifts", "noise", "hot_work", "respirators", "cranes_rigging"],
+    "warehouse":       ["forklifts", "noise"],
+    "distribution":    ["forklifts", "noise"],
+    "logistics":       ["forklifts", "noise"],
+    "facility mainten":["loto", "electrical", "confined_space", "fall_exposure"],
+    "maintenance":     ["loto", "electrical", "fall_exposure"],
+    "janitor":         ["bloodborne", "hazwoper"],
+    "general contract":["fall_exposure", "silica", "cranes_rigging", "hot_work", "electrical"],
+    "construction":    ["fall_exposure", "silica", "cranes_rigging", "hot_work"],
+    "drilling":        ["hot_work", "confined_space", "hazwoper", "respirators", "noise", "silica"],
+    "boring":          ["excavation", "confined_space", "cranes_rigging"],
+    "utilit":          ["electrical", "excavation", "confined_space", "fall_exposure", "loto"],
+    "tower":           ["fall_exposure", "cranes_rigging"],
+    "carpentr":        ["fall_exposure", "noise", "silica"],
+    "framing":         ["fall_exposure", "noise"],
+    "flooring":        ["silica", "respirators", "noise"],
+}
+
+
+def suggest_activities(industry: str) -> Dict[str, Any]:
+    """Given the free-text industry/trade, return the activity trigger keys the
+    Gap Finder should PRE-CHECK. Union across every trade keyword found in the
+    text; only returns keys that exist in TRIGGERS. Returns which keyword(s)
+    matched too, so the UI can explain why boxes were pre-selected."""
+    text = (industry or "").lower()
+    keys: List[str] = []
+    matched: List[str] = []
+    if text.strip():
+        for kw, acts in TRADE_ACTIVITY_HINTS.items():
+            if kw in text:
+                matched.append(kw)
+                for a in acts:
+                    if a in _TRIGGER_BY_KEY and a not in keys:
+                        keys.append(a)
+    return {"suggested": keys, "matched": matched}
+
 # NAICS 2- and 3-digit codes that are partially exempt from routine 300-Log
 # recordkeeping under 29 CFR 1904.2 / Appendix A (low-hazard industries).
 # This is a pragmatic subset for the industries Origin serves; the size rule
