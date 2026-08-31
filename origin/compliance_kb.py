@@ -462,6 +462,77 @@ def state_plan_search(query: str, limit: int = 10) -> List[dict]:
     return [r for _, r in scored[:limit]]
 
 
+# ── BLM federal-lands oil & gas (43 CFR 3160 et seq.) ────────────────────────
+# blm.jsonl — a deep, REFERENCE-only layer covering the Bureau of Land
+# Management's onshore oil & gas rulebook for FEDERAL and INDIAN leases: the
+# 43 CFR 3160 framework, the APD process (Onshore Order 1 / Form 3160-3),
+# Sundry Notices (3160-5), well records/production notification, bonding
+# (43 CFR 3104 + the 2024 Leasing Rule), the codified Onshore Orders
+# (site security 3173, oil measurement 3174, gas measurement 3175, plus
+# Orders 2/6/7), the 2024 Waste Prevention Rule (venting/flaring, 43 CFR 3179),
+# NTLs, reclamation/idle wells, and the inspection & enforcement ladder
+# (INCs, assessments, civil/criminal penalties — 43 CFR 3163). This is a
+# SEPARATE regulatory system from OSHA: a Federal-lands contractor must satisfy
+# BLM (mineral/surface stewardship) as well as OSHA (worker safety). Retrieval
+# only — like every reference layer, BLM records NEVER enter the send-gate
+# (validate_document / resolve_standards), so they enrich answers without ever
+# weakening document validation. All BLM content is public-domain CFR; the
+# incorporated API/AGA measurement standards are copyrighted and are cited by
+# number/edition only, never reproduced.
+@functools.lru_cache(maxsize=1)
+def _blm_records() -> List[dict]:
+    path = KB_DIR / "blm.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def blm() -> List[dict]:
+    """All BLM federal-lands oil & gas reference records."""
+    return _blm_records()
+
+
+def blm_record(rid: str) -> Optional[dict]:
+    """A single BLM record by id (e.g. 'blm-bonding', 'blm-apd')."""
+    rid = (rid or "").strip().lower()
+    if not rid:
+        return None
+    for r in _blm_records():
+        if r.get("id", "").lower() == rid:
+            return r
+    return None
+
+
+def blm_search(query: str, limit: int = 8) -> List[dict]:
+    """Search the BLM layer, e.g. 'APD permit to drill', 'bonding minimum',
+    'venting flaring royalty', 'incident of noncompliance penalty', 'H2S plan',
+    'sundry notice', 'gas measurement FMP'."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _blm_records():
+        hay = " ".join([
+            r.get("title", ""), r.get("citation", ""), r.get("summary", ""),
+            r.get("agency", ""), r.get("applies_to", ""),
+            r.get("penalty_structure", ""),
+            " ".join(r.get("key_requirements", [])),
+            " ".join(r.get("forms", [])),
+            " ".join(r.get("deadlines", [])),
+            " ".join(r.get("failure_points", [])),
+        ]).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:limit]]
+
+
 # ── self-learning intake loop ────────────────────────────────────────────────
 # The brain gets smarter over time: anything Origin is taught — a document it
 # ingested, a reviewer rejection it saw, a correction Chris made — can be written
@@ -527,6 +598,7 @@ def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = Non
 #   prequal_platform  ISN/Avetta/Veriforce/PEC/BROWZ/ComplyWorks expert knowledge
 #   abatement    OSHA + prequal abatement/corrective-action playbook
 #   state_plan   federal-vs-state OSHA divergence map (29 State Plans)
+#   blm          BLM federal-lands oil & gas rulebook (43 CFR 3160 et seq.)
 #   learned      self-taught records written at runtime to the persistent volume
 # IMPORTANT: this is retrieval only. The compliance send-gate (validate_document /
 # resolve_standards) still draws ONLY from curated `program` records, so adding
@@ -534,7 +606,7 @@ def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = Non
 # is validated against — it only makes the agent better-informed.
 _BRAIN_KINDS = ("program", "osha_section", "training", "whistleblower",
                 "preamble", "naics", "sic", "prequal_platform", "abatement",
-                "state_plan", "learned")
+                "state_plan", "blm", "learned")
 
 
 def _brain_score(hay: str, q: set) -> int:
@@ -681,6 +753,24 @@ def brain_search(query: str, limit: int = 20,
                              "agency": r.get("agency", ""),
                              "title": r.get("title", "")})
 
+    if "blm" in want:
+        for r in _blm_records():
+            hay = " ".join([r.get("title", ""), r.get("citation", ""),
+                            r.get("summary", ""), r.get("applies_to", ""),
+                            r.get("penalty_structure", ""),
+                            " ".join(r.get("key_requirements", [])),
+                            " ".join(r.get("forms", [])),
+                            " ".join(r.get("failure_points", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "blm",
+                             "source": "blm.jsonl",
+                             "score": s + 1,  # scarce, high-value domain knowledge
+                             "id": r.get("id", ""),
+                             "citation": r.get("citation", ""),
+                             "agency": r.get("agency", ""),
+                             "title": r.get("title", "")})
+
     if "learned" in want:
         for r in learned_knowledge():
             hay = " ".join([r.get("title", ""), r.get("text", ""),
@@ -768,6 +858,7 @@ def brain_stats() -> dict:
         "prequal_platform": len(_prequal_records()),
         "abatement_playbook": len(_abatement_records()),
         "state_plans": len(_state_plan_records()),
+        "blm": len(_blm_records()),
         "learned": len(learned_knowledge()),
     }
     return {

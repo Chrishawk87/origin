@@ -239,11 +239,13 @@ def build_compliance_tools() -> List[Tool]:
                    f"  NAICS industry codes:                   {s['naics_codes']}",
                    f"  prequal-platform expert knowledge:      {s.get('prequal_platform', 0)}",
                    f"  abatement/corrective-action playbook:   {s.get('abatement_playbook', 0)}",
+                   f"  state-plan divergence map:              {s.get('state_plans', 0)}",
+                   f"  BLM federal-lands oil & gas rulebook:   {s.get('blm', 0)}",
                    f"  self-learned records:                   {s.get('learned', 0)}",
                    f"\nSend-gate scope: {st['send_gate_scope']} — reference knowledge never dilutes validation.",
                    "Pass 'query' to search everything, or 'kinds' to restrict (program, "
                    "osha_section, training, whistleblower, preamble, naics, prequal_platform, "
-                   "abatement, learned)."]
+                   "abatement, state_plan, blm, learned)."]
             return "\n".join(out)
 
         hits = kb.brain_search(query, limit=int(args.get("limit", 20)), kinds=kinds)
@@ -253,6 +255,7 @@ def build_compliance_tools() -> List[Tool]:
                  "training": "TRAINING", "whistleblower": "WHISTLEBLOWER",
                  "preamble": "PREAMBLE", "naics": "NAICS",
                  "prequal_platform": "PREQUAL", "abatement": "ABATEMENT",
+                 "state_plan": "STATE PLAN", "blm": "BLM",
                  "learned": "LEARNED"}
         out = [f"BRAIN SEARCH — '{query}' ({len(hits)} hits across all knowledge):"]
         for h in hits:
@@ -276,6 +279,12 @@ def build_compliance_tools() -> List[Tool]:
                            f"({h.get('topic','')})  id={h.get('id','')}")
             elif k == "abatement":
                 out.append(f"  [{tag}] {h.get('title','')}  ({h.get('context','')})  "
+                           f"id={h.get('id','')}")
+            elif k == "state_plan":
+                out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
+                           f"id={h.get('id','')}")
+            elif k == "blm":
+                out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
                            f"id={h.get('id','')}")
             elif k == "learned":
                 out.append(f"  [{tag}] {h.get('title','')}  (taught {h.get('learned_at','')})  "
@@ -365,6 +374,64 @@ def build_compliance_tools() -> List[Tool]:
             if r.get("sample_language"):
                 out.append("\nSample language:")
                 out.append(r["sample_language"])
+        return "\n".join(out)
+
+    def blm(args: Dict[str, Any]) -> str:
+        """BLM federal-lands oil & gas rulebook (43 CFR 3160 et seq.) — the APD
+        process, Sundry Notices, bonding, the codified Onshore Orders, the 2024
+        Waste Prevention (venting/flaring) Rule, and the INC/penalty enforcement
+        ladder. A SEPARATE regulatory system from OSHA. Reference only."""
+        rid = (args.get("id") or "").strip()
+        query = (args.get("query") or args.get("search") or "").strip()
+        if rid:
+            r = kb.blm_record(rid)
+            if not r:
+                return f"No BLM record with id '{rid}'."
+            out = [f"## {r.get('title','')}", f"Citation: {r.get('citation','')}",
+                   f"Agency: {r.get('agency','')}",
+                   f"Applies to: {r.get('applies_to','')}", "",
+                   r.get("summary", "")]
+            if r.get("key_requirements"):
+                out.append("\nKey requirements:")
+                out += [f"  - {x}" for x in r["key_requirements"]]
+            if r.get("forms"):
+                out.append("\nForms:")
+                out += [f"  - {x}" for x in r["forms"]]
+            if r.get("deadlines"):
+                out.append("\nDeadlines:")
+                out += [f"  - {x}" for x in r["deadlines"]]
+            if r.get("penalty_structure"):
+                out.append(f"\nPenalty structure: {r['penalty_structure']}")
+            if r.get("failure_points"):
+                out.append("\nCommon failure points:")
+                out += [f"  - {x}" for x in r["failure_points"]]
+            if r.get("cross_refs"):
+                out.append("\nRelated: " + "; ".join(r["cross_refs"]))
+            out.append(f"\nSource: {r.get('source','')}")
+            if r.get("notes"):
+                out.append(f"Note: {r['notes']}")
+            return "\n".join(out)
+        if not query:
+            recs = kb.blm()
+            out = [f"BLM FEDERAL-LANDS OIL & GAS — {len(recs)} reference records "
+                   "(43 CFR 3160 et seq.; SEPARATE from OSHA):"]
+            for r in recs:
+                out.append(f"  - {r.get('title','')}  [{r.get('citation','')}]  id={r.get('id','')}")
+            out.append("\nPass 'query' (e.g. 'APD permit to drill', 'bonding minimum', "
+                       "'venting flaring royalty', 'incident of noncompliance penalty', "
+                       "'H2S plan') or an 'id' to pull the full record.")
+            return "\n".join(out)
+        hits = kb.blm_search(query, limit=int(args.get("limit", 6)))
+        if not hits:
+            return f"No BLM record matched '{query}'."
+        out = [f"BLM — '{query}' ({len(hits)} records):"]
+        for r in hits:
+            out.append(f"\n## {r.get('title','')}  [{r.get('citation','')}]  id={r.get('id','')}")
+            out.append(r.get("summary", ""))
+            if r.get("key_requirements"):
+                out.append("Key requirements:")
+                out += [f"  - {x}" for x in r["key_requirements"][:6]]
+        out.append("\n(Pass an 'id' for the full record with forms, deadlines, and penalties.)")
         return "\n".join(out)
 
     def learn(args: Dict[str, Any]) -> str:
@@ -1109,6 +1176,37 @@ def build_compliance_tools() -> List[Tool]:
                 "required": [],
             },
             handler=abatement,
+            source="builtin",
+        ),
+        Tool(
+            name="blm",
+            description=(
+                "BLM FEDERAL-LANDS oil & gas rulebook — the regulations a contractor must "
+                "follow to operate on FEDERAL or INDIAN onshore oil & gas leases (43 CFR 3160 "
+                "et seq.). This is a SEPARATE regulatory system from OSHA: BLM governs mineral/"
+                "surface stewardship, OSHA governs worker safety. Covers the APD / permit-to-"
+                "drill process (Onshore Order 1, Form 3160-3), Sundry Notices (Form 3160-5), "
+                "well records & production notification, BONDING (43 CFR 3104 — lease bond "
+                "$150k / statewide $500k under the 2024 Leasing Rule), the codified Onshore "
+                "Orders (site security 3173, oil measurement 3174, gas measurement 3175, plus "
+                "H2S and produced water), the 2024 WASTE PREVENTION rule (venting/flaring/leaks, "
+                "43 CFR 3179), NTLs, reclamation/idle wells, and the INSPECTION & ENFORCEMENT "
+                "ladder (Incidents of Noncompliance, assessments, civil & criminal penalties — "
+                "43 CFR 3163). Use when the user asks about drilling on federal land, BLM permits, "
+                "bonding, flaring/venting royalties, an INC, or a BLM inspection. Call with no "
+                "args to list all records; pass 'query' to search or 'id' for a full record. "
+                "Reference only — never enters document validation."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "e.g. 'APD permit to drill', 'bonding minimum', 'venting flaring royalty', 'incident of noncompliance'"},
+                    "id": {"type": "string", "description": "A specific record id, e.g. 'blm-bonding', 'blm-apd', 'blm-inspection-enforcement'"},
+                    "limit": {"type": "integer", "description": "Max search hits (default 6)"},
+                },
+                "required": [],
+            },
+            handler=blm,
             source="builtin",
         ),
         Tool(
