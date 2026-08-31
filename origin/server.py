@@ -1214,6 +1214,41 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=400)
 
+    # ── HazCom chemical-inventory builder (29 CFR 1910.1200) — internal tool ──
+    from . import hazcom as _hazcom
+    hazcom_html = Path(__file__).parent / "webui" / "hazcom.html"
+
+    @app.get("/hazcom", response_class=HTMLResponse)
+    def hazcom_page():
+        if hazcom_html.is_file():
+            return hazcom_html.read_text(encoding="utf-8")
+        return "<h1>HazCom Inventory</h1><p>Tool page missing.</p>"
+
+    @app.get("/api/hazcom/schema")
+    def hazcom_schema():
+        return _hazcom.intake_schema()
+
+    @app.get("/api/hazcom/identify")
+    def hazcom_identify(name: str = ""):
+        try:
+            return _hazcom.identify_chemical(name)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    @app.post("/api/hazcom/inventory")
+    def hazcom_inventory(body: dict = Body(...)):
+        try:
+            return _hazcom.build_inventory(body or {})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    @app.post("/api/hazcom/program")
+    def hazcom_program(body: dict = Body(...)):
+        try:
+            return {"program": _hazcom.render_hazcom_program(body or {}, sector=(body or {}).get("sector", ""))}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     @app.get("/gaps", response_class=HTMLResponse)
     def gaps_page():
         if gaps_html.is_file():

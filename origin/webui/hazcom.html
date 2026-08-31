@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HazCom Chemical Inventory — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:940px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  label.fld{display:block;font-weight:700;color:var(--charcoal);font-size:14px;margin:14px 0 6px}
+  .help{font-size:12.5px;color:var(--grey);margin-top:3px;font-weight:400}
+  input[type=text]{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:8px;font-size:15px;color:var(--ink);background:#fff}
+  input:focus{outline:none;border-color:var(--orange)}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .row > div{flex:1;min-width:180px}
+  .sectlbl{font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px;font-weight:800}
+  /* chemical rows */
+  #chemrows .crow{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  #chemrows .crow input{flex:1;min-width:120px;padding:10px}
+  #chemrows .crow .prod{min-width:180px;flex:2}
+  .chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--grey);white-space:nowrap}
+  .x{cursor:pointer;color:var(--red);font-weight:800;font-size:18px;padding:0 6px;user-select:none}
+  .addbtn{background:#fff;color:var(--charcoal);border:1.5px dashed var(--line);border-radius:8px;padding:10px 16px;font-size:13.5px;font-weight:700;cursor:pointer}
+  .addbtn:hover{border-color:var(--orange);color:var(--orange)}
+  .btn{appearance:none;border:0;border-radius:8px;padding:13px 24px;font-size:15px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff;margin-top:22px}
+  .btn:hover{background:var(--red)}
+  .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line);margin-left:8px}
+  .btn.ghost:hover{border-color:var(--orange);background:var(--cream)}
+  /* results */
+  .summary{background:var(--charcoal);color:#fff;border-radius:11px;padding:18px 20px;margin:6px 0 16px}
+  .summary .h{font-size:17px;font-weight:800}
+  .summary .s{font-size:13.5px;color:#C9CED6;margin-top:6px}
+  .alertbox{border-radius:10px;padding:14px 16px;margin:6px 0 16px;font-size:14px;background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange)}
+  .alertbox .rh{font-weight:800;text-transform:uppercase;letter-spacing:.5px;font-size:12px;margin-bottom:6px}
+  .alertbox ul{margin:6px 0 0;padding-left:18px}
+  .rtk{border-radius:10px;padding:14px 16px;margin:6px 0 16px;font-size:13.5px;background:#12203a;color:#DCE7F7;border:1px solid #3B6FB0}
+  .rtk .rh{font-weight:800;text-transform:uppercase;letter-spacing:.5px;font-size:12px;margin-bottom:5px;color:#9EC1F0}
+  .item{border:1px solid var(--line);border-left:5px solid var(--green);border-radius:9px;padding:12px 15px;margin-bottom:9px;background:#fff}
+  .item.trig{border-left-color:var(--orange)}
+  .item.unk{border-left-color:var(--amber)}
+  .item .t{font-weight:700;color:var(--charcoal);font-size:14.5px}
+  .item .meta{font-size:12px;color:var(--grey);margin-top:2px}
+  .item .haz{font-size:12.5px;color:var(--ink);margin-top:6px}
+  .pics{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px}
+  .pic{font-size:10.5px;font-weight:700;background:#FDECE3;color:#B23A12;border:1px solid #F0C3AE;border-radius:5px;padding:2px 7px}
+  .sig{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;border-radius:5px;padding:2px 8px;color:#fff;float:right}
+  .sig.Danger{background:var(--red)} .sig.Warning{background:var(--amber)}
+  .sig.unk{background:var(--grey)}
+  .sdsflag{display:inline-block;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;margin-left:6px}
+  .sdsflag.need{color:#fff;background:var(--red)} .sdsflag.ok{color:#fff;background:var(--green)}
+  .spec{font-size:12px;color:#B23A12;font-weight:700;margin-top:6px;background:#FDECE3;border-radius:6px;padding:6px 9px}
+  .disc{font-size:11.5px;color:var(--grey);margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
+  .hidden{display:none}
+  .progwrap{margin:18px 0 0}
+  .progwrap pre{background:#12141A;color:#E7E7EA;border-radius:10px;padding:16px;font-size:12.5px;line-height:1.5;overflow:auto;white-space:pre-wrap;max-height:520px}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a href="/" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Home</a><span class="tag">HazCom Inventory · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+      <div id="intake">
+        <h1>Build a company's Hazard Communication chemical inventory</h1>
+        <p class="lede">HazCom (29 CFR 1910.1200) is the most-requested program on every prequal. A generic template that never lists the company's own chemicals is the #1 failure point. Enter the products they actually use — Origin classifies each by GHS hazard, flags the ones that trigger a <b>substance-specific</b> OSHA standard, builds the SDS-collection checklist, and generates the written program with the inventory in place.</p>
+
+        <div class="sectlbl">Company & program</div>
+        <div class="row">
+          <div><label class="fld">Company name</label><input type="text" id="company" placeholder="e.g. ABC Mechanical" autocomplete="off"></div>
+          <div><label class="fld">State <span class="help">(optional)</span></label><input type="text" id="state" placeholder="TX" maxlength="2" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label class="fld">Program administrator</label><input type="text" id="administrator" placeholder="Name & title" autocomplete="off"></div>
+          <div><label class="fld">Where SDSs are kept / accessed</label><input type="text" id="sds_location" placeholder="e.g. shop binder + shared drive" autocomplete="off"></div>
+        </div>
+
+        <div class="sectlbl">Chemical inventory <span class="help" style="text-transform:none;letter-spacing:0;color:var(--grey)">(list every hazardous product — check the box when you already have the SDS)</span></div>
+        <div id="chemrows"></div>
+        <button class="addbtn" id="addrow" type="button">+ Add chemical</button>
+
+        <div><button class="btn" id="go">Build inventory</button>
+        <button class="btn ghost" id="reset" type="button">Reset</button></div>
+        <div class="disc">Origin classifies from a curated reference of common trade chemicals and, when a product isn't recognized, tells you to classify it from the manufacturer SDS rather than guessing. Always confirm each classification against the product's current SDS (Sections 2 and 9).</div>
+      </div>
+
+      <div id="result" class="hidden">
+        <div id="summary"></div>
+        <div id="triggers"></div>
+        <div id="rtk"></div>
+        <div class="sectlbl">Classified inventory</div>
+        <div id="items"></div>
+        <div class="progwrap">
+          <div class="sectlbl">Written HazCom program <span class="help" style="text-transform:none;letter-spacing:0;color:var(--grey)">(inventory embedded)</span></div>
+          <pre id="program"></pre>
+          <button class="btn ghost" id="copyprog" type="button" style="margin-left:0">Copy program text</button>
+        </div>
+        <button class="btn ghost" id="again" type="button" style="margin-left:0;margin-top:22px">← Build another</button>
+      </div>
+    </div>
+    <footer class="foot">Origin · Hazard Communication documentation support — not legal advice</footer>
+  </div>
+</div>
+
+<script>
+let SCHEMA=null;
+
+function chemRow(){
+  const d=document.createElement('div'); d.className='crow';
+  d.innerHTML=`
+    <input class="prod" type="text" placeholder="Product / chemical name" autocomplete="off">
+    <input class="manuf" type="text" placeholder="Manufacturer" autocomplete="off">
+    <input class="loc" type="text" placeholder="Where used" autocomplete="off">
+    <label class="chk"><input type="checkbox" class="sds"> SDS on file</label>
+    <span class="x" title="Remove">&times;</span>`;
+  d.querySelector('.x').onclick=()=>d.remove();
+  return d;
+}
+function addRow(){document.getElementById('chemrows').appendChild(chemRow());}
+
+function collectChems(){
+  const out=[];
+  document.querySelectorAll('#chemrows .crow').forEach(r=>{
+    const p=r.querySelector('.prod').value.trim();
+    if(!p) return;
+    out.push({product:p, manufacturer:r.querySelector('.manuf').value.trim(),
+              location:r.querySelector('.loc').value.trim(), sds_on_file:r.querySelector('.sds').checked});
+  });
+  return out;
+}
+function val(id){return document.getElementById(id).value.trim();}
+
+async function build(){
+  const body={company:val('company'), state:val('state'), administrator:val('administrator'),
+              sds_location:val('sds_location'), chemicals:collectChems()};
+  const [inv,prog]=await Promise.all([
+    fetch('/api/hazcom/inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()),
+    fetch('/api/hazcom/program',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json())
+  ]);
+  show(inv, prog.program||'');
+}
+
+function show(d, program){
+  document.getElementById('intake').classList.add('hidden');
+  const res=document.getElementById('result'); res.classList.remove('hidden'); window.scrollTo(0,0);
+
+  document.getElementById('summary').innerHTML=`<div class="summary">
+     <div class="h">${d.company||'Company'} — ${d.item_count} chemical${d.item_count===1?'':'s'} inventoried</div>
+     <div class="s">${d.trigger_count} substance-specific standard${d.trigger_count===1?'':'s'} triggered · ${d.sds_checklist.on_file}/${d.sds_checklist.total} SDSs on file${d.unmatched_count?` · ${d.unmatched_count} need manual SDS classification`:''}</div>
+   </div>`;
+
+  const trg=document.getElementById('triggers');
+  if(d.substance_triggers && d.substance_triggers.length){
+    trg.innerHTML=`<div class="alertbox"><div class="rh">⚠ Substance-specific standards triggered — HazCom alone is not enough</div>
+      <ul>${d.substance_triggers.map(t=>`<li><b>${(t.substance||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</b> (from ${t.from_product}) — <b>${t.citation}</b>: ${t.needs}</li>`).join('')}</ul></div>`;
+  } else { trg.innerHTML=''; }
+
+  const rtk=document.getElementById('rtk');
+  if(d.state_overlay){
+    const o=d.state_overlay;
+    rtk.innerHTML=`<div class="rtk"><div class="rh">State Right-to-Know applies — ${o.name}</div>
+      <div><b>${o.citation}.</b> ${o.adds}</div></div>`;
+  } else { rtk.innerHTML=''; }
+
+  document.getElementById('items').innerHTML=(d.items||[]).map(it=>{
+    const cls=it.special?'trig':(it.matched?'':'unk');
+    const sig=it.signal||'Unknown';
+    const sigcls=(sig==='Danger'||sig==='Warning')?sig:'unk';
+    const sds=it.sds_on_file?`<span class="sdsflag ok">SDS on file</span>`:`<span class="sdsflag need">SDS needed</span>`;
+    const pics=(it.pictograms||[]).map(p=>`<span class="pic">${p.label}</span>`).join('');
+    const spec=it.special_standard?`<div class="spec">⚠ Triggers ${it.special_standard.citation} — ${it.special_standard.needs}</div>`:'';
+    const haz=(it.hazards||[]).join('; ');
+    return `<div class="item ${cls}">
+      <span class="sig ${sigcls}">${sig}</span>
+      <div class="t">${it.product}${sds}</div>
+      <div class="meta">${[it.canonical&&it.canonical!==it.product.toLowerCase()?'identified as '+it.canonical:'',it.cas?'CAS '+it.cas:'',it.manufacturer||'',it.location||''].filter(Boolean).join(' · ')}</div>
+      <div class="haz">${haz||'Not recognized — classify from the manufacturer SDS (Section 2).'}</div>
+      ${pics?`<div class="pics">${pics}</div>`:''}
+      ${spec}
+      <div class="meta" style="margin-top:6px">SDS from: ${it.sds_from||'manufacturer / supplier'}${it.ppe?' · PPE: '+it.ppe:''}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('program').textContent=program;
+}
+
+function resetAll(){
+  ['company','state','administrator','sds_location'].forEach(id=>document.getElementById(id).value='');
+  const cr=document.getElementById('chemrows'); cr.innerHTML=''; addRow(); addRow();
+  document.getElementById('result').classList.add('hidden');
+  document.getElementById('intake').classList.remove('hidden');
+}
+
+document.getElementById('addrow').onclick=addRow;
+document.getElementById('go').onclick=build;
+document.getElementById('reset').onclick=resetAll;
+document.getElementById('again').onclick=resetAll;
+document.getElementById('copyprog').onclick=()=>{navigator.clipboard.writeText(document.getElementById('program').textContent);document.getElementById('copyprog').textContent='Copied ✓';setTimeout(()=>document.getElementById('copyprog').textContent='Copy program text',1500);};
+
+fetch('/api/hazcom/schema').then(r=>r.json()).then(s=>{SCHEMA=s;});
+addRow(); addRow(); addRow();
+</script>
+</body>
+</html>
