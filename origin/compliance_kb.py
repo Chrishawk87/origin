@@ -533,6 +533,77 @@ def blm_search(query: str, limit: int = 8) -> List[dict]:
     return [r for _, r in scored[:limit]]
 
 
+# ── EPA federal environmental (oil & gas) ────────────────────────────────────
+# epa.jsonl — a deep, REFERENCE-only layer covering the U.S. Environmental
+# Protection Agency's federal environmental rulebook as it applies to onshore
+# oil & gas operators and their contractors: SPCC & oil-discharge reporting
+# (40 CFR 112 / 110), the RCRA E&P exemption and generator categories
+# (261.4(b)(5) / 262), Clean Air Act NSPS OOOO/OOOOa/OOOOb and EG OOOOc methane
+# (40 CFR 60), NPDES stormwater / CGP / SWPPP (CWA §402), UIC Class II injection
+# wells (SDWA, 40 CFR 144–147), EPCRA Tier II & TRI (40 CFR 370 / 372), CERCLA
+# RQ release reporting (40 CFR 302), OPA Facility Response Plans (40 CFR 112.20),
+# and the federal-vs-delegated-state enforcement theme. This is a SEPARATE
+# regulatory system from OSHA and BLM: a Federal-lands contractor must satisfy
+# EPA (environmental) as well as OSHA (worker safety) and BLM (mineral/surface).
+# Retrieval only — like every reference layer, EPA records NEVER enter the
+# send-gate (validate_document / resolve_standards), so they enrich answers
+# without ever weakening document validation. All EPA content is public-domain
+# CFR/statute and may be reproduced.
+@functools.lru_cache(maxsize=1)
+def _epa_records() -> List[dict]:
+    path = KB_DIR / "epa.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def epa() -> List[dict]:
+    """All EPA federal environmental oil & gas reference records."""
+    return _epa_records()
+
+
+def epa_record(rid: str) -> Optional[dict]:
+    """A single EPA record by id (e.g. 'epa-spcc', 'epa-nsps-oooob')."""
+    rid = (rid or "").strip().lower()
+    if not rid:
+        return None
+    for r in _epa_records():
+        if r.get("id", "").lower() == rid:
+            return r
+    return None
+
+
+def epa_search(query: str, limit: int = 8) -> List[dict]:
+    """Search the EPA layer, e.g. 'SPCC secondary containment threshold',
+    'RCRA exploration production exemption', 'methane LDAR OOOOb', 'Tier II
+    reporting deadline', 'UIC Class II injection well', 'stormwater SWPPP
+    permit', 'CERCLA reportable quantity NRC'."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _epa_records():
+        hay = " ".join([
+            r.get("title", ""), r.get("citation", ""), r.get("summary", ""),
+            r.get("agency", ""), r.get("applies_to", ""),
+            r.get("penalty_structure", ""),
+            " ".join(r.get("key_requirements", [])),
+            " ".join(r.get("forms", [])),
+            " ".join(r.get("deadlines", [])),
+            " ".join(r.get("failure_points", [])),
+        ]).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:limit]]
+
+
 # ── self-learning intake loop ────────────────────────────────────────────────
 # The brain gets smarter over time: anything Origin is taught — a document it
 # ingested, a reviewer rejection it saw, a correction Chris made — can be written
@@ -599,6 +670,7 @@ def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = Non
 #   abatement    OSHA + prequal abatement/corrective-action playbook
 #   state_plan   federal-vs-state OSHA divergence map (29 State Plans)
 #   blm          BLM federal-lands oil & gas rulebook (43 CFR 3160 et seq.)
+#   epa          EPA federal environmental rulebook (SPCC/RCRA/CAA/NPDES/UIC…)
 #   learned      self-taught records written at runtime to the persistent volume
 # IMPORTANT: this is retrieval only. The compliance send-gate (validate_document /
 # resolve_standards) still draws ONLY from curated `program` records, so adding
@@ -606,7 +678,7 @@ def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = Non
 # is validated against — it only makes the agent better-informed.
 _BRAIN_KINDS = ("program", "osha_section", "training", "whistleblower",
                 "preamble", "naics", "sic", "prequal_platform", "abatement",
-                "state_plan", "blm", "learned")
+                "state_plan", "blm", "epa", "learned")
 
 
 def _brain_score(hay: str, q: set) -> int:
@@ -771,6 +843,24 @@ def brain_search(query: str, limit: int = 20,
                              "agency": r.get("agency", ""),
                              "title": r.get("title", "")})
 
+    if "epa" in want:
+        for r in _epa_records():
+            hay = " ".join([r.get("title", ""), r.get("citation", ""),
+                            r.get("summary", ""), r.get("applies_to", ""),
+                            r.get("penalty_structure", ""),
+                            " ".join(r.get("key_requirements", [])),
+                            " ".join(r.get("forms", [])),
+                            " ".join(r.get("failure_points", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "epa",
+                             "source": "epa.jsonl",
+                             "score": s + 1,  # scarce, high-value domain knowledge
+                             "id": r.get("id", ""),
+                             "citation": r.get("citation", ""),
+                             "agency": r.get("agency", ""),
+                             "title": r.get("title", "")})
+
     if "learned" in want:
         for r in learned_knowledge():
             hay = " ".join([r.get("title", ""), r.get("text", ""),
@@ -859,6 +949,7 @@ def brain_stats() -> dict:
         "abatement_playbook": len(_abatement_records()),
         "state_plans": len(_state_plan_records()),
         "blm": len(_blm_records()),
+        "epa": len(_epa_records()),
         "learned": len(learned_knowledge()),
     }
     return {

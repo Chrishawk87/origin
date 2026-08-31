@@ -241,11 +241,12 @@ def build_compliance_tools() -> List[Tool]:
                    f"  abatement/corrective-action playbook:   {s.get('abatement_playbook', 0)}",
                    f"  state-plan divergence map:              {s.get('state_plans', 0)}",
                    f"  BLM federal-lands oil & gas rulebook:   {s.get('blm', 0)}",
+                   f"  EPA federal environmental rulebook:     {s.get('epa', 0)}",
                    f"  self-learned records:                   {s.get('learned', 0)}",
                    f"\nSend-gate scope: {st['send_gate_scope']} — reference knowledge never dilutes validation.",
                    "Pass 'query' to search everything, or 'kinds' to restrict (program, "
                    "osha_section, training, whistleblower, preamble, naics, prequal_platform, "
-                   "abatement, state_plan, blm, learned)."]
+                   "abatement, state_plan, blm, epa, learned)."]
             return "\n".join(out)
 
         hits = kb.brain_search(query, limit=int(args.get("limit", 20)), kinds=kinds)
@@ -255,7 +256,7 @@ def build_compliance_tools() -> List[Tool]:
                  "training": "TRAINING", "whistleblower": "WHISTLEBLOWER",
                  "preamble": "PREAMBLE", "naics": "NAICS",
                  "prequal_platform": "PREQUAL", "abatement": "ABATEMENT",
-                 "state_plan": "STATE PLAN", "blm": "BLM",
+                 "state_plan": "STATE PLAN", "blm": "BLM", "epa": "EPA",
                  "learned": "LEARNED"}
         out = [f"BRAIN SEARCH — '{query}' ({len(hits)} hits across all knowledge):"]
         for h in hits:
@@ -284,6 +285,9 @@ def build_compliance_tools() -> List[Tool]:
                 out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
                            f"id={h.get('id','')}")
             elif k == "blm":
+                out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
+                           f"id={h.get('id','')}")
+            elif k == "epa":
                 out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
                            f"id={h.get('id','')}")
             elif k == "learned":
@@ -425,6 +429,68 @@ def build_compliance_tools() -> List[Tool]:
         if not hits:
             return f"No BLM record matched '{query}'."
         out = [f"BLM — '{query}' ({len(hits)} records):"]
+        for r in hits:
+            out.append(f"\n## {r.get('title','')}  [{r.get('citation','')}]  id={r.get('id','')}")
+            out.append(r.get("summary", ""))
+            if r.get("key_requirements"):
+                out.append("Key requirements:")
+                out += [f"  - {x}" for x in r["key_requirements"][:6]]
+        out.append("\n(Pass an 'id' for the full record with forms, deadlines, and penalties.)")
+        return "\n".join(out)
+
+    def epa(args: Dict[str, Any]) -> str:
+        """EPA federal environmental rulebook for oil & gas — SPCC & oil-discharge
+        reporting (40 CFR 112/110), the RCRA E&P exemption and generator rules,
+        Clean Air Act methane NSPS OOOO/OOOOa/OOOOb & EG OOOOc, NPDES stormwater /
+        SWPPP, UIC Class II wells, EPCRA Tier II & TRI, CERCLA RQ reporting, and
+        OPA Facility Response Plans. A SEPARATE regulatory system from OSHA and
+        BLM. Reference only."""
+        rid = (args.get("id") or "").strip()
+        query = (args.get("query") or args.get("search") or "").strip()
+        if rid:
+            r = kb.epa_record(rid)
+            if not r:
+                return f"No EPA record with id '{rid}'."
+            out = [f"## {r.get('title','')}", f"Citation: {r.get('citation','')}",
+                   f"Agency: {r.get('agency','')}",
+                   f"Applies to: {r.get('applies_to','')}", "",
+                   r.get("summary", "")]
+            if r.get("key_requirements"):
+                out.append("\nKey requirements:")
+                out += [f"  - {x}" for x in r["key_requirements"]]
+            if r.get("forms"):
+                out.append("\nForms:")
+                out += [f"  - {x}" for x in r["forms"]]
+            if r.get("deadlines"):
+                out.append("\nDeadlines:")
+                out += [f"  - {x}" for x in r["deadlines"]]
+            if r.get("penalty_structure"):
+                out.append(f"\nPenalty structure: {r['penalty_structure']}")
+            if r.get("failure_points"):
+                out.append("\nCommon failure points:")
+                out += [f"  - {x}" for x in r["failure_points"]]
+            if r.get("cross_refs"):
+                out.append("\nRelated: " + "; ".join(r["cross_refs"]))
+            out.append(f"\nSource: {r.get('source','')}")
+            if r.get("notes"):
+                out.append(f"Note: {r['notes']}")
+            return "\n".join(out)
+        if not query:
+            recs = kb.epa()
+            out = [f"EPA FEDERAL ENVIRONMENTAL (OIL & GAS) — {len(recs)} reference "
+                   "records (SPCC / RCRA / Clean Air Act / NPDES / UIC / EPCRA / "
+                   "CERCLA / OPA; SEPARATE from OSHA):"]
+            for r in recs:
+                out.append(f"  - {r.get('title','')}  [{r.get('citation','')}]  id={r.get('id','')}")
+            out.append("\nPass 'query' (e.g. 'SPCC secondary containment threshold', "
+                       "'RCRA exploration production exemption', 'methane LDAR OOOOb', "
+                       "'Tier II reporting deadline', 'UIC Class II injection well', "
+                       "'CERCLA reportable quantity NRC') or an 'id' to pull the full record.")
+            return "\n".join(out)
+        hits = kb.epa_search(query, limit=int(args.get("limit", 6)))
+        if not hits:
+            return f"No EPA record matched '{query}'."
+        out = [f"EPA — '{query}' ({len(hits)} records):"]
         for r in hits:
             out.append(f"\n## {r.get('title','')}  [{r.get('citation','')}]  id={r.get('id','')}")
             out.append(r.get("summary", ""))
@@ -1207,6 +1273,39 @@ def build_compliance_tools() -> List[Tool]:
                 "required": [],
             },
             handler=blm,
+            source="builtin",
+        ),
+        Tool(
+            name="epa",
+            description=(
+                "EPA FEDERAL ENVIRONMENTAL rulebook for oil & gas — the environmental "
+                "regulations a contractor and operator must follow alongside OSHA and BLM. This "
+                "is a SEPARATE regulatory system: EPA governs environmental protection (air, "
+                "water, waste, spills), OSHA governs worker safety, BLM governs mineral/surface "
+                "stewardship. Covers SPCC spill-prevention plans & oil-discharge/'sheen' "
+                "reporting (40 CFR 112 / 110, NRC 1-800-424-8802), the RCRA E&P EXEMPTION for "
+                "production wastes and generator categories VSQG/SQG/LQG (40 CFR 261.4(b)(5) / "
+                "262), Clean Air Act methane NSPS OOOO / OOOOa / OOOOb and EG OOOOc with LDAR & "
+                "the Super-Emitter Program (40 CFR 60), NPDES construction STORMWATER / SWPPP and "
+                "the CWA §402(l)(2) oil & gas exemption, UIC CLASS II injection & disposal wells "
+                "(SDWA, 40 CFR 144-147), EPCRA TIER II (March 1) & TRI Form R (July 1), CERCLA "
+                "reportable-quantity release reporting (40 CFR 302), and OPA Facility Response "
+                "Plans (40 CFR 112.20). Use when the user asks about spills, secondary "
+                "containment, hazardous/produced-water waste, air permits or methane rules, "
+                "stormwater, injection wells, chemical inventory reporting, or an EPA release "
+                "notification. Call with no args to list all records; pass 'query' to search or "
+                "'id' for a full record. Reference only — never enters document validation."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "e.g. 'SPCC secondary containment threshold', 'RCRA exploration production exemption', 'methane LDAR OOOOb', 'Tier II reporting deadline', 'UIC Class II injection well'"},
+                    "id": {"type": "string", "description": "A specific record id, e.g. 'epa-spcc', 'epa-nsps-oooob', 'epa-uic-class-ii', 'epa-cercla-reporting'"},
+                    "limit": {"type": "integer", "description": "Max search hits (default 6)"},
+                },
+                "required": [],
+            },
+            handler=epa,
             source="builtin",
         ),
         Tool(
