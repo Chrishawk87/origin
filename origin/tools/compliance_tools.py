@@ -89,6 +89,26 @@ def _fmt_osha_index(sec: dict) -> str:
     return "\n".join(lines)
 
 
+def _fmt_fmcsa_index(sec: dict) -> str:
+    """Render one FMCSA structural-index record (49 CFR citation → title/URL)."""
+    typ = sec.get("type", "section")
+    label = {"section": "Section", "subpart": "Subpart"}.get(typ, "Entry")
+    lines = [
+        f"# 49 CFR {sec.get('citation','')} — {sec.get('title','')}",
+        f"FMCSA/DOT {label}",
+        f"Part {sec.get('part','')}: {sec.get('part_name','')}",
+    ]
+    if sec.get("subpart"):
+        st = f" — {sec.get('subpart_title','')}" if sec.get("subpart_title") else ""
+        lines.append(f"Subpart {sec['subpart']}{st}")
+    if sec.get("url"):
+        lines.append(f"Official text: {sec['url']}")
+    lines.append("(Structural index — official title/location only. For the plain-"
+                 "English program, penalties, forms and failure points, call the "
+                 "fmcsa tool with a 'query' or 'id'.)")
+    return "\n".join(lines)
+
+
 def build_compliance_tools() -> List[Tool]:
     def compliance_lookup(args: Dict[str, Any]) -> str:
         query = (args.get("query") or args.get("citation") or "").strip()
@@ -132,6 +152,11 @@ def build_compliance_tools() -> List[Tool]:
             sec = kb.osha_section(query)
             if sec:
                 return _fmt_osha_index(sec)
+            # then the FMCSA/DOT structural index — resolves any 49 CFR citation
+            # (e.g. 390.19, 391.51) to its official title/part/URL.
+            fsec = kb.fmcsa_section(query)
+            if fsec:
+                return _fmt_fmcsa_index(fsec)
             return (f"No codified standard matched '{query}'. Do NOT invent requirements — "
                     "say the KB has no entry for it.")
         # one strong hit → full detail; several → summaries so the agent can pick
@@ -242,6 +267,8 @@ def build_compliance_tools() -> List[Tool]:
                    f"  state-plan divergence map:              {s.get('state_plans', 0)}",
                    f"  BLM federal-lands oil & gas rulebook:   {s.get('blm', 0)}",
                    f"  EPA federal environmental rulebook:     {s.get('epa', 0)}",
+                   f"  FMCSA/DOT indexed sections:             {s.get('fmcsa_sections', 0)}",
+                   f"  FMCSA/DOT motor-carrier rulebook:       {s.get('fmcsa', 0)}",
                    f"  self-learned records:                   {s.get('learned', 0)}",
                    f"\nSend-gate scope: {st['send_gate_scope']} — reference knowledge never dilutes validation.",
                    "Pass 'query' to search everything, or 'kinds' to restrict (program, "
@@ -257,6 +284,7 @@ def build_compliance_tools() -> List[Tool]:
                  "preamble": "PREAMBLE", "naics": "NAICS",
                  "prequal_platform": "PREQUAL", "abatement": "ABATEMENT",
                  "state_plan": "STATE PLAN", "blm": "BLM", "epa": "EPA",
+                 "fmcsa_section": "FMCSA §", "fmcsa": "FMCSA",
                  "learned": "LEARNED"}
         out = [f"BRAIN SEARCH — '{query}' ({len(hits)} hits across all knowledge):"]
         for h in hits:
@@ -288,6 +316,11 @@ def build_compliance_tools() -> List[Tool]:
                 out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
                            f"id={h.get('id','')}")
             elif k == "epa":
+                out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
+                           f"id={h.get('id','')}")
+            elif k == "fmcsa_section":
+                out.append(f"  [{tag}] {h.get('citation','')}  {h.get('title','')}")
+            elif k == "fmcsa":
                 out.append(f"  [{tag}] {h.get('title','')}  [{h.get('citation','')}]  "
                            f"id={h.get('id','')}")
             elif k == "learned":
@@ -498,6 +531,117 @@ def build_compliance_tools() -> List[Tool]:
                 out.append("Key requirements:")
                 out += [f"  - {x}" for x in r["key_requirements"][:6]]
         out.append("\n(Pass an 'id' for the full record with forms, deadlines, and penalties.)")
+        return "\n".join(out)
+
+    def fmcsa(args: Dict[str, Any]) -> str:
+        """FMCSA / US DOT motor-carrier rulebook — USDOT registration & the biennial
+        MCS-150 update (Part 390.19), the CSA Safety Measurement System & its seven
+        BASICs, DataQs corrections, driver qualification files (Part 391), the DOT
+        drug & alcohol program and the Clearinghouse (Parts 382 & 40), hours of
+        service & ELDs (Part 395), inspection/maintenance & the DVIR (Part 396),
+        cargo securement (Part 393), CDL/ELDT (Parts 383/380), insurance (Part 387),
+        the Part 385 safety rating / New Entrant audit, and hazmat (Part 172). A
+        SEPARATE regulatory system from OSHA. Reference only. Pass 'citation' to
+        resolve a 49 CFR code, 'part' for a part's tree, 'id' for a full record, or
+        'query' to search."""
+        citation = (args.get("citation") or "").strip()
+        part = (args.get("part") or "").strip()
+        rid = (args.get("id") or "").strip()
+        query = (args.get("query") or args.get("search") or "").strip()
+
+        # 1) resolve a specific 49 CFR citation to its official title/part/URL
+        if citation:
+            sec = kb.fmcsa_section(citation)
+            if sec:
+                out = [_fmt_fmcsa_index(sec)]
+                # surface any matching plain-English reference record too
+                refs = kb.fmcsa_search(sec.get("title", "") + " " + sec.get("part", ""), limit=1)
+                if refs:
+                    out.append(f"\nRelated program knowledge → id={refs[0].get('id','')}: "
+                               f"{refs[0].get('title','')}")
+                return "\n".join(out)
+            return (f"'{citation}' is not a mapped FMCSA citation (indexed parts: 40, 172, "
+                    "380, 382, 383, 387, 390, 391, 392, 393, 395, 396). Do not fabricate one.")
+
+        # 2) a full reference record by id
+        if rid:
+            r = kb.fmcsa_record(rid)
+            if not r:
+                return f"No FMCSA record with id '{rid}'."
+            out = [f"## {r.get('title','')}", f"Citation: {r.get('citation','')}",
+                   f"Agency: {r.get('agency','')}",
+                   f"Applies to: {r.get('applies_to','')}", "",
+                   r.get("summary", "")]
+            if r.get("key_requirements"):
+                out.append("\nKey requirements:")
+                out += [f"  - {x}" for x in r["key_requirements"]]
+            if r.get("forms"):
+                out.append("\nForms:")
+                out += [f"  - {x}" for x in r["forms"]]
+            if r.get("deadlines"):
+                out.append("\nDeadlines:")
+                out += [f"  - {x}" for x in r["deadlines"]]
+            if r.get("penalty_structure"):
+                out.append(f"\nPenalty structure: {r['penalty_structure']}")
+            if r.get("failure_points"):
+                out.append("\nCommon failure points:")
+                out += [f"  - {x}" for x in r["failure_points"]]
+            if r.get("cross_refs"):
+                out.append("\nRelated: " + "; ".join(r["cross_refs"]))
+            out.append(f"\nSource: {r.get('source','')}")
+            if r.get("notes"):
+                out.append(f"Note: {r['notes']}")
+            return "\n".join(out)
+
+        # 3) a whole part's mapped tree
+        if part:
+            tree = kb.fmcsa_part_tree(part)
+            if not tree:
+                return (f"'{part}' is not a mapped FMCSA part. Mapped: 40, 172, 380, 382, "
+                        "383, 387, 390, 391, 392, 393, 395, 396.")
+            c = tree["counts"]
+            out = [f"FMCSA PART {tree['part']} — {tree['part_name']}",
+                   f"{c['subparts']} subparts, {c['sections']} mapped sections:"]
+            for sp in tree["subparts"]:
+                if sp["subpart"]:
+                    out.append(f"\nSubpart {sp['subpart']} — {sp['subpart_title']}")
+                for s in sp["sections"]:
+                    out.append(f"  49 CFR {s['citation']}  {s['title']}")
+            return "\n".join(out)
+
+        # 4) no query → inventory
+        if not query:
+            recs = kb.fmcsa()
+            st = kb.fmcsa_index_stats()
+            out = [f"FMCSA / US DOT MOTOR-CARRIER RULEBOOK — {len(recs)} reference records "
+                   f"+ {st['total_rows']} indexed sections across {len(st['parts'])} parts "
+                   "(SEPARATE from OSHA):"]
+            for r in recs:
+                out.append(f"  - {r.get('title','')}  [{r.get('citation','')}]  id={r.get('id','')}")
+            out.append("\nPass 'citation' (e.g. '390.19(b)(4)', '391.51') to resolve a code, "
+                       "'part' (e.g. '395') for its tree, 'query' (e.g. 'MCS-150 biennial "
+                       "update', 'CSA BASIC threshold', 'DataQs challenge', 'driver "
+                       "qualification file', 'Clearinghouse annual query', 'safety rating "
+                       "conditional') to search, or 'id' for the full record.")
+            return "\n".join(out)
+
+        # 5) keyword search over the reference layer (+ index title hits)
+        hits = kb.fmcsa_search(query, limit=int(args.get("limit", 6)))
+        idx_hits = kb.fmcsa_index_search(query, limit=6)
+        if not hits and not idx_hits:
+            return f"No FMCSA record matched '{query}'."
+        out = [f"FMCSA — '{query}':"]
+        for r in hits:
+            out.append(f"\n## {r.get('title','')}  [{r.get('citation','')}]  id={r.get('id','')}")
+            out.append(r.get("summary", ""))
+            if r.get("key_requirements"):
+                out.append("Key requirements:")
+                out += [f"  - {x}" for x in r["key_requirements"][:6]]
+        if idx_hits:
+            out.append("\nMatching 49 CFR sections:")
+            for h in idx_hits:
+                out.append(f"  49 CFR {h['citation']}  {h['title']}")
+        out.append("\n(Pass an 'id' for the full record, or 'citation' to resolve a specific code.)")
         return "\n".join(out)
 
     def learn(args: Dict[str, Any]) -> str:
@@ -1306,6 +1450,42 @@ def build_compliance_tools() -> List[Tool]:
                 "required": [],
             },
             handler=epa,
+            source="builtin",
+        ),
+        Tool(
+            name="fmcsa",
+            description=(
+                "FMCSA / US DOT MOTOR-CARRIER rulebook — the highway/commercial-vehicle "
+                "regulations a carrier and its safety/driver-qualification contractor must "
+                "follow (49 CFR Parts 40, 172, 380-397). This is a SEPARATE regulatory system "
+                "from OSHA: FMCSA governs commercial-vehicle safety, OSHA governs the worksite. "
+                "Use whenever the user mentions a 49 CFR code, a USDOT number, MCS-150, a CSA "
+                "score or BASIC, a DataQs challenge, a driver qualification (DQ) file, DOT drug "
+                "& alcohol testing or the Clearinghouse, hours of service or ELDs, DVIRs or "
+                "annual vehicle inspections, cargo securement, a CDL or ELDT, motor-carrier "
+                "insurance (MCS-90/BMC-91), a safety rating (Satisfactory/Conditional/"
+                "Unsatisfactory) or New Entrant audit, or hazmat transport. Covers the biennial "
+                "MCS-150 update under 390.19 (the deactivation trigger that instantly fails ISN/"
+                "Avetta prequal), the seven CSA BASICs, DataQs corrections, Part 391 DQ files, "
+                "Parts 382 & 40 drug & alcohol + the Clearinghouse, Part 395 HOS/ELD, Part 396 "
+                "DVIR/inspection, Part 393 cargo securement, Parts 383/380 CDL/ELDT, Part 387 "
+                "insurance, Part 385 ratings, and Part 172 hazmat. Pass 'citation' to resolve a "
+                "code (e.g. '390.19(b)(4)'), 'part' for a part's tree, 'query' to search, or "
+                "'id' for a full record. Call with no args to list everything. Reference only — "
+                "never enters document validation."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "citation": {"type": "string", "description": "A 49 CFR citation to resolve, e.g. '390.19(b)(4)', '391.51', '395.3'"},
+                    "part": {"type": "string", "description": "An FMCSA part number to expand, e.g. '390', '391', '395', '396'"},
+                    "query": {"type": "string", "description": "e.g. 'MCS-150 biennial update', 'CSA BASIC threshold', 'DataQs challenge crash', 'driver qualification file', 'random drug testing rate', 'Clearinghouse annual query', 'hours of service ELD', 'safety rating conditional'"},
+                    "id": {"type": "string", "description": "A specific record id, e.g. 'fmcsa-part390-mcs150', 'fmcsa-csa-basics', 'fmcsa-dataqs', 'fmcsa-part391-dq-files', 'fmcsa-clearinghouse'"},
+                    "limit": {"type": "integer", "description": "Max search hits (default 6)"},
+                },
+                "required": [],
+            },
+            handler=fmcsa,
             source="builtin",
         ),
         Tool(

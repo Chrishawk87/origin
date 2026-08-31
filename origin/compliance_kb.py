@@ -604,6 +604,235 @@ def epa_search(query: str, limit: int = 8) -> List[dict]:
     return [r for _, r in scored[:limit]]
 
 
+# ── FMCSA / US DOT full structural index (parts / subparts / key sections) ────
+# fmcsa_index.jsonl is the table of contents of the Federal Motor Carrier Safety
+# Regulations a carrier lives under — Parts 40, 172 (H/I), 380, 382, 383, 387,
+# 390, 391, 392, 393, 395, 396 — every mapped subpart and key section with its
+# official title and canonical eCFR URL. Same row schema as osha_index.jsonl
+# (part/part_name/subpart/subpart_title/citation/section/title/type/url). This is
+# the MAP: it lets the agent resolve ANY 49 CFR citation (e.g. 390.19) to its
+# official title/part/URL and know it is real, even when there is no written
+# program for it. It does NOT carry each section's verbatim body.
+@functools.lru_cache(maxsize=1)
+def _fmcsa_index_records() -> List[dict]:
+    path = KB_DIR / "fmcsa_index.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+@functools.lru_cache(maxsize=1)
+def _fmcsa_index() -> Dict[str, dict]:
+    idx: Dict[str, dict] = {}
+    for r in _fmcsa_index_records():
+        cit = r.get("citation")
+        sec = r.get("section")
+        if cit:
+            idx[cit] = r
+        if sec:
+            idx.setdefault(sec, r)
+    return idx
+
+
+@functools.lru_cache(maxsize=1)
+def _FMCSA_PART_NAMES() -> Dict[str, str]:
+    names: Dict[str, str] = {}
+    for r in _fmcsa_index_records():
+        p = r.get("part")
+        if p and p not in names:
+            names[p] = r.get("part_name", "")
+    return names
+
+
+def fmcsa_section(citation: str) -> Optional[dict]:
+    """Resolve any FMCSA / 49 CFR citation to its official title, subpart, part,
+    and eCFR URL.
+
+    Accepts a bare section ('390.19'), a paragraph form ('390.19(b)(4)'), a full
+    citation ('49 CFR 390.19'), or a subpart ('382 Subpart G'), or any string
+    containing one. Returns the structural-index record (part/part_name/subpart/
+    subpart_title/citation/section/title/type/url) or None if it isn't a mapped
+    FMCSA citation. Paragraph sub-parts like (b)(4) resolve to their base section.
+    Never fabricates.
+    """
+    q = (citation or "").strip()
+    if not q:
+        return None
+    idx = _fmcsa_index()
+    if q in idx:
+        return idx[q]
+    # subpart form, e.g. "382 Subpart G"
+    sm = re.search(r"\b(\d{2,3})\s+Subpart\s+([A-Za-z]+)\b", q, re.I)
+    if sm:
+        key = "%s Subpart %s" % (sm.group(1), sm.group(2).upper())
+        if key in idx:
+            return idx[key]
+    # bare section, optionally with paragraph tail, e.g. "390.19(b)(4)" or "391.51"
+    m = re.search(r"\b(\d{2,3}\.\d+)\b", q)
+    if m and m.group(1) in idx:
+        return idx[m.group(1)]
+    return None
+
+
+def fmcsa_part_tree(part: str) -> Optional[dict]:
+    """Return the mapped subpart→section tree for an FMCSA part (e.g. '391').
+
+    Accepts '391', '49 CFR 391', or any string containing the part number.
+    Returns {part, part_name, subparts:[...], counts} or None if the part isn't
+    mapped in fmcsa_index.jsonl.
+    """
+    digits = re.sub(r"\D", "", str(part or ""))
+    names = _FMCSA_PART_NAMES()
+    p = None
+    for cand in (digits[:3], digits[:2]):
+        if cand in names:
+            p = cand
+            break
+    if not p:
+        return None
+    recs = [r for r in _fmcsa_index_records() if r.get("part") == p]
+    if not recs:
+        return None
+    order: List[str] = []
+    groups: Dict[str, dict] = {}
+    for r in recs:
+        sp = r.get("subpart", "")
+        if sp not in groups:
+            groups[sp] = {"subpart": sp, "subpart_title": "", "url": "", "sections": []}
+            order.append(sp)
+        if r.get("type") == "subpart":
+            groups[sp]["subpart_title"] = r.get("subpart_title", "") or r.get("title", "")
+            groups[sp]["url"] = r.get("url", "")
+        else:
+            groups[sp]["sections"].append({
+                "citation": r.get("citation", ""), "title": r.get("title", ""),
+                "type": r.get("type", ""), "url": r.get("url", ""),
+            })
+    subparts = [groups[k] for k in order]
+    n_sec = sum(1 for r in recs if r.get("type") == "section")
+    return {
+        "part": p, "part_name": names[p], "subparts": subparts,
+        "counts": {"subparts": sum(1 for s in subparts if s["subpart"]),
+                   "sections": n_sec, "total_rows": len(recs)},
+    }
+
+
+def fmcsa_index_search(query: str, limit: int = 15) -> List[dict]:
+    """Keyword search over the FMCSA structural index by section title."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _fmcsa_index_records():
+        hay = (r.get("title", "") + " " + r.get("citation", "") + " "
+               + r.get("subpart_title", "")).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: (-x[0], len(x[1].get("citation", ""))))
+    return [{
+        "citation": r.get("citation", ""), "title": r.get("title", ""),
+        "part": r.get("part", ""), "part_name": r.get("part_name", ""),
+        "subpart": r.get("subpart", ""), "type": r.get("type", ""),
+        "url": r.get("url", ""),
+    } for _, r in scored[:limit]]
+
+
+def fmcsa_index_stats() -> dict:
+    """Inventory of the FMCSA structural index: total rows and per-part counts."""
+    recs = _fmcsa_index_records()
+    parts: Dict[str, dict] = {}
+    for r in recs:
+        p = r.get("part", "")
+        d = parts.setdefault(p, {"part_name": r.get("part_name", ""),
+                                 "subparts": set(), "sections": 0})
+        if r.get("type") == "section":
+            d["sections"] += 1
+        if r.get("subpart"):
+            d["subparts"].add(r["subpart"])
+    return {
+        "total_rows": len(recs),
+        "parts": {p: {"part_name": d["part_name"], "subparts": len(d["subparts"]),
+                      "sections": d["sections"]}
+                  for p, d in sorted(parts.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 999)},
+    }
+
+
+# ── FMCSA / US DOT deep reference layer ──────────────────────────────────────
+# fmcsa.jsonl — a deep, REFERENCE-only layer covering the FMCSA / US DOT rulebook
+# a motor carrier and its driver-qualification/safety contractor live under: USDOT
+# registration & the biennial MCS-150 update (Part 390.19 — the code Origin's Lead
+# Radar surfaces most), the CSA Safety Measurement System and its seven BASICs,
+# DataQs corrections, driver qualification files (Part 391), the DOT controlled-
+# substances & alcohol program and the Clearinghouse (Parts 382 & 40), hours of
+# service & ELDs (Part 395), inspection/repair/maintenance & the DVIR (Part 396),
+# parts & cargo securement (Part 393), CDL/ELDT (Parts 383/380), financial
+# responsibility (Part 387), the Part 385 safety rating / New Entrant audit, and
+# hazmat training & security plans (Part 172 H/I). This is a SEPARATE regulatory
+# system from OSHA: a carrier must satisfy FMCSA (highway/commercial-vehicle
+# safety) as well as OSHA (worker safety). Retrieval only — like every reference
+# layer, FMCSA records NEVER enter the send-gate (validate_document /
+# resolve_standards), so they enrich answers without weakening document validation.
+@functools.lru_cache(maxsize=1)
+def _fmcsa_records() -> List[dict]:
+    path = KB_DIR / "fmcsa.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def fmcsa() -> List[dict]:
+    """All FMCSA / US DOT motor-carrier reference records."""
+    return _fmcsa_records()
+
+
+def fmcsa_record(rid: str) -> Optional[dict]:
+    """A single FMCSA record by id (e.g. 'fmcsa-part390-mcs150', 'fmcsa-dataqs')."""
+    rid = (rid or "").strip().lower()
+    if not rid:
+        return None
+    for r in _fmcsa_records():
+        if r.get("id", "").lower() == rid:
+            return r
+    return None
+
+
+def fmcsa_search(query: str, limit: int = 8) -> List[dict]:
+    """Search the FMCSA layer, e.g. 'MCS-150 biennial update', 'CSA BASIC
+    threshold', 'DataQs challenge crash', 'driver qualification file', 'random
+    drug testing rate', 'Clearinghouse annual query', 'hours of service ELD',
+    'DVIR annual inspection', 'safety rating conditional'."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _fmcsa_records():
+        hay = " ".join([
+            r.get("title", ""), r.get("citation", ""), r.get("summary", ""),
+            r.get("agency", ""), r.get("applies_to", ""),
+            r.get("penalty_structure", ""),
+            " ".join(r.get("key_requirements", [])),
+            " ".join(r.get("forms", [])),
+            " ".join(r.get("deadlines", [])),
+            " ".join(r.get("failure_points", [])),
+        ]).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:limit]]
+
+
 # ── self-learning intake loop ────────────────────────────────────────────────
 # The brain gets smarter over time: anything Origin is taught — a document it
 # ingested, a reviewer rejection it saw, a correction Chris made — can be written
@@ -676,9 +905,9 @@ def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = Non
 # resolve_standards) still draws ONLY from curated `program` records, so adding
 # structural/reference/self-learned knowledge here never dilutes what a document
 # is validated against — it only makes the agent better-informed.
-_BRAIN_KINDS = ("program", "osha_section", "training", "whistleblower",
-                "preamble", "naics", "sic", "prequal_platform", "abatement",
-                "state_plan", "blm", "epa", "learned")
+_BRAIN_KINDS = ("program", "osha_section", "fmcsa_section", "training",
+                "whistleblower", "preamble", "naics", "sic", "prequal_platform",
+                "abatement", "state_plan", "blm", "epa", "fmcsa", "learned")
 
 
 def _brain_score(hay: str, q: set) -> int:
@@ -720,6 +949,18 @@ def brain_search(query: str, limit: int = 20,
             s = _brain_score(hay, q)
             if s:
                 hits.append({"kind": "osha_section", "source": "osha_index.jsonl",
+                             "score": s, "citation": r.get("citation", ""),
+                             "title": r.get("title", ""),
+                             "part_name": r.get("part_name", ""),
+                             "url": r.get("url", "")})
+
+    if "fmcsa_section" in want:
+        for r in _fmcsa_index_records():
+            hay = (r.get("title", "") + " " + r.get("citation", "") + " "
+                   + r.get("subpart_title", ""))
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "fmcsa_section", "source": "fmcsa_index.jsonl",
                              "score": s, "citation": r.get("citation", ""),
                              "title": r.get("title", ""),
                              "part_name": r.get("part_name", ""),
@@ -861,6 +1102,24 @@ def brain_search(query: str, limit: int = 20,
                              "agency": r.get("agency", ""),
                              "title": r.get("title", "")})
 
+    if "fmcsa" in want:
+        for r in _fmcsa_records():
+            hay = " ".join([r.get("title", ""), r.get("citation", ""),
+                            r.get("summary", ""), r.get("applies_to", ""),
+                            r.get("penalty_structure", ""),
+                            " ".join(r.get("key_requirements", [])),
+                            " ".join(r.get("forms", [])),
+                            " ".join(r.get("failure_points", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "fmcsa",
+                             "source": "fmcsa.jsonl",
+                             "score": s + 1,  # scarce, high-value domain knowledge
+                             "id": r.get("id", ""),
+                             "citation": r.get("citation", ""),
+                             "agency": r.get("agency", ""),
+                             "title": r.get("title", "")})
+
     if "learned" in want:
         for r in learned_knowledge():
             hay = " ".join([r.get("title", ""), r.get("text", ""),
@@ -950,6 +1209,8 @@ def brain_stats() -> dict:
         "state_plans": len(_state_plan_records()),
         "blm": len(_blm_records()),
         "epa": len(_epa_records()),
+        "fmcsa_sections": len(_fmcsa_index_records()),
+        "fmcsa": len(_fmcsa_records()),
         "learned": len(learned_knowledge()),
     }
     return {
