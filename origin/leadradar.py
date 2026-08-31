@@ -56,15 +56,19 @@ USER_AGENT = "OriginComplianceRadar/1.0 (+https://originmanagementsolutions.com)
 
 import os
 
-# DOL public enforcement (v2 path is the stable, long-documented one). The get
-# endpoint authenticates with a free X-API-KEY header. Register at
-# https://developer.dol.gov/ — set the key on Railway as DOL_API_KEY.
+# DOL public enforcement (v4). Data endpoints authenticate with a free API key
+# passed as the X-API-KEY query parameter. Register at
+# https://dataportal.dol.gov/registration — set the key on Railway as DOL_API_KEY.
 DOL_API_KEY = os.environ.get("DOL_API_KEY", "").strip()
 # Full override wins; otherwise we build v4 from agency/dataset.
 DOL_INSPECTION_URL = os.environ.get("DOL_INSPECTION_URL", "").strip()
 DOL_V4_BASE = os.environ.get("DOL_V4_BASE", "https://apiprod.dol.gov/v4/get").strip()
-DOL_AGENCY = os.environ.get("DOL_AGENCY", "osha").strip()
+# v4 paths are case-sensitive; the agency abbreviation is uppercase (OSHA, WHD, ILAB).
+DOL_AGENCY = os.environ.get("DOL_AGENCY", "OSHA").strip()
 DOL_DATASET = os.environ.get("DOL_DATASET", "inspection").strip()
+# The OSHA inspection dataset carries the penalty as "current_penalty" (not
+# "total_current_penalty"). Overridable in case the schema is renamed.
+DOL_PENALTY_FIELD = os.environ.get("DOL_PENALTY_FIELD", "current_penalty").strip()
 
 # GDELT DOC 2.0 — free, no key. Rate-limited to a handful of calls/hour, which
 # is why radar is on-demand, not a tight polling loop.
@@ -191,16 +195,23 @@ def _as_records(payload: Any) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def _dol_inspection_url(*, states: Optional[List[str]], since: str,
-                        min_penalty: float, limit: int) -> str:
+                        min_penalty: float, limit: int,
+                        with_penalty_filter: bool = True) -> str:
     """Build the DOL enforcement query URL.
 
     Prefers the v4 endpoint (supports gt/lt/in operators via filter_object).
     If DOL_INSPECTION_URL is set, that full base is used instead.
+
+    ``with_penalty_filter`` lets the caller drop the server-side penalty filter
+    and fall back to date-only filtering (then screen penalty client-side) if the
+    penalty field name doesn't match the live schema — a bad field name otherwise
+    errors the whole query and returns nothing.
     """
     filt: Dict[str, Any] = {"and": [
         {"field": "open_date", "operator": "gt", "value": since},
-        {"field": "total_current_penalty", "operator": "gt", "value": min_penalty},
     ]}
+    if with_penalty_filter and DOL_PENALTY_FIELD:
+        filt["and"].append({"field": DOL_PENALTY_FIELD, "operator": "gt", "value": min_penalty})
     if states:
         st = [s.strip().upper() for s in states if s.strip()]
         if st:
@@ -242,7 +253,7 @@ def normalize_osha_record(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if not company:
         return None
     state = _pick(rec, "site_state", "state", "mail_state")
-    penalty = _to_float(_pick(rec, "total_current_penalty", "current_penalty",
+    penalty = _to_float(_pick(rec, "current_penalty", "total_current_penalty",
                               "total_penalty", "initial_penalty", default="0"))
     naics = _pick(rec, "naics_code", "naics")
     opened = _pick(rec, "open_date", "issuance_date", "date")
@@ -290,11 +301,21 @@ def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30
     """Pull recent penalty-bearing OSHA/state-OSHA citations as radar leads."""
     if not (DOL_API_KEY or DOL_INSPECTION_URL):
         return {"ok": False, "reason": "no_dol_key", "leads": [],
-                "note": "Set DOL_API_KEY (free from developer.dol.gov) to enable OSHA pulls."}
+                "note": "Set DOL_API_KEY (free from dataportal.dol.gov) to enable OSHA pulls."}
 
     since = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
-    url = _dol_inspection_url(states=states, since=since, min_penalty=min_penalty, limit=limit)
+    # First try with the server-side penalty filter. If the field name doesn't
+    # match the live schema, the whole query errors and returns nothing — so on a
+    # miss we retry with date-only filtering and screen penalty client-side.
+    url = _dol_inspection_url(states=states, since=since, min_penalty=min_penalty,
+                              limit=limit, with_penalty_filter=True)
     payload = _http_get_json(url, timeout=30)
+    penalty_filtered_server_side = True
+    if payload is None:
+        url = _dol_inspection_url(states=states, since=since, min_penalty=min_penalty,
+                                  limit=limit, with_penalty_filter=False)
+        payload = _http_get_json(url, timeout=30)
+        penalty_filtered_server_side = False
     if payload is None:
         return {"ok": False, "reason": "fetch_failed", "leads": [],
                 "note": "DOL enforcement endpoint did not return data."}
@@ -303,6 +324,10 @@ def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30
     for rec in _as_records(payload):
         lead = normalize_osha_record(rec)
         if not lead:
+            continue
+        # Only surface penalty-bearing citations (a bare inspection has no pain,
+        # no budget). When the server didn't filter, enforce the floor here.
+        if not penalty_filtered_server_side and lead["penalty"] < min_penalty:
             continue
         if target_trades_only and not lead["trade_match"]:
             continue
