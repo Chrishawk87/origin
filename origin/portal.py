@@ -469,7 +469,7 @@ def seed_test_client() -> Dict[str, Any]:
 def register_portal(app) -> None:
     """Attach all portal + admin routes to an existing FastAPI app."""
     from fastapi import Body, File, Form, Request, UploadFile
-    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
     webui = Path(__file__).parent / "webui"
     CLIENTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1294,7 +1294,8 @@ def register_portal(app) -> None:
                                   "radar_penalty", "radar_state", "radar_city",
                                   "radar_naics", "radar_opened", "radar_score",
                                   "radar_priority", "radar_url", "radar_summary",
-                                  "radar_trade_match"):
+                                  "radar_trade_match", "radar_address",
+                                  "radar_rating", "radar_mine", "radar_dot"):
                             row[k] = d.get(k, "")
                     rows.append(row)
         except Exception as exc:  # pragma: no cover
@@ -1492,6 +1493,8 @@ def register_portal(app) -> None:
                 since_days=int(body.get("since_days") or 30),
                 min_penalty=float(body.get("min_penalty") or 1000),
                 include_news=bool(body.get("include_news", True)),
+                include_fmcsa=bool(body.get("include_fmcsa", True)),
+                include_msha=bool(body.get("include_msha", True)),
                 target_trades_only=bool(body.get("target_trades_only", False)),
                 min_score=int(body.get("min_score") or 0),
                 persist=bool(body.get("persist", True)),
@@ -1502,6 +1505,48 @@ def register_portal(app) -> None:
         # is already persisted into the Leads view.
         result["leads"] = result.get("leads", [])[:100]
         return result
+
+    @app.post("/portal/api/admin/radar/export.csv")
+    def admin_radar_export_csv(request: Request, body: dict = Body(default=None)):
+        """Run Lead Radar and stream the results back as a clean CSV download
+        (exact columns: Company Name, Street Address, City, State, Zip,
+        Violation Type, Penalty, Date Issued, Source). Does NOT persist —
+        this is a pull-the-list-and-go export for outreach."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        body = body or {}
+        try:
+            from . import leadradar as _radar
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"radar unavailable: {exc}"}, status_code=500)
+
+        def _states(v):
+            if not v:
+                return None
+            if isinstance(v, str):
+                v = [s for s in re.split(r"[,\s]+", v) if s]
+            return [str(s).strip().upper() for s in v if str(s).strip()] or None
+
+        try:
+            csv_text = _radar.run_radar_csv(
+                states=_states(body.get("states")),
+                since_days=int(body.get("since_days") or 30),
+                min_penalty=float(body.get("min_penalty") or 1000),
+                include_news=bool(body.get("include_news", True)),
+                include_fmcsa=bool(body.get("include_fmcsa", True)),
+                include_msha=bool(body.get("include_msha", True)),
+                target_trades_only=bool(body.get("target_trades_only", False)),
+                min_score=int(body.get("min_score") or 0),
+            )
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": str(exc)}, status_code=500)
+        import datetime as _dt
+        fname = "reverse-leads-%s.csv" % _dt.date.today().isoformat()
+        return Response(
+            content=csv_text,
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="%s"' % fname},
+        )
 
     @app.post("/portal/api/admin/client/{slug}/email-docs")
     def admin_email_docs(slug: str, request: Request, body: dict = Body(...)):

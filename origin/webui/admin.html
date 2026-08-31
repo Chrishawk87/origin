@@ -133,7 +133,10 @@
             <div class="hint" style="margin-top:2px">Pull contractors who just took a public compliance hit \u2014 penalty-bearing OSHA &amp; state-OSHA citations, plus recent safety-enforcement news. Scored for callability and dropped straight into your leads below.</div>
             <div class="hint" id="radarKeyNote" style="margin-top:4px"></div>
           </div>
-          <div><button class="btn sm" id="radarRunBtn" onclick="runRadar()">Run radar \u2192</button></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            <button class="btn sm" id="radarRunBtn" onclick="runRadar()">Run radar \u2192</button>
+            <button class="btn sm" id="radarCsvBtn" onclick="downloadRadarCsv()" style="background:#555">Download CSV</button>
+          </div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
           <label class="hint">States (blank = nationwide)<br><input id="radarStates" placeholder="TX, LA, OK" style="padding:6px;border:1px solid #ccc;border-radius:6px;width:150px"></label>
@@ -141,6 +144,8 @@
           <label class="hint">Min penalty ($)<br><input id="radarPenalty" type="number" value="1000" style="padding:6px;border:1px solid #ccc;border-radius:6px;width:100px"></label>
           <label class="hint"><input id="radarTrades" type="checkbox"> Origin's trades only</label>
           <label class="hint"><input id="radarNews" type="checkbox" checked> Include news</label>
+          <label class="hint"><input id="radarFmcsa" type="checkbox" checked> FMCSA carriers</label>
+          <label class="hint"><input id="radarMsha" type="checkbox" checked> MSHA mines</label>
         </div>
         <div id="radarStatus" class="hint" style="margin-top:8px"></div>
       </div>
@@ -579,15 +584,40 @@ function loadRadarConfig(){
     else{note.innerHTML='<span style="color:#c0392b">OSHA pulls are off</span> until DOL_API_KEY is set on Railway (free key from developer.dol.gov). News still works now.';}
   });
 }
-function runRadar(){
-  var btn=document.getElementById('radarRunBtn');var st=document.getElementById('radarStatus');
-  btn.disabled=true;var old=btn.textContent;btn.textContent='Running\u2026';
-  st.textContent='Scanning OSHA / state-OSHA citations and safety news\u2026 this can take a few seconds.';
-  var body={states:document.getElementById('radarStates').value,
+function radarBody(){
+  return {states:document.getElementById('radarStates').value,
     since_days:parseInt(document.getElementById('radarDays').value||'30',10),
     min_penalty:parseFloat(document.getElementById('radarPenalty').value||'1000'),
     target_trades_only:document.getElementById('radarTrades').checked,
-    include_news:document.getElementById('radarNews').checked};
+    include_news:document.getElementById('radarNews').checked,
+    include_fmcsa:document.getElementById('radarFmcsa').checked,
+    include_msha:document.getElementById('radarMsha').checked};
+}
+function downloadRadarCsv(){
+  var btn=document.getElementById('radarCsvBtn');var st=document.getElementById('radarStatus');
+  btn.disabled=true;var old=btn.textContent;btn.textContent='Building\u2026';
+  st.textContent='Building your CSV export\u2026 this can take a few seconds.';
+  fetch('/portal/api/admin/radar/export.csv',{method:'POST',
+    headers:{'Content-Type':'application/json'},credentials:'same-origin',
+    body:JSON.stringify(radarBody())}).then(function(resp){
+      if(!resp.ok){return resp.text().then(function(t){throw new Error(t||'export failed');});}
+      return resp.blob();
+    }).then(function(blob){
+      btn.disabled=false;btn.textContent=old;
+      var url=URL.createObjectURL(blob);var a=document.createElement('a');
+      a.href=url;a.download='reverse-leads.csv';document.body.appendChild(a);a.click();
+      document.body.removeChild(a);URL.revokeObjectURL(url);
+      st.textContent='CSV downloaded. (Export does not add these to your leads list.)';
+    }).catch(function(e){
+      btn.disabled=false;btn.textContent=old;
+      st.textContent='CSV export failed: '+(e&&e.message||e);
+    });
+}
+function runRadar(){
+  var btn=document.getElementById('radarRunBtn');var st=document.getElementById('radarStatus');
+  btn.disabled=true;var old=btn.textContent;btn.textContent='Running\u2026';
+  st.textContent='Scanning OSHA / state-OSHA citations, FMCSA / MSHA records and safety news\u2026 this can take a few seconds.';
+  var body=radarBody();
   api('/portal/api/admin/radar/run',{method:'POST',body:body}).then(function(r){
     btn.disabled=false;btn.textContent=old;
     if(!r.ok){st.textContent=(r.j&&r.j.error)||'Radar run failed.';return;}
@@ -595,6 +625,8 @@ function runRadar(){
     var src=j.sources||{};var warn='';
     if(src.osha&&src.osha.ok===false){warn+=' OSHA: '+(src.osha.note||src.osha.reason||'unavailable')+'.';}
     if(src.news&&src.news.ok===false){warn+=' News: '+(src.news.note||src.news.reason||'unavailable')+'.';}
+    if(src.fmcsa&&src.fmcsa.ok===false){warn+=' FMCSA: '+(src.fmcsa.note||src.fmcsa.reason||'unavailable')+'.';}
+    if(src.msha&&src.msha.ok===false){warn+=' MSHA: '+(src.msha.note||src.msha.reason||'unavailable')+'.';}
     st.innerHTML='<b>Done.</b> '+ (c.total||0)+' lead'+((c.total===1)?'':'s')+' found \u2014 '
       +(c.hot||0)+' hot, '+(c.warm||0)+' warm, '+(c.watch||0)+' watch. '
       +(j.written||0)+' new added to your list'+(j.skipped_duplicates?', '+j.skipped_duplicates+' already seen':'')+'.'

@@ -82,6 +82,25 @@ DOL_ISSUANCE_FIELD = os.environ.get("DOL_ISSUANCE_FIELD", "issuance_date").strip
 # is why radar is on-demand, not a tight polling loop.
 GDELT_URL = os.environ.get("GDELT_URL", "https://api.gdeltproject.org/api/v2/doc/doc").strip()
 
+# FMCSA (trucking) — public Socrata "Company Census File" (dataset az4n-8mr2) on
+# data.transportation.gov. No key needed; an optional Socrata app token raises the
+# rate limit. safety_rating: S=Satisfactory, C=Conditional, U=Unsatisfactory. A U
+# (or C) carrier is exactly the profile a prime contractor's ISN/Avetta/Veriforce
+# screen rejects — a strong reverse-trigger lead.
+FMCSA_SOCRATA_URL = os.environ.get(
+    "FMCSA_SOCRATA_URL", "https://data.transportation.gov/resource/az4n-8mr2.json").strip()
+SOCRATA_APP_TOKEN = os.environ.get("SOCRATA_APP_TOKEN", "").strip()
+
+# MSHA (mining) — violations live on the same DOL v4 data portal as OSHA, so the
+# same DOL_API_KEY works. We discover the exact dataset from the public catalog at
+# runtime (no hard-wired dataset name to rot). Field names are overridable in case
+# the v4 schema differs from the documented column names.
+DOL_DATASETS_URL = os.environ.get("DOL_DATASETS_URL", "https://apiprod.dol.gov/v4/datasets").strip()
+MSHA_AGENCY = os.environ.get("MSHA_AGENCY", "MSHA").strip()
+MSHA_DATASET = os.environ.get("MSHA_DATASET", "").strip()  # blank => auto-discover
+MSHA_ISSUE_FIELD = os.environ.get("MSHA_ISSUE_FIELD", "violation_issue_dt").strip()
+MSHA_PENALTY_FIELD = os.environ.get("MSHA_PENALTY_FIELD", "proposed_penalty").strip()
+
 # ---------------------------------------------------------------------------
 # State-plan authority map — the DOL dataset carries state-OSHA citations too;
 # we name the citing authority from the establishment's state so a lead reads
@@ -729,6 +748,241 @@ def fetch_news_leads(*, query: str = "", timespan: str = "1week",
     return last
 
 
+def _norm_date(s: str) -> str:
+    """Normalize a date string (mm/dd/yyyy or ISO) to YYYY-MM-DD for scoring/sorting."""
+    s = (s or "").strip()
+    if not s:
+        return ""
+    for cand, fmt in ((s[:10], "%Y-%m-%d"), (s[:10], "%m/%d/%Y"),
+                      (s[:19], "%Y-%m-%dT%H:%M:%S"), (s[:19], "%m/%d/%Y %H:%M:%S")):
+        try:
+            return datetime.strptime(cand, fmt).strftime("%Y-%m-%d")
+        except Exception:
+            continue
+    return s[:10]
+
+
+# ---------------------------------------------------------------------------
+# FMCSA (trucking) — a poor safety rating is a direct ISN/Avetta drop trigger
+# ---------------------------------------------------------------------------
+
+_FMCSA_RATING_LABEL = {"U": "Unsatisfactory", "C": "Conditional", "S": "Satisfactory"}
+
+
+def _fmcsa_url(*, ratings: tuple, states: Optional[List[str]], limit: int) -> str:
+    """Build a Socrata SODA query for carriers with the given safety ratings."""
+    where = "safety_rating in(%s)" % ",".join("'%s'" % r for r in ratings)
+    st = [s.strip().upper() for s in (states or []) if s.strip()]
+    if st:
+        where += " AND phy_state in(%s)" % ",".join("'%s'" % s for s in st)
+    params = {"$where": where, "$order": "safety_rating_date DESC", "$limit": str(limit)}
+    if SOCRATA_APP_TOKEN:
+        params["$$app_token"] = SOCRATA_APP_TOKEN
+    return FMCSA_SOCRATA_URL + "?" + urllib.parse.urlencode(params)
+
+
+def _fmcsa_summary(lead: Dict[str, Any]) -> str:
+    rate = _FMCSA_RATING_LABEL.get(lead.get("rating", ""), "flagged")
+    parts = [f"FMCSA {rate} safety rating"]
+    where = ", ".join(p for p in (lead.get("city"), lead.get("state")) if p)
+    if where:
+        parts.append(where)
+    if lead.get("opened"):
+        parts.append(f"rated {lead['opened']}")
+    parts.append("likely dropped by ISN/Avetta/Veriforce")
+    return " \u2014 ".join(parts)
+
+
+def _build_fmcsa_lead(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    company = _pick(rec, "legal_name", "dba_name", "name")
+    if not company:
+        return None
+    dot = _pick(rec, "dot_number", "usdot", "dot")
+    lead = {
+        "kind": "fmcsa_rating",
+        "label": "safety rating",
+        "company": company,
+        "authority": "FMCSA",
+        "penalty": 0.0,
+        "rating": _pick(rec, "safety_rating").upper()[:1],
+        "state": _pick(rec, "phy_state", "state").upper(),
+        "city": _pick(rec, "phy_city", "city"),
+        "address": _pick(rec, "phy_street", "address"),
+        "zip": _pick(rec, "phy_zip", "zip"),
+        "opened": _norm_date(_pick(rec, "safety_rating_date", "review_date")),
+        "dot_number": dot,
+        "power_units": _pick(rec, "power_units"),
+        "trade_match": True,  # trucking is squarely an Origin trade
+        "url": (f"https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type="
+                f"queryCarrierSnapshot&query_param=USDOT&query_string={dot}" if dot else ""),
+    }
+    lead["summary"] = _fmcsa_summary(lead)
+    return lead
+
+
+def fetch_fmcsa_leads(*, states: Optional[List[str]] = None,
+                      ratings: tuple = ("U", "C"), limit: int = 200) -> Dict[str, Any]:
+    """Carriers with Unsatisfactory/Conditional FMCSA safety ratings — the exact
+    profile a prime contractor's ISN/Avetta/Veriforce screen rejects. Pulled from
+    the public FMCSA census on data.transportation.gov (no key needed)."""
+    url = _fmcsa_url(ratings=ratings, states=states, limit=max(1, min(limit * 3, 1000)))
+    res = _http_fetch(url, timeout=40)
+    status, body = res.get("status"), res.get("body") or ""
+    if status is None:
+        return {"ok": False, "reason": "unreachable", "leads": [],
+                "note": f"FMCSA data portal unreachable ({res.get('error', 'no response')})."}
+    if status == 429:
+        return {"ok": False, "reason": "rate_limited", "leads": [],
+                "note": "FMCSA data portal rate-limited us. Set SOCRATA_APP_TOKEN for a higher limit."}
+    if status == 400:
+        snippet = " ".join(body.split())[:160]
+        return {"ok": False, "reason": "bad_request", "leads": [],
+                "note": f"FMCSA query rejected (field names may have changed): {snippet}"}
+    if status >= 400:
+        return {"ok": False, "reason": "http_error", "leads": [],
+                "note": f"FMCSA data portal returned HTTP {status}."}
+    if not _looks_like_json(body):
+        return {"ok": False, "reason": "not_json", "leads": [],
+                "note": "FMCSA data portal returned a non-JSON body."}
+    try:
+        payload = json.loads(body)
+    except Exception:
+        return {"ok": False, "reason": "parse_error", "leads": [],
+                "note": "FMCSA data portal returned malformed JSON."}
+    want = set(s.strip().upper() for s in (states or []) if s.strip())
+    leads: List[Dict[str, Any]] = []
+    for rec in _as_records(payload):
+        lead = _build_fmcsa_lead(rec)
+        if not lead:
+            continue
+        if want and lead["state"] not in want:
+            continue
+        leads.append(lead)
+    leads.sort(key=lambda l: l.get("opened") or "", reverse=True)
+    return {"ok": True, "reason": "", "count": len(leads), "leads": leads[:limit]}
+
+
+# ---------------------------------------------------------------------------
+# MSHA (mining) — recent violations via the DOL v4 data portal (same key as OSHA)
+# ---------------------------------------------------------------------------
+
+_MSHA_CACHE: Dict[str, Any] = {}
+
+
+def _dol_datasets() -> List[Dict[str, Any]]:
+    """The public DOL v4 dataset catalog (no key). Cached for the process life."""
+    if "list" in _MSHA_CACHE:
+        return _MSHA_CACHE["list"]
+    payload = _http_get_json(DOL_DATASETS_URL, timeout=30)
+    lst = _as_records(payload)
+    _MSHA_CACHE["list"] = lst
+    return lst
+
+
+def _discover_msha_dataset() -> str:
+    """Find the current MSHA violations dataset's api_url from the catalog, or ''."""
+    if MSHA_DATASET:
+        return MSHA_DATASET
+    for rec in _dol_datasets():
+        agency = _pick(rec, "agency", "agency_abbr", "agencyAbbreviation").upper()
+        api_url = _pick(rec, "api_url", "apiUrl", "endpoint", "url", "name")
+        blob = (_pick(rec, "name", "dataset", "title") + " " + api_url).lower()
+        if agency == MSHA_AGENCY.upper() and "violation" in blob:
+            if "archive" in blob or "1978" in blob:
+                continue  # skip the 1978-2000 archive; we want the current file
+            return api_url or _pick(rec, "name")
+    return ""
+
+
+def _msha_summary(lead: Dict[str, Any]) -> str:
+    parts = ["MSHA violation"]
+    if lead.get("penalty"):
+        parts.append(f"${lead['penalty']:,.0f} penalty")
+    if lead.get("mine_name"):
+        parts.append(f"at {lead['mine_name']}")
+    if lead.get("state"):
+        parts.append(lead["state"])
+    if lead.get("opened"):
+        parts.append(f"issued {lead['opened']}")
+    return " \u2014 ".join(parts)
+
+
+def _build_msha_lead(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    company = _pick(rec, "violator_name", "operator_name", "contractor_name", "mine_name")
+    if not company:
+        return None
+    penalty = _to_float(_pick(rec, MSHA_PENALTY_FIELD, "proposed_penalty",
+                              "amount_due", default="0"))
+    issued = _pick(rec, MSHA_ISSUE_FIELD, "violation_issue_dt", "violation_occur_dt")
+    lead = {
+        "kind": "msha_violation",
+        "label": "confirmed violation",
+        "company": company,
+        "authority": "MSHA",
+        "penalty": round(penalty, 2),
+        "state": _pick(rec, "state", "mine_state", "fips_state_cd").upper()[:2],
+        "city": "",
+        "address": "",
+        "zip": "",
+        "opened": _norm_date(issued),
+        "mine_name": _pick(rec, "mine_name"),
+        "mine_id": _pick(rec, "mine_id"),
+        "trade_match": True,
+        # No reliable per-mine deep link; leave url empty so dedupe keys on company.
+        "url": "",
+    }
+    lead["summary"] = _msha_summary(lead)
+    return lead
+
+
+def fetch_msha_leads(*, states: Optional[List[str]] = None, since_days: int = 30,
+                     min_penalty: float = 1000.0, limit: int = 200) -> Dict[str, Any]:
+    """Recent penalty-bearing MSHA violations as radar leads. Uses the same DOL
+    v4 API + key as OSHA; the exact dataset is discovered from the public catalog.
+    Dates on this table are strings, so recency is filtered client-side."""
+    if not DOL_API_KEY:
+        return {"ok": False, "reason": "no_dol_key", "leads": [],
+                "note": "Set DOL_API_KEY (free from dataportal.dol.gov) to enable MSHA pulls."}
+    api_url = _discover_msha_dataset()
+    if not api_url:
+        return {"ok": False, "reason": "unavailable", "leads": [],
+                "note": "MSHA violations dataset not found in the DOL catalog "
+                        "(set MSHA_DATASET on Railway to override)."}
+    since = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
+    filt = {"and": [{"field": MSHA_PENALTY_FIELD, "operator": "gt", "value": min_penalty}]}
+    base_params = {"limit": str(max(limit * 5, 500)), "offset": "0",
+                   "filter_object": json.dumps(filt, separators=(",", ":")),
+                   "X-API-KEY": DOL_API_KEY}
+
+    def _url(sort_by: str) -> str:
+        p = dict(base_params)
+        if sort_by:
+            p["sort"] = "desc"
+            p["sort_by"] = sort_by
+        return f"{DOL_V4_BASE}/{MSHA_AGENCY}/{api_url}/json?" + urllib.parse.urlencode(p)
+
+    res = _dol_fetch_records(_url(MSHA_ISSUE_FIELD))
+    if not res["ok"] and res["reason"] == "bad_request":
+        res = _dol_fetch_records(_url(""))  # field not sortable — retry unsorted
+    if not res["ok"]:
+        return {"ok": False, "reason": res["reason"], "leads": [], "note": res["note"]}
+
+    want = set(s.strip().upper() for s in (states or []) if s.strip())
+    leads: List[Dict[str, Any]] = []
+    for rec in res["records"]:
+        lead = _build_msha_lead(rec)
+        if not lead:
+            continue
+        days = _days_since(lead["opened"])
+        if days is not None and days > since_days:
+            continue
+        if want and lead["state"] and lead["state"] not in want:
+            continue
+        leads.append(lead)
+    leads.sort(key=lambda l: l.get("opened") or "", reverse=True)
+    return {"ok": True, "reason": "", "count": len(leads), "leads": leads[:limit], "since": since}
+
+
 # ---------------------------------------------------------------------------
 # Scoring — how worth-a-call is this lead?
 # ---------------------------------------------------------------------------
@@ -758,6 +1012,13 @@ def score_lead(lead: Dict[str, Any]) -> int:
     # Confirmation level.
     if lead.get("kind") == "osha_citation":
         score += 25
+    elif lead.get("kind") == "msha_violation":
+        score += 22
+    elif lead.get("kind") == "fmcsa_rating":
+        # No fine attached, but a poor rating is a direct prequal-failure trigger —
+        # the exact reason ISN/Avetta/Veriforce drop a carrier.
+        r = (lead.get("rating") or "").upper()
+        score += 34 if r == "U" else 22 if r == "C" else 10
     elif lead.get("kind") == "news_incident":
         score += 8
 
@@ -814,6 +1075,8 @@ def _priority(score: int) -> str:
 def _lead_dedupe_key(lead: Dict[str, Any]) -> str:
     if lead.get("activity_nr"):
         return "osha:" + str(lead["activity_nr"])
+    if lead.get("dot_number"):
+        return "fmcsa:" + str(lead["dot_number"])
     if lead.get("url"):
         return "url:" + lead["url"]
     return "co:" + (lead.get("company", "").lower() + "|" + lead.get("state", "").lower())
@@ -838,7 +1101,11 @@ def _write_lead(radar_lead: Dict[str, Any]) -> bool:
         "radar_penalty": radar_lead.get("penalty", 0),
         "radar_state": radar_lead.get("state", ""),
         "radar_city": radar_lead.get("city", ""),
+        "radar_address": radar_lead.get("address", ""),
         "radar_naics": radar_lead.get("naics", ""),
+        "radar_rating": radar_lead.get("rating", ""),
+        "radar_mine": radar_lead.get("mine_name", ""),
+        "radar_dot": radar_lead.get("dot_number", ""),
         "radar_opened": radar_lead.get("opened", "") or radar_lead.get("seendate", ""),
         "radar_score": radar_lead.get("score", 0),
         "radar_priority": radar_lead.get("priority", ""),
@@ -886,6 +1153,7 @@ def run_radar(*, states: Optional[List[str]] = None, since_days: int = 30,
               min_penalty: float = 1000.0, osha_limit: int = 200,
               news_query: str = "", news_timespan: str = "1week",
               news_max: int = 75, include_news: bool = True,
+              include_fmcsa: bool = True, include_msha: bool = True,
               target_trades_only: bool = False,
               min_score: int = 0, persist: bool = True) -> Dict[str, Any]:
     """Run the radar across all sources, score, dedupe, and (optionally) write
@@ -898,6 +1166,17 @@ def run_radar(*, states: Optional[List[str]] = None, since_days: int = 30,
                             target_trades_only=target_trades_only)
     sources["osha"] = {k: v for k, v in osha.items() if k != "leads"}
     raw.extend(osha.get("leads", []))
+
+    if include_fmcsa:
+        fmcsa = fetch_fmcsa_leads(states=states, limit=osha_limit)
+        sources["fmcsa"] = {k: v for k, v in fmcsa.items() if k != "leads"}
+        raw.extend(fmcsa.get("leads", []))
+
+    if include_msha:
+        msha = fetch_msha_leads(states=states, since_days=since_days,
+                                min_penalty=min_penalty, limit=osha_limit)
+        sources["msha"] = {k: v for k, v in msha.items() if k != "leads"}
+        raw.extend(msha.get("leads", []))
 
     if include_news:
         news = fetch_news_leads(query=news_query, timespan=news_timespan,
@@ -944,6 +1223,8 @@ def run_radar(*, states: Optional[List[str]] = None, since_days: int = 30,
         "warm": sum(1 for l in scored if l["priority"] == "warm"),
         "watch": sum(1 for l in scored if l["priority"] == "watch"),
         "osha": sum(1 for l in scored if l["kind"] == "osha_citation"),
+        "fmcsa": sum(1 for l in scored if l["kind"] == "fmcsa_rating"),
+        "msha": sum(1 for l in scored if l["kind"] == "msha_violation"),
         "news": sum(1 for l in scored if l["kind"] == "news_incident"),
     }
     return {
@@ -968,9 +1249,78 @@ def radar_config_schema() -> Dict[str, Any]:
                         "help": "Only citations with at least this penalty (callability filter)."},
         "include_news": {"type": "bool", "default": True,
                          "help": "Also scan recent US safety-enforcement news."},
+        "include_fmcsa": {"type": "bool", "default": True,
+                          "help": "Also pull trucking carriers with Unsat/Conditional FMCSA safety ratings (ISN/Avetta drop triggers)."},
+        "include_msha": {"type": "bool", "default": True,
+                         "help": "Also pull recent penalty-bearing MSHA (mining) violations."},
         "target_trades_only": {"type": "bool", "default": False,
                                "help": "Restrict OSHA leads to Origin's trades (construction, oilfield, trucking, industrial)."},
         "min_score": {"type": "int", "default": 0,
                       "help": "Drop leads below this callability score."},
         "dol_key_configured": bool(DOL_API_KEY or DOL_INSPECTION_URL),
     }
+
+
+# ---------------------------------------------------------------------------
+# CSV export — a clean, one-row-per-lead sheet for outreach / mail-merge
+# ---------------------------------------------------------------------------
+
+_CSV_COLUMNS = ["Company Name", "Street Address", "City", "State", "Zip",
+                "Violation Type", "Penalty", "Date Issued", "Source"]
+
+
+def _lead_source_label(lead: Dict[str, Any]) -> str:
+    k = lead.get("kind")
+    if k == "osha_citation":
+        return lead.get("authority", "") or "OSHA"
+    if k == "msha_violation":
+        return "MSHA (Federal)"
+    if k == "fmcsa_rating":
+        return "FMCSA (Federal)"
+    if k == "news_incident":
+        return "News report"
+    return "Lead Radar"
+
+
+def _lead_violation_label(lead: Dict[str, Any]) -> str:
+    k = lead.get("kind")
+    if k == "osha_citation":
+        vt = lead.get("viol_types") or []
+        return ("/".join(vt) + " citation") if vt else "OSHA citation"
+    if k == "msha_violation":
+        return "MSHA violation"
+    if k == "fmcsa_rating":
+        return _FMCSA_RATING_LABEL.get(lead.get("rating", ""), "Flagged") + " safety rating"
+    if k == "news_incident":
+        return (lead.get("title", "") or "")[:120]
+    return ""
+
+
+def leads_to_csv(leads: List[Dict[str, Any]]) -> str:
+    """Render scored leads as a CSV string with Chris's exact column set."""
+    import csv
+    import io
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(_CSV_COLUMNS)
+    for lead in leads:
+        pen = _to_float(lead.get("penalty"))
+        w.writerow([
+            lead.get("company", ""),
+            lead.get("address", ""),
+            lead.get("city", ""),
+            lead.get("state", ""),
+            lead.get("zip", ""),
+            _lead_violation_label(lead),
+            (f"{pen:.0f}" if pen else ""),
+            lead.get("opened", "") or lead.get("seendate", ""),
+            _lead_source_label(lead),
+        ])
+    return buf.getvalue()
+
+
+def run_radar_csv(**kwargs: Any) -> str:
+    """Convenience: run the radar (no persistence by default) and return a CSV."""
+    kwargs.setdefault("persist", False)
+    result = run_radar(**kwargs)
+    return leads_to_csv(result.get("leads", []))
