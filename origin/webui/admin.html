@@ -122,9 +122,29 @@
 
     <section id="leads" class="page">
       <div class="hello">
-        <div><h2>New Leads</h2><div class="sub">Captured from your free tools (citation check, grade rescue, RAVS decoder, readiness quiz). Convert a lead to spin up their portal account and email an invite.</div></div>
+        <div><h2>New Leads</h2><div class="sub">Captured from your free tools (citation check, grade rescue, RAVS decoder, readiness quiz), plus Lead Radar. Convert a lead to spin up their portal account and email an invite.</div></div>
         <div class="bar"><button class="btn ghost sm" onclick="loadLeads()">\u21bb Refresh</button></div>
       </div>
+
+      <div class="card" id="radarCard" style="margin-bottom:12px;border-left:3px solid #e8813a">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">
+          <div>
+            <div style="font-weight:700">\ud83d\udce1 Lead Radar</div>
+            <div class="hint" style="margin-top:2px">Pull contractors who just took a public compliance hit \u2014 penalty-bearing OSHA &amp; state-OSHA citations, plus recent safety-enforcement news. Scored for callability and dropped straight into your leads below.</div>
+            <div class="hint" id="radarKeyNote" style="margin-top:4px"></div>
+          </div>
+          <div><button class="btn sm" id="radarRunBtn" onclick="runRadar()">Run radar \u2192</button></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
+          <label class="hint">States (blank = nationwide)<br><input id="radarStates" placeholder="TX, LA, OK" style="padding:6px;border:1px solid #ccc;border-radius:6px;width:150px"></label>
+          <label class="hint">Since (days)<br><input id="radarDays" type="number" value="30" style="padding:6px;border:1px solid #ccc;border-radius:6px;width:80px"></label>
+          <label class="hint">Min penalty ($)<br><input id="radarPenalty" type="number" value="1000" style="padding:6px;border:1px solid #ccc;border-radius:6px;width:100px"></label>
+          <label class="hint"><input id="radarTrades" type="checkbox"> Origin's trades only</label>
+          <label class="hint"><input id="radarNews" type="checkbox" checked> Include news</label>
+        </div>
+        <div id="radarStatus" class="hint" style="margin-top:8px"></div>
+      </div>
+
       <div id="leadList"></div>
     </section>
 
@@ -490,6 +510,7 @@ function quote(slug,index){
 /* ── New Leads → Convert to client ── */
 var LEADS=[];
 function loadLeads(){
+  loadRadarConfig();
   api('/portal/api/admin/leads').then(function(r){
     LEADS=(r.j&&r.j.leads)||[];
     renderLeads();
@@ -498,11 +519,17 @@ function loadLeads(){
     if(pip){pip.style.display=open?'inline-block':'none';pip.textContent=open;}
   });
 }
+function radarPip(p){var c=(p==='hot')?'#e8813a':(p==='warm')?'#c99a2e':'#888';
+  return '<span class="pip" style="background:'+c+'">'+esc((p||'watch').toUpperCase())+'</span>';}
+function money(n){n=Number(n)||0;return n?'$'+n.toLocaleString(undefined,{maximumFractionDigits:0}):'';}
+
 function renderLeads(){
   var el=document.getElementById('leadList');if(!el)return;
-  if(!LEADS.length){el.innerHTML='<div class="card">No leads yet. When someone submits one of your free tools, they show up here.</div>';return;}
+  if(!LEADS.length){el.innerHTML='<div class="card">No leads yet. When someone submits one of your free tools \u2014 or you run Lead Radar \u2014 they show up here.</div>';return;}
   var h='';
   LEADS.forEach(function(l,i){
+    var isRadar=(l.source==='lead-radar'||l.radar_kind);
+    if(isRadar){h+=radarLeadCard(l,i);return;}
     var hot=(l.intent==='wants_fix');
     h+='<div class="card" style="margin-bottom:10px'+(hot?';border-left:3px solid #e8813a':'')+'">'
       +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'
@@ -524,6 +551,56 @@ function renderLeads(){
       +'</div></div></div>';
   });
   el.innerHTML=h;
+}
+function radarLeadCard(l,i){
+  var confirmed=(l.radar_kind==='osha_citation');
+  var pen=money(l.radar_penalty);
+  var meta=[l.radar_authority,pen,[l.radar_city,l.radar_state].filter(Boolean).join(', '),
+            l.radar_opened?('cited '+esc(l.radar_opened)):''].filter(Boolean);
+  return '<div class="card" style="margin-bottom:10px;border-left:3px solid '
+      +(confirmed?'#e8813a':'#888')+'">'
+    +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'
+    +'<div style="min-width:0"><div style="font-weight:600">'+esc(l.company||'(company unknown)')+' '
+      +radarPip(l.radar_priority)
+      +' <span class="pip" style="background:'+(confirmed?'#555':'#aaa')+'">'+esc(l.radar_label||'')+'</span>'
+      +(l.radar_trade_match?' <span class="pip" style="background:#3a7">your trade</span>':'')+'</div>'
+    +'<div class="hint" style="margin-top:2px">'+esc(meta.join(' \u00b7 '))+'</div>'
+    +'<div class="hint" style="margin-top:2px">\ud83d\udce1 Lead Radar \u00b7 callability '+esc(l.radar_score||0)+'/100'+(l.ts?' \u00b7 found '+esc(l.ts):'')+'</div>'
+    +(l.radar_url?'<div class="hint" style="margin-top:2px"><a href="'+esc(l.radar_url)+'" target="_blank" rel="noopener">View source \u2197</a></div>':'')
+    +'</div>'
+    +'<div style="text-align:right"><div class="hint" style="max-width:220px">No contact captured \u2014 look up the owner and call. Pain is fresh.</div></div>'
+    +'</div></div>';
+}
+function loadRadarConfig(){
+  api('/portal/api/admin/radar/config').then(function(r){
+    var note=document.getElementById('radarKeyNote');if(!note)return;
+    var cfg=(r.j&&r.j.config)||{};
+    if(cfg.dol_key_configured){note.innerHTML='<span style="color:#3a7">\u2713 OSHA source connected.</span> News is always on.';}
+    else{note.innerHTML='<span style="color:#c0392b">OSHA pulls are off</span> until DOL_API_KEY is set on Railway (free key from developer.dol.gov). News still works now.';}
+  });
+}
+function runRadar(){
+  var btn=document.getElementById('radarRunBtn');var st=document.getElementById('radarStatus');
+  btn.disabled=true;var old=btn.textContent;btn.textContent='Running\u2026';
+  st.textContent='Scanning OSHA / state-OSHA citations and safety news\u2026 this can take a few seconds.';
+  var body={states:document.getElementById('radarStates').value,
+    since_days:parseInt(document.getElementById('radarDays').value||'30',10),
+    min_penalty:parseFloat(document.getElementById('radarPenalty').value||'1000'),
+    target_trades_only:document.getElementById('radarTrades').checked,
+    include_news:document.getElementById('radarNews').checked};
+  api('/portal/api/admin/radar/run',{method:'POST',body:body}).then(function(r){
+    btn.disabled=false;btn.textContent=old;
+    if(!r.ok){st.textContent=(r.j&&r.j.error)||'Radar run failed.';return;}
+    var j=r.j;var c=j.counts||{};
+    var src=j.sources||{};var warn='';
+    if(src.osha&&src.osha.ok===false){warn+=' OSHA: '+(src.osha.note||src.osha.reason||'unavailable')+'.';}
+    if(src.news&&src.news.ok===false){warn+=' News: '+(src.news.note||src.news.reason||'unavailable')+'.';}
+    st.innerHTML='<b>Done.</b> '+ (c.total||0)+' lead'+((c.total===1)?'':'s')+' found \u2014 '
+      +(c.hot||0)+' hot, '+(c.warm||0)+' warm, '+(c.watch||0)+' watch. '
+      +(j.written||0)+' new added to your list'+(j.skipped_duplicates?', '+j.skipped_duplicates+' already seen':'')+'.'
+      +(warn?'<br><span style="color:#c0392b">'+esc(warn)+'</span>':'');
+    loadLeads();
+  });
 }
 function openLead(slug){
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});

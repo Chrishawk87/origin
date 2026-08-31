@@ -1268,7 +1268,7 @@ def register_portal(app) -> None:
                         continue
                     email = (d.get("email") or "").strip()
                     existing = find_by_email(email) if email else None
-                    rows.append({
+                    row = {
                         "ts": d.get("ts", ""),
                         "name": d.get("name", ""),
                         "company": d.get("company", ""),
@@ -1285,7 +1285,18 @@ def register_portal(app) -> None:
                         "matched_program": d.get("matched_program") or "",
                         "converted": bool(existing),
                         "slug": existing.get("slug") if existing else "",
-                    })
+                    }
+                    # Lead Radar rows carry their own enrichment (citation authority,
+                    # penalty, callability score, source URL). Pass it through so the
+                    # admin view can show why this lead is worth a call.
+                    if (d.get("source") == "lead-radar") or d.get("radar_kind"):
+                        for k in ("radar_kind", "radar_label", "radar_authority",
+                                  "radar_penalty", "radar_state", "radar_city",
+                                  "radar_naics", "radar_opened", "radar_score",
+                                  "radar_priority", "radar_url", "radar_summary",
+                                  "radar_trade_match"):
+                            row[k] = d.get(k, "")
+                    rows.append(row)
         except Exception as exc:  # pragma: no cover
             return JSONResponse({"error": f"could not read leads: {exc}"}, status_code=500)
         # newest first; collapse repeat submissions from the same email to the
@@ -1442,6 +1453,55 @@ def register_portal(app) -> None:
                 "invite_error": invite_err, "portal_url": portal_url,
                 "recommended_count": recommended_count,
                 "jha_count": jha_count}
+
+    @app.get("/portal/api/admin/radar/config")
+    def admin_radar_config(request: Request):
+        """Expose the Lead Radar knobs + whether a DOL key is configured."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        try:
+            from . import leadradar as _radar
+            return {"ok": True, "config": _radar.radar_config_schema()}
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @app.post("/portal/api/admin/radar/run")
+    def admin_radar_run(request: Request, body: dict = Body(default=None)):
+        """Run Lead Radar on demand: pull recent penalty-bearing OSHA / state-OSHA
+        citations (+ optional safety-enforcement news), score for callability, and
+        write new leads into the admin Leads view (source='lead-radar'). Returns a
+        summary + the scored leads (top-of-list first)."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        body = body or {}
+        try:
+            from . import leadradar as _radar
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"radar unavailable: {exc}"}, status_code=500)
+
+        def _states(v):
+            if not v:
+                return None
+            if isinstance(v, str):
+                v = [s for s in re.split(r"[,\s]+", v) if s]
+            return [str(s).strip().upper() for s in v if str(s).strip()] or None
+
+        try:
+            result = _radar.run_radar(
+                states=_states(body.get("states")),
+                since_days=int(body.get("since_days") or 30),
+                min_penalty=float(body.get("min_penalty") or 1000),
+                include_news=bool(body.get("include_news", True)),
+                target_trades_only=bool(body.get("target_trades_only", False)),
+                min_score=int(body.get("min_score") or 0),
+                persist=bool(body.get("persist", True)),
+            )
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": str(exc)}, status_code=500)
+        # Trim the returned leads so the admin response stays light; the full set
+        # is already persisted into the Leads view.
+        result["leads"] = result.get("leads", [])[:100]
+        return result
 
     @app.post("/portal/api/admin/client/{slug}/email-docs")
     def admin_email_docs(slug: str, request: Request, body: dict = Body(...)):
