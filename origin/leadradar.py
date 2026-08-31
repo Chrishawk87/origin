@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -155,9 +156,14 @@ def _naics_is_target(naics: str) -> bool:
 # HTTP — stdlib only, defensive. Never raises to the caller.
 # ---------------------------------------------------------------------------
 
-def _http_get(url: str, headers: Optional[Dict[str, str]] = None,
-              timeout: int = 25) -> Optional[str]:
-    """GET a URL and return the body text, or None on any failure."""
+def _http_fetch(url: str, headers: Optional[Dict[str, str]] = None,
+                timeout: int = 25) -> Dict[str, Any]:
+    """GET a URL and return a rich result so callers can tell *why* something
+    failed instead of collapsing everything to None:
+        {"status": int|None, "body": str, "error": str}
+    status = HTTP status code (or the code from an HTTPError); None if the
+    request never completed (DNS/timeout/connection). error = short reason.
+    """
     req = urllib.request.Request(url, method="GET")
     req.add_header("User-Agent", USER_AGENT)
     for k, v in (headers or {}).items():
@@ -165,9 +171,29 @@ def _http_get(url: str, headers: Optional[Dict[str, str]] = None,
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             charset = resp.headers.get_content_charset() or "utf-8"
-            return resp.read().decode(charset, errors="replace")
-    except Exception:
+            return {"status": getattr(resp, "status", 200) or 200,
+                    "body": resp.read().decode(charset, errors="replace"),
+                    "error": ""}
+    except urllib.error.HTTPError as e:  # 4xx / 5xx — the server answered
+        try:
+            body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            body = ""
+        return {"status": e.code, "body": body, "error": f"HTTP {e.code}"}
+    except urllib.error.URLError as e:  # DNS / connection / timeout
+        return {"status": None, "body": "", "error": f"connection: {e.reason}"}
+    except Exception as e:  # anything else — never raise to the caller
+        return {"status": None, "body": "", "error": str(e)[:120]}
+
+
+def _http_get(url: str, headers: Optional[Dict[str, str]] = None,
+              timeout: int = 25) -> Optional[str]:
+    """GET a URL and return the body text, or None on any failure."""
+    res = _http_fetch(url, headers=headers, timeout=timeout)
+    body = res.get("body") or ""
+    if res.get("status") in (None,) or (res.get("status") or 0) >= 400:
         return None
+    return body or None
 
 
 def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
@@ -179,6 +205,11 @@ def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None,
         return json.loads(body)
     except Exception:
         return None
+
+
+def _looks_like_json(text: str) -> bool:
+    t = (text or "").lstrip()
+    return t.startswith("{") or t.startswith("[")
 
 
 def _as_records(payload: Any) -> List[Dict[str, Any]]:
@@ -227,10 +258,12 @@ def _dol_url(dataset: str, *, filt: Dict[str, Any], limit: int,
 
 def _violation_url(*, since: str, min_penalty: float, limit: int) -> str:
     """Recent penalty-bearing citations from the violation table (the fresh signal)."""
+    # Note: we intentionally do NOT filter delete_flag here — a `neq` against
+    # null/blank flags behaves inconsistently on the DOL API. Deleted rows ('X'
+    # / 'D') are dropped client-side in _aggregate_violations instead.
     filt: Dict[str, Any] = {"and": [
         {"field": DOL_ISSUANCE_FIELD, "operator": "gt", "value": since},
         {"field": DOL_PENALTY_FIELD, "operator": "gt", "value": min_penalty},
-        {"field": "delete_flag", "operator": "neq", "value": "D"},
     ]}
     return _dol_url(DOL_VIOLATION_DATASET, filt=filt, limit=limit,
                     sort_by=DOL_ISSUANCE_FIELD, sort="desc")
@@ -272,7 +305,8 @@ def _aggregate_violations(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any
     """
     by_insp: Dict[str, Dict[str, Any]] = {}
     for rec in rows:
-        if str(_pick(rec, "delete_flag")).upper() == "D":
+        # OSHA flags removed citations with delete_flag 'X' (some legacy rows 'D').
+        if str(_pick(rec, "delete_flag")).upper() in ("X", "D"):
             continue
         activity = _pick(rec, "activity_nr", "activity_number")
         if not activity:
@@ -345,6 +379,61 @@ def _chunk(seq: List[Any], n: int) -> List[List[Any]]:
     return [seq[i:i + n] for i in range(0, len(seq), n)]
 
 
+def _dol_fetch_records(url: str, *, timeout: int = 45) -> Dict[str, Any]:
+    """Call a DOL v4 URL and return {ok, records, reason, note}. Classifies the
+    real HTTP failure (bad key, rate-limit, bad filter) so the admin sees a
+    fix-it message instead of a silent blank."""
+    res = _http_fetch(url, timeout=timeout)
+    status, body = res.get("status"), res.get("body") or ""
+    if status is None:
+        return {"ok": False, "records": [], "reason": "unreachable",
+                "note": f"DOL endpoint unreachable ({res.get('error','no response')})."}
+    if status in (401, 403):
+        return {"ok": False, "records": [], "reason": "bad_key",
+                "note": "DOL rejected the API key (401/403). Re-check DOL_API_KEY on Railway "
+                        "(free key from dataportal.dol.gov/registration)."}
+    if status == 429:
+        return {"ok": False, "records": [], "reason": "rate_limited",
+                "note": "DOL is rate-limiting the API key. Wait a minute and re-run."}
+    if status == 400:
+        snippet = " ".join(body.split())[:160]
+        return {"ok": False, "records": [], "reason": "bad_request",
+                "note": f"DOL rejected the query (400): {snippet}"}
+    if status >= 400:
+        return {"ok": False, "records": [], "reason": "http_error",
+                "note": f"DOL returned HTTP {status}."}
+    if not _looks_like_json(body):
+        snippet = " ".join(body.split())[:160]
+        return {"ok": False, "records": [], "reason": "not_json",
+                "note": f"DOL returned a non-JSON body: {snippet}" if snippet
+                        else "DOL returned an empty body."}
+    try:
+        payload = json.loads(body)
+    except Exception:
+        return {"ok": False, "records": [], "reason": "parse_error",
+                "note": "DOL returned malformed JSON."}
+    return {"ok": True, "records": _as_records(payload), "reason": "", "note": ""}
+
+
+def _recent_inspections_url(*, since: str, limit: int) -> str:
+    """Recent OSHA inspections by open_date (fallback signal when the
+    violations-first pull comes back empty)."""
+    filt: Dict[str, Any] = {"and": [
+        {"field": "open_date", "operator": "gt", "value": since},
+    ]}
+    return _dol_url(DOL_DATASET, filt=filt, limit=limit,
+                    sort_by="open_date", sort="desc")
+
+
+def _violations_for_url(activity_nrs: List[str], *, limit: int) -> str:
+    """Penalty-bearing violations for a set of inspection activity numbers."""
+    filt: Dict[str, Any] = {"and": [
+        {"field": "activity_nr", "operator": "in", "value": activity_nrs},
+    ]}
+    return _dol_url(DOL_VIOLATION_DATASET, filt=filt, limit=limit,
+                    sort_by="activity_nr", sort="asc")
+
+
 def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30,
                      min_penalty: float = 1000.0, limit: int = 200,
                      target_trades_only: bool = False) -> Dict[str, Any]:
@@ -362,25 +451,57 @@ def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30
                 "note": "Set DOL_API_KEY (free from dataportal.dol.gov) to enable OSHA pulls."}
 
     since = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
-    # Pull generously so aggregation + state filtering still leaves a full page.
-    viol_payload = _http_get_json(
-        _violation_url(since=since, min_penalty=min_penalty, limit=max(limit * 5, 500)),
-        timeout=45)
-    if viol_payload is None:
-        return {"ok": False, "reason": "fetch_failed", "leads": [],
-                "note": "DOL violation endpoint did not return data."}
-
-    by_insp = _aggregate_violations(_as_records(viol_payload))
-    if not by_insp:
-        return {"ok": True, "reason": "", "count": 0, "leads": [], "since": since}
-
-    # Look up the establishments for those inspections (chunked to keep URLs sane).
     want = set(states and [s.strip().upper() for s in states if s.strip()] or [])
+
+    # --- Primary path: violations-first (freshest signal — penalties post ~5 days
+    # after a federal citation, long before the inspection case closes). ---
+    viol = _dol_fetch_records(
+        _violation_url(since=since, min_penalty=min_penalty, limit=max(limit * 5, 500)))
+    if not viol["ok"]:
+        # A hard failure (bad key / rate-limit / rejected query) — surface it as-is
+        # so Chris gets an actionable message, not a silent blank.
+        return {"ok": False, "reason": viol["reason"], "leads": [],
+                "note": viol["note"], "since": since}
+
+    by_insp = _aggregate_violations(viol["records"])
+
+    leads: List[Dict[str, Any]] = []
+    fallback_used = False
+    if by_insp:
+        leads = _join_inspections(by_insp, want=want,
+                                  target_trades_only=target_trades_only)
+
+    # --- Fallback path: if the violations-first pull returned nothing joinable
+    # (common when recent citations' inspections aren't published yet), pull
+    # recent inspections directly and attach their penalty-bearing violations. ---
+    if not leads:
+        fb = _inspection_first_leads(since=since, min_penalty=min_penalty,
+                                     want=want, target_trades_only=target_trades_only,
+                                     limit=limit)
+        if fb.get("leads"):
+            leads = fb["leads"]
+            fallback_used = True
+        elif not fb.get("ok"):
+            # Only report the fallback error if the primary also produced nothing.
+            return {"ok": False, "reason": fb["reason"], "leads": [],
+                    "note": fb["note"], "since": since}
+
+    leads.sort(key=lambda l: (l.get("opened") or "", l.get("penalty") or 0), reverse=True)
+    out = {"ok": True, "reason": "", "count": len(leads),
+           "leads": leads[:limit], "since": since}
+    if fallback_used:
+        out["note"] = "Used recent-inspection fallback (few citations posted in this window yet)."
+    return out
+
+
+def _join_inspections(by_insp: Dict[str, Dict[str, Any]], *, want: set,
+                      target_trades_only: bool) -> List[Dict[str, Any]]:
+    """Look up establishments for aggregated inspections and build leads."""
     activity_nrs = list(by_insp.keys())
     insp_by_nr: Dict[str, Dict[str, Any]] = {}
     for chunk in _chunk(activity_nrs, 100):
-        payload = _http_get_json(_inspection_lookup_url(chunk, limit=len(chunk)), timeout=45)
-        for rec in _as_records(payload):
+        res = _dol_fetch_records(_inspection_lookup_url(chunk, limit=len(chunk)))
+        for rec in res.get("records", []):
             nr = _pick(rec, "activity_nr", "activity_number")
             if nr:
                 insp_by_nr[nr] = rec
@@ -398,21 +519,67 @@ def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30
         if target_trades_only and not lead["trade_match"]:
             continue
         leads.append(lead)
+    return leads
 
-    leads.sort(key=lambda l: (l.get("opened") or "", l.get("penalty") or 0), reverse=True)
-    return {"ok": True, "reason": "", "count": len(leads),
-            "leads": leads[:limit], "since": since}
+
+def _inspection_first_leads(*, since: str, min_penalty: float, want: set,
+                            target_trades_only: bool, limit: int) -> Dict[str, Any]:
+    """Fallback: start from recent inspections, then attach their penalty-bearing
+    violations by activity_nr. Returns {ok, leads, reason, note}."""
+    insp_res = _dol_fetch_records(_recent_inspections_url(since=since, limit=max(limit * 5, 500)))
+    if not insp_res["ok"]:
+        return {"ok": False, "leads": [], "reason": insp_res["reason"],
+                "note": insp_res["note"]}
+    insp_by_nr: Dict[str, Dict[str, Any]] = {}
+    for rec in insp_res["records"]:
+        nr = _pick(rec, "activity_nr", "activity_number")
+        if not nr:
+            continue
+        state = _pick(rec, "site_state", "state", "mail_state").upper()
+        if want and state not in want:
+            continue
+        insp_by_nr[nr] = rec
+    if not insp_by_nr:
+        return {"ok": True, "leads": [], "reason": "", "note": ""}
+
+    # Pull the violations for those inspections and roll them up.
+    all_rows: List[Dict[str, Any]] = []
+    for chunk in _chunk(list(insp_by_nr.keys()), 50):
+        vres = _dol_fetch_records(_violations_for_url(chunk, limit=len(chunk) * 20))
+        all_rows.extend(vres.get("records", []))
+    by_insp = _aggregate_violations(all_rows)
+
+    leads: List[Dict[str, Any]] = []
+    for nr, agg in by_insp.items():
+        if agg.get("penalty", 0.0) < min_penalty:
+            continue
+        insp = insp_by_nr.get(nr)
+        if not insp:
+            continue
+        lead = _build_osha_lead(insp, agg)
+        if not lead:
+            continue
+        if target_trades_only and not lead["trade_match"]:
+            continue
+        leads.append(lead)
+    return {"ok": True, "leads": leads, "reason": "", "note": ""}
 
 
 # ---------------------------------------------------------------------------
 # News monitoring (GDELT DOC 2.0)
 # ---------------------------------------------------------------------------
 
-_DEFAULT_NEWS_QUERY = (
-    '(OSHA OR "safety violation" OR "workplace safety" OR "safety citation") '
-    '(fined OR fine OR penalty OR citation OR cited OR violations) '
-    'sourcecountry:US'
-)
+# GDELT is picky: long multi-group boolean queries are silently rejected (it
+# answers HTTP 200 with a plain-text error, not JSON). Keep the primary query
+# lean, and hold a couple of progressively simpler fallbacks in reserve so a
+# rejected/empty query still yields news instead of a blank panel.
+_DEFAULT_NEWS_QUERY = 'OSHA (fined OR penalty OR citation) sourcecountry:US'
+
+_NEWS_FALLBACK_QUERIES = [
+    '"safety violation" (fine OR penalty) sourcecountry:US',
+    'OSHA citation sourcecountry:US',
+    'OSHA fine',
+]
 
 # Strip common corporate suffixes when we guess a company name from a headline.
 _COMPANY_HINT = re.compile(
@@ -452,23 +619,70 @@ def normalize_news_record(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return lead
 
 
-def fetch_news_leads(*, query: str = "", timespan: str = "1week",
-                     max_records: int = 75) -> Dict[str, Any]:
-    """Pull recent US safety-enforcement news via GDELT (free, keyless)."""
-    q = query.strip() or _DEFAULT_NEWS_QUERY
+def _classify_gdelt_body(body: str) -> str:
+    """GDELT signals errors as an HTTP-200 *plain-text* body. Turn that prose
+    into a machine reason so we can react (retry vs give up) and tell the admin
+    what actually happened."""
+    t = (body or "").strip().lower()
+    if not t:
+        return "empty"
+    if "rate" in t and "limit" in t:
+        return "rate_limited"
+    if "too many" in t or "please wait" in t or "try again" in t:
+        return "rate_limited"
+    if "maximum" in t and "records" in t:
+        return "maxrecords"
+    if ("query" in t and ("too short" in t or "too long" in t or "invalid" in t
+                          or "specified" in t or "syntax" in t)):
+        return "query_error"
+    if "phrase" in t:
+        return "query_error"
+    return "query_error"  # any other prose GDELT returns is a rejected query
+
+
+def _gdelt_once(q: str, *, timespan: str, max_records: int) -> Dict[str, Any]:
+    """One GDELT call. Returns {ok, leads, reason, note, raw}."""
     params = {
         "query": q,
         "mode": "artlist",
         "format": "json",
+        # GDELT caps ArtList at 250; asking for more triggers a prose error.
         "maxrecords": str(max(1, min(max_records, 250))),
         "timespan": timespan,
         "sort": "datedesc",
     }
     url = GDELT_URL + "?" + urllib.parse.urlencode(params)
-    payload = _http_get_json(url, timeout=30)
-    if payload is None:
-        return {"ok": False, "reason": "fetch_failed", "leads": [],
-                "note": "GDELT news endpoint did not return data (it may be rate-limited)."}
+    res = _http_fetch(url, timeout=30)
+    status, body = res.get("status"), res.get("body") or ""
+
+    if status is None:  # never connected
+        return {"ok": False, "reason": "unreachable", "leads": [],
+                "note": f"GDELT unreachable ({res.get('error','no response')})."}
+    if status == 429:
+        return {"ok": False, "reason": "rate_limited", "leads": [],
+                "note": "GDELT is rate-limiting us (free tier — a few calls/hour). Try again shortly."}
+    if status >= 400:
+        return {"ok": False, "reason": "http_error", "leads": [],
+                "note": f"GDELT returned HTTP {status}."}
+
+    # Status 200 — but GDELT may have answered with a plain-text error instead of JSON.
+    if not _looks_like_json(body):
+        reason = _classify_gdelt_body(body)
+        snippet = " ".join(body.split())[:160]
+        if reason == "empty":
+            return {"ok": True, "reason": "", "count": 0, "leads": []}
+        note = {
+            "rate_limited": "GDELT is rate-limiting us (free tier). Try again in a few minutes.",
+            "maxrecords": "GDELT record cap hit — lower the news count.",
+            "query_error": f"GDELT rejected the news query ({snippet}).",
+        }.get(reason, f"GDELT error: {snippet}")
+        return {"ok": False, "reason": reason, "leads": [], "note": note}
+
+    try:
+        payload = json.loads(body)
+    except Exception:
+        return {"ok": False, "reason": "parse_error", "leads": [],
+                "note": "GDELT returned malformed JSON."}
 
     leads: List[Dict[str, Any]] = []
     for rec in _as_records(payload):
@@ -476,6 +690,43 @@ def fetch_news_leads(*, query: str = "", timespan: str = "1week",
         if lead:
             leads.append(lead)
     return {"ok": True, "reason": "", "count": len(leads), "leads": leads}
+
+
+def fetch_news_leads(*, query: str = "", timespan: str = "1week",
+                     max_records: int = 75) -> Dict[str, Any]:
+    """Pull recent US safety-enforcement news via GDELT (free, keyless).
+
+    Robust against GDELT's two quirks: it reports errors as HTTP-200 plain text
+    (not JSON), and its free tier rate-limits aggressively. We try the caller's
+    query (or a lean default), retry once after a short pause on a rate-limit,
+    and fall back through progressively simpler queries if GDELT rejects one —
+    so the panel returns news instead of a blank error whenever possible.
+    """
+    primary = query.strip() or _DEFAULT_NEWS_QUERY
+    # If the caller passed a custom query, only fall back to the defaults.
+    candidates = [primary] + [q for q in _NEWS_FALLBACK_QUERIES if q != primary]
+
+    last: Dict[str, Any] = {"ok": False, "reason": "fetch_failed", "leads": [],
+                            "note": "GDELT news endpoint did not return data."}
+    for i, q in enumerate(candidates):
+        res = _gdelt_once(q, timespan=timespan, max_records=max_records)
+        if res.get("ok") and res.get("leads"):
+            if i > 0:
+                res["note"] = "Used a simpler news query (GDELT rejected the detailed one)."
+            return res
+        if res.get("ok"):  # ok but zero leads — keep as the answer, try a broader query next
+            last = res
+            continue
+        if res.get("reason") == "rate_limited":
+            time.sleep(2)
+            res2 = _gdelt_once(q, timespan=timespan, max_records=max_records)
+            if res2.get("ok") and res2.get("leads"):
+                return res2
+            last = res2 if res2.get("reason") else res
+            # Don't hammer a rate-limited endpoint through every fallback.
+            break
+        last = res  # query_error / http_error — try the next simpler candidate
+    return last
 
 
 # ---------------------------------------------------------------------------
