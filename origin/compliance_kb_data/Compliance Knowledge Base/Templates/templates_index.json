@@ -1,6 +1,6 @@
 {
   "name": "Origin Compliance Letter & Document Templates",
-  "count": 124,
+  "count": 128,
   "note": "Placeholders use {{DOUBLE_BRACES}}. Letter/cert templates (01-06) plus one fillable written-program template per KB standard (program-*). Each program-* template's section headings, training and recordkeeping lines are verbatim from its KB entry; fill the [[...]] prompts with company-specific procedure. Follow each grounding_rule.",
   "templates": [
     {
@@ -3434,6 +3434,71 @@
       ],
       "grounding_rule": "Enter each recordable case within 7 calendar days. Privacy-concern cases: no name on the 300 Log. The 300A must be certified by a company executive and posted Feb 1-Apr 30 even with zero cases. Retain all three forms 5 years.",
       "file": "osha-300-300a-301-forms.md"
+    },
+    {
+      "template_id": "fmcsa-driver-qualification-file-forms",
+      "type": "form",
+      "purpose": "Driver Qualification (DQ) file forms per 49 CFR Part 391 — DQ file contents checklist (391.51), driver's application for employment (391.21), annual review of driving record (391.25), driver's record of violations (391.27), and safety performance history / MVR request letter (391.23). Ready to fill.",
+      "pulls_from": [
+        "49-cfr-part-391-driver-qualification-dq-file-program"
+      ],
+      "citation": "49 CFR Part 391 (Driver Qualification File Forms)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS"
+      ],
+      "grounding_rule": "One DQ file per driver. Medical certificate and annual MVR/review must be under 12 months old. Retain the file while employed and 3 years after. A file missing any 391.51 item is an automatic prequalification and audit fail.",
+      "file": "fmcsa-driver-qualification-file-forms.md"
+    },
+    {
+      "template_id": "fmcsa-drug-alcohol-testing-records",
+      "type": "form",
+      "purpose": "FMCSA drug & alcohol program recordkeeping forms per 49 CFR Part 382 / Part 40 — random testing pool roster (382.305), testing event log, Clearinghouse query log (382.701), and pre-employment/return-to-duty/follow-up tracking. Ready to fill.",
+      "pulls_from": [
+        "49-cfr-part-382-controlled-substances-and-alcohol-use-and-testing-fmcsa",
+        "49-cfr-part-40-dot-drug-and-alcohol-testing-procedures"
+      ],
+      "citation": "49 CFR Part 382 / Part 40 (Drug & Alcohol Testing Records)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS"
+      ],
+      "grounding_rule": "Every CDL driver in a safety-sensitive function is in the random pool. Pre-employment test before first driving (382.301). Clearinghouse pre-employment query before hire and at least annually thereafter (382.701). Never record actual results or medical detail on the roster; keep verified results confidential with the MRO/C-TPA. Retain per 382.401.",
+      "file": "fmcsa-drug-alcohol-testing-records.md"
+    },
+    {
+      "template_id": "fmcsa-dvir-and-maintenance-records",
+      "type": "form",
+      "purpose": "Vehicle inspection and maintenance records per 49 CFR Part 396 — Driver Vehicle Inspection Report / DVIR (396.11), annual/periodic inspection report (396.17 & 396.21), and systematic per-vehicle maintenance log (396.3). Ready to fill.",
+      "pulls_from": [
+        "49-cfr-part-396-inspection-repair-and-maintenance-dvir"
+      ],
+      "citation": "49 CFR Part 396 (DVIR, Annual Inspection & Maintenance Records)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS"
+      ],
+      "grounding_rule": "Driver completes a DVIR each driving day; defects affecting safe operation must be repaired and certified before dispatch. Annual/periodic inspection every 12 months by a qualified inspector (396.19). Retention: DVIRs 3 months; annual inspection report 14 months; maintenance records 12 months in service and 6 months after the vehicle leaves the fleet.",
+      "file": "fmcsa-dvir-and-maintenance-records.md"
+    },
+    {
+      "template_id": "fmcsa-accident-register",
+      "type": "form",
+      "purpose": "Accident register per 49 CFR 390.15(b) — lists DOT-recordable accidents (fatality, injury treated away from scene, or tow-away due to disabling damage per 390.5). Ready to fill.",
+      "pulls_from": [
+        "49-cfr-part-390-usdot-registration-mcs-150-maintenance"
+      ],
+      "citation": "49 CFR 390.15 (Accident Register)",
+      "category": "04 - DOT and FMCSA (49 CFR)",
+      "placeholders": [
+        "COMPANY_NAME",
+        "COMPANY_ADDRESS"
+      ],
+      "grounding_rule": "Record every DOT-recordable accident (390.5 definition). Keep the register plus copies of related reports for 3 years after each accident.",
+      "file": "fmcsa-accident-register.md"
     }
   ]
 }
