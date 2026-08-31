@@ -65,10 +65,17 @@ DOL_INSPECTION_URL = os.environ.get("DOL_INSPECTION_URL", "").strip()
 DOL_V4_BASE = os.environ.get("DOL_V4_BASE", "https://apiprod.dol.gov/v4/get").strip()
 # v4 paths are case-sensitive; the agency abbreviation is uppercase (OSHA, WHD, ILAB).
 DOL_AGENCY = os.environ.get("DOL_AGENCY", "OSHA").strip()
+# The OSHA data splits across two tables: `violation` carries the penalty and the
+# citation issuance_date (available ~5 days after a federal citation, 30 for
+# state — this is the *fresh* signal), but has no company name. `inspection`
+# carries estab_name/location/naics but no penalty and only appears once the case
+# is closed (months of lag). So we pull recent penalty-bearing violations, then
+# look up their establishments in inspection by activity_nr and merge.
+DOL_VIOLATION_DATASET = os.environ.get("DOL_VIOLATION_DATASET", "violation").strip()
 DOL_DATASET = os.environ.get("DOL_DATASET", "inspection").strip()
-# The OSHA inspection dataset carries the penalty as "current_penalty" (not
-# "total_current_penalty"). Overridable in case the schema is renamed.
+# Field names on the violation table (overridable if the schema is renamed).
 DOL_PENALTY_FIELD = os.environ.get("DOL_PENALTY_FIELD", "current_penalty").strip()
+DOL_ISSUANCE_FIELD = os.environ.get("DOL_ISSUANCE_FIELD", "issuance_date").strip()
 
 # GDELT DOC 2.0 — free, no key. Rate-limited to a handful of calls/hour, which
 # is why radar is on-demand, not a tight polling loop.
@@ -194,41 +201,47 @@ def _as_records(payload: Any) -> List[Dict[str, Any]]:
 # OSHA / DOL enforcement
 # ---------------------------------------------------------------------------
 
-def _dol_inspection_url(*, states: Optional[List[str]], since: str,
-                        min_penalty: float, limit: int,
-                        with_penalty_filter: bool = True) -> str:
-    """Build the DOL enforcement query URL.
+def _dol_url(dataset: str, *, filt: Dict[str, Any], limit: int,
+             sort_by: str, sort: str = "desc") -> str:
+    """Build a DOL v4 query URL for any OSHA dataset.
 
-    Prefers the v4 endpoint (supports gt/lt/in operators via filter_object).
-    If DOL_INSPECTION_URL is set, that full base is used instead.
-
-    ``with_penalty_filter`` lets the caller drop the server-side penalty filter
-    and fall back to date-only filtering (then screen penalty client-side) if the
-    penalty field name doesn't match the live schema — a bad field name otherwise
-    errors the whole query and returns nothing.
+    v4 supports gt/lt/in operators via a JSON ``filter_object`` query param and
+    authenticates with the API key as the ``X-API-KEY`` query param. If
+    DOL_INSPECTION_URL is set it overrides the base (for the inspection dataset).
     """
-    filt: Dict[str, Any] = {"and": [
-        {"field": "open_date", "operator": "gt", "value": since},
-    ]}
-    if with_penalty_filter and DOL_PENALTY_FIELD:
-        filt["and"].append({"field": DOL_PENALTY_FIELD, "operator": "gt", "value": min_penalty})
-    if states:
-        st = [s.strip().upper() for s in states if s.strip()]
-        if st:
-            filt["and"].append({"field": "site_state", "operator": "in", "value": st})
-
     params = {
         "limit": str(limit),
         "offset": "0",
-        "sort": "desc",
-        "sort_by": "open_date",
+        "sort": sort,
+        "sort_by": sort_by,
         "filter_object": json.dumps(filt, separators=(",", ":")),
     }
     if DOL_API_KEY:
         params["X-API-KEY"] = DOL_API_KEY
-
-    base = DOL_INSPECTION_URL or f"{DOL_V4_BASE}/{DOL_AGENCY}/{DOL_DATASET}/json"
+    if dataset == DOL_DATASET and DOL_INSPECTION_URL:
+        base = DOL_INSPECTION_URL
+    else:
+        base = f"{DOL_V4_BASE}/{DOL_AGENCY}/{dataset}/json"
     return base + "?" + urllib.parse.urlencode(params)
+
+
+def _violation_url(*, since: str, min_penalty: float, limit: int) -> str:
+    """Recent penalty-bearing citations from the violation table (the fresh signal)."""
+    filt: Dict[str, Any] = {"and": [
+        {"field": DOL_ISSUANCE_FIELD, "operator": "gt", "value": since},
+        {"field": DOL_PENALTY_FIELD, "operator": "gt", "value": min_penalty},
+        {"field": "delete_flag", "operator": "neq", "value": "D"},
+    ]}
+    return _dol_url(DOL_VIOLATION_DATASET, filt=filt, limit=limit,
+                    sort_by=DOL_ISSUANCE_FIELD, sort="desc")
+
+
+def _inspection_lookup_url(activity_nrs: List[str], *, limit: int) -> str:
+    """Look up establishments/locations for a set of inspection activity numbers."""
+    filt: Dict[str, Any] = {"and": [
+        {"field": "activity_nr", "operator": "in", "value": activity_nrs},
+    ]}
+    return _dol_url(DOL_DATASET, filt=filt, limit=limit, sort_by="activity_nr", sort="asc")
 
 
 def _pick(rec: Dict[str, Any], *names: str, default: str = "") -> str:
@@ -247,34 +260,63 @@ def _to_float(v: Any) -> float:
         return 0.0
 
 
-def normalize_osha_record(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Turn a raw DOL inspection row into a radar lead. None if unusable."""
-    company = _pick(rec, "estab_name", "establishment_name", "company", "name")
+_VIOL_TYPE_LABEL = {"S": "Serious", "W": "Willful", "R": "Repeat", "O": "Other"}
+
+
+def _aggregate_violations(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Group raw violation rows by parent inspection (activity_nr).
+
+    One establishment can get several citations from a single inspection; we roll
+    them up into one lead — summed penalty, latest issuance date, worst violation
+    type, citation count.
+    """
+    by_insp: Dict[str, Dict[str, Any]] = {}
+    for rec in rows:
+        if str(_pick(rec, "delete_flag")).upper() == "D":
+            continue
+        activity = _pick(rec, "activity_nr", "activity_number")
+        if not activity:
+            continue
+        penalty = _to_float(_pick(rec, DOL_PENALTY_FIELD, "current_penalty",
+                                  "initial_penalty", default="0"))
+        issued = _pick(rec, DOL_ISSUANCE_FIELD, "issuance_date", "date")
+        vtype = _pick(rec, "viol_type", "violation_type").upper()[:1]
+        agg = by_insp.setdefault(activity, {
+            "activity_nr": activity, "penalty": 0.0, "issued": "",
+            "citations": 0, "types": set()})
+        agg["penalty"] += penalty
+        agg["citations"] += 1
+        if vtype:
+            agg["types"].add(vtype)
+        if issued and issued > agg["issued"]:
+            agg["issued"] = issued
+    return by_insp
+
+
+def _build_osha_lead(insp: Dict[str, Any], agg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Merge an inspection record (who/where) with aggregated violation info (penalty/date)."""
+    company = _pick(insp, "estab_name", "establishment_name", "company", "name")
     if not company:
         return None
-    state = _pick(rec, "site_state", "state", "mail_state")
-    penalty = _to_float(_pick(rec, "current_penalty", "total_current_penalty",
-                              "total_penalty", "initial_penalty", default="0"))
-    naics = _pick(rec, "naics_code", "naics")
-    opened = _pick(rec, "open_date", "issuance_date", "date")
-    city = _pick(rec, "site_city", "city")
-    addr = _pick(rec, "site_address", "address")
-    zipc = _pick(rec, "site_zip", "zip", "zip_code")
-    activity = _pick(rec, "activity_nr", "activity_number", "case_number")
-
+    state = _pick(insp, "site_state", "state", "mail_state")
+    naics = _pick(insp, "naics_code", "naics")
+    activity = agg["activity_nr"]
+    types = sorted(agg.get("types") or [], key=lambda t: "WRSO".find(t) if t in "WRSO" else 9)
     lead = {
         "kind": "osha_citation",
         "label": "confirmed citation",
         "company": company,
         "authority": citing_authority(state),
-        "penalty": penalty,
+        "penalty": round(agg.get("penalty", 0.0), 2),
         "naics": naics,
         "state": state.upper(),
-        "city": city,
-        "address": addr,
-        "zip": zipc,
-        "opened": opened,
+        "city": _pick(insp, "site_city", "city"),
+        "address": _pick(insp, "site_address", "address"),
+        "zip": _pick(insp, "site_zip", "zip", "zip_code"),
+        "opened": agg.get("issued") or _pick(insp, "open_date"),
         "activity_nr": activity,
+        "citations": agg.get("citations", 0),
+        "viol_types": [_VIOL_TYPE_LABEL.get(t, t) for t in types],
         "trade_match": _naics_is_target(naics),
         "url": (f"https://www.osha.gov/ords/imis/establishment.inspection_detail?id={activity}"
                 if activity else ""),
@@ -285,54 +327,81 @@ def normalize_osha_record(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def _osha_summary(lead: Dict[str, Any]) -> str:
     parts = [f"{lead['authority']} citation"]
+    if lead.get("viol_types"):
+        parts[0] = f"{lead['authority']} {'/'.join(lead['viol_types'])} citation"
     if lead.get("penalty"):
-        parts.append(f"${lead['penalty']:,.0f} penalty")
+        n = lead.get("citations") or 0
+        cite = f" across {n} items" if n > 1 else ""
+        parts.append(f"${lead['penalty']:,.0f} penalty{cite}")
     where = ", ".join([p for p in (lead.get("city"), lead.get("state")) if p])
     if where:
         parts.append(where)
     if lead.get("opened"):
-        parts.append(f"opened {lead['opened']}")
+        parts.append(f"issued {lead['opened']}")
     return " \u2014 ".join(parts)
+
+
+def _chunk(seq: List[Any], n: int) -> List[List[Any]]:
+    return [seq[i:i + n] for i in range(0, len(seq), n)]
 
 
 def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30,
                      min_penalty: float = 1000.0, limit: int = 200,
                      target_trades_only: bool = False) -> Dict[str, Any]:
-    """Pull recent penalty-bearing OSHA/state-OSHA citations as radar leads."""
+    """Pull recent penalty-bearing OSHA/state-OSHA citations as radar leads.
+
+    OSHA splits the data: the *violation* table has the penalty + issuance date
+    (fresh — available ~5 days after a federal citation) but no company name; the
+    *inspection* table has the establishment + location but no penalty. So we pull
+    recent penalty-bearing violations, roll them up per inspection, then look up
+    those establishments and merge. State filtering happens after the join, since
+    the violation table carries no state (the inspection does).
+    """
     if not (DOL_API_KEY or DOL_INSPECTION_URL):
         return {"ok": False, "reason": "no_dol_key", "leads": [],
                 "note": "Set DOL_API_KEY (free from dataportal.dol.gov) to enable OSHA pulls."}
 
     since = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
-    # First try with the server-side penalty filter. If the field name doesn't
-    # match the live schema, the whole query errors and returns nothing — so on a
-    # miss we retry with date-only filtering and screen penalty client-side.
-    url = _dol_inspection_url(states=states, since=since, min_penalty=min_penalty,
-                              limit=limit, with_penalty_filter=True)
-    payload = _http_get_json(url, timeout=30)
-    penalty_filtered_server_side = True
-    if payload is None:
-        url = _dol_inspection_url(states=states, since=since, min_penalty=min_penalty,
-                                  limit=limit, with_penalty_filter=False)
-        payload = _http_get_json(url, timeout=30)
-        penalty_filtered_server_side = False
-    if payload is None:
+    # Pull generously so aggregation + state filtering still leaves a full page.
+    viol_payload = _http_get_json(
+        _violation_url(since=since, min_penalty=min_penalty, limit=max(limit * 5, 500)),
+        timeout=45)
+    if viol_payload is None:
         return {"ok": False, "reason": "fetch_failed", "leads": [],
-                "note": "DOL enforcement endpoint did not return data."}
+                "note": "DOL violation endpoint did not return data."}
+
+    by_insp = _aggregate_violations(_as_records(viol_payload))
+    if not by_insp:
+        return {"ok": True, "reason": "", "count": 0, "leads": [], "since": since}
+
+    # Look up the establishments for those inspections (chunked to keep URLs sane).
+    want = set(states and [s.strip().upper() for s in states if s.strip()] or [])
+    activity_nrs = list(by_insp.keys())
+    insp_by_nr: Dict[str, Dict[str, Any]] = {}
+    for chunk in _chunk(activity_nrs, 100):
+        payload = _http_get_json(_inspection_lookup_url(chunk, limit=len(chunk)), timeout=45)
+        for rec in _as_records(payload):
+            nr = _pick(rec, "activity_nr", "activity_number")
+            if nr:
+                insp_by_nr[nr] = rec
 
     leads: List[Dict[str, Any]] = []
-    for rec in _as_records(payload):
-        lead = normalize_osha_record(rec)
+    for nr, agg in by_insp.items():
+        insp = insp_by_nr.get(nr)
+        if not insp:
+            continue  # establishment not yet published (inspection still open) — skip
+        lead = _build_osha_lead(insp, agg)
         if not lead:
             continue
-        # Only surface penalty-bearing citations (a bare inspection has no pain,
-        # no budget). When the server didn't filter, enforce the floor here.
-        if not penalty_filtered_server_side and lead["penalty"] < min_penalty:
+        if want and lead["state"] not in want:
             continue
         if target_trades_only and not lead["trade_match"]:
             continue
         leads.append(lead)
-    return {"ok": True, "reason": "", "count": len(leads), "leads": leads, "since": since}
+
+    leads.sort(key=lambda l: (l.get("opened") or "", l.get("penalty") or 0), reverse=True)
+    return {"ok": True, "reason": "", "count": len(leads),
+            "leads": leads[:limit], "since": since}
 
 
 # ---------------------------------------------------------------------------
