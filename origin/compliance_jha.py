@@ -4439,3 +4439,524 @@ JHA_LIBRARY["housekeeping-material-storage-program"] = {
         ]),
     ],
 }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# State-plan JHAs. Companions to the state-mandated written programs authored in
+# corpus.jsonl (category "09 - State-Specific Programs (State Plans)"). Keyed by
+# the same KB program id; render_jha() sources title/citation from the record.
+# Batch: CA (IIPP, outdoor heat, indoor heat, WVPP), WA (APP, heat), OR (heat,
+# smoke), MN (AWAIR, ERTK), NV (safety program, heat), MD (heat).
+# ═════════════════════════════════════════════════════════════════════════════
+
+JHA_LIBRARY["ca-t8-3203-iipp"] = {
+    "subtitle": "Workplace Hazard Assessment &amp; Correction (IIPP)",
+    "legend": [
+        ("Program / Systemic", "Unidentified or uncorrected hazards across the operation."),
+        ("Physical", "Task-specific hazards found during inspection (falls, struck-by, caught-in)."),
+        ("Communication", "Hazards not reported or not communicated to employees."),
+        ("Documentation", "Inspections, corrections, and training not recorded."),
+    ],
+    "jobs": [
+        ("1", "Scheduled &amp; Change-Driven Inspections", [
+            ("Inspect the workplace for hazards",
+             ["Unidentified hazards", "New hazards from new processes/equipment"],
+             ["Perform periodic inspections and whenever new substances, processes, or equipment are introduced",
+              "Use a written checklist covering the work actually performed",
+              "Record date, area, inspector, and findings"],
+             "PPE appropriate to the area being inspected"),
+        ]),
+        ("2", "Hazard Correction &amp; Interim Protection", [
+            ("Abate identified hazards",
+             ["Continued exposure before correction", "Imminent-hazard exposure"],
+             ["Correct hazards in order of severity and by a target date",
+              "Remove employees from imminent hazards until abated",
+              "Document the corrective action and completion date"],
+             "PPE per the hazard; barricades/signage for interim protection"),
+        ]),
+        ("3", "Employee Reporting &amp; Anti-Retaliation", [
+            ("Enable hazard reporting",
+             ["Hazards known to workers but not to management", "Fear of retaliation"],
+             ["Provide a system for employees to report hazards without fear of reprisal",
+              "Investigate reports and provide feedback",
+              "Communicate findings to affected employees"],
+             "N/A"),
+        ]),
+        ("4", "Training &amp; Recordkeeping", [
+            ("Train and document",
+             ["Untrained exposure", "Inadequate records for enforcement"],
+             ["Train at hire, on new assignments, and when new hazards are introduced",
+              "Maintain inspection and correction records and training rosters",
+              "Name the responsible person(s) implementing the IIPP"],
+             "N/A"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["ca-t8-3395-outdoor-heat"] = {
+    "subtitle": "Outdoor Heat Illness Prevention",
+    "legend": [
+        ("Heat / Physiological", "Heat exhaustion, heat stroke, dehydration."),
+        ("Environmental", "High ambient temperature, direct sun, radiant load."),
+        ("Recognition", "Failure to identify early symptoms in self or coworkers."),
+        ("Emergency", "Delayed response to a worker in distress."),
+    ],
+    "jobs": [
+        ("1", "Water &amp; Shade Provision", [
+            ("Provide drinking water and shade",
+             ["Dehydration", "No cool-down location"],
+             ["Provide fresh, pure, suitably cool water free of charge; encourage 1 quart/hour",
+              "Provide shade when temperature exceeds 80°F, and on request at any temperature",
+              "Locate water and shade as close as practicable to the work area"],
+             "Light, breathable clothing; hat"),
+        ]),
+        ("2", "Acclimatization &amp; High-Heat Procedures", [
+            ("Acclimatize workers and add controls at high heat",
+             ["Unacclimatized worker collapse", "Escalating heat load"],
+             ["Closely observe new employees for the first 14 days and all workers during heat waves",
+              "At 95°F, implement high-heat procedures: pre-shift meetings, more frequent breaks, buddy checks",
+              "Maintain effective two-way communication with each employee"],
+             "Light clothing; water"),
+        ]),
+        ("3", "Symptom Recognition &amp; Rest", [
+            ("Monitor for and respond to symptoms",
+             ["Heat exhaustion progressing to heat stroke"],
+             ["Allow and encourage preventive cool-down rest in shade; do not send a symptomatic worker back",
+              "Monitor anyone taking a cool-down rest and never leave them alone",
+              "Provide first aid and cool the worker if symptoms appear"],
+             "N/A"),
+        ]),
+        ("4", "Emergency Response", [
+            ("Respond to heat emergencies",
+             ["Delayed medical care", "Responders can't locate worksite"],
+             ["Have clear procedures to contact emergency services and give exact location",
+              "Begin cooling immediately (shade, water, fanning) while awaiting help",
+              "Never leave a worker with heat-stroke signs alone"],
+             "First-aid kit access"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["ca-t8-3396-indoor-heat"] = {
+    "subtitle": "Indoor Heat Illness Prevention",
+    "legend": [
+        ("Heat / Physiological", "Heat exhaustion, heat stroke, dehydration indoors."),
+        ("Environmental", "Indoor temperature/heat index at or above 82°F; radiant heat sources."),
+        ("Engineering", "Inadequate ventilation, cooling, or heat isolation."),
+        ("Emergency", "Delayed recognition and response indoors."),
+    ],
+    "jobs": [
+        ("1", "Assessment of Indoor Heat", [
+            ("Measure and evaluate indoor heat",
+             ["Unrecognized indoor heat exposure"],
+             ["Where indoor temperature or heat index reaches 82°F, apply the program",
+              "Measure temperature and heat index where employees work",
+              "Identify radiant heat sources and high-heat areas"],
+             "As required for the area"),
+        ]),
+        ("2", "Water, Cool-Down Areas &amp; Rest", [
+            ("Provide water and cool-down areas",
+             ["Dehydration", "No place to cool down"],
+             ["Provide cool drinking water close to the work area",
+              "Provide a cool-down area kept below 82°F and allow/encourage access",
+              "Allow preventive cool-down rest and monitor for symptoms"],
+             "Light clothing; water"),
+        ]),
+        ("3", "Engineering &amp; Administrative Controls", [
+            ("Reduce heat where feasible",
+             ["Excessive indoor heat load"],
+             ["Use ventilation, cooling, fans, and isolation of heat sources where feasible",
+              "Where controls can't reduce to below 82/87°F triggers, use administrative controls (rotation, scheduling, more breaks)",
+              "Provide personal heat-protective equipment as needed"],
+             "Cooling PPE as provided"),
+        ]),
+        ("4", "Acclimatization, Training &amp; Emergency", [
+            ("Acclimatize, train, and prepare",
+             ["Unacclimatized collapse", "Delayed emergency response"],
+             ["Observe new and returning workers closely; watch all during heat waves",
+              "Train on symptoms, water/rest use, and reporting",
+              "Maintain emergency procedures to summon aid and cool a worker immediately"],
+             "First-aid access"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["ca-lc-6401-9-wvpp"] = {
+    "subtitle": "Workplace Violence Prevention",
+    "legend": [
+        ("Type 1 — Criminal Intent", "Violence by someone with no legitimate business relationship (robbery)."),
+        ("Type 2 — Customer/Client", "Violence by a customer, client, or member of the public."),
+        ("Type 3 — Worker-on-Worker", "Violence between coworkers."),
+        ("Type 4 — Personal Relationship", "Violence from a personal relationship spilling into work."),
+    ],
+    "jobs": [
+        ("1", "Hazard Identification &amp; Reporting", [
+            ("Identify workplace-violence hazards",
+             ["Unrecognized violence risk", "Unreported incidents/threats"],
+             ["Identify and evaluate workplace-violence hazards with employee input",
+              "Provide a way for employees to report violent incidents, threats, and concerns without retaliation",
+              "Log every workplace-violence incident in the violent-incident log"],
+             "N/A"),
+        ]),
+        ("2", "Engineering &amp; Work-Practice Controls", [
+            ("Reduce exposure to violence",
+             ["Isolated/lone work", "Uncontrolled site access"],
+             ["Use access control, alarms, panic buttons, lighting, and visibility where appropriate",
+              "Establish safe-work practices for cash handling, lone work, and public contact",
+              "Correct identified hazards and document corrective actions"],
+             "Communication device / duress alarm as provided"),
+        ]),
+        ("3", "Emergency &amp; De-escalation Response", [
+            ("Respond to threats and violence",
+             ["Escalation to physical harm", "Confusion during an emergency"],
+             ["Use de-escalation techniques and disengage; summon help early",
+              "Follow emergency response: alert others, evacuate or shelter, call 911",
+              "Account for personnel and provide post-incident support"],
+             "N/A"),
+        ]),
+        ("4", "Training &amp; Recordkeeping", [
+            ("Train and record",
+             ["Untrained response", "Missing records"],
+             ["Train employees initially and annually on the plan, hazards, reporting, and response",
+              "Maintain the violent-incident log (5 yr) and training records (1 yr)",
+              "Review the plan annually and after any incident"],
+             "N/A"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["wa-296-800-140-app"] = {
+    "subtitle": "Job-Site Accident Prevention Walkthrough (APP)",
+    "legend": [
+        ("Program / Systemic", "Hazards not identified or corrected across the site."),
+        ("Physical", "Task-specific hazards found on walkthrough."),
+        ("Communication", "Safety orientation and committee input gaps."),
+        ("Documentation", "Inspections, meetings, and corrections not recorded."),
+    ],
+    "jobs": [
+        ("1", "Safety Orientation &amp; Committee", [
+            ("Orient workers and run safety meetings",
+             ["Untrained new hire", "No employee safety input"],
+             ["Give each new employee a safety orientation tailored to their job",
+              "Hold safety committee meetings (or crew meetings for small sites) and record them",
+              "Address employee-raised hazards and document responses"],
+             "PPE per site rules"),
+        ]),
+        ("2", "Job-Site Inspection", [
+            ("Walk down the site for hazards",
+             ["Unidentified hazards", "Recurring deficiencies"],
+             ["Inspect the workplace on a regular schedule using a checklist",
+              "Identify falls, struck-by, caught-in, electrical, and housekeeping hazards",
+              "Record findings with location and responsible person"],
+             "Hard hat, safety glasses, high-vis, boots"),
+        ]),
+        ("3", "Hazard Correction", [
+            ("Correct identified hazards",
+             ["Continued exposure", "Imminent hazards"],
+             ["Prioritize and correct by severity with target dates",
+              "Provide interim protection or remove workers from imminent hazards",
+              "Document corrective action and verify completion"],
+             "PPE per hazard; barricades/signage"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["wa-296-62-095-heat"] = {
+    "subtitle": "Outdoor Heat Exposure (Washington)",
+    "legend": [
+        ("Heat / Physiological", "Heat exhaustion, heat stroke, dehydration."),
+        ("Environmental", "Outdoor temperature at or above the WAC action levels."),
+        ("Recognition", "Failure to identify early symptoms."),
+        ("Emergency", "Delayed response to a distressed worker."),
+    ],
+    "jobs": [
+        ("1", "Water &amp; Paid Cool-Down Rest", [
+            ("Provide water and rest",
+             ["Dehydration", "No cool-down opportunity"],
+             ["Provide enough cool water for at least 1 quart per employee per hour",
+              "Allow and encourage paid preventive cool-down rest and access to shade",
+              "Ensure shade is available at applicable temperature action levels"],
+             "Light clothing; hat; water"),
+        ]),
+        ("2", "Acclimatization &amp; High-Heat Response", [
+            ("Acclimatize and monitor",
+             ["Unacclimatized worker collapse"],
+             ["Closely observe new and returning employees during acclimatization",
+              "Increase monitoring and communication as temperature rises",
+              "Use a buddy system or regular check-ins during high heat"],
+             "Water; light clothing"),
+        ]),
+        ("3", "Symptom Response &amp; Emergency", [
+            ("Recognize and respond",
+             ["Heat exhaustion progressing to heat stroke", "Delayed medical care"],
+             ["Relieve and cool any employee showing symptoms; do not leave them alone",
+              "Have procedures to contact emergency services with the exact location",
+              "Begin cooling immediately while awaiting help"],
+             "First-aid access"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["or-437-002-0156-heat"] = {
+    "subtitle": "Heat Illness Prevention (Oregon)",
+    "legend": [
+        ("Heat / Physiological", "Heat exhaustion, heat stroke, dehydration."),
+        ("Environmental", "Heat index at or above the Oregon OSHA trigger levels."),
+        ("Recognition", "Failure to identify early symptoms."),
+        ("Emergency", "Delayed response and communication."),
+    ],
+    "jobs": [
+        ("1", "Access to Shade &amp; Water", [
+            ("Provide shade and water",
+             ["No cool-down location", "Dehydration"],
+             ["Provide shade that accommodates all employees on break at or above the heat-index trigger",
+              "Provide cool drinking water; encourage 32 oz per hour",
+              "Locate shade and water as close as practical to work"],
+             "Light clothing; hat"),
+        ]),
+        ("2", "Rest Breaks &amp; Acclimatization", [
+            ("Give breaks and acclimatize",
+             ["Escalating heat load", "Unacclimatized collapse"],
+             ["Provide preventive cool-down rest breaks per the applicable heat-index schedule",
+              "Implement an acclimatization plan for new and returning workers and heat waves",
+              "Maintain effective communication and observation"],
+             "Water; light clothing"),
+        ]),
+        ("3", "Emergency Medical &amp; High-Heat Practices", [
+            ("Plan for emergencies",
+             ["Delayed care", "Symptom progression"],
+             ["Maintain an emergency medical plan with location and contact procedures",
+              "At the high heat index, add communication, observation, and reminder practices",
+              "Cool a symptomatic worker immediately and never leave them alone"],
+             "First-aid access"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["or-437-002-1081-smoke"] = {
+    "subtitle": "Wildfire Smoke / Air-Quality Response (Oregon)",
+    "legend": [
+        ("Respiratory", "Inhalation of PM2.5 wildfire smoke; aggravation of heart/lung conditions."),
+        ("Environmental", "Rising AQI from nearby or regional wildfire."),
+        ("Engineering / Admin", "Failure to reduce exposure through controls or scheduling."),
+        ("Communication", "AQI not monitored or communicated to workers."),
+    ],
+    "jobs": [
+        ("1", "Monitor Air Quality (AQI)", [
+            ("Check AQI before and during the shift",
+             ["Unrecognized smoke exposure"],
+             ["Monitor the current and forecast AQI for PM2.5 at the worksite",
+              "Communicate the AQI and required protections to employees at applicable thresholds",
+              "Re-check periodically as conditions change"],
+             "N/A"),
+        ]),
+        ("2", "Exposure Controls", [
+            ("Reduce smoke exposure",
+             ["PM2.5 inhalation", "Aggravated respiratory condition"],
+             ["Use engineering (enclosed/filtered cabs, cleaner spaces) and administrative controls (relocate, reschedule, reduce intensity) where feasible",
+              "Provide NIOSH-approved respirators (e.g., N95) for voluntary use at the applicable AQI",
+              "Require proper respirator use at higher AQI thresholds"],
+             "N95/NIOSH respirator per AQI"),
+        ]),
+        ("3", "Training &amp; Medical Awareness", [
+            ("Train and watch for symptoms",
+             ["Untrained response", "Ignored symptoms"],
+             ["Train employees on smoke hazards, AQI, symptoms, and respirator use",
+              "Encourage workers with heart/lung conditions to report and seek accommodation",
+              "Respond to and relieve any employee showing symptoms"],
+             "Respirator as provided"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["mn-182-653-awair"] = {
+    "subtitle": "Workplace Hazard Assessment (AWAIR)",
+    "legend": [
+        ("Program / Systemic", "Hazards not identified or reduced across the operation."),
+        ("Physical", "Task-specific hazards found during assessment."),
+        ("Accountability", "Managers/supervisors/employees not held accountable."),
+        ("Documentation", "Assessments, corrections, and reviews not recorded."),
+    ],
+    "jobs": [
+        ("1", "Hazard Identification &amp; Analysis", [
+            ("Identify and analyze workplace hazards",
+             ["Unidentified hazards", "Recurring incidents"],
+             ["Identify hazards by job/area on a set schedule and after changes",
+              "Analyze incident and near-miss trends to target high-risk work",
+              "Record the methods used to identify, analyze, and control hazards"],
+             "PPE per area"),
+        ]),
+        ("2", "Hazard Control &amp; Correction", [
+            ("Eliminate or control hazards",
+             ["Continued exposure", "Uncorrected deficiencies"],
+             ["Apply the hierarchy of controls; correct by severity with due dates",
+              "Provide interim protection until permanent correction",
+              "Document corrective actions and verify completion"],
+             "PPE per hazard"),
+        ]),
+        ("3", "Accountability, Communication &amp; Review", [
+            ("Assign responsibility and review",
+             ["No ownership of safety", "Stale program"],
+             ["State how managers, supervisors, and employees are responsible and held accountable",
+              "Communicate the program and encourage employee participation",
+              "Review the program at least annually and document it"],
+             "N/A"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["mn-5206-ertk"] = {
+    "subtitle": "Employee Right-to-Know — Hazardous Substance Handling (ERTK)",
+    "legend": [
+        ("Chemical", "Exposure to hazardous substances (inhalation, skin, eye contact)."),
+        ("Physical Agents", "Harmful physical agents (heat, noise, ionizing/non-ionizing radiation)."),
+        ("Infectious Agents", "Bloodborne/other infectious agents where applicable."),
+        ("Communication", "Labels, SDSs, and annual training not provided."),
+    ],
+    "jobs": [
+        ("1", "Inventory &amp; Labeling", [
+            ("Inventory and label hazards",
+             ["Unknown substances/agents", "Unlabeled containers"],
+             ["Maintain a list of hazardous substances, harmful physical agents, and infectious agents present",
+              "Ensure containers are labeled with contents and appropriate hazard warnings",
+              "Keep Safety Data Sheets accessible for hazardous substances"],
+             "Gloves and eye protection per the substance"),
+        ]),
+        ("2", "Safe Handling &amp; Controls", [
+            ("Handle substances and agents safely",
+             ["Chemical exposure", "Physical-agent exposure"],
+             ["Follow SDS handling, storage, and PPE guidance for each substance",
+              "Apply controls for physical agents (noise, heat, radiation) as applicable",
+              "Use exposure controls and PPE appropriate to the task"],
+             "PPE per SDS / agent"),
+        ]),
+        ("3", "Annual Training &amp; Records", [
+            ("Train and document",
+             ["Untrained exposure", "Missing training records"],
+             ["Provide ERTK training before initial assignment and at least annually",
+              "Train on substances/agents present, labels, SDSs, and protective measures",
+              "Maintain training records and the hazard lists"],
+             "N/A"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["nv-618-written-safety-program"] = {
+    "subtitle": "Written Safety Program Job Hazard Assessment (Nevada)",
+    "legend": [
+        ("Program / Systemic", "Hazards not identified or corrected across the operation."),
+        ("Physical", "Task-specific hazards found during assessment."),
+        ("Communication", "Employee input and reporting gaps."),
+        ("Documentation", "Assessments, corrections, and training not recorded."),
+    ],
+    "jobs": [
+        ("1", "Written Program &amp; Responsibility", [
+            ("Establish the written safety program",
+             ["No documented program", "Unassigned responsibility"],
+             ["Maintain a written workplace safety program describing how hazards are identified and controlled",
+              "Name the person(s) responsible for administering the program",
+              "Cover the actual operations and hazards of the workplace"],
+             "N/A"),
+        ]),
+        ("2", "Hazard Assessment &amp; Correction", [
+            ("Assess and correct hazards",
+             ["Unidentified hazards", "Uncorrected deficiencies"],
+             ["Inspect the workplace on a schedule and after changes",
+              "Correct hazards by severity with target dates and interim protection",
+              "Document findings and corrective actions"],
+             "PPE per hazard"),
+        ]),
+        ("3", "Employee Involvement &amp; Training", [
+            ("Involve and train employees",
+             ["No employee input", "Untrained exposure"],
+             ["Provide a means for employees to report hazards",
+              "Train employees on hazards and safe work practices for their jobs",
+              "Maintain training and program-review records"],
+             "N/A"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["nv-heat-illness"] = {
+    "subtitle": "Heat Illness Prevention (Nevada)",
+    "legend": [
+        ("Heat / Physiological", "Heat exhaustion, heat stroke, dehydration."),
+        ("Environmental", "High ambient heat, indoor and outdoor."),
+        ("Recognition", "Failure to identify early symptoms."),
+        ("Emergency", "Delayed response to a distressed worker."),
+    ],
+    "jobs": [
+        ("1", "Written Heat Assessment", [
+            ("Assess heat hazards",
+             ["Unrecognized heat exposure"],
+             ["Perform and document a job-site heat-illness hazard analysis for affected work",
+              "Address water, rest, and monitoring in the written program",
+              "Cover both indoor and outdoor heat sources where applicable"],
+             "Light clothing; water"),
+        ]),
+        ("2", "Water, Rest &amp; Acclimatization", [
+            ("Provide water, rest, and acclimatization",
+             ["Dehydration", "Unacclimatized collapse"],
+             ["Provide potable water and encourage frequent hydration",
+              "Provide rest and a means to cool down; observe new/returning workers",
+              "Increase monitoring during high heat"],
+             "Water; hat; light clothing"),
+        ]),
+        ("3", "Symptom Response &amp; Emergency", [
+            ("Recognize and respond",
+             ["Symptom progression", "Delayed care"],
+             ["Relieve and cool any symptomatic worker; do not leave them alone",
+              "Have procedures to summon emergency services with the exact location",
+              "Provide first aid and begin cooling immediately"],
+             "First-aid access"),
+        ]),
+    ],
+}
+
+
+JHA_LIBRARY["md-comar-09-12-32-heat"] = {
+    "subtitle": "Heat Stress Prevention (Maryland)",
+    "legend": [
+        ("Heat / Physiological", "Heat exhaustion, heat stroke, dehydration."),
+        ("Environmental", "Heat index at or above the MOSH trigger levels, indoor and outdoor."),
+        ("Recognition", "Failure to identify early symptoms."),
+        ("Emergency", "Delayed response to a distressed worker."),
+    ],
+    "jobs": [
+        ("1", "Heat-Index Monitoring &amp; Assessment", [
+            ("Monitor heat and assess hazards",
+             ["Unrecognized heat exposure"],
+             ["Monitor the heat index where employees work, indoors and outdoors",
+              "Apply the written heat-stress program at the applicable heat-index triggers",
+              "Identify high-heat tasks and radiant heat sources"],
+             "Light clothing"),
+        ]),
+        ("2", "Water, Shade/Cool Area &amp; Rest", [
+            ("Provide water, cooling, and rest",
+             ["Dehydration", "No cool-down location"],
+             ["Provide cool drinking water and encourage regular hydration",
+              "Provide shade or a climate-controlled cool-down area and allow rest breaks",
+              "Increase rest as the heat index rises per the schedule"],
+             "Water; hat; light clothing"),
+        ]),
+        ("3", "Acclimatization, Training &amp; Emergency", [
+            ("Acclimatize, train, and prepare for emergencies",
+             ["Unacclimatized collapse", "Delayed care"],
+             ["Acclimatize new and returning workers; observe closely during heat waves",
+              "Train on symptoms, hydration, rest, and reporting",
+              "Maintain emergency procedures; cool a symptomatic worker immediately and never leave them alone"],
+             "First-aid access"),
+        ]),
+    ],
+}
