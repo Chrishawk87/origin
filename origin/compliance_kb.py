@@ -402,6 +402,66 @@ def abatement_search(query: str, limit: int = 10) -> List[dict]:
     return [r for _, r in scored[:limit]]
 
 
+# ── state plans (federal vs. state OSHA divergence map) ──────────────────────
+# state_plans.jsonl — every OSHA-approved State Plan (22 full private+public,
+# 6 public-only + Virgin Islands noted), with agency, jurisdiction, where the
+# state is STRICTER/different from federal OSHA, penalty posture, and the
+# enforcement-database source URL. Retrieval only. This lets Origin answer "what
+# does a contractor in <state> have to do differently than federal?" and flag
+# state-only programs (California IIPP/heat/workplace-violence, Washington APP,
+# Oregon heat+smoke, Minnesota AWAIR, Nevada NRS-618, Maryland heat, etc.).
+@functools.lru_cache(maxsize=1)
+def _state_plan_records() -> List[dict]:
+    path = KB_DIR / "state_plans.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def state_plans() -> List[dict]:
+    """All State-Plan divergence records."""
+    return _state_plan_records()
+
+
+def state_plan_for(state: str) -> Optional[dict]:
+    """The State-Plan record for a state name (case-insensitive)."""
+    s = (state or "").strip().lower()
+    if not s:
+        return None
+    for r in _state_plan_records():
+        if r.get("state", "").lower() == s:
+            return r
+    # tolerate the id form, e.g. "california" or "state-plan-california"
+    for r in _state_plan_records():
+        if r.get("id", "").lower() in (s, f"state-plan-{s}"):
+            return r
+    return None
+
+
+def state_plan_search(query: str, limit: int = 10) -> List[dict]:
+    """Search State-Plan records, e.g. 'california heat', 'nevada written
+    program', 'which states require workplace violence plan'."""
+    q = {t for t in re.split(r"\W+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _state_plan_records():
+        hay = " ".join([r.get("state", ""), r.get("agency", ""),
+                        r.get("title", ""), r.get("adoption_posture", ""),
+                        r.get("jurisdiction", ""), r.get("contractor_impact", ""),
+                        " ".join(r.get("key_divergences", []))]).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:limit]]
+
+
 # ── self-learning intake loop ────────────────────────────────────────────────
 # The brain gets smarter over time: anything Origin is taught — a document it
 # ingested, a reviewer rejection it saw, a correction Chris made — can be written
@@ -466,13 +526,15 @@ def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = Non
 #   naics        every 2022 NAICS industry code (2,125)
 #   prequal_platform  ISN/Avetta/Veriforce/PEC/BROWZ/ComplyWorks expert knowledge
 #   abatement    OSHA + prequal abatement/corrective-action playbook
+#   state_plan   federal-vs-state OSHA divergence map (29 State Plans)
 #   learned      self-taught records written at runtime to the persistent volume
 # IMPORTANT: this is retrieval only. The compliance send-gate (validate_document /
 # resolve_standards) still draws ONLY from curated `program` records, so adding
 # structural/reference/self-learned knowledge here never dilutes what a document
 # is validated against — it only makes the agent better-informed.
 _BRAIN_KINDS = ("program", "osha_section", "training", "whistleblower",
-                "preamble", "naics", "prequal_platform", "abatement", "learned")
+                "preamble", "naics", "prequal_platform", "abatement",
+                "state_plan", "learned")
 
 
 def _brain_score(hay: str, q: set) -> int:
@@ -593,6 +655,23 @@ def brain_search(query: str, limit: int = 20,
                              "title": r.get("title", ""),
                              "context": r.get("context", "")})
 
+    if "state_plan" in want:
+        for r in _state_plan_records():
+            hay = " ".join([r.get("state", ""), r.get("agency", ""),
+                            r.get("title", ""), r.get("adoption_posture", ""),
+                            r.get("jurisdiction", ""),
+                            r.get("contractor_impact", ""),
+                            " ".join(r.get("key_divergences", []))])
+            s = _brain_score(hay, q)
+            if s:
+                hits.append({"kind": "state_plan",
+                             "source": "state_plans.jsonl",
+                             "score": s + 1,  # scarce, high-value domain knowledge
+                             "id": r.get("id", ""),
+                             "state": r.get("state", ""),
+                             "agency": r.get("agency", ""),
+                             "title": r.get("title", "")})
+
     if "learned" in want:
         for r in learned_knowledge():
             hay = " ".join([r.get("title", ""), r.get("text", ""),
@@ -679,6 +758,7 @@ def brain_stats() -> dict:
         "naics_codes": len(_naics_catalog()),
         "prequal_platform": len(_prequal_records()),
         "abatement_playbook": len(_abatement_records()),
+        "state_plans": len(_state_plan_records()),
         "learned": len(learned_knowledge()),
     }
     return {
