@@ -533,7 +533,7 @@ def learn(text: str, *, title: Optional[str] = None, source: Optional[str] = Non
 # structural/reference/self-learned knowledge here never dilutes what a document
 # is validated against — it only makes the agent better-informed.
 _BRAIN_KINDS = ("program", "osha_section", "training", "whistleblower",
-                "preamble", "naics", "prequal_platform", "abatement",
+                "preamble", "naics", "sic", "prequal_platform", "abatement",
                 "state_plan", "learned")
 
 
@@ -624,6 +624,15 @@ def brain_search(query: str, limit: int = 20,
                          "title": r.get("title", ""),
                          "level_name": r.get("level_name", ""),
                          "sector_title": r.get("sector_title", "")})
+
+    if "sic" in want:
+        for r in sic_search(query, limit=8):
+            hits.append({"kind": "sic", "source": "sic_naics.jsonl",
+                         "score": 1, "code": r.get("sic", ""),
+                         "title": r.get("title", ""),
+                         "major_group_title": r.get("major_group_title", ""),
+                         "naics": r.get("naics", ""),
+                         "naics_title": r.get("naics_title", "")})
 
     if "prequal_platform" in want:
         for r in _prequal_records():
@@ -1249,6 +1258,129 @@ def naics_applicable(code_or_industry: str, state: Optional[str] = None) -> dict
         "buckets": {k: len(v) for k, v in buckets.items()},
         "standards": standards,
     }
+
+
+# ── SIC → NAICS crosswalk (legacy classification bridge) ────────────────────
+# sic_naics.jsonl bridges the legacy 1987 Standard Industrial Classification
+# (SIC) system to the modern 2022 NAICS. SIC is still used by OSHA pre-2003
+# enforcement records, SEC EDGAR filings, Dun & Bradstreet, workers'-comp
+# insurers, and some prequal profiles — so a company known only by SIC can be
+# resolved to the right NAICS sector and, from there, to its required standards.
+# All 1,004 four-digit SIC codes are covered, each with its title, major group,
+# division, primary NAICS equivalent, and every NAICS code it splits into.
+@functools.lru_cache(maxsize=1)
+def _sic_catalog() -> List[dict]:
+    path = KB_DIR / "sic_naics.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+@functools.lru_cache(maxsize=1)
+def _sic_by_code() -> Dict[str, dict]:
+    return {r["sic"]: r for r in _sic_catalog()}
+
+
+def sic_code(code: str) -> Optional[dict]:
+    """Look up a SIC code. A 4-digit code returns its full record (title, major
+    group, division, NAICS equivalents). A 2- or 3-digit prefix returns the
+    major-group / group summary plus its member 4-digit codes, so the agent can
+    walk the SIC hierarchy the same way it walks NAICS."""
+    raw = re.sub(r"\D", "", (code or ""))
+    if not raw:
+        return None
+    by = _sic_by_code()
+    rec = by.get(raw)
+    if rec:
+        return dict(rec)
+    if len(raw) in (2, 3):
+        members = [r for r in _sic_catalog() if r["sic"].startswith(raw)]
+        if members:
+            m0 = members[0]
+            return {
+                "sic": raw,
+                "title": m0.get("major_group_title", "") if len(raw) == 2 else "",
+                "major_group": m0.get("major_group", raw[:2]),
+                "major_group_title": m0.get("major_group_title", ""),
+                "division": m0.get("division", ""),
+                "division_title": m0.get("division_title", ""),
+                "members": [{"sic": r["sic"], "title": r["title"]} for r in members],
+            }
+    return None
+
+
+def sic_search(query: str, limit: int = 15) -> List[dict]:
+    """Keyword or code search across all 1,004 SIC industry titles. Finds the SIC
+    code for a plain-English business description ('trucking', 'oil well
+    drilling', 'electrical work') or matches a numeric code prefix."""
+    raw = (query or "").strip()
+    digits = re.sub(r"\D", "", raw)
+    if digits and digits == raw.replace("-", "").strip():
+        hits = [r for r in _sic_catalog() if r["sic"].startswith(digits)]
+        if hits:
+            return sorted(hits, key=lambda r: r["sic"])[:limit]
+    q = {t for t in re.split(r"\W+", raw.lower()) if len(t) > 2}
+    if not q:
+        return []
+    scored = []
+    for r in _sic_catalog():
+        hay = (r.get("title", "") + " " + r.get("major_group_title", "")).lower()
+        s = sum(t in hay for t in q)
+        if s:
+            scored.append((s, r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:limit]]
+
+
+def sic_to_naics(code: str) -> Optional[dict]:
+    """Translate a SIC code to its NAICS equivalent(s). Returns the primary
+    (canonical) NAICS 6-digit code, its parent 2-digit sector, and every NAICS
+    code the SIC splits into. This is the bridge that lets a SIC-coded company
+    use every NAICS-keyed Origin tool (scoping, Gap Finder, sector programs)."""
+    rec = sic_code(code)
+    if rec and not rec.get("naics") and rec.get("members"):
+        rec = _sic_by_code().get(rec["members"][0]["sic"])
+    if not rec or not rec.get("naics"):
+        return None
+    return {
+        "sic": rec["sic"],
+        "sic_title": rec.get("title", ""),
+        "naics": rec["naics"],
+        "naics_title": rec.get("naics_title", ""),
+        "naics_sector": rec.get("naics_sector", ""),
+        "naics_all": rec.get("naics_all", []),
+    }
+
+
+def sic_applicable(code: str, state: Optional[str] = None) -> dict:
+    """Same as ``naics_applicable`` but keyed by a legacy SIC code: translate the
+    SIC to NAICS first, then resolve the required standards for that sector.
+    Returns the standards payload with the originating SIC echoed back so the
+    caller can show 'SIC 1731 → NAICS 238210 → Electrical Contractors'."""
+    bridge = sic_to_naics(code)
+    if not bridge:
+        return {"error": f"SIC code '{code}' not found", "sic": code,
+                "sector": None, "standards": []}
+    out = naics_applicable(bridge["naics"], state=state)
+    out["sic"] = bridge["sic"]
+    out["sic_title"] = bridge["sic_title"]
+    out["naics"] = bridge["naics"]
+    out["naics_title"] = bridge["naics_title"]
+    return out
+
+
+def sic_stats() -> dict:
+    """Coverage summary for the SIC crosswalk (for the brain/KB stats view)."""
+    cat = _sic_catalog()
+    divisions = sorted({r.get("division", "") for r in cat if r.get("division")})
+    majors = sorted({r.get("major_group", "") for r in cat if r.get("major_group")})
+    return {"sic_codes": len(cat), "divisions": len(divisions),
+            "major_groups": len(majors)}
 
 
 # ── Hiring-client requirement overlay (operator profiles) ───────────────────
