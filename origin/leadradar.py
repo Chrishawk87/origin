@@ -101,6 +101,17 @@ MSHA_DATASET = os.environ.get("MSHA_DATASET", "").strip()  # blank => auto-disco
 MSHA_ISSUE_FIELD = os.environ.get("MSHA_ISSUE_FIELD", "violation_issue_dt").strip()
 MSHA_PENALTY_FIELD = os.environ.get("MSHA_PENALTY_FIELD", "proposed_penalty").strip()
 
+# OSHA — keyless public Socrata mirror on data.osha.gov. This carries the SAME
+# IMIS enforcement data as the keyed DOL v4 API (identical activity_nr /
+# estab_name / viol_type / issuance_date / penalty field names), but needs NO
+# API key — so it works without the DOL developer registration (which now
+# demands a photo-ID upload). This is the DEFAULT OSHA source; set
+# OSHA_SOURCE=dol to fall back to the keyed v4 API instead.
+OSHA_SOURCE = os.environ.get("OSHA_SOURCE", "socrata").strip().lower()
+OSHA_SODA_BASE = os.environ.get("OSHA_SODA_BASE", "https://data.osha.gov/resource").strip()
+OSHA_VIOLATION_ID = os.environ.get("OSHA_VIOLATION_ID", "498h-afjm").strip()   # violation table
+OSHA_INSPECTION_ID = os.environ.get("OSHA_INSPECTION_ID", "4dwo-mb8e").strip()  # inspection table
+
 # ---------------------------------------------------------------------------
 # State-plan authority map — the DOL dataset carries state-OSHA citations too;
 # we name the citing authority from the establishment's state so a lead reads
@@ -453,6 +464,180 @@ def _violations_for_url(activity_nrs: List[str], *, limit: int) -> str:
                     sort_by="activity_nr", sort="asc")
 
 
+# ---------------------------------------------------------------------------
+# OSHA — keyless Socrata mirror (data.osha.gov). SODA 2.1 queries, no API key.
+# Same IMIS schema as the DOL v4 path, so all the lead-building helpers
+# (_aggregate_violations, _build_osha_lead) are reused unchanged.
+# ---------------------------------------------------------------------------
+
+def _soda_url(dataset_id: str, *, where: str, limit: int, order: str = "") -> str:
+    """Build a Socrata SODA query URL for a data.osha.gov table (keyless)."""
+    params: Dict[str, str] = {"$where": where, "$limit": str(limit)}
+    if order:
+        params["$order"] = order
+    if SOCRATA_APP_TOKEN:
+        params["$$app_token"] = SOCRATA_APP_TOKEN
+    return f"{OSHA_SODA_BASE}/{dataset_id}.json?" + urllib.parse.urlencode(params)
+
+
+def _soda_fetch_records(url: str, *, timeout: int = 45) -> Dict[str, Any]:
+    """Call a data.osha.gov SODA URL and classify failures like _dol_fetch_records,
+    so the admin gets a fix-it message instead of a silent blank."""
+    res = _http_fetch(url, timeout=timeout)
+    status, body = res.get("status"), res.get("body") or ""
+    if status is None:
+        return {"ok": False, "records": [], "reason": "unreachable",
+                "note": f"OSHA data portal unreachable ({res.get('error','no response')})."}
+    if status == 429:
+        return {"ok": False, "records": [], "reason": "rate_limited",
+                "note": "OSHA data portal rate-limited us. Set SOCRATA_APP_TOKEN for a higher limit."}
+    if status == 400:
+        snippet = " ".join(body.split())[:160]
+        return {"ok": False, "records": [], "reason": "bad_request",
+                "note": f"OSHA query rejected (field names may have changed): {snippet}"}
+    if status >= 400:
+        return {"ok": False, "records": [], "reason": "http_error",
+                "note": f"OSHA data portal returned HTTP {status}."}
+    if not _looks_like_json(body):
+        return {"ok": False, "records": [], "reason": "not_json",
+                "note": "OSHA data portal returned a non-JSON body."}
+    try:
+        payload = json.loads(body)
+    except Exception:
+        return {"ok": False, "records": [], "reason": "parse_error",
+                "note": "OSHA data portal returned malformed JSON."}
+    return {"ok": True, "records": _as_records(payload), "reason": "", "note": ""}
+
+
+def _soda_in_clause(field: str, values: List[str]) -> str:
+    return "%s in(%s)" % (field, ",".join("'%s'" % v.replace("'", "") for v in values))
+
+
+def _osha_soda_violation_url(*, since: str, limit: int) -> str:
+    """Recent citations from the violation table (fresh signal). Penalty is
+    filtered client-side after roll-up to avoid Socrata numeric-type surprises."""
+    where = "issuance_date > '%sT00:00:00'" % since
+    return _soda_url(OSHA_VIOLATION_ID, where=where, order="issuance_date DESC", limit=limit)
+
+
+def _osha_soda_violations_for_url(activity_nrs: List[str], *, limit: int) -> str:
+    return _soda_url(OSHA_VIOLATION_ID, where=_soda_in_clause("activity_nr", activity_nrs),
+                     limit=limit)
+
+
+def _osha_soda_inspection_url(activity_nrs: List[str], *, limit: int) -> str:
+    return _soda_url(OSHA_INSPECTION_ID, where=_soda_in_clause("activity_nr", activity_nrs),
+                     limit=limit)
+
+
+def _osha_soda_recent_inspections_url(*, since: str, limit: int) -> str:
+    where = "open_date > '%sT00:00:00'" % since
+    return _soda_url(OSHA_INSPECTION_ID, where=where, order="open_date DESC", limit=limit)
+
+
+def _osha_join_inspections_socrata(by_insp: Dict[str, Dict[str, Any]], *, want: set,
+                                   target_trades_only: bool) -> List[Dict[str, Any]]:
+    """Look up establishments for aggregated inspections (keyless) and build leads."""
+    insp_by_nr: Dict[str, Dict[str, Any]] = {}
+    for chunk in _chunk(list(by_insp.keys()), 100):
+        res = _soda_fetch_records(_osha_soda_inspection_url(chunk, limit=len(chunk)))
+        for rec in res.get("records", []):
+            nr = _pick(rec, "activity_nr", "activity_number")
+            if nr:
+                insp_by_nr[nr] = rec
+    leads: List[Dict[str, Any]] = []
+    for nr, agg in by_insp.items():
+        insp = insp_by_nr.get(nr)
+        if not insp:
+            continue  # establishment not yet published — skip
+        lead = _build_osha_lead(insp, agg)
+        if not lead:
+            continue
+        if want and lead["state"] not in want:
+            continue
+        if target_trades_only and not lead["trade_match"]:
+            continue
+        leads.append(lead)
+    return leads
+
+
+def _osha_inspection_first_socrata(*, since: str, min_penalty: float, want: set,
+                                   target_trades_only: bool, limit: int) -> Dict[str, Any]:
+    """Fallback (keyless): start from recent inspections, attach their violations."""
+    insp_res = _soda_fetch_records(
+        _osha_soda_recent_inspections_url(since=since, limit=max(limit * 5, 500)))
+    if not insp_res["ok"]:
+        return {"ok": False, "leads": [], "reason": insp_res["reason"], "note": insp_res["note"]}
+    insp_by_nr: Dict[str, Dict[str, Any]] = {}
+    for rec in insp_res["records"]:
+        nr = _pick(rec, "activity_nr", "activity_number")
+        if not nr:
+            continue
+        state = _pick(rec, "site_state", "state", "mail_state").upper()
+        if want and state not in want:
+            continue
+        insp_by_nr[nr] = rec
+    if not insp_by_nr:
+        return {"ok": True, "leads": [], "reason": "", "note": ""}
+    all_rows: List[Dict[str, Any]] = []
+    for chunk in _chunk(list(insp_by_nr.keys()), 50):
+        vres = _soda_fetch_records(_osha_soda_violations_for_url(chunk, limit=len(chunk) * 20))
+        all_rows.extend(vres.get("records", []))
+    by_insp = _aggregate_violations(all_rows)
+    leads: List[Dict[str, Any]] = []
+    for nr, agg in by_insp.items():
+        if agg.get("penalty", 0.0) < min_penalty:
+            continue
+        insp = insp_by_nr.get(nr)
+        if not insp:
+            continue
+        lead = _build_osha_lead(insp, agg)
+        if not lead:
+            continue
+        if target_trades_only and not lead["trade_match"]:
+            continue
+        leads.append(lead)
+    return {"ok": True, "leads": leads, "reason": "", "note": ""}
+
+
+def _osha_leads_socrata(*, since: str, min_penalty: float, limit: int,
+                        states: Optional[List[str]], target_trades_only: bool) -> Dict[str, Any]:
+    """Keyless OSHA lead pull via data.osha.gov. Same violations-first-then-
+    inspection-fallback shape as the DOL path, but no API key required."""
+    want = set(states and [s.strip().upper() for s in states if s.strip()] or [])
+
+    viol = _soda_fetch_records(
+        _osha_soda_violation_url(since=since, limit=max(limit * 5, 500)))
+    if not viol["ok"]:
+        return {"ok": False, "reason": viol["reason"], "leads": [],
+                "note": viol["note"], "since": since}
+
+    by_insp = {nr: agg for nr, agg in _aggregate_violations(viol["records"]).items()
+               if agg.get("penalty", 0.0) >= min_penalty}
+
+    leads: List[Dict[str, Any]] = []
+    fallback_used = False
+    if by_insp:
+        leads = _osha_join_inspections_socrata(by_insp, want=want,
+                                               target_trades_only=target_trades_only)
+    if not leads:
+        fb = _osha_inspection_first_socrata(since=since, min_penalty=min_penalty, want=want,
+                                            target_trades_only=target_trades_only, limit=limit)
+        if fb.get("leads"):
+            leads = fb["leads"]
+            fallback_used = True
+        elif not fb.get("ok"):
+            return {"ok": False, "reason": fb["reason"], "leads": [],
+                    "note": fb["note"], "since": since}
+
+    leads.sort(key=lambda l: (l.get("opened") or "", l.get("penalty") or 0), reverse=True)
+    out = {"ok": True, "reason": "", "count": len(leads), "leads": leads[:limit],
+           "since": since, "source": "data.osha.gov (keyless)"}
+    if fallback_used:
+        out["note"] = "Used recent-inspection fallback (few citations posted in this window yet)."
+    return out
+
+
 def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30,
                      min_penalty: float = 1000.0, limit: int = 200,
                      target_trades_only: bool = False) -> Dict[str, Any]:
@@ -464,12 +649,22 @@ def fetch_osha_leads(*, states: Optional[List[str]] = None, since_days: int = 30
     recent penalty-bearing violations, roll them up per inspection, then look up
     those establishments and merge. State filtering happens after the join, since
     the violation table carries no state (the inspection does).
+
+    Default source is the keyless data.osha.gov Socrata mirror (no DOL API key).
+    Set OSHA_SOURCE=dol to use the keyed DOL v4 API instead.
     """
+    since = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
+
+    if OSHA_SOURCE != "dol":
+        return _osha_leads_socrata(since=since, min_penalty=min_penalty, limit=limit,
+                                   states=states, target_trades_only=target_trades_only)
+
+    # --- Legacy keyed path (DOL v4 API) — only when OSHA_SOURCE=dol ---
     if not (DOL_API_KEY or DOL_INSPECTION_URL):
         return {"ok": False, "reason": "no_dol_key", "leads": [],
-                "note": "Set DOL_API_KEY (free from dataportal.dol.gov) to enable OSHA pulls."}
+                "note": "OSHA_SOURCE=dol but no DOL_API_KEY set. Unset OSHA_SOURCE to use "
+                        "the keyless data.osha.gov source instead."}
 
-    since = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
     want = set(states and [s.strip().upper() for s in states if s.strip()] or [])
 
     # --- Primary path: violations-first (freshest signal — penalties post ~5 days
