@@ -779,6 +779,11 @@ def _normalize_program_md(md: str) -> str:
     drop the frontmatter, and turn any HTML letterhead/rule lines into readable
     (bold) header text."""
     md = md or ""
+    # PDF-extracted KB text can carry control characters (form-feed \x0c,
+    # backspace \x08, bell \x07, etc.). python-docx rejects these with a hard
+    # ValueError, which used to 500 the whole publish and drop every draft on
+    # its way to the sub. Strip them everywhere, keeping tab/newline/return.
+    md = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", md)
     # Strip a leading YAML frontmatter block ( --- ... --- ).
     if md.lstrip().startswith("---"):
         start = md.find("---")
@@ -853,9 +858,14 @@ def program_docx_bytes(title: str, markdown: str) -> Optional[bytes]:
         else:
             _add_runs(doc.add_paragraph(), line)
 
-    buf = io.BytesIO()
-    doc.save(buf)
-    return buf.getvalue()
+    try:
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+    except Exception:
+        # Never let a single malformed program bring down the whole publish —
+        # returning None makes the caller ship the markdown instead of 500ing.
+        return None
 
 
 def _headline(missing: int, failing: int, present: int, total: int) -> str:
