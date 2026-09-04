@@ -260,6 +260,17 @@
   </div>
 </div>
 
+<div class="drawer" id="docDrawer" style="width:min(820px,96vw)">
+  <div class="dh"><div class="nm" id="docViewName">Document</div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button class="btn green sm" id="docEditBtn" style="display:none" onclick="editFromView()">Fill in details</button>
+      <button class="btn ghost sm" onclick="printDocFrame()">Print</button>
+      <button class="x" onclick="closeDocView()">×</button>
+    </div>
+  </div>
+  <iframe id="docFrame" title="Document" style="flex:1;width:100%;border:0;background:#fff" src="about:blank"></iframe>
+</div>
+
 <script>
 const $=id=>document.getElementById(id);
 const GCQ=new URLSearchParams(location.search).get('gc');           // owner acting for a GC
@@ -419,7 +430,24 @@ async function fillDoc(slug,program){
 
 /* ── documents on file: view / print / rename / remove / upload ── */
 function docUrl(slug,file){return q('/portal/api/gc/sub/'+slug+'/doc?file='+encodeURIComponent(file))}
-function viewDoc(slug,file){if(file)window.open(docUrl(slug,file),'_blank')}
+let VIEWSUB=null,VIEWIDX=null;
+function viewDoc(slug,file){
+  if(!file)return;
+  // HTML docs render right inside the dashboard; legacy files (older .docx/.pdf)
+  // still open in a new tab since they can't render inline.
+  if(!/\.html?($|\?)/i.test(file)){window.open(docUrl(slug,file),'_blank');return}
+  const sub=(SUBS||[]).find(x=>x.slug===slug)||{};
+  const docs=sub.documents||[];
+  VIEWSUB=slug;VIEWIDX=docs.findIndex(d=>d.file===file);
+  const d=docs[VIEWIDX]||{};
+  $('docViewName').textContent=d.name||'Document';
+  $('docEditBtn').style.display=(d&&d.mid)?'':'none';
+  $('docFrame').src=docUrl(slug,file);
+  $('docDrawer').classList.add('open');
+}
+function closeDocView(){$('docDrawer').classList.remove('open');$('docFrame').src='about:blank';VIEWSUB=null;VIEWIDX=null}
+function editFromView(){if(VIEWSUB!==null&&VIEWIDX!==null&&VIEWIDX>=0){const s=VIEWSUB,i=VIEWIDX;closeDocView();openFill(s,i)}}
+function printDocFrame(){const f=$('docFrame');if(f&&f.contentWindow){try{f.contentWindow.focus();f.contentWindow.print()}catch(e){window.open(f.src,'_blank')}}}
 function printDoc(slug,file){if(!file)return;const w=window.open(docUrl(slug,file),'_blank');
   if(w){try{w.addEventListener('load',function(){try{w.focus();w.print()}catch(e){}})}catch(e){}}}
 async function editDoc(slug,index,cur){

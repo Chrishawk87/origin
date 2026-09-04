@@ -1526,25 +1526,44 @@ def register_portal(app) -> None:
             return JSONResponse(
                 {"error": "none of those standards have a draftable written program"},
                 status_code=400)
+        from . import compliance as _cmp
         docs_dir = _client_dir(sub_slug) / "docs"
         docs_dir.mkdir(parents=True, exist_ok=True)
+        eff = body.get("effective_date") or time.strftime("%Y-%m-%d")
         built = []
         for d in drafts:
-            docx_bytes = _gaps.program_docx_bytes(d["title"], d["markdown"])
-            if docx_bytes:
-                fname = d["filename"].rsplit(".", 1)[0] + ".docx"
-                (docs_dir / fname).write_bytes(docx_bytes)
-            else:
-                fname = d["filename"]
-                (docs_dir / fname).write_text(d["markdown"], encoding="utf-8")
-            row = {"name": d["title"], "sub": f"Built by Origin — {d.get('citation', '')}".strip(" —"),
+            # Build the SAME editable HTML document the Asset Library produces,
+            # pre-filled with this sub's company name. It renders inline in the
+            # dashboard and stays editable via "Fill in details" — no .docx
+            # download, and no control-character crash on the way out.
+            mid = "program-" + d["id"]
+            fields = {"COMPANY_NAME": rec.get("company", "") or "",
+                      "EFFECTIVE_DATE": eff}
+            doc_html, title = _render_library_doc(mid, fields)
+            if not doc_html:
+                # No editable master for this program — fall back to a readable
+                # HTML wrap of the drafted markdown (still inline, just not
+                # token-fillable).
+                title = d["title"]
+                doc_html = _cmp.wrap_document(
+                    "<pre style=\"white-space:pre-wrap;font:inherit\">"
+                    + (d.get("markdown") or "") + "</pre>", title)
+                mid = ""
+            title = title or d["title"]
+            fname = _cmp.safe_filename(title).rsplit(".", 1)[0] + ".html"
+            (docs_dir / fname).write_text(doc_html, encoding="utf-8")
+            row = {"name": title,
+                   "sub": f"Built by Origin — {d.get('citation', '')}".strip(" —"),
                    "file": fname, "source": "origin-draft"}
+            if mid:
+                row["mid"] = mid
+                row["fields"] = fields
             staged = rec.setdefault("staged_files", [])
             if publish:
                 if fname in staged:
                     staged.remove(fname)
                 for existing in rec.setdefault("documents", []):
-                    if existing.get("name") == d["title"]:
+                    if existing.get("name") == title:
                         existing.update(row)
                         break
                 else:
@@ -1552,7 +1571,7 @@ def register_portal(app) -> None:
             else:
                 if fname not in staged:
                     staged.append(fname)
-            built.append({"id": d["id"], "title": d["title"], "file": fname,
+            built.append({"id": d["id"], "title": title, "file": fname,
                           "citation": d.get("citation", "")})
         rec["updated"] = _now()
         save_client(rec)
