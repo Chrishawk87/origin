@@ -375,7 +375,7 @@ function vwEnsure(){
    +'<button onclick="vwNoteForm()">Add note</button>'
    +'<button onclick="document.getElementById(\'vwFile\').click()">Replace</button>'
    +'<button onclick="vwDownload()">Download</button>'
-   +'<button onclick="vwSave()">Save to platform</button></div>'
+   +'<button onclick="vwSaveForm()">Save to folder</button></div>'
    +'<div class="vw-form" id="vwForm" style="display:none"></div>'
    +'<div class="vw-hist" id="vwHist"></div></div></div>';
   document.body.appendChild(d);
@@ -430,10 +430,25 @@ function vwAddNote(){
   api(VW_CFG.act,{method:'POST',body:{file:VW_FILE,action:'note',text:t.trim()}}).then(function(r){
     if(!r.ok){alert((r.j&&r.j.error)||'Could not add note');return;}vwAfter();});
 }
+function vwSaveForm(){
+  var f=document.getElementById('vwForm');f.style.display='block';
+  var folders=folderList(DATA);
+  var opts=folders.map(function(x){var s=x==='Saved from messages'?' selected':'';return '<option value="'+esc(x)+'"'+s+'>'+esc(x)+'</option>';}).join('');
+  f.innerHTML='<div style="font-size:12px;color:#64748b;margin-bottom:4px">Save into folder</div>'
+   +'<select id="vwFolder" style="width:100%;padding:8px;border:1px solid var(--line,#d9e2ec);border-radius:7px;margin-bottom:6px">'+opts+'<option value="__new">+ New folder\u2026</option></select>'
+   +'<input id="vwNewFolder" placeholder="New folder name" style="width:100%;padding:8px;border:1px solid var(--line,#d9e2ec);border-radius:7px;margin-bottom:6px;display:none">'
+   +'<button class="pri" style="padding:8px 14px;border:none;border-radius:7px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer" onclick="vwSave()">Save to this folder</button>';
+  var sel=document.getElementById('vwFolder');
+  sel.addEventListener('change',function(){document.getElementById('vwNewFolder').style.display=this.value==='__new'?'block':'none';});
+}
 function vwSave(){
-  api(VW_CFG.act,{method:'POST',body:{file:VW_FILE,action:'save'}}).then(function(r){
+  var folder='';var sel=document.getElementById('vwFolder');
+  if(sel){folder=sel.value==='__new'?((document.getElementById('vwNewFolder')||{}).value||'').trim():sel.value;}
+  api(VW_CFG.act,{method:'POST',body:{file:VW_FILE,action:'save',folder:folder}}).then(function(r){
     if(!r.ok){alert((r.j&&r.j.error)||'Could not save');return;}
-    alert('Saved to your Documents.');vwAfter();});
+    alert('Saved to '+((r.j&&r.j.folder)||'your Documents')+'.');
+    api('/portal/api/me').then(function(m){if(m.ok)DATA=m.j;});
+    vwAfter();});
 }
 function vwDownload(){
   var a=MSG_ATT[VW_FILE];if(!a)return;var url=a.signed_url||a.url;
@@ -537,25 +552,38 @@ function renderCOI(){
 function renderDocs(){
   var d=DATA, h='';
   h+='<div class="hello"><div><h2>My Documents</h2><div class="sub">Your completed safety programs and records. View or print anytime.</div></div></div>';
+  var docs=d.documents||[];
+  var folders=folderList(d);
+  var folderOpts=folders.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join('');
   h+='<div class="card" style="background:#f7f9fc;border-color:#d9e2ec;margin-bottom:14px">'
     +'<div style="font-size:14px;font-weight:600;margin-bottom:4px">Already have safety documents?</div>'
     +'<div class="mini" style="margin-bottom:10px">Upload what you already have \u2014 manuals, programs, certificates, your OSHA 300 log. We review them so we only build what\u2019s actually missing, and never rebuild something that already works.</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-    +'<input type="text" id="upName" placeholder="Document name (optional)" style="flex:1;min-width:170px;padding:9px 11px;border:1px solid #d9e2ec;border-radius:8px">'
-    +'<input type="file" id="upFile" style="flex:1;min-width:170px">'
+    +'<input type="text" id="upName" placeholder="Document name (optional)" style="flex:1;min-width:150px;padding:9px 11px;border:1px solid #d9e2ec;border-radius:8px">'
+    +'<input type="file" id="upFile" style="flex:1;min-width:150px">'
+    +'<select id="upFolder" title="File into folder" style="padding:9px 11px;border:1px solid #d9e2ec;border-radius:8px;background:#fff">'+folderOpts+'</select>'
     +'<button class="btn orange" style="width:auto;padding:10px 18px" onclick="doUpload()">Upload</button>'
     +'</div><div class="err" id="upErr" style="margin-top:8px"></div></div>';
-  h+='<div class="section-title">Included in your plan · view &amp; print</div><div class="card">';
-  var docs=d.documents||[];
-  if(!docs.length){h+='<div class="mini" style="padding:6px">No documents yet — Origin will add them here as they&#39;re completed.</div>';}
-  docs.forEach(function(doc){
-    var actions;
-    if(doc.file){var url='/portal/api/doc?file='+encodeURIComponent(doc.file);
-      actions='<span class="lnk" onclick="window.open(\''+url+'\',\'_blank\')">View</span>'
-             +'<span class="lnk" onclick="printDoc(\''+url+'\')">Print</span>';}
-    else{actions='<span class="lock-tag">Preparing…</span>';}
-    h+='<div class="doc-row"><div class="doc-left"><div class="doc-ico">DOC</div><div><div class="doc-name">'+esc(doc.name)+'</div><div class="doc-sub">'+esc(doc.sub||'')+'</div></div></div><div>'+actions+'</div></div>';});
-  h+='</div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px">'
+    +'<div class="section-title" style="margin:0">Your document folders · view &amp; print</div>'
+    +'<button class="btn" style="width:auto;padding:7px 14px;border:1px solid #d9e2ec;background:#fff;border-radius:8px;cursor:pointer;font-weight:600;color:var(--charcoal,#334155)" onclick="newFolder()">+ New folder</button></div>';
+  if(!docs.length){h+='<div class="card"><div class="mini" style="padding:6px">No documents yet — uploaded, saved, and signed documents will file here automatically.</div></div>';}
+  var groups={};docs.forEach(function(dc){var fn=dc.folder||'Uploaded';(groups[fn]=groups[fn]||[]).push(dc);});
+  var order=folders.slice();
+  Object.keys(groups).forEach(function(k){if(order.indexOf(k)<0)order.push(k);});
+  order.forEach(function(fn){
+    var list=groups[fn]||[];
+    h+='<div class="section-title" style="display:flex;align-items:center;gap:6px;margin-top:14px">\uD83D\uDCC1 '+esc(fn)+' <span style="color:#94a3b8;font-weight:500">('+list.length+')</span></div><div class="card">';
+    if(!list.length){h+='<div class="mini" style="padding:6px;color:#94a3b8">Empty folder.</div>';}
+    list.forEach(function(doc){
+      var actions;
+      if(doc.file){var url='/portal/api/doc?file='+encodeURIComponent(doc.file);
+        actions='<span class="lnk" onclick="window.open(\''+url+'\',\'_blank\')">View</span>'
+               +'<span class="lnk" onclick="printDoc(\''+url+'\')">Print</span>';}
+      else{actions='<span class="lock-tag">Preparing…</span>';}
+      h+='<div class="doc-row"><div class="doc-left"><div class="doc-ico">DOC</div><div><div class="doc-name">'+esc(doc.name)+'</div><div class="doc-sub">'+esc(doc.sub||'')+'</div></div></div><div>'+actions+'</div></div>';});
+    h+='</div>';
+  });
   var avail=d.available||[];
   if(avail.length){
     h+='<div class="section-title">Available to add · request from Origin</div><div class="card">';
@@ -569,11 +597,26 @@ function renderDocs(){
     +'<button class="btn orange" style="width:auto;padding:10px 18px" onclick="requestDoc(\'a custom program\')">Request a program</button></div>';
   document.getElementById('docs').innerHTML=h;
 }
+function folderList(d){
+  var base=['Uploaded','Saved from messages','Signed'];
+  var fl=((d&&d.doc_folders)||base).slice();
+  base.forEach(function(b){if(fl.indexOf(b)<0)fl.push(b);});
+  ((d&&d.documents)||[]).forEach(function(dc){var fn=dc.folder;if(fn&&fl.indexOf(fn)<0)fl.push(fn);});
+  return fl;
+}
+function newFolder(){
+  var name=prompt('Name your new folder');if(!name||!name.trim())return;
+  api('/portal/api/folders',{method:'POST',body:{name:name.trim()}}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Could not create folder');return;}
+    api('/portal/api/me').then(function(m){if(m.ok){DATA=m.j;renderDocs();}});
+  });
+}
 function doUpload(){
   var f=document.getElementById('upFile');var err=document.getElementById('upErr');err.textContent='';
   if(!f||!f.files||!f.files.length){err.textContent='Choose a file to upload first.';return;}
   var name=(document.getElementById('upName').value||'').trim();
-  var fd=new FormData();fd.append('file',f.files[0]);fd.append('name',name);
+  var folder=(document.getElementById('upFolder')||{}).value||'Uploaded';
+  var fd=new FormData();fd.append('file',f.files[0]);fd.append('name',name);fd.append('folder',folder);
   err.textContent='Uploading\u2026';
   api('/portal/api/upload',{method:'POST',body:fd}).then(function(r){
     if(!r.ok){err.textContent=r.j.error||'Upload failed. Please try again.';return;}

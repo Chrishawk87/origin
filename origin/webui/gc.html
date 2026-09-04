@@ -178,6 +178,7 @@
 
   <nav class="tabs"><div class="inner">
     <div class="tab active" data-page="monitor" onclick="tab(this)">Monitoring</div>
+    <div class="tab" data-page="docs" onclick="tab(this)">My Documents</div>
     <div class="tab" data-page="origin" onclick="tab(this)">Messages with Origin <span class="pip" id="ownerPip" style="display:none">0</span></div>
     <div class="tab" data-page="brand" onclick="tab(this)">Branding</div>
     <div class="tab" data-page="account" onclick="tab(this)">Account &amp; Team</div>
@@ -193,6 +194,13 @@
       <div class="detail" id="detail"></div>
     </div>
   </section>
+
+  <!-- ── MY DOCUMENTS (own vault) ── -->
+  <section id="docs" class="page"><div class="wrap">
+    <div class="hello"><div><h2>My Documents</h2>
+      <div class="sub">Your own document vault. Anything you sign or save from a thread files here automatically — plus anything you upload.</div></div></div>
+    <div id="gcDocs"></div>
+  </div></section>
 
   <!-- ── MESSAGES WITH ORIGIN ── -->
   <section id="origin" class="page"><div class="wrap">
@@ -394,6 +402,7 @@ async function logout(){await api('/portal/api/gc/logout',{method:'POST'});locat
 function tab(el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(el.dataset.page).classList.add('active');
   if(el.dataset.page==='origin')loadOwner();
+  if(el.dataset.page==='docs')loadGcDocs();
   if(el.dataset.page==='account')loadAccount();}
 
 let GC=null,SUBS=[],SEL=null,IS_OWNER=false,ME=null;
@@ -411,7 +420,7 @@ async function boot(){
   // keep selection if still present, else first sub
   if(SEL&&!SUBS.some(s=>s.slug===SEL))SEL=null;
   if(!SEL&&SUBS.length)SEL=SUBS[0].slug;
-  renderList();renderDetail();loadOwner(true);
+  renderList();renderDetail();loadOwner(true);loadGcDocs(true);
 }
 
 /* ── left pane ── */
@@ -709,7 +718,7 @@ function vwEnsure(){
    +'<button onclick="vwNoteForm()">Add note</button>'
    +'<button onclick="document.getElementById(\'vwFile\').click()">Replace</button>'
    +'<button onclick="vwDownload()">Download</button>'
-   +'<button onclick="vwSave()">Save to platform</button></div>'
+   +'<button onclick="vwSaveForm()">Save to folder</button></div>'
    +'<div class="vw-form" id="vwForm" style="display:none"></div>'
    +'<div class="vw-hist" id="vwHist"></div></div></div>';
   document.body.appendChild(d);
@@ -763,10 +772,23 @@ async function vwAddNote(){
   const r=await api(vwCfg().act,{method:'POST',body:JSON.stringify({file:VW_FILE,action:'note',text:t.trim()})});
   if(!r.ok){alert((r.data&&r.data.error)||'Could not add note');return}vwAfter();
 }
+function vwSaveForm(){
+  const f=$('vwForm');f.style.display='block';
+  const folders=gcFolderList();
+  const opts=folders.map(x=>{const s=x==='Saved from messages'?' selected':'';return '<option value="'+esc(x)+'"'+s+'>'+esc(x)+'</option>';}).join('');
+  f.innerHTML='<div style="font-size:12px;color:var(--muted,#64748b);margin-bottom:4px">Save into folder</div>'
+   +'<select id="vwFolder" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px;background:var(--card,#fff);color:var(--ink)">'+opts+'<option value="__new">+ New folder\u2026</option></select>'
+   +'<input id="vwNewFolder" placeholder="New folder name" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px;display:none;background:var(--card,#fff);color:var(--ink)">'
+   +'<button style="padding:8px 14px;border:none;border-radius:7px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer" onclick="vwSave()">Save to this folder</button>';
+  $('vwFolder').addEventListener('change',function(){$('vwNewFolder').style.display=this.value==='__new'?'block':'none';});
+}
 async function vwSave(){
-  const r=await api(vwCfg().act,{method:'POST',body:JSON.stringify({file:VW_FILE,action:'save'})});
+  let folder='';const sel=$('vwFolder');
+  if(sel){folder=sel.value==='__new'?(($('vwNewFolder')||{}).value||'').trim():sel.value;}
+  const r=await api(vwCfg().act,{method:'POST',body:JSON.stringify({file:VW_FILE,action:'save',folder:folder})});
   if(!r.ok){alert((r.data&&r.data.error)||'Could not save');return}
-  alert('Saved to Documents.');vwAfter();
+  alert('Saved to '+((r.data&&r.data.folder)||'Documents')+'.');
+  loadGcDocs(true);vwAfter();
 }
 function vwDownload(){
   const a=ATT_REG[VW_SCOPE+'|'+VW_FILE];if(!a)return;const url=q(a.signed_url||a.url);
@@ -779,6 +801,68 @@ async function vwDoReplace(){
   const r=await apiForm(vwCfg().rep,fd);
   if(!r.ok){alert((r.data&&r.data.error)||'Replace failed');return}
   const nf=r.data&&r.data.file;if(nf)VW_FILE=nf;vwAfter();
+}
+
+/* ── GC own document vault ── */
+let GC_DOCS=[],GC_FOLDERS=['Uploaded','Saved from messages','Signed'];
+function gcFolderList(){
+  const base=['Uploaded','Saved from messages','Signed'];
+  const fl=(GC_FOLDERS||base).slice();
+  base.forEach(b=>{if(fl.indexOf(b)<0)fl.push(b);});
+  (GC_DOCS||[]).forEach(dc=>{const fn=dc.folder;if(fn&&fl.indexOf(fn)<0)fl.push(fn);});
+  return fl;
+}
+async function loadGcDocs(silent){
+  const r=await api('/portal/api/gc/documents');if(!r.ok)return;
+  GC_DOCS=r.data.documents||[];GC_FOLDERS=r.data.doc_folders||GC_FOLDERS;
+  if(!silent)renderGcDocs();
+}
+function renderGcDocs(){
+  const folders=gcFolderList();
+  const folderOpts=folders.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+  let h='<div class="card" style="margin-bottom:14px">'
+    +'<div class="section-title">Upload a document</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">'
+    +'<input type="text" id="gcUpName" class="f" placeholder="Document name (optional)" style="flex:1;min-width:150px">'
+    +'<input type="file" id="gcUpFile" style="flex:1;min-width:150px">'
+    +'<select id="gcUpFolder" class="f" style="width:auto">'+folderOpts+'</select>'
+    +'<button class="btn orange sm" onclick="gcUpload()">Upload</button></div>'
+    +'<div class="hint" id="gcUpErr"></div></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px">'
+    +'<div class="section-title" style="margin:0">Folders</div>'
+    +'<button class="btn sm" style="background:var(--card,#fff);border:1px solid var(--line);color:var(--ink)" onclick="gcNewFolder()">+ New folder</button></div>';
+  const groups={};(GC_DOCS||[]).forEach(dc=>{const fn=dc.folder||'Uploaded';(groups[fn]=groups[fn]||[]).push(dc);});
+  const order=folders.slice();Object.keys(groups).forEach(k=>{if(order.indexOf(k)<0)order.push(k);});
+  if(!(GC_DOCS||[]).length)h+='<div class="card"><div class="hint" style="margin:0">No documents yet — signed and saved documents will file here automatically.</div></div>';
+  order.forEach(fn=>{
+    const list=groups[fn]||[];
+    h+='<div class="section-title" style="display:flex;align-items:center;gap:6px;margin-top:14px">\uD83D\uDCC1 '+esc(fn)+' <span style="color:var(--muted);font-weight:500">('+list.length+')</span></div><div class="card">';
+    if(!list.length)h+='<div class="hint" style="margin:0">Empty folder.</div>';
+    list.forEach(doc=>{
+      const url=q('/portal/api/gc/docfile/'+encodeURIComponent(doc.file));
+      h+='<div class="doc-row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)">'
+        +'<div><div style="font-weight:600">'+esc(doc.name)+'</div><div class="hint" style="margin:0">'+esc(doc.sub||'')+'</div></div>'
+        +'<div><span class="lnk" style="cursor:pointer;color:var(--orange);font-weight:600" onclick="window.open(\''+url+'\',\'_blank\')">View</span></div></div>';});
+    h+='</div>';
+  });
+  $('gcDocs').innerHTML=h;
+}
+async function gcUpload(){
+  const fi=$('gcUpFile');const err=$('gcUpErr');err.textContent='';
+  if(!fi||!fi.files||!fi.files.length){err.textContent='Choose a file first.';return}
+  const fd=new FormData();fd.append('file',fi.files[0]);
+  fd.append('name',($('gcUpName').value||'').trim());
+  fd.append('folder',($('gcUpFolder')||{}).value||'Uploaded');
+  err.textContent='Uploading\u2026';
+  const r=await apiForm('/portal/api/gc/documents/upload',fd);
+  if(!r.ok){err.textContent=(r.data&&r.data.error)||'Upload failed.';return}
+  await loadGcDocs();
+}
+async function gcNewFolder(){
+  const name=prompt('Name your new folder');if(!name||!name.trim())return;
+  const r=await api('/portal/api/gc/folders',{method:'POST',body:JSON.stringify({name:name.trim()})});
+  if(!r.ok){alert((r.data&&r.data.error)||'Could not create folder');return}
+  GC_FOLDERS=r.data.folders||GC_FOLDERS;renderGcDocs();
 }
 
 /* owner thread */

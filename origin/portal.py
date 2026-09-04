@@ -276,10 +276,40 @@ def _do_note(att: Dict[str, Any], who: str, body: Dict[str, Any]) -> Optional[Di
     return entry
 
 
-def _do_save_doc(rec: Dict[str, Any], msgdir: Path, docsdir: Path,
-                 att: Dict[str, Any], who: str) -> Optional[Dict[str, Any]]:
-    """Copy the attachment (signed copy if one exists) into the account's
-    Documents folder and add a documents row so it shows in the vault."""
+# ── Document folders ─────────────────────────────────────────────────────────
+# Every account (sub, GC, and the Origin owner) has a Documents vault whose rows
+# each carry a `folder` tag. We ship three default folders and let each account
+# create its own. Rows saved/signed from the message terminal land in the right
+# folder automatically.
+DOC_FOLDER_DEFAULTS = ["Uploaded", "Saved from messages", "Signed"]
+
+
+def _ensure_doc_folders(rec: Dict[str, Any]) -> List[str]:
+    """Guarantee the record has its folder list (defaults on first touch)."""
+    folders = rec.get("doc_folders")
+    if not isinstance(folders, list) or not folders:
+        folders = list(DOC_FOLDER_DEFAULTS)
+        rec["doc_folders"] = folders
+    return folders
+
+
+def _add_folder(rec: Dict[str, Any], name: str) -> List[str]:
+    """Register a folder name on the record if it isn't already present."""
+    name = (name or "").strip()
+    folders = _ensure_doc_folders(rec)
+    if name and name not in folders:
+        folders.append(name)
+    return folders
+
+
+def _add_doc_row(rec: Dict[str, Any], docsdir: Path, msgdir: Path,
+                 att: Dict[str, Any], folder: str,
+                 source: str) -> Optional[Dict[str, Any]]:
+    """Copy the attachment (signed copy if one exists) into `rec`'s docs folder
+    on disk and append a documents row tagged with `folder`. Storage-agnostic:
+    the caller supplies whichever account's docs dir should receive the copy, so
+    the same helper files into a sub, a GC, or the owner vault. Returns the new
+    row, or None if the source file is gone."""
     src_name = att.get("signed_file") or att.get("file") or ""
     src = Path(msgdir) / os.path.basename(src_name)
     if not src.is_file():
@@ -289,12 +319,31 @@ def _do_save_doc(rec: Dict[str, Any], msgdir: Path, docsdir: Path,
     (docsdir / dest_name).write_bytes(src.read_bytes())
     disp = att.get("name") or os.path.basename(att.get("file", "")) or dest_name
     doc_name = os.path.splitext(disp)[0] or dest_name
-    row = {"name": doc_name, "sub": "Saved from messages",
-           "file": dest_name, "source": "message"}
+    _add_folder(rec, folder)
+    row = {"name": doc_name, "sub": folder, "file": dest_name,
+           "source": source, "folder": folder}
     rec.setdefault("documents", []).append(row)
-    att["saved"] = True
-    att["saved_file"] = dest_name
     return row
+
+
+def _file_to_vaults(targets: List[Dict[str, Any]], msgdir: Path,
+                    att: Dict[str, Any], folder: str,
+                    source: str) -> List[Dict[str, Any]]:
+    """File a copy of the attachment into every vault in `targets` (each a dict
+    {rec, docsdir, save}) and persist that vault. The thread's own record is
+    saved by the caller, so a target may set save=None to skip a redundant write.
+    Returns the rows created (the actor's first, when present)."""
+    rows: List[Dict[str, Any]] = []
+    for t in targets:
+        if not t:
+            continue
+        row = _add_doc_row(t["rec"], t["docsdir"], msgdir, att, folder, source)
+        if row is None:
+            continue
+        rows.append(row)
+        if t.get("save"):
+            t["save"](t["rec"])
+    return rows
 
 
 def _do_replace(msgdir: Path, att: Dict[str, Any], upload, note: str, who: str) -> Dict[str, Any]:
@@ -681,6 +730,7 @@ def _blank_client(company: str, email: str, client_type: str = "prequal") -> Dic
         },
         "coi": [],
         "documents": [],
+        "doc_folders": list(DOC_FOLDER_DEFAULTS),
         "available": [],
         "requests": [],
         # Free-text description of the work the client actually performs. Drives
@@ -830,6 +880,8 @@ def _blank_gc(name: str, email: str = "") -> Dict[str, Any]:
         "logo": "",          # filename of an uploaded logo in this GC's dir
         "brand_primary": "#1E7A46",
         "messages": [],      # two-way thread between this GC and the owner
+        "documents": [],     # the GC's own Documents vault (saved/signed files)
+        "doc_folders": list(DOC_FOLDER_DEFAULTS),
         "created": _now(),
         "updated": _now(),
     }
@@ -888,6 +940,48 @@ def find_gc_by_email(email: str) -> Optional[Dict[str, Any]]:
         return None
     matches.sort(key=lambda r: r.get("updated", ""), reverse=True)
     return matches[0]
+
+
+# ─────────────────────── Origin owner vault ───────────────────────
+# Origin (the owner/OMS) is the one party that never had a record on disk — it
+# lived only as the admin side of every thread. To give the owner its own
+# Documents vault (so signed/saved files land somewhere on the owner's terminal
+# too), we persist a single owner record. It reuses the same {documents,
+# doc_folders} shape as clients and GCs, so all the doc helpers work unchanged.
+OWNER_DIR = PORTAL_DIR / "owner"
+
+
+def _owner_dir() -> Path:
+    return OWNER_DIR
+
+
+def _owner_file() -> Path:
+    return OWNER_DIR / "owner.json"
+
+
+def load_owner() -> Dict[str, Any]:
+    """Load (or lazily create) the singleton Origin owner vault record."""
+    f = _owner_file()
+    if f.is_file():
+        try:
+            return json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {
+        "slug": "owner",
+        "name": "Origin",
+        "documents": [],
+        "doc_folders": list(DOC_FOLDER_DEFAULTS),
+        "created": _now(),
+        "updated": _now(),
+    }
+
+
+def save_owner(data: Dict[str, Any]) -> Dict[str, Any]:
+    (OWNER_DIR / "docs").mkdir(parents=True, exist_ok=True)
+    data["updated"] = _now()
+    _owner_file().write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return data
 
 
 # ─────────────────────── GC members (multi-user) ───────────────────────
@@ -1447,7 +1541,8 @@ def register_portal(app) -> None:
         return {"ok": True}
 
     @app.post("/portal/api/upload")
-    def portal_upload(request: Request, file: UploadFile = File(...), name: str = Form("")):
+    def portal_upload(request: Request, file: UploadFile = File(...),
+                      name: str = Form(""), folder: str = Form("Uploaded")):
         sess = client_session(request)
         if not sess:
             return JSONResponse({"error": "not signed in"}, status_code=401)
@@ -1459,8 +1554,11 @@ def register_portal(app) -> None:
         dest.mkdir(parents=True, exist_ok=True)
         (dest / safe).write_bytes(file.file.read())
         doc_name = (name or os.path.splitext(safe)[0]).strip() or safe
+        fld = (folder or "Uploaded").strip() or "Uploaded"
+        _add_folder(rec, fld)
         rec.setdefault("documents", []).append(
-            {"name": doc_name, "sub": "Uploaded by you", "file": safe, "source": "client"})
+            {"name": doc_name, "sub": fld, "file": safe,
+             "source": "client", "folder": fld})
         rec["updated"] = _now()
         save_client(rec)
         # let Chris know the client submitted something to review for gap analysis
@@ -1495,6 +1593,22 @@ def register_portal(app) -> None:
         if not path.is_file():
             return JSONResponse({"error": "file not found"}, status_code=404)
         return FileResponse(str(path))
+
+    @app.post("/portal/api/folders")
+    def portal_add_folder(request: Request, body: dict = Body(...)):
+        """The sub creates a new folder in its own Documents vault."""
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        name = (body.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "empty folder name"}, status_code=400)
+        _add_folder(rec, name)
+        save_client(rec)
+        return {"ok": True, "folders": rec.get("doc_folders", [])}
 
     # ===================== ADMIN API =====================
     @app.post("/portal/api/admin/login")
@@ -2592,10 +2706,43 @@ def register_portal(app) -> None:
             })
         return out
 
-    def _run_msg_act(rec, msgdir: Path, docsdir: Path, save_fn, who: str,
-                     body: dict):
+    # Vault descriptors {rec, docsdir, save} for the doc-filing helpers. A vault
+    # whose record IS the thread record passes save=None: the thread's own
+    # save_fn persists it once at the end, so we never load it twice and clobber
+    # attachment mutations with a stale copy.
+    def _vault_owner():
+        return {"rec": load_owner(), "docsdir": _owner_dir() / "docs",
+                "save": save_owner}
+
+    def _vault_gc(slug: str):
+        g = load_gc(slug)
+        if not g:
+            return None
+        return {"rec": g, "docsdir": _gc_dir(slug) / "docs", "save": save_gc}
+
+    def _vault_client(slug: str):
+        c = load_client(slug)
+        if not c:
+            return None
+        return {"rec": c, "docsdir": _client_dir(slug) / "docs",
+                "save": save_client}
+
+    def _vault_self(rec, docsdir: Path):
+        return {"rec": rec, "docsdir": docsdir, "save": None}
+
+    def _sub_counterparty(rec):
+        """The other party for a sub's own thread: its GC, or the Origin owner
+        vault when the sub is owned directly by Origin (empty gc_slug)."""
+        gc_slug = (rec.get("gc_slug") or "").strip()
+        return _vault_gc(gc_slug) if gc_slug else _vault_owner()
+
+    def _run_msg_act(rec, msgdir: Path, save_fn, who: str, body: dict,
+                     actor: dict, counterparty: dict):
         """Dispatch an in-terminal attachment action (review / note / save) and
-        persist. Returns the endpoint's JSON response."""
+        persist. `actor` and `counterparty` are vault descriptors
+        {rec, docsdir, save} for the two people in the thread; saving or signing
+        files a copy into BOTH of their Documents vaults so everyone keeps the
+        document on their own terminal. Returns the endpoint's JSON response."""
         file = (body.get("file") or "").strip()
         action = (body.get("action") or "").strip()
         _msg, att = _find_msg_att(rec, file)
@@ -2603,17 +2750,33 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "attachment not found"}, status_code=404)
         if action == "review":
             res = _do_review(msgdir, att, who, body)
+            # Auto-file the just-signed/stamped copy into the "Signed" folder of
+            # both parties. Guard on the exact signed filename so re-opening the
+            # viewer or adding a note later never re-files the same signature, but
+            # a fresh signature (new *_signed.pdf) does get filed.
+            sig = att.get("signed_file") or att.get("file") or ""
+            if sig and att.get("_filed_signed") != sig:
+                rows = _file_to_vaults([actor, counterparty], msgdir, att,
+                                       "Signed", "signed")
+                if rows:
+                    att["_filed_signed"] = sig
+                    res["filed"] = [r.get("file") for r in rows]
         elif action == "note":
             entry = _do_note(att, who, body)
             if not entry:
                 return JSONResponse({"error": "empty note"}, status_code=400)
             res = {"ok": True, "note": entry}
         elif action == "save":
-            row = _do_save_doc(rec, msgdir, docsdir, att, who)
-            if not row:
+            folder = (body.get("folder") or "Saved from messages").strip() \
+                or "Saved from messages"
+            rows = _file_to_vaults([actor, counterparty], msgdir, att,
+                                   folder, "message")
+            if not rows:
                 return JSONResponse({"error": "file no longer on disk"},
                                     status_code=404)
-            res = {"ok": True, "doc": row}
+            att["saved"] = True
+            att["saved_file"] = rows[0].get("file")
+            res = {"ok": True, "doc": rows[0], "folder": folder}
         else:
             return JSONResponse({"error": "unknown action"}, status_code=400)
         save_fn(rec)
@@ -2707,8 +2870,11 @@ def register_portal(app) -> None:
         rec = load_gc(slug)
         if not rec:
             return JSONResponse({"error": "not found"}, status_code=404)
-        return _run_msg_act(rec, _gc_dir(slug) / "msgfiles",
-                            _gc_dir(slug) / "docs", save_gc, "owner", body)
+        # owner acting on the owner<->GC thread: files to the Origin owner vault
+        # (actor) and this GC's vault (counterparty = the thread record).
+        return _run_msg_act(rec, _gc_dir(slug) / "msgfiles", save_gc, "owner",
+                            body, _vault_owner(),
+                            _vault_self(rec, _gc_dir(slug) / "docs"))
 
     @app.post("/portal/api/admin/gc/{slug}/msg/replace")
     def owner_gc_msg_replace(slug: str, request: Request,
@@ -2806,8 +2972,15 @@ def register_portal(app) -> None:
         if not rec:
             return JSONResponse({"error": "not found"}, status_code=404)
         who = "gc" if gc_session(request) else "owner"
-        return _run_msg_act(rec, _gc_dir(slug) / "msgfiles",
-                            _gc_dir(slug) / "docs", save_gc, who, body)
+        gc_vault = _vault_self(rec, _gc_dir(slug) / "docs")
+        owner_vault = _vault_owner()
+        # GC's own vault is the thread record; owner vault is the counterparty.
+        if who == "gc":
+            actor, counter = gc_vault, owner_vault
+        else:
+            actor, counter = owner_vault, gc_vault
+        return _run_msg_act(rec, _gc_dir(slug) / "msgfiles", save_gc, who,
+                            body, actor, counter)
 
     @app.post("/portal/api/gc/owner-msg/replace")
     def gc_owner_msg_replace(request: Request, file: UploadFile = File(...),
@@ -2906,8 +3079,11 @@ def register_portal(app) -> None:
         rec, slug, err = _gc_owned_sub(request, sub_slug)
         if err:
             return err
+        # GC acting on a sub's thread: actor is the GC's own vault, counterparty
+        # is the sub (the thread record).
         return _run_msg_act(rec, _client_dir(sub_slug) / "msgfiles",
-                            _client_dir(sub_slug) / "docs", save_client, "gc", body)
+                            save_client, "gc", body, _vault_gc(slug),
+                            _vault_self(rec, _client_dir(sub_slug) / "docs"))
 
     @app.post("/portal/api/gc/sub/{sub_slug}/msg/replace")
     def gc_sub_msg_replace(sub_slug: str, request: Request,
@@ -3001,9 +3177,12 @@ def register_portal(app) -> None:
         rec = load_client(sess["slug"])
         if not rec:
             return JSONResponse({"error": "account not found"}, status_code=404)
+        # Sub acting on its own thread: actor is the sub's own vault, counterparty
+        # is its GC (or the Origin owner vault if owned directly by Origin).
         return _run_msg_act(rec, _client_dir(sess["slug"]) / "msgfiles",
-                            _client_dir(sess["slug"]) / "docs", save_client,
-                            "sub", body)
+                            save_client, "sub", body,
+                            _vault_self(rec, _client_dir(sess["slug"]) / "docs"),
+                            _sub_counterparty(rec))
 
     @app.post("/portal/api/msg/replace")
     def sub_msg_replace(request: Request, file: UploadFile = File(...),
@@ -3016,6 +3195,142 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "account not found"}, status_code=404)
         return _run_msg_replace(rec, _client_dir(sess["slug"]) / "msgfiles",
                                 save_client, "sub", target, file, note)
+
+    # ===================== MY DOCUMENTS (GC + owner vaults) =====================
+    # The GC and the Origin owner each get their own Documents vault, same shape
+    # as a sub's: folders + rows, files served from the record's docs/ dir. Rows
+    # arrive automatically when either party saves or signs a document in a
+    # thread, and each account can also upload directly and create folders.
+
+    @app.get("/portal/api/gc/documents")
+    def gc_documents(request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return {"documents": rec.get("documents", []),
+                "doc_folders": rec.get("doc_folders") or list(DOC_FOLDER_DEFAULTS)}
+
+    @app.post("/portal/api/gc/folders")
+    def gc_add_folder(request: Request, body: dict = Body(...)):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        name = (body.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "empty folder name"}, status_code=400)
+        _add_folder(rec, name)
+        save_gc(rec)
+        return {"ok": True, "folders": rec.get("doc_folders", [])}
+
+    @app.post("/portal/api/gc/documents/upload")
+    def gc_documents_upload(request: Request, file: UploadFile = File(...),
+                            name: str = Form(""), folder: str = Form("Uploaded")):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        safe = _save_msgfile(_gc_dir(slug) / "docs", file)
+        doc_name = (name or os.path.splitext(os.path.basename(
+            file.filename or safe))[0]).strip() or safe
+        fld = (folder or "Uploaded").strip() or "Uploaded"
+        _add_folder(rec, fld)
+        rec.setdefault("documents", []).append(
+            {"name": doc_name, "sub": fld, "file": safe,
+             "source": "gc", "folder": fld})
+        save_gc(rec)
+        return {"ok": True, "file": safe}
+
+    @app.get("/portal/api/gc/docfile/{fname}")
+    def gc_docfile(fname: str, request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        name = os.path.basename(fname or "")
+        allowed = {d.get("file") for d in rec.get("documents", []) if d.get("file")}
+        if name not in allowed:
+            return JSONResponse({"error": "not authorized"}, status_code=403)
+        path = _gc_dir(slug) / "docs" / name
+        if not path.is_file():
+            return JSONResponse({"error": "file not found"}, status_code=404)
+        return FileResponse(str(path), content_disposition_type="inline",
+                            filename=name.split("_", 1)[-1])
+
+    @app.get("/portal/api/admin/owner/documents")
+    def owner_documents(request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        return {"documents": rec.get("documents", []),
+                "doc_folders": rec.get("doc_folders") or list(DOC_FOLDER_DEFAULTS)}
+
+    @app.post("/portal/api/admin/owner/folders")
+    def owner_add_folder(request: Request, body: dict = Body(...)):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        name = (body.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "empty folder name"}, status_code=400)
+        _add_folder(rec, name)
+        save_owner(rec)
+        return {"ok": True, "folders": rec.get("doc_folders", [])}
+
+    @app.post("/portal/api/admin/owner/documents/upload")
+    def owner_documents_upload(request: Request, file: UploadFile = File(...),
+                               name: str = Form(""), folder: str = Form("Uploaded")):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        safe = _save_msgfile(_owner_dir() / "docs", file)
+        doc_name = (name or os.path.splitext(os.path.basename(
+            file.filename or safe))[0]).strip() or safe
+        fld = (folder or "Uploaded").strip() or "Uploaded"
+        _add_folder(rec, fld)
+        rec.setdefault("documents", []).append(
+            {"name": doc_name, "sub": fld, "file": safe,
+             "source": "owner", "folder": fld})
+        save_owner(rec)
+        return {"ok": True, "file": safe}
+
+    @app.get("/portal/api/admin/owner/docfile/{fname}")
+    def owner_docfile(fname: str, request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        name = os.path.basename(fname or "")
+        allowed = {d.get("file") for d in rec.get("documents", []) if d.get("file")}
+        if name not in allowed:
+            return JSONResponse({"error": "not authorized"}, status_code=403)
+        path = _owner_dir() / "docs" / name
+        if not path.is_file():
+            return JSONResponse({"error": "file not found"}, status_code=404)
+        return FileResponse(str(path), content_disposition_type="inline",
+                            filename=name.split("_", 1)[-1])
+
+    @app.post("/portal/api/admin/client/{slug}/folders")
+    def admin_client_add_folder(slug: str, request: Request, body: dict = Body(...)):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        name = (body.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "empty folder name"}, status_code=400)
+        _add_folder(rec, name)
+        save_client(rec)
+        return {"ok": True, "folders": rec.get("doc_folders", [])}
 
     # ===================== LOGOS =====================
     def _save_logo(dirpath: Path, upload) -> str:
