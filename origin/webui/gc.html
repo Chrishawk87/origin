@@ -221,6 +221,30 @@
   </div>
 </div>
 
+<!-- gap finder drawer -->
+<div class="drawer" id="gapDrawer" style="width:min(560px,96vw)">
+  <div class="dh"><div class="nm" id="gapName">Gap Finder</div><button class="x" onclick="closeGap()">×</button></div>
+  <div style="padding:18px;overflow-y:auto;flex:1" id="gapBody">
+    <div class="empty">Run a gap analysis to see which programs this subcontractor is missing.</div>
+  </div>
+  <div class="composer" style="justify-content:flex-end;gap:8px">
+    <button class="btn ghost sm" onclick="runGap()" id="gapRunBtn">Run gap finder</button>
+    <button class="btn sm" onclick="buildDrafts(false)" id="gapDraftBtn" style="display:none">Build drafts (review)</button>
+    <button class="btn green sm" onclick="buildDrafts(true)" id="gapPubBtn" style="display:none">Build &amp; publish to sub</button>
+  </div>
+</div>
+
+<!-- asset library drawer -->
+<div class="drawer" id="libDrawer" style="width:min(560px,96vw)">
+  <div class="dh"><div class="nm" id="libName">Asset Library</div><button class="x" onclick="closeLib()">×</button></div>
+  <div style="padding:14px 18px;border-bottom:1px solid var(--line)">
+    <input class="f" id="libSearch" placeholder="Search safety documents…" oninput="renderLib()">
+  </div>
+  <div style="padding:14px 18px;overflow-y:auto;flex:1" id="libBody">
+    <div class="empty">Loading library…</div>
+  </div>
+</div>
+
 <script>
 const $=id=>document.getElementById(id);
 const GCQ=new URLSearchParams(location.search).get('gc');           // owner acting for a GC
@@ -336,9 +360,11 @@ function renderDetail(){
       <div class="sp"></div>
       <span class="abadge ${st.cls==='ok'?'ok':''}">${st.cls==='ok'?'All clear':(st.cls==='warn'?'Review soon':'Action required')}</span>
     </div>
-    <div style="display:flex;gap:8px;margin-top:6px">
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
       <button class="btn ghost sm" onclick='editSub(${JSON.stringify(s.slug)})'>Edit sub</button>
       <button class="btn ghost sm" onclick='openMsg(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Message ${s.unread?('· '+s.unread):''}</button>
+      <button class="btn sm" onclick='openGap(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Run gap finder</button>
+      <button class="btn green sm" onclick='openLib(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Asset library</button>
     </div>
     <div class="stitle">Prequal grades</div><div class="cards">${cards}</div>
     <div class="stitle">Safety metrics</div><div class="cards">${safety}</div>
@@ -397,6 +423,88 @@ async function loadSub(){
 async function sendSub(){
   const t=$('subInput').value.trim();if(!t||!MSUB)return;$('subInput').value='';
   await api('/portal/api/gc/sub/'+MSUB+'/messages',{method:'POST',body:JSON.stringify({body:t})});loadSub();
+}
+
+/* ── gap finder ── */
+let GAPSUB=null,GAPREP=null,GAPBUILT=[];
+function openGap(slug,name){GAPSUB=slug;GAPREP=null;GAPBUILT=[];
+  $('gapName').textContent='Gap Finder · '+name;
+  $('gapBody').innerHTML='<div class="empty">Run a gap analysis to see which programs this subcontractor is missing.</div>';
+  $('gapDraftBtn').style.display='none';$('gapPubBtn').style.display='none';
+  $('gapDrawer').classList.add('open');
+}
+function closeGap(){$('gapDrawer').classList.remove('open');GAPSUB=null}
+async function runGap(){
+  if(!GAPSUB)return;
+  $('gapBody').innerHTML='<div class="empty">Running gap analysis…</div>';
+  const r=await api('/portal/api/gc/sub/'+GAPSUB+'/gap',{method:'POST',body:JSON.stringify({})});
+  if(!r.ok){$('gapBody').innerHTML='<div class="empty">'+esc(r.data.error||'Gap analysis failed.')+'</div>';return}
+  GAPREP=r.data.report||{};renderGapReport();
+}
+function renderGapReport(){
+  const rep=GAPREP||{};const gaps=rep.gaps||[];
+  const head=rep.summary||(gaps.length?(gaps.length+' potential gap'+(gaps.length>1?'s':'')+' found'):'No gaps found — coverage looks complete.');
+  let html='<div class="mcard" style="margin-bottom:14px"><div class="k">Result</div><div style="font-size:14px;font-weight:600;margin-top:6px">'+esc(head)+'</div></div>';
+  if(!gaps.length){html+='<div class="empty">Nothing to draft. This sub\u2019s documented coverage matches their scope.</div>';
+    $('gapBody').innerHTML=html;$('gapDraftBtn').style.display='none';$('gapPubBtn').style.display='none';return}
+  html+=gaps.map(g=>{
+    const draftable=g.can_autodraft;
+    const cite=g.citation?('<div class="ds">'+esc(g.citation)+'</div>'):'';
+    return '<label class="docrow" style="cursor:pointer;align-items:flex-start">'+
+      '<input type="checkbox" class="gapchk" value="'+esc(g.id)+'" '+(draftable?'checked':'')+' '+(draftable?'':'disabled')+' style="margin-top:3px">'+
+      '<div style="flex:1"><div class="dn">'+esc(g.title||g.name||g.id)+'</div>'+cite+
+      (g.detail?('<div class="ds">'+esc(g.detail)+'</div>'):'')+'</div>'+
+      '<span class="tag '+(draftable?'miss':'exp')+'">'+(draftable?'Can draft':'Manual')+'</span></label>';
+  }).join('');
+  $('gapBody').innerHTML=html;
+  const any=gaps.some(g=>g.can_autodraft);
+  $('gapDraftBtn').style.display=any?'':'none';$('gapPubBtn').style.display=any?'':'none';
+}
+async function buildDrafts(publish){
+  if(!GAPSUB)return;
+  const ids=Array.from(document.querySelectorAll('.gapchk:checked')).map(c=>c.value);
+  if(!ids.length){alert('Select at least one program to build.');return}
+  const btn=publish?$('gapPubBtn'):$('gapDraftBtn');const orig=btn.textContent;btn.textContent='Building…';btn.disabled=true;
+  const r=await api('/portal/api/gc/sub/'+GAPSUB+'/draft',{method:'POST',body:JSON.stringify({ids:ids,publish:publish})});
+  btn.textContent=orig;btn.disabled=false;
+  if(!r.ok){alert(r.data.error||'Could not build drafts.');return}
+  const built=r.data.built||[];
+  alert((publish?'Published ':'Built ')+built.length+' document'+(built.length===1?'':'s')+
+    (publish?' to '+ ((SUBS.find(x=>x.slug===GAPSUB)||{}).company||'this sub')+'\u2019s page.':' for review.'));
+  if(publish){closeGap();await boot();}
+}
+
+/* ── asset library ── */
+let LIBSUB=null,LIBNAME='',LIBTPL=[];
+async function openLib(slug,name){LIBSUB=slug;LIBNAME=name;
+  $('libName').textContent='Asset Library · '+name;$('libSearch').value='';
+  $('libBody').innerHTML='<div class="empty">Loading library…</div>';
+  $('libDrawer').classList.add('open');
+  const r=await api('/portal/api/gc/library');
+  if(!r.ok){$('libBody').innerHTML='<div class="empty">'+esc(r.data.error||'Could not load the library.')+'</div>';return}
+  LIBTPL=r.data.templates||[];renderLib();
+}
+function closeLib(){$('libDrawer').classList.remove('open');LIBSUB=null}
+function renderLib(){
+  const term=($('libSearch').value||'').toLowerCase().trim();
+  let list=LIBTPL;
+  if(term)list=LIBTPL.filter(t=>((t.title||'')+' '+(t.trade||'')+' '+(t.id||'')).toLowerCase().includes(term));
+  if(!list.length){$('libBody').innerHTML='<div class="empty">No documents match.</div>';return}
+  $('libBody').innerHTML=list.map(t=>{
+    const mid=esc(t.id||t.mid||'');const title=esc(t.title||t.name||mid);
+    const cat=t.trade?('<div class="ds">'+esc(t.trade)+'</div>'):'';
+    return '<div class="docrow"><div style="flex:1"><div class="dn">'+title+'</div>'+cat+'</div>'+
+      '<a class="btn ghost sm" href="'+q('/portal/api/gc/library/preview?mid='+encodeURIComponent(t.id||t.mid||''))+'" target="_blank">Preview</a>'+
+      '<button class="btn green sm" onclick=\'addFromLib('+JSON.stringify(t.id||t.mid||'')+','+JSON.stringify(t.title||t.name||'')+',this)\'>Add to sub</button></div>';
+  }).join('');
+}
+async function addFromLib(mid,title,btn){
+  if(!LIBSUB||!mid)return;
+  const orig=btn.textContent;btn.textContent='Adding…';btn.disabled=true;
+  const r=await api('/portal/api/gc/sub/'+LIBSUB+'/from-library',{method:'POST',body:JSON.stringify({mid:mid,publish:true})});
+  if(!r.ok){btn.textContent=orig;btn.disabled=false;alert(r.data.error||'Could not add the document.');return}
+  btn.textContent='Added ✓';
+  await boot();
 }
 
 /* logo */

@@ -1395,6 +1395,224 @@ def register_portal(app) -> None:
             print(f"[portal] gc doc-request email skipped: {exc}")
         return {"ok": True}
 
+    def _gc_owned_sub(request: Request, sub_slug: str):
+        """Resolve the acting GC (a real GC session, or the owner acting via
+        ?gc=) and load ONE of its subcontractors. Returns (rec, slug, error).
+        error is a JSONResponse if the caller isn't a GC or the sub isn't
+        theirs — the exact ownership guard used across all GC sub endpoints."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return None, None, JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return None, slug, JSONResponse({"error": "not found"}, status_code=404)
+        return rec, slug, None
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/gap")
+    def gc_gap(sub_slug: str, request: Request, body: dict = Body(...)):
+        """GC Gap Finder — run the Origin gap analysis against one of the GC's
+        subcontractors, using the docs on file plus the sub's scope of work, and
+        store the report on that sub's record. Mirror of admin_gap, but scoped to
+        the acting GC (a GC session, or the owner acting via ?gc=)."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        try:
+            from . import gaps as _gaps
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"gap engine unavailable: {exc}"}, status_code=500)
+
+        industry = (body.get("industry") or rec.get("trade") or rec.get("scope") or "").strip()
+        if not industry:
+            return JSONResponse(
+                {"error": "Add a scope of work (or trade) for this subcontractor first — "
+                          "that's what tells the gap finder which programs their work requires."},
+                status_code=400)
+        state = (body.get("state") or "").strip() or None
+        ops_raw = body.get("operators")
+        if isinstance(ops_raw, str):
+            operators = [o.strip() for o in ops_raw.split(",") if o.strip()] or None
+        elif isinstance(ops_raw, list):
+            operators = [str(o).strip() for o in ops_raw if str(o).strip()] or None
+        else:
+            operators = None
+
+        docs = []
+        docs_dir = _client_dir(sub_slug) / "docs"
+        for d in rec.get("documents", []):
+            fn = d.get("file")
+            if not fn:
+                continue
+            path = docs_dir / os.path.basename(fn)
+            if not path.is_file():
+                continue
+            try:
+                text = _gaps.extract_text(str(path))
+            except Exception:
+                text = ""
+            docs.append({"name": d.get("name") or fn, "text": text})
+
+        try:
+            report = _gaps.find_gaps(industry, state=state, operators=operators, docs=docs)
+        except Exception as exc:
+            return JSONResponse({"error": f"gap analysis failed: {exc}"}, status_code=500)
+
+        rec["gap_report"] = report
+        rec["gap_run_at"] = _now()
+        if body.get("industry"):
+            rec["trade"] = industry
+        save_client(rec)
+        return {"ok": True, "report": report}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/draft")
+    def gc_draft(sub_slug: str, request: Request, body: dict = Body(...)):
+        """Build the missing/failing written programs the GC Gap Finder found for
+        one of the GC's subs and, when publish is set, drop the finished .docx
+        straight into that sub's document vault. Mirror of admin_draft."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        ids = body.get("ids") or []
+        if not ids:
+            return JSONResponse({"error": "no program ids selected"}, status_code=400)
+        publish = bool(body.get("publish"))
+        try:
+            from . import gaps as _gaps
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"gap engine unavailable: {exc}"}, status_code=500)
+
+        _sector_src = (rec.get("trade") or rec.get("scope") or "").strip() or None
+        drafts = _gaps.draft_programs(ids, company=rec.get("company"),
+                                      effective_date=body.get("effective_date"),
+                                      sector=_sector_src)
+        if not drafts:
+            return JSONResponse(
+                {"error": "none of those standards have a draftable written program"},
+                status_code=400)
+        docs_dir = _client_dir(sub_slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        built = []
+        for d in drafts:
+            docx_bytes = _gaps.program_docx_bytes(d["title"], d["markdown"])
+            if docx_bytes:
+                fname = d["filename"].rsplit(".", 1)[0] + ".docx"
+                (docs_dir / fname).write_bytes(docx_bytes)
+            else:
+                fname = d["filename"]
+                (docs_dir / fname).write_text(d["markdown"], encoding="utf-8")
+            row = {"name": d["title"], "sub": f"Built by Origin — {d.get('citation', '')}".strip(" —"),
+                   "file": fname, "source": "origin-draft"}
+            staged = rec.setdefault("staged_files", [])
+            if publish:
+                if fname in staged:
+                    staged.remove(fname)
+                for existing in rec.setdefault("documents", []):
+                    if existing.get("name") == d["title"]:
+                        existing.update(row)
+                        break
+                else:
+                    rec["documents"].append(row)
+            else:
+                if fname not in staged:
+                    staged.append(fname)
+            built.append({"id": d["id"], "title": d["title"], "file": fname,
+                          "citation": d.get("citation", "")})
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "published": publish, "built": built}
+
+    @app.get("/portal/api/gc/sub/{sub_slug}/draft/preview")
+    def gc_draft_preview(sub_slug: str, request: Request, file: str = ""):
+        """Let the GC open a built draft before publishing it to the sub."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        name = os.path.basename(file or "")
+        path = _client_dir(sub_slug) / "docs" / name
+        if not name or not path.is_file():
+            return JSONResponse({"error": "file not found"}, status_code=404)
+        return FileResponse(str(path))
+
+    @app.get("/portal/api/gc/library")
+    def gc_library(request: Request):
+        """List the Asset Library masters so a GC can pick a safety document to
+        drop into one of its subs' vaults. Mirror of admin_library."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        try:
+            from . import compliance as _cmp
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"asset library unavailable: {exc}"}, status_code=500)
+        try:
+            _cmp.ensure_library()
+        except Exception:
+            pass
+        return {"ok": True, "templates": _cmp.list_templates()}
+
+    @app.get("/portal/api/gc/library/preview", response_class=HTMLResponse)
+    def gc_library_preview(request: Request, mid: str = ""):
+        """Render an Asset Library master to the browser so a GC can eyeball the
+        document before adding it to a sub's vault. Read-only."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return HTMLResponse("<h1>Sign in required</h1>", status_code=401)
+        try:
+            from . import compliance as _cmp
+        except Exception as exc:  # pragma: no cover
+            return HTMLResponse(f"<h1>Asset library unavailable</h1><p>{exc}</p>",
+                                status_code=500)
+        mid = (mid or "").strip()
+        html = _cmp.read_master_html(mid) if mid else None
+        if not html:
+            return HTMLResponse("<h1>Document not found</h1>", status_code=404)
+        return HTMLResponse(html, headers=_NO_STORE)
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/from-library")
+    def gc_from_library(sub_slug: str, request: Request, body: dict = Body(...)):
+        """Render an Asset Library master into one of the GC's subs' vaults as a
+        finished, published document. body: {mid, publish?}. Mirror of
+        admin_from_library, scoped to the acting GC's subcontractor."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        mid = (body.get("mid") or "").strip()
+        if not mid:
+            return JSONResponse({"error": "no library document selected"}, status_code=400)
+        try:
+            from . import compliance as _cmp
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"asset library unavailable: {exc}"}, status_code=500)
+        html = _cmp.read_master_html(mid)
+        if not html:
+            return JSONResponse({"error": "that library document was not found"}, status_code=404)
+        title = _cmp.master_title(mid)
+        docs_dir = _client_dir(sub_slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        fname = None
+        try:
+            pdf_path = _cmp.unique_path(docs_dir, (_cmp.safe_filename(title).rsplit(".", 1)[0] + ".pdf"))
+            _cmp.render_pdf(html, pdf_path, title=title)
+            fname = pdf_path.name
+        except Exception:
+            html_path = _cmp.unique_path(docs_dir, _cmp.safe_filename(title))
+            html_path.write_text(html, encoding="utf-8")
+            fname = html_path.name
+        publish = body.get("publish")
+        publish = True if publish is None else bool(publish)
+        row = {"name": title, "sub": "From Asset Library", "file": fname,
+               "source": "asset-library"}
+        if publish:
+            for existing in rec.setdefault("documents", []):
+                if existing.get("name") == title:
+                    existing.update(row)
+                    break
+            else:
+                rec["documents"].append(row)
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "published": publish, "title": title, "file": fname}
+
     @app.post("/portal/api/gc/sub/{sub_slug}/remove")
     def gc_remove_sub(sub_slug: str, request: Request):
         """Unplace a sub from this GC (does not delete the subcontractor)."""
