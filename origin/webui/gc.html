@@ -221,6 +221,9 @@
   </div>
 </div>
 
+<!-- hidden input: GC uploads a document a sub already has -->
+<input type="file" id="subDocFile" style="display:none" onchange="doUploadSubDoc()">
+
 <!-- gap finder drawer -->
 <div class="drawer" id="gapDrawer" style="width:min(560px,96vw)">
   <div class="dh"><div class="nm" id="gapName">Gap Finder</div><button class="x" onclick="closeGap()">×</button></div>
@@ -340,18 +343,33 @@ function renderDetail(){
     <div class="mcard"><div class="k">TRIR</div><div class="v">${esc((s.trir||'—').toString())}</div><span class="pill ${(parseFloat(s.trir)||0)>3?'warn':''}">Recordable rate</span></div>
     <div class="mcard"><div class="k">EMR</div><div class="v">${esc((s.emr||'—').toString())}</div><span class="pill ${(parseFloat(s.emr)||0)>1?'warn':''}">Mod rate</span></div>
     <div class="mcard"><div class="k">COI</div><div class="v" style="font-size:20px">${esc(coi[0].replace('COI ',''))}</div><span class="${coi[1]}">${s.coi_soonest?('Soonest '+esc(s.coi_soonest)):'Insurance'}</span></div>`;
-  // missing / expiring documents (scope-filtered)
-  const missing=(s.documents||[]).filter(d=>d.to_build&&!d.file);
+  // ── documents: what the sub HAS vs what their trade still needs ──
+  const allDocs=s.documents||[];
+  const onFile=[],needed=[];
+  allDocs.forEach((d,i)=>{ if(d.file){onFile.push({d:d,i:i})} else if(d.to_build){needed.push({d:d,i:i})} });
   const expCoi=(s.coi||[]).filter(c=>{const t=Date.parse((c.expires||'')+'T00:00:00');return !isNaN(t)&&(t-Date.now())/864e5<=45});
-  let docs='';
-  missing.forEach(d=>{docs+=`<div class="docrow"><div><div class="dn">${esc(d.name||'Document')}</div><div class="ds">${esc(d.sub||'Required program')}</div></div>
-    <div class="sp"></div><span class="tag miss">Missing</span>
-    <button class="btn green sm" onclick='fillDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.name||"document")})'>Fill from library</button></div>`});
-  expCoi.forEach(c=>{docs+=`<div class="docrow"><div><div class="dn">${esc(c.name||'Certificate of Insurance')}</div><div class="ds">${esc(c.carrier||'')} · expires ${esc(c.expires||'')}</div></div>
-    <div class="sp"></div><span class="tag exp">Expiring</span>
+
+  let onFileHtml=onFile.map(x=>{const d=x.d;
+    return `<div class="docrow"><div style="flex:1"><div class="dn">${esc(d.name||'Document')}</div>
+      <div class="ds">${esc(d.sub||d.source||'On file')}</div></div>
+      <button class="btn ghost sm" onclick='viewDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.file)})'>View</button>
+      <button class="btn ghost sm" onclick='printDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.file)})'>Print</button>
+      <button class="btn ghost sm" onclick='editDoc(${JSON.stringify(s.slug)},${x.i},${JSON.stringify(d.name||"")})'>Rename</button>
+      <button class="btn ghost sm" onclick='removeDoc(${JSON.stringify(s.slug)},${x.i},${JSON.stringify(d.name||"")})'>Remove</button></div>`;
+  }).join('')||'<div class="empty">No documents on file yet. Upload one, add from the Asset Library, or run the gap finder to build what their trade requires.</div>';
+
+  let neededHtml=needed.map(x=>{const d=x.d;
+    return `<div class="docrow"><div style="flex:1"><div class="dn">${esc(d.name||'Document')}</div>
+      <div class="ds">${esc(d.sub||'Required for their scope')}</div></div>
+      <span class="tag miss">Needed</span>
+      <button class="btn green sm" onclick='openLib(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Fill from library</button></div>`;
+  }).join('');
+  expCoi.forEach(c=>{neededHtml+=`<div class="docrow"><div style="flex:1"><div class="dn">${esc(c.name||'Certificate of Insurance')}</div>
+    <div class="ds">${esc(c.carrier||'')} · expires ${esc(c.expires||'')}</div></div>
+    <span class="tag exp">Expiring</span>
     <button class="btn green sm" onclick='fillDoc(${JSON.stringify(s.slug)},${JSON.stringify((c.name||"COI")+" renewal")})'>Request update</button></div>`});
-  if(!docs)docs='<div class="empty">All required documents are current. Nothing outstanding.</div>';
-  const noteScope=scope?('Only '+esc(scope)+' documents show — the library filters to each sub\u2019s scope.'):'Documents are filtered to each sub\u2019s scope. Set a sub\u2019s scope to narrow this list.';
+  if(!neededHtml)neededHtml='<div class="empty">Nothing flagged as outstanding. Run the gap finder to double-check every document their trade requires.</div>';
+  const noteScope=scope?('Documents are matched to '+esc(scope)+'. Run the gap finder to see every program this trade requires under OSHA.'):'Set this sub\u2019s scope (Edit sub) so the gap finder and library know which documents their trade requires.';
 
   el.innerHTML=`
     <div class="dhead">
@@ -368,13 +386,46 @@ function renderDetail(){
     </div>
     <div class="stitle">Prequal grades</div><div class="cards">${cards}</div>
     <div class="stitle">Safety metrics</div><div class="cards">${safety}</div>
-    <div class="stitle">Missing / expiring documents</div>${docs}
+    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Documents on file</span>
+      <button class="btn orange sm" onclick='uploadSubDoc(${JSON.stringify(s.slug)})'>+ Upload</button>
+    </div>${onFileHtml}
+    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Required for their trade${scope?(' · '+esc(scope)):''}</span>
+      <button class="btn sm" onclick='openGap(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Run gap finder</button>
+    </div>${neededHtml}
     <div class="scopenote">${noteScope}</div>`;
 }
 async function fillDoc(slug,program){
   const r=await api('/portal/api/gc/sub/'+slug+'/request-doc',{method:'POST',body:JSON.stringify({program:program})});
   if(r.ok){alert('Requested "'+program+'" from Origin. We\u2019ll prepare it and it will appear in this sub\u2019s documents.')}
   else{alert(r.data.error||'Could not send the request.')}
+}
+
+/* ── documents on file: view / print / rename / remove / upload ── */
+function docUrl(slug,file){return q('/portal/api/gc/sub/'+slug+'/doc?file='+encodeURIComponent(file))}
+function viewDoc(slug,file){if(file)window.open(docUrl(slug,file),'_blank')}
+function printDoc(slug,file){if(!file)return;const w=window.open(docUrl(slug,file),'_blank');
+  if(w){try{w.addEventListener('load',function(){try{w.focus();w.print()}catch(e){}})}catch(e){}}}
+async function editDoc(slug,index,cur){
+  const name=prompt('Rename this document:',cur||'');if(name===null)return;
+  const r=await api('/portal/api/gc/sub/'+slug+'/doc/edit',{method:'POST',body:JSON.stringify({index:index,name:name.trim()})});
+  if(r.ok){await boot()}else{alert(r.data.error||'Could not rename.')}
+}
+async function removeDoc(slug,index,name){
+  if(!confirm('Remove "'+(name||'this document')+'" from this sub\u2019s page? (The file itself is kept.)'))return;
+  const r=await api('/portal/api/gc/sub/'+slug+'/doc/remove',{method:'POST',body:JSON.stringify({index:index})});
+  if(r.ok){await boot()}else{alert(r.data.error||'Could not remove.')}
+}
+let UPSUB=null;
+function uploadSubDoc(slug){UPSUB=slug;const inp=$('subDocFile');inp.value='';inp.click()}
+async function doUploadSubDoc(){
+  const f=$('subDocFile').files[0];if(!f||!UPSUB)return;
+  const nm=prompt('Name this document (what it\u2019s called on the page):',f.name.replace(/\.[^.]+$/,''));
+  if(nm===null)return;
+  const fd=new FormData();fd.append('file',f);fd.append('name',nm.trim());
+  const r=await fetch(q('/portal/api/gc/sub/'+UPSUB+'/doc/upload'),{method:'POST',body:fd});
+  if(r.ok){await boot()}else{alert('Upload failed')}
 }
 
 /* add / edit sub */
@@ -442,22 +493,29 @@ async function runGap(){
   GAPREP=r.data.report||{};renderGapReport();
 }
 function renderGapReport(){
-  const rep=GAPREP||{};const gaps=rep.gaps||[];
-  const head=rep.summary||(gaps.length?(gaps.length+' potential gap'+(gaps.length>1?'s':'')+' found'):'No gaps found — coverage looks complete.');
-  let html='<div class="mcard" style="margin-bottom:14px"><div class="k">Result</div><div style="font-size:14px;font-weight:600;margin-top:6px">'+esc(head)+'</div></div>';
-  if(!gaps.length){html+='<div class="empty">Nothing to draft. This sub\u2019s documented coverage matches their scope.</div>';
+  const rep=GAPREP||{};const sm=rep.summary||{};const gaps=rep.gaps||[];
+  // find_gaps returns EVERY required standard with a status; only MISSING/FAILING
+  // are actionable. PRESENT ones are already covered.
+  const open=gaps.filter(g=>g.status&&g.status!=='PRESENT');
+  const openCount=(sm.missing||0)+(sm.failing||0);
+  const head=sm.headline||(openCount?(openCount+' gap'+(openCount===1?'':'s')+' found'):'No gaps found — coverage matches their scope.');
+  let html='<div class="mcard" style="margin-bottom:14px"><div class="k">Result</div>'+
+    '<div style="font-size:14px;font-weight:600;margin-top:6px">'+esc(String(head))+'</div>'+
+    '<div class="ds" style="margin-top:6px">'+esc((sm.present||0)+' present · '+(sm.failing||0)+' failing · '+(sm.missing||0)+' missing')+'</div></div>';
+  if(!open.length){html+='<div class="empty">Nothing to draft — their documented coverage matches their scope.</div>';
     $('gapBody').innerHTML=html;$('gapDraftBtn').style.display='none';$('gapPubBtn').style.display='none';return}
-  html+=gaps.map(g=>{
+  html+='<div class="ds" style="margin:2px 0 10px">Check the programs to build, then publish them to this sub\u2019s page.</div>';
+  html+=open.map(g=>{
     const draftable=g.can_autodraft;
     const cite=g.citation?('<div class="ds">'+esc(g.citation)+'</div>'):'';
+    const badge=(g.status==='MISSING')?'<span class="tag miss">Missing</span>':'<span class="tag exp">Failing</span>';
     return '<label class="docrow" style="cursor:pointer;align-items:flex-start">'+
       '<input type="checkbox" class="gapchk" value="'+esc(g.id)+'" '+(draftable?'checked':'')+' '+(draftable?'':'disabled')+' style="margin-top:3px">'+
-      '<div style="flex:1"><div class="dn">'+esc(g.title||g.name||g.id)+'</div>'+cite+
-      (g.detail?('<div class="ds">'+esc(g.detail)+'</div>'):'')+'</div>'+
-      '<span class="tag '+(draftable?'miss':'exp')+'">'+(draftable?'Can draft':'Manual')+'</span></label>';
+      '<div style="flex:1"><div class="dn">'+esc(g.title||g.id)+'</div>'+cite+
+      (draftable?'':'<div class="ds">Manual — no auto-draftable written program</div>')+'</div>'+badge+'</label>';
   }).join('');
   $('gapBody').innerHTML=html;
-  const any=gaps.some(g=>g.can_autodraft);
+  const any=open.some(g=>g.can_autodraft);
   $('gapDraftBtn').style.display=any?'':'none';$('gapPubBtn').style.display=any?'':'none';
 }
 async function buildDrafts(publish){

@@ -1613,6 +1613,89 @@ def register_portal(app) -> None:
         save_client(rec)
         return {"ok": True, "published": publish, "title": title, "file": fname}
 
+    @app.get("/portal/api/gc/sub/{sub_slug}/doc")
+    def gc_doc(sub_slug: str, request: Request, file: str = ""):
+        """Serve one of the sub's document files so the GC can VIEW or PRINT it.
+        Scoped: only files listed on THIS sub's record, and only to the acting GC
+        (a GC session or the owner acting via ?gc=)."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        allowed = {d.get("file") for d in rec.get("documents", []) if d.get("file")}
+        allowed |= {c.get("file") for c in rec.get("coi", []) if c.get("file")}
+        name = os.path.basename(file or "")
+        if name not in allowed:
+            return JSONResponse({"error": "not authorized for this document"}, status_code=403)
+        path = _client_dir(sub_slug) / "docs" / name
+        if not path.is_file():
+            return JSONResponse({"error": "file not found"}, status_code=404)
+        return FileResponse(str(path))
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/doc/upload")
+    def gc_doc_upload(sub_slug: str, request: Request,
+                      file: UploadFile = File(...), name: str = Form("")):
+        """The GC uploads a document their sub already has (a manual, a permit, a
+        signed program) so it shows on the sub's page. Replaces a row of the same
+        name, else adds a new one."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        safe = os.path.basename(file.filename or "document")
+        dest = _client_dir(sub_slug) / "docs"
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / safe).write_bytes(file.file.read())
+        doc_name = (name or os.path.splitext(safe)[0]).strip() or safe
+        for existing in rec.setdefault("documents", []):
+            if existing.get("name") == doc_name:
+                existing.update({"file": safe, "sub": "Uploaded by GC", "source": "gc-upload"})
+                break
+        else:
+            rec["documents"].append(
+                {"name": doc_name, "sub": "Uploaded by GC", "file": safe, "source": "gc-upload"})
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "file": safe, "name": doc_name}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/doc/edit")
+    def gc_doc_edit(sub_slug: str, request: Request, body: dict = Body(...)):
+        """Rename/re-label one of the sub's document rows (by its index in the
+        documents list). Lets the GC keep the sub's paperwork tidy."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        docs = rec.get("documents", [])
+        try:
+            row = docs[int(body.get("index"))]
+        except Exception:
+            return JSONResponse({"error": "document not found"}, status_code=404)
+        name = (body.get("name") or "").strip()
+        if name:
+            row["name"] = name
+        if "sub" in body:
+            row["sub"] = (body.get("sub") or "").strip()
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/doc/remove")
+    def gc_doc_remove(sub_slug: str, request: Request, body: dict = Body(...)):
+        """Remove one of the sub's document rows by its index in the documents
+        list (does not delete the underlying file from disk)."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        docs = rec.get("documents", [])
+        try:
+            idx = int(body.get("index"))
+        except Exception:
+            return JSONResponse({"error": "index required"}, status_code=400)
+        if idx < 0 or idx >= len(docs):
+            return JSONResponse({"error": "document not found"}, status_code=404)
+        docs.pop(idx)
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True}
+
     @app.post("/portal/api/gc/sub/{sub_slug}/remove")
     def gc_remove_sub(sub_slug: str, request: Request):
         """Unplace a sub from this GC (does not delete the subcontractor)."""
