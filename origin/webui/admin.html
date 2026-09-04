@@ -82,6 +82,29 @@
   .subcard .sp{flex:1}
   .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--greenbg);color:var(--green)}
   .dot{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;background:var(--orange);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 5px}
+  /* ---- Compliance Board ---- */
+  .boardsum{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .bcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .bcard .n{font-size:26px;font-weight:800;line-height:1.1}
+  .bcard .l{font-size:12px;color:var(--muted);margin-top:2px;font-weight:600}
+  .bcard.ok .n{color:var(--green)}.bcard.warn .n{color:var(--amber)}.bcard.bad .n{color:var(--red)}
+  .boardbar{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .segbtns{display:inline-flex;background:var(--card2,#f1efe9);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg{border:0;background:transparent;color:var(--muted);font-weight:700;font-size:12.5px;padding:6px 12px;border-radius:7px;cursor:pointer}
+  .seg.active{background:#fff;color:var(--ink,#1a1a1a);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .btable{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .btable th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--card2,#faf8f4)}
+  .btable td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  .btable tr:last-child td{border-bottom:0}
+  .btable tbody tr{cursor:pointer}.btable tbody tr:hover td{background:var(--card2,#faf8f4)}
+  .btable .co{font-weight:700}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .chip.g{background:var(--greenbg);color:var(--green)}.chip.a{background:var(--amberbg);color:var(--amber)}
+  .chip.r{background:var(--redbg);color:var(--red)}.chip.n{background:#eceae4;color:var(--muted)}
+  .flag{font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px}
+  .flag.ok{background:var(--greenbg);color:var(--green)}.flag.act{background:var(--redbg);color:var(--red)}
+  .bempty{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px;background:#fff;border:1px solid var(--line);border-radius:12px}
+  @media(max-width:760px){.boardsum{grid-template-columns:repeat(2,1fr)}}
   .drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,94vw);background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .22s ease;z-index:40;display:flex;flex-direction:column}
   .drawer.open{transform:none}
   .drawer .dhead{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
@@ -203,6 +226,7 @@
   </div></div>
   <nav class="tabs"><div class="wrap">
     <div class="tab active" data-page="update" onclick="tab(this)">Update Client Status</div>
+    <div class="tab" data-page="board" onclick="tab(this)">Compliance Board <span class="pip" id="boardPip" style="display:none">0</span></div>
     <div class="tab" data-page="gcs" onclick="tab(this)">General Contractors <span class="pip" id="gcPip" style="display:none">0</span></div>
     <div class="tab" data-page="owndocs" onclick="tab(this)">Origin Documents</div>
     <div class="tab" data-page="leads" onclick="tab(this)">New Leads <span class="pip" id="leadPip" style="display:none">0</span></div>
@@ -224,6 +248,23 @@
         </div>
       </div>
     </section>
+
+    <section id="board" class="page"><div class="pagewrap">
+      <div class="hello">
+        <div><h2>Compliance Board</h2><div class="sub">Every client at a glance \u2014 prequal grades, COI status, and who needs attention. Click a row to open and edit that client.</div></div>
+        <div class="bar"><button class="btn ghost sm" onclick="loadClients(function(){renderBoard();})">\u21bb Refresh</button></div>
+      </div>
+      <div class="boardsum" id="boardSum"></div>
+      <div class="boardbar">
+        <input class="pane-search" id="boardSearch" style="max-width:260px" placeholder="Search clients\u2026" oninput="renderBoard()">
+        <div class="segbtns" id="boardFilter">
+          <button class="seg active" data-f="all" onclick="boardFilt(this)">All</button>
+          <button class="seg" data-f="action" onclick="boardFilt(this)">Needs action</button>
+          <button class="seg" data-f="coi" onclick="boardFilt(this)">COI expiring</button>
+        </div>
+      </div>
+      <div id="boardTable"></div>
+    </div></section>
 
     <section id="leads" class="page"><div class="pagewrap">
       <div class="hello">
@@ -651,7 +692,7 @@ function attachGc(){
 function fmtTs(ts){if(!ts)return '';try{var d=new Date(ts);if(isNaN(d))return '';return d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
 function tab(el){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');
   var id=el.getAttribute('data-page');document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();if(id==='gcs')loadGcs();if(id==='owndocs')loadOwnDocs();}
+  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();if(id==='gcs')loadGcs();if(id==='owndocs')loadOwnDocs();if(id==='board')renderBoard();}
 
 var CLIENTS=[];         // roster from /portal/api/admin/clients
 function loadClients(cb){
@@ -662,6 +703,7 @@ function loadClients(cb){
     sel.innerHTML='<option value="">— pick a client —</option>'+list.map(function(c){
       return '<option value="'+esc(c.slug)+'">'+esc(c.company)+'</option>';}).join('');
     renderClientList();
+    if(typeof renderBoard==='function')renderBoard();
     if(cb)cb(list);
     else if(list.length&&!CUR){sel.value=list[0].slug;pick(list[0].slug);}
     else if(!list.length){document.getElementById('editor').innerHTML='<div class="card">No clients yet. Click <b>Seed test client</b> to create a sample, or <b>+ New client</b>.</div>';}
@@ -686,6 +728,59 @@ function renderClientList(){
       +'<span class="'+dotCls+'"></span></div>';
   }).join('');
 }
+// ─────────────── Compliance Board ───────────────
+var BOARD_FILTER='all';
+function boardFilt(el){document.querySelectorAll('#boardFilter .seg').forEach(function(s){s.classList.remove('active');});el.classList.add('active');BOARD_FILTER=el.getAttribute('data-f');renderBoard();}
+function gcNameFor(gcSlug){if(!gcSlug)return 'Origin (direct)';var g=GCS.filter(function(x){return x.slug===gcSlug;})[0];return g?(g.company||g.name||gcSlug):gcSlug;}
+function platBad(v){var grade=(String(v&&v.grade||'')).trim().toUpperCase();var status=(String(v&&v.status||'')).trim().toLowerCase();
+  if(grade==='F'||grade==='D')return true;return /action|fail|expired|\bnot\b/.test(status);}
+function platChip(v){if(!v||(!v.grade&&!v.status))return '<span class="chip n">—</span>';
+  var cls=platBad(v)?'r':'g';var txt=(v.grade||v.status||'').toString();
+  return '<span class="chip '+cls+'" title="'+esc((v.status||'')+(v.grade?(' · '+v.grade):''))+'">'+esc(txt||'—')+'</span>';}
+function coiChip(status,soonest){
+  if(status==='expired')return '<span class="chip r">Expired</span>';
+  if(status==='expiring')return '<span class="chip a">Expiring'+(soonest?(' · '+esc(soonest)):'')+'</span>';
+  if(status==='current')return '<span class="chip g">Current</span>';
+  return '<span class="chip n">None on file</span>';}
+function renderBoard(){
+  var sum=document.getElementById('boardSum'),tbl=document.getElementById('boardTable');if(!sum||!tbl)return;
+  var all=CLIENTS||[];
+  var prequal=all.filter(function(c){return c.client_type!=='docs';});
+  var nAction=all.filter(function(c){return c.action_required;}).length;
+  var nCoi=all.filter(function(c){return c.coi_status==='expiring'||c.coi_status==='expired';}).length;
+  var nOk=all.length-nAction;
+  var pip=document.getElementById('boardPip');
+  if(pip){if(nAction){pip.style.display='';pip.textContent=nAction;}else{pip.style.display='none';}}
+  sum.innerHTML=
+     '<div class="bcard"><div class="n">'+all.length+'</div><div class="l">Clients tracked</div></div>'
+    +'<div class="bcard ok"><div class="n">'+nOk+'</div><div class="l">In good standing</div></div>'
+    +'<div class="bcard bad"><div class="n">'+nAction+'</div><div class="l">Need attention</div></div>'
+    +'<div class="bcard warn"><div class="n">'+nCoi+'</div><div class="l">COI expiring / expired</div></div>';
+  var term=(document.getElementById('boardSearch')||{}).value||'';term=term.trim().toLowerCase();
+  var rows=all.filter(function(c){
+    if(BOARD_FILTER==='action'&&!c.action_required)return false;
+    if(BOARD_FILTER==='coi'&&!(c.coi_status==='expiring'||c.coi_status==='expired'))return false;
+    if(term&&(c.company||'').toLowerCase().indexOf(term)<0&&(c.email||'').toLowerCase().indexOf(term)<0)return false;
+    return true;});
+  // action-needed first, then alphabetical
+  rows.sort(function(a,b){if(!!a.action_required!==!!b.action_required)return a.action_required?-1:1;return (a.company||'').localeCompare(b.company||'');});
+  if(!rows.length){tbl.innerHTML='<div class="bempty">'+(all.length?'No clients match this filter.':'No clients yet. Add one from Update Client Status.')+'</div>';return;}
+  var body=rows.map(function(c){
+    var p=c.platforms||{};var isDocs=(c.client_type==='docs');
+    var cells=isDocs
+      ? '<td colspan="4" style="color:var(--muted)">Documentation-only · no prequal accounts</td>'
+      : '<td>'+platChip(p.isnetworld)+'</td><td>'+platChip(p.avetta)+'</td><td>'+platChip(p.pec)+'</td><td>'+platChip(p.veriforce)+'</td>';
+    var flag=c.action_required?'<span class="flag act">Action</span>':'<span class="flag ok">OK</span>';
+    return '<tr onclick="boardOpen(\''+esc(c.slug)+'\')">'
+      +'<td class="co">'+esc(c.company||'—')+'</td>'
+      +'<td style="color:var(--muted)">'+esc(gcNameFor(c.gc_slug))+'</td>'
+      +cells
+      +'<td>'+coiChip(c.coi_status,c.coi_soonest)+'</td>'
+      +'<td>'+flag+'</td></tr>';}).join('');
+  tbl.innerHTML='<table class="btable"><thead><tr>'
+    +'<th>Company</th><th>GC</th><th>ISN</th><th>Avetta</th><th>PEC</th><th>Veriforce</th><th>COI</th><th>Status</th>'
+    +'</tr></thead><tbody>'+body+'</tbody></table>';}
+function boardOpen(slug){var t=document.querySelector('.tab[data-page="update"]');if(t)tab(t);pick(slug);}
 function pick(slug){
   if(!slug){CUR=null;document.getElementById('editor').innerHTML='';renderClientList();return;}
   api('/portal/api/admin/client/'+slug).then(function(r){if(r.ok){CUR=r.j;var sel=document.getElementById('clientPick');if(sel)sel.value=slug;renderEditor();renderClientList();}});

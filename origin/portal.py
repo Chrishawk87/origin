@@ -639,6 +639,7 @@ def list_clients() -> List[Dict[str, Any]]:
     for d in sorted(CLIENTS_DIR.iterdir()):
         rec = load_client(d.name)
         if rec:
+            flags = _monitoring_flags(rec)
             out.append({
                 "slug": rec.get("slug"),
                 "company": rec.get("company"),
@@ -646,6 +647,13 @@ def list_clients() -> List[Dict[str, Any]]:
                 "client_type": rec.get("client_type", "prequal"),
                 "open_requests": sum(1 for r in rec.get("requests", []) if r.get("status") == "new"),
                 "updated": rec.get("updated"),
+                # ---- monitoring rollup (drives the admin Compliance Board) ----
+                "gc_slug": rec.get("gc_slug", "") or "",
+                "platforms": rec.get("platforms", {}) or {},
+                "coi_status": flags["coi_status"],
+                "coi_soonest": flags["coi_soonest"],
+                "action_required": flags["action_required"],
+                "missing_count": flags["missing_count"],
             })
     return out
 
