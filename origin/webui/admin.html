@@ -266,6 +266,7 @@ function renderGcRoster(){
       '<div><div class="nm">'+esc(g.name)+'</div><div class="meta">'+esc(g.email||'no login email')+' · '+subLbl+'</div></div>'+
       '<div class="sp"></div>'+
       '<button class="btn sm" onclick="openGcThread(\''+esc(g.slug)+'\',\''+esc(g.name).replace(/'/g,"\\'")+'\')">Message'+unread+'</button> '+
+      '<button class="btn sm" onclick="inviteGc(\''+esc(g.slug)+'\')">Email login</button> '+
       '<button class="btn sm" onclick="editGc(\''+esc(g.slug)+'\')">Edit</button> '+
       '<button class="btn ghost sm" onclick="delGc(\''+esc(g.slug)+'\',\''+esc(g.name).replace(/'/g,"\\'")+'\')">Delete</button>'+
       '</div>';
@@ -294,6 +295,17 @@ function saveGc(){
     if(!r.ok){alert((r.j&&r.j.error)||'Save failed');return;}
     var s=document.getElementById('gcSaved');if(s){s.classList.add('show');setTimeout(function(){s.classList.remove('show');},2500);}
     hideAddGc();loadGcs();
+  });
+}
+function inviteGc(slug){
+  var g=GCS.filter(function(x){return x.slug===slug;})[0];
+  if(g&&!(g.email||'').trim()){alert('Add a login email for this GC first (Edit), then email their login.');return;}
+  if(!confirm('Reset this GC’s PIN and email them their login link?'))return;
+  api('/portal/api/admin/gc/'+slug+'/invite',{method:'POST'}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Could not send');return;}
+    var d=r.j||{};
+    if(d.sent){alert('Sent. New login emailed to '+d.to+'.');}
+    else{alert('PIN reset to '+d.temp_pin+' for '+d.to+'.\n\n'+((d.email_error)||'Email isn’t turned on yet — send them this link + PIN yourself:')+'\n'+(d.gc_url||'/gc'));}
   });
 }
 function delGc(slug,name){

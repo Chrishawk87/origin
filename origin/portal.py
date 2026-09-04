@@ -25,6 +25,7 @@ import hashlib
 import hmac
 import json
 import os
+import random
 import re
 import secrets
 import time
@@ -142,32 +143,54 @@ _PBKDF2_ITERS = 200_000
 
 def hash_pin(slug: str, pin: str) -> str:
     """Hash a PIN with PBKDF2-HMAC-SHA256 (slow by design) plus a per-hash random
-    salt and the deployment SECRET as pepper. Stored as
-    'pbkdf2$<iters>$<salt_hex>$<hash_hex>'."""
+    salt. Stored as 'pbkdf2$<iters>$<salt_hex>$<hash_hex>'.
+
+    NOTE: we intentionally do NOT mix the deployment SECRET into the PIN hash.
+    The random per-hash salt already makes these hashes unique and un-precomputable.
+    Peppering with SECRET created a catastrophic failure mode: if SECRET ever
+    changed (env var added/removed, volume hiccup, redeploy), every previously
+    set PIN silently stopped verifying and users were locked out with a generic
+    "wrong email or PIN". verify_pin below still accepts the old peppered hashes
+    for backwards compatibility."""
     salt = secrets.token_bytes(16)
     dk = hashlib.pbkdf2_hmac("sha256",
-                             f"{SECRET}:{slug}:{pin}".encode(),
+                             f"{slug}:{pin}".encode(),
                              salt, _PBKDF2_ITERS)
     return f"pbkdf2${_PBKDF2_ITERS}${salt.hex()}${dk.hex()}"
 
 
 def verify_pin(slug: str, pin: str, stored: str) -> bool:
-    """Constant-time PIN check. Understands the PBKDF2 format above AND the legacy
-    single-SHA256 format so existing accounts keep working after the upgrade."""
+    """Constant-time PIN check. Accepts, in order:
+      - new PBKDF2 hashes (no pepper)         f"{slug}:{pin}"
+      - legacy PBKDF2 hashes (SECRET pepper)  f"{SECRET}:{slug}:{pin}"
+      - legacy plain-SHA256 (either form)
+    so accounts created under any prior scheme keep working."""
     if not stored:
         return False
+    # Try the un-peppered form first (current), then the SECRET-peppered form
+    # (legacy) so old accounts still log in while SECRET stays stable.
+    candidates = (f"{slug}:{pin}", f"{SECRET}:{slug}:{pin}")
     if stored.startswith("pbkdf2$"):
         try:
             _, iters, salt_hex, hash_hex = stored.split("$")
-            dk = hashlib.pbkdf2_hmac("sha256",
-                                     f"{SECRET}:{slug}:{pin}".encode(),
-                                     bytes.fromhex(salt_hex), int(iters))
-            return hmac.compare_digest(dk.hex(), hash_hex)
+            salt = bytes.fromhex(salt_hex)
+            iters = int(iters)
         except Exception:
             return False
+        for cand in candidates:
+            try:
+                dk = hashlib.pbkdf2_hmac("sha256", cand.encode(), salt, iters)
+                if hmac.compare_digest(dk.hex(), hash_hex):
+                    return True
+            except Exception:
+                continue
+        return False
     # legacy: plain SHA256 hex
-    legacy = hashlib.sha256(f"{SECRET}:{slug}:{pin}".encode()).hexdigest()
-    return hmac.compare_digest(legacy, stored)
+    for cand in candidates:
+        legacy = hashlib.sha256(cand.encode()).hexdigest()
+        if hmac.compare_digest(legacy, stored):
+            return True
+    return False
 
 
 def _sign(payload: Dict[str, Any]) -> str:
@@ -589,6 +612,84 @@ def seed_test_client() -> Dict[str, Any]:
     return save_client(rec)
 
 
+def _base_url(request) -> str:
+    try:
+        return str(request.base_url).rstrip("/")
+    except Exception:
+        return "https://origin-production-1352.up.railway.app"
+
+
+def _gc_login_url(request) -> str:
+    return f"{_base_url(request)}/gc"
+
+
+def _portal_login_url(request) -> str:
+    return f"{_base_url(request)}/portal"
+
+
+def _send_gc_login_email(request, gc_rec: Dict[str, Any], temp_pin: str):
+    """Email a GC their /gc login link + a temporary PIN. Returns (sent, error)."""
+    to = (gc_rec.get("email") or "").strip()
+    if "@" not in to:
+        return False, "No email on file."
+    try:
+        from .compliance import send_email, resend_configured, smtp_configured
+    except Exception as exc:  # pragma: no cover
+        return False, f"mailer unavailable: {exc}"
+    if not (resend_configured() or smtp_configured()):
+        return False, ("Email isn't turned on yet (no RESEND_API_KEY). The PIN was "
+                       "reset — give the GC their login link and PIN yourself.")
+    name = (gc_rec.get("name") or "").strip()
+    res = send_email(
+        to=to,
+        subject="Your contractor portal login — Origin Management Solutions",
+        body=(
+            f"Hi{(' ' + name) if name else ''},\n\n"
+            f"Here's your login for the contractor portal, where you manage your "
+            f"subcontractors and their prequal documents.\n\n"
+            f"Sign in here: {_gc_login_url(request)}\n"
+            f"Email: {to}\n"
+            f"PIN: {temp_pin}\n\n"
+            f"Keep this PIN private. You can request a new one anytime from the login "
+            f"page using \u201cForgot PIN\u201d.\n\n"
+            f"\u2014 Origin Management Solutions\n"
+            f"info@originmanagementsolutions.com"
+        ),
+    )
+    return bool(res.get("sent")), res.get("error", "")
+
+
+def _send_sub_login_email(request, client_rec: Dict[str, Any], temp_pin: str):
+    """Email a subcontractor/client their /portal login link + a temporary PIN."""
+    to = (client_rec.get("email") or "").strip()
+    if "@" not in to:
+        return False, "No email on file."
+    try:
+        from .compliance import send_email, resend_configured, smtp_configured
+    except Exception as exc:  # pragma: no cover
+        return False, f"mailer unavailable: {exc}"
+    if not (resend_configured() or smtp_configured()):
+        return False, ("Email isn't turned on yet (no RESEND_API_KEY). The PIN was "
+                       "reset — give them their login link and PIN yourself.")
+    company = (client_rec.get("company") or "").strip()
+    res = send_email(
+        to=to,
+        subject="Your compliance portal login — Origin Management Solutions",
+        body=(
+            f"Hi,\n\n"
+            f"Here's your login for the {company} compliance portal.\n\n"
+            f"Sign in here: {_portal_login_url(request)}\n"
+            f"Email: {to}\n"
+            f"PIN: {temp_pin}\n\n"
+            f"Keep this PIN private. You can request a new one anytime from the login "
+            f"page using \u201cForgot PIN\u201d.\n\n"
+            f"\u2014 Origin Management Solutions\n"
+            f"info@originmanagementsolutions.com"
+        ),
+    )
+    return bool(res.get("sent")), res.get("error", "")
+
+
 # ─────────────────────────── route registration ───────────────────────────
 
 def register_portal(app) -> None:
@@ -690,6 +791,24 @@ def register_portal(app) -> None:
                         httponly=True, samesite="lax", max_age=SESSION_TTL,
                         secure=_secure(request))
         return resp
+
+    @app.post("/portal/api/forgot")
+    def portal_forgot(request: Request, body: dict = Body(...)):
+        """Self-serve PIN reset for a subcontractor/client: if the email matches an
+        account, set a fresh temp PIN and email it. Always returns a generic success
+        so we never reveal which emails exist."""
+        email = (body.get("email") or "").strip()
+        generic = {"ok": True,
+                   "message": "If that email is on file, we just sent a new PIN to it."}
+        if "@" not in email:
+            return JSONResponse(generic)
+        rec = find_by_email(email)
+        if rec:
+            temp_pin = f"{random.randint(0, 999999):06d}"
+            rec["pin_hash"] = hash_pin(rec["slug"], temp_pin)
+            save_client(rec)
+            _send_sub_login_email(request, rec, temp_pin)
+        return JSONResponse(generic)
 
     @app.post("/portal/api/signup")
     def portal_signup(request: Request, body: dict = Body(...)):
@@ -1027,6 +1146,29 @@ def register_portal(app) -> None:
             shutil.rmtree(d, ignore_errors=True)
         return {"ok": True}
 
+    @app.post("/portal/api/admin/gc/{slug}/invite")
+    def admin_invite_gc(slug: str, request: Request):
+        """Owner action: set a fresh temporary PIN for this GC and email them their
+        /gc login link. If email isn't configured, we still reset the PIN and return
+        it so the owner can pass it along by hand."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        to = (rec.get("email") or "").strip()
+        if "@" not in to:
+            return JSONResponse(
+                {"error": "This GC has no login email on file. Add one first."},
+                status_code=400)
+        temp_pin = f"{random.randint(0, 999999):06d}"
+        rec["pin_hash"] = hash_pin(slug, temp_pin)
+        save_gc(rec)
+        sent, err = _send_gc_login_email(request, rec, temp_pin)
+        return {"ok": True, "slug": slug, "to": to, "temp_pin": temp_pin,
+                "sent": sent, "email_error": err,
+                "gc_url": _gc_login_url(request)}
+
     # ---- GC login / session ----
     @app.post("/portal/api/gc/login")
     def gc_login(request: Request, body: dict = Body(...)):
@@ -1053,6 +1195,24 @@ def register_portal(app) -> None:
         resp = JSONResponse({"ok": True})
         resp.delete_cookie(GC_COOKIE)
         return resp
+
+    @app.post("/portal/api/gc/forgot")
+    def gc_forgot(request: Request, body: dict = Body(...)):
+        """Self-serve PIN reset for a GC: if the email matches a GC account, set a
+        fresh temp PIN and email it. Always returns a generic success so we never
+        reveal which emails exist."""
+        email = (body.get("email") or "").strip()
+        generic = {"ok": True,
+                   "message": "If that email is on file, we just sent a new PIN to it."}
+        if "@" not in email:
+            return JSONResponse(generic)
+        rec = find_gc_by_email(email)
+        if rec:
+            temp_pin = f"{random.randint(0, 999999):06d}"
+            rec["pin_hash"] = hash_pin(rec["slug"], temp_pin)
+            save_gc(rec)
+            _send_gc_login_email(request, rec, temp_pin)
+        return JSONResponse(generic)
 
     @app.get("/portal/api/gc/home")
     def gc_home(request: Request):

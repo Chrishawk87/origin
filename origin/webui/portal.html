@@ -118,6 +118,7 @@
     <div class="field"><label>PIN</label><input id="pin" type="password" autocomplete="current-password" placeholder="••••"></div>
     <button class="btn" onclick="doLogin()">Log In</button>
     <div class="err" id="loginErr"></div>
+    <div class="login-hint"><span class="lnk" onclick="forgotPin()">Forgot PIN?</span></div>
     <div class="login-hint">New here? <span class="lnk" onclick="showSignup()">Create an account</span></div>
     <div class="login-hint" style="opacity:.5;font-size:11px;margin-top:10px">Build 2026-08-26</div>
   </div>
@@ -198,6 +199,16 @@ function doLogin(){
   api('/portal/api/login',{method:'POST',body:{email:email,pin:pin}}).then(function(r){
     if(!r.ok){document.getElementById('loginErr').textContent=r.j.error||'Login failed';return;}
     loadMe();
+  });
+}
+function forgotPin(){
+  var email=document.getElementById('email').value.trim();
+  var el=document.getElementById('loginErr');
+  if(!email){el.textContent='Enter your email above first, then tap Forgot PIN.';return;}
+  el.textContent='';
+  api('/portal/api/forgot',{method:'POST',body:{email:email}}).then(function(r){
+    var msg=(r.j&&r.j.message)||'If that email is on file, we just sent a new PIN to it.';
+    alert(msg+'\n\nCheck your email, then log in with the new PIN.');
   });
 }
 function showSignup(){document.getElementById('loginView').style.display='none';document.getElementById('signupView').style.display='block';document.getElementById('signupErr').textContent='';}
