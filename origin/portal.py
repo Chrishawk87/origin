@@ -125,6 +125,57 @@ def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def _is_fresh(ts: str, secs: int = 6) -> bool:
+    """True if the ISO timestamp `ts` (as produced by _now) is within `secs`
+    seconds of now. Used for live 'typing…' indicators."""
+    if not ts:
+        return False
+    try:
+        t = time.mktime(time.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S"))
+        return (time.time() - t) <= secs
+    except Exception:
+        return False
+
+
+def _typing_path(dirpath: Path) -> Path:
+    return dirpath / "typing.json"
+
+
+def _set_typing(dirpath: Path, who: str) -> None:
+    """Record that `who` (owner|gc|sub) is typing right now. Stored in a tiny
+    sidecar file so keystroke pings never race with the message record."""
+    try:
+        dirpath.mkdir(parents=True, exist_ok=True)
+        p = _typing_path(dirpath)
+        d = {}
+        try:
+            d = json.loads(p.read_text())
+        except Exception:
+            d = {}
+        d[who] = _now()
+        p.write_text(json.dumps(d))
+    except Exception:
+        pass
+
+
+def _get_typing(dirpath: Path, who: str, secs: int = 6) -> bool:
+    try:
+        d = json.loads(_typing_path(dirpath).read_text())
+    except Exception:
+        return False
+    return _is_fresh(d.get(who, ""), secs)
+
+
+def _save_msgfile(dirpath: Path, upload) -> str:
+    """Store a message attachment with a short random prefix to avoid
+    collisions, and return the on-disk filename."""
+    dirpath.mkdir(parents=True, exist_ok=True)
+    orig = os.path.basename(getattr(upload, "filename", "") or "file")
+    safe = secrets.token_hex(3) + "_" + orig
+    (dirpath / safe).write_bytes(upload.file.read())
+    return safe
+
+
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
     return s or "client"
@@ -2372,16 +2423,26 @@ def register_portal(app) -> None:
     #   owner  <-> GC   : stored on the GC record ("messages"), sender owner|gc
     #   GC     <-> sub  : stored on the client record ("messages"), sender gc|sub
 
-    def _thread_out(msgs, viewer: str):
+    def _thread_out(msgs, viewer: str, seen_key: str = "", file_base: str = ""):
         """Normalise a stored thread for the client, tagging each message 'me' or
-        'them' from the viewer's perspective."""
+        'them' from the viewer's perspective. For the viewer's own messages,
+        `seen` reports whether the counterparty has read it (seen_key = that
+        party's read flag). Attachments are returned with ready-to-use URLs."""
         out = []
         for m in msgs or []:
+            mine = m.get("sender") == viewer
+            atts = []
+            for a in (m.get("attachments") or []):
+                fn = a.get("file", "")
+                atts.append({"name": a.get("name", fn),
+                             "url": (file_base + fn) if (file_base and fn) else ""})
             out.append({
                 "body": m.get("body", ""),
                 "ts": m.get("ts", ""),
                 "sender": m.get("sender", ""),
-                "mine": m.get("sender") == viewer,
+                "mine": mine,
+                "seen": bool(m.get(seen_key)) if (mine and seen_key) else False,
+                "attachments": atts,
             })
         return out
 
@@ -2400,7 +2461,9 @@ def register_portal(app) -> None:
                 changed = True
         if changed:
             save_gc(rec)
-        return {"messages": _thread_out(rec.get("messages", []), "owner")}
+        return {"messages": _thread_out(rec.get("messages", []), "owner",
+                                        "read_gc", f"/portal/api/admin/gc/{slug}/msgfile/"),
+                "peer_typing": _get_typing(_gc_dir(slug), "gc")}
 
     @app.post("/portal/api/admin/gc/{slug}/messages")
     def owner_gc_send(slug: str, request: Request, body: dict = Body(...)):
@@ -2417,6 +2480,40 @@ def register_portal(app) -> None:
             "read_owner": True, "read_gc": False})
         save_gc(rec)
         return {"ok": True}
+
+    @app.post("/portal/api/admin/gc/{slug}/typing")
+    def owner_gc_typing(slug: str, request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        if not load_gc(slug):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        _set_typing(_gc_dir(slug), "owner")
+        return {"ok": True}
+
+    @app.post("/portal/api/admin/gc/{slug}/attach")
+    def owner_gc_attach(slug: str, request: Request,
+                        file: UploadFile = File(...), body: str = Form("")):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        safe = _save_msgfile(_gc_dir(slug) / "msgfiles", file)
+        rec.setdefault("messages", []).append({
+            "sender": "owner", "body": (body or "").strip(), "ts": _now(),
+            "read_owner": True, "read_gc": False,
+            "attachments": [{"name": os.path.basename(file.filename or safe), "file": safe}]})
+        save_gc(rec)
+        return {"ok": True}
+
+    @app.get("/portal/api/admin/gc/{slug}/msgfile/{fname}")
+    def owner_gc_msgfile(slug: str, fname: str, request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        fp = _gc_dir(slug) / "msgfiles" / os.path.basename(fname)
+        if not fp.is_file():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
 
     @app.get("/portal/api/gc/owner-messages")
     def gc_owner_messages(request: Request):
@@ -2435,7 +2532,9 @@ def register_portal(app) -> None:
                     changed = True
             if changed:
                 save_gc(rec)
-        return {"messages": _thread_out(rec.get("messages", []), "gc")}
+        return {"messages": _thread_out(rec.get("messages", []), "gc",
+                                        "read_owner", "/portal/api/gc/owner-msgfile/"),
+                "peer_typing": _get_typing(_gc_dir(slug), "owner")}
 
     @app.post("/portal/api/gc/owner-messages")
     def gc_owner_send(request: Request, body: dict = Body(...)):
@@ -2456,6 +2555,40 @@ def register_portal(app) -> None:
         save_gc(rec)
         return {"ok": True}
 
+    @app.post("/portal/api/gc/owner-typing")
+    def gc_owner_typing(request: Request):
+        gs = gc_session(request)
+        if not gs:
+            return JSONResponse({"error": "GC only"}, status_code=403)
+        _set_typing(_gc_dir(gs["slug"]), "gc")
+        return {"ok": True}
+
+    @app.post("/portal/api/gc/owner-attach")
+    def gc_owner_attach(request: Request, file: UploadFile = File(...), body: str = Form("")):
+        gs = gc_session(request)
+        if not gs:
+            return JSONResponse({"error": "GC only"}, status_code=403)
+        rec = load_gc(gs["slug"])
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        safe = _save_msgfile(_gc_dir(gs["slug"]) / "msgfiles", file)
+        rec.setdefault("messages", []).append({
+            "sender": "gc", "body": (body or "").strip(), "ts": _now(),
+            "read_owner": False, "read_gc": True,
+            "attachments": [{"name": os.path.basename(file.filename or safe), "file": safe}]})
+        save_gc(rec)
+        return {"ok": True}
+
+    @app.get("/portal/api/gc/owner-msgfile/{fname}")
+    def gc_owner_msgfile(fname: str, request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        fp = _gc_dir(slug) / "msgfiles" / os.path.basename(fname)
+        if not fp.is_file():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
+
     # ---- GC <-> sub ----
     @app.get("/portal/api/gc/sub/{sub_slug}/messages")
     def gc_sub_messages(sub_slug: str, request: Request):
@@ -2472,7 +2605,9 @@ def register_portal(app) -> None:
                 changed = True
         if changed:
             save_client(rec)
-        return {"messages": _thread_out(rec.get("messages", []), "gc")}
+        return {"messages": _thread_out(rec.get("messages", []), "gc",
+                                        "read_sub", f"/portal/api/gc/sub/{sub_slug}/msgfile/"),
+                "peer_typing": _get_typing(_client_dir(sub_slug), "sub")}
 
     @app.post("/portal/api/gc/sub/{sub_slug}/messages")
     def gc_sub_send(sub_slug: str, request: Request, body: dict = Body(...)):
@@ -2491,6 +2626,47 @@ def register_portal(app) -> None:
         save_client(rec)
         return {"ok": True}
 
+    @app.post("/portal/api/gc/sub/{sub_slug}/typing")
+    def gc_sub_typing(sub_slug: str, request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        _set_typing(_client_dir(sub_slug), "gc")
+        return {"ok": True}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/attach")
+    def gc_sub_attach(sub_slug: str, request: Request,
+                      file: UploadFile = File(...), body: str = Form("")):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        safe = _save_msgfile(_client_dir(sub_slug) / "msgfiles", file)
+        rec.setdefault("messages", []).append({
+            "sender": "gc", "body": (body or "").strip(), "ts": _now(),
+            "read_gc": True, "read_sub": False,
+            "attachments": [{"name": os.path.basename(file.filename or safe), "file": safe}]})
+        save_client(rec)
+        return {"ok": True}
+
+    @app.get("/portal/api/gc/sub/{sub_slug}/msgfile/{fname}")
+    def gc_sub_msgfile(sub_slug: str, fname: str, request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        fp = _client_dir(sub_slug) / "msgfiles" / os.path.basename(fname)
+        if not fp.is_file():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
+
     # ---- sub side of the GC<->sub thread ----
     @app.get("/portal/api/messages")
     def sub_messages(request: Request):
@@ -2507,7 +2683,9 @@ def register_portal(app) -> None:
                 changed = True
         if changed:
             save_client(rec)
-        return {"messages": _thread_out(rec.get("messages", []), "sub"),
+        return {"messages": _thread_out(rec.get("messages", []), "sub",
+                                        "read_gc", "/portal/api/msgfile/"),
+                "peer_typing": _get_typing(_client_dir(sess["slug"]), "gc"),
                 "gc_slug": rec.get("gc_slug", "")}
 
     @app.post("/portal/api/messages")
@@ -2526,6 +2704,41 @@ def register_portal(app) -> None:
             "read_gc": False, "read_sub": True})
         save_client(rec)
         return {"ok": True}
+
+    @app.post("/portal/api/typing")
+    def sub_typing(request: Request):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        _set_typing(_client_dir(sess["slug"]), "sub")
+        return {"ok": True}
+
+    @app.post("/portal/api/attach")
+    def sub_attach(request: Request,
+                   file: UploadFile = File(...), body: str = Form("")):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        safe = _save_msgfile(_client_dir(sess["slug"]) / "msgfiles", file)
+        rec.setdefault("messages", []).append({
+            "sender": "sub", "body": (body or "").strip(), "ts": _now(),
+            "read_gc": False, "read_sub": True,
+            "attachments": [{"name": os.path.basename(file.filename or safe), "file": safe}]})
+        save_client(rec)
+        return {"ok": True}
+
+    @app.get("/portal/api/msgfile/{fname}")
+    def sub_msgfile(fname: str, request: Request):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        fp = _client_dir(sess["slug"]) / "msgfiles" / os.path.basename(fname)
+        if not fp.is_file():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
 
     # ===================== LOGOS =====================
     def _save_logo(dirpath: Path, upload) -> str:

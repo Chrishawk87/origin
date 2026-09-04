@@ -93,6 +93,16 @@
   .bub .t{display:block;font-size:10.5px;opacity:.7;margin-top:3px}
   .composer{display:flex;gap:8px;padding:13px 16px;border-top:1px solid var(--line)}
   .composer input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#f8fafc;font-size:13.5px;font-family:inherit}
+  .clip{border:1px solid var(--line);background:#f8fafc;border-radius:9px;padding:0 11px;cursor:pointer;font-size:17px;color:var(--muted)}
+  .clip:hover{color:var(--ink)}
+  .bub .seen{display:block;font-size:10px;opacity:.85;margin-top:2px;font-weight:600}
+  .bub .att{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.08);color:inherit;text-decoration:none;font-size:12.5px;font-weight:600}
+  .bub.me .att{background:rgba(255,255,255,.22)}
+  .bub .att:hover{text-decoration:underline}
+  .typing{padding:2px 20px 6px;font-size:12px;color:var(--muted);font-style:italic;min-height:16px}
+  .typing .dots span{display:inline-block;width:5px;height:5px;margin-left:2px;border-radius:50%;background:var(--muted);animation:tb 1s infinite}
+  .typing .dots span:nth-child(2){animation-delay:.2s}.typing .dots span:nth-child(3){animation-delay:.4s}
+  @keyframes tb{0%,60%,100%{opacity:.25}30%{opacity:1}}
   .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 10px}
 
   /* ── shared two-pane board (matches GC console) ── */
@@ -261,8 +271,11 @@
     <button class="x" onclick="closeGcDrawer()">×</button>
   </div>
   <div class="thread" id="gcThread"></div>
+  <div class="typing" id="gcTyping"></div>
   <div class="composer">
-    <input id="gcInput" placeholder="Message this GC…" onkeydown="if(event.key==='Enter')sendGcThread()">
+    <input type="file" id="gcFile" style="display:none" onchange="attachGc()">
+    <button class="clip" title="Attach a document" onclick="document.getElementById('gcFile').click()">📎</button>
+    <input id="gcInput" placeholder="Message this GC…" oninput="pingGcTyping()" onkeydown="if(event.key==='Enter')sendGcThread()">
     <button class="btn orange sm" onclick="sendGcThread()">Send</button>
   </div>
 </div>
@@ -377,30 +390,56 @@ function delGc(slug,name){
   });
 }
 // owner <-> GC message drawer
+var GC_POLL=null,GC_TYPING_TS=0,GC_LAST_SIG='';
+function msgSig(msgs){return msgs.map(function(m){return (m.ts||'')+(m.seen?'1':'0')+((m.attachments||[]).length);}).join('|');}
+function attHtml(m){return (m.attachments||[]).map(function(a){
+  return '<a class="att" href="'+esc(a.url)+'" target="_blank" rel="noopener">📄 '+esc(a.name)+'</a>';}).join('');}
 function openGcThread(slug,name){
   GC_CUR=slug;
   document.getElementById('gcdName').textContent=name;
   document.getElementById('gcDrawer').classList.add('open');
   document.getElementById('gcInput').value='';
+  document.getElementById('gcTyping').innerHTML='';
+  GC_LAST_SIG='';
   loadGcThread();
+  if(GC_POLL)clearInterval(GC_POLL);
+  GC_POLL=setInterval(function(){loadGcThread(true);},2500);
 }
-function closeGcDrawer(){document.getElementById('gcDrawer').classList.remove('open');GC_CUR='';loadGcs();}
-function loadGcThread(){
+function closeGcDrawer(){document.getElementById('gcDrawer').classList.remove('open');GC_CUR='';if(GC_POLL){clearInterval(GC_POLL);GC_POLL=null;}loadGcs();}
+function loadGcThread(silent){
   if(!GC_CUR)return;
   api('/portal/api/admin/gc/'+GC_CUR+'/messages').then(function(r){
+    if(!GC_CUR)return;
     var msgs=(r.j.messages||[]);var th=document.getElementById('gcThread');
+    document.getElementById('gcTyping').innerHTML=r.j.peer_typing?'<span>Typing</span><span class="dots"><span></span><span></span><span></span></span>':'';
+    var sig=msgSig(msgs)+(r.j.peer_typing?'T':'');
+    if(silent&&sig===GC_LAST_SIG)return;   // nothing changed, don't disturb scroll
+    GC_LAST_SIG=sig;
     if(!msgs.length){th.innerHTML='<div class="empty">No messages yet. Say hello — this thread is shared with the GC when they log in at /gc.</div>';return;}
     th.innerHTML=msgs.map(function(m){
-      return '<div class="bub '+(m.mine?'me':'them')+'">'+esc(m.body)+'<span class="t">'+esc(fmtTs(m.ts))+'</span></div>';
+      var seen=m.mine?('<span class="seen">'+(m.seen?'✓✓ Seen':'✓ Sent')+'</span>'):'';
+      return '<div class="bub '+(m.mine?'me':'them')+'">'+(m.body?esc(m.body):'')+attHtml(m)+'<span class="t">'+esc(fmtTs(m.ts))+'</span>'+seen+'</div>';
     }).join('');
     th.scrollTop=th.scrollHeight;
   });
+}
+function pingGcTyping(){
+  if(!GC_CUR)return;var now=Date.now();if(now-GC_TYPING_TS<2200)return;GC_TYPING_TS=now;
+  api('/portal/api/admin/gc/'+GC_CUR+'/typing',{method:'POST'});
 }
 function sendGcThread(){
   var inp=document.getElementById('gcInput');var body=inp.value.trim();if(!body||!GC_CUR)return;
   inp.value='';
   api('/portal/api/admin/gc/'+GC_CUR+'/messages',{method:'POST',body:{body:body}}).then(function(r){
     if(!r.ok){alert((r.j&&r.j.error)||'Send failed');inp.value=body;return;}loadGcThread();
+  });
+}
+function attachGc(){
+  var fi=document.getElementById('gcFile');if(!fi.files||!fi.files[0]||!GC_CUR)return;
+  var fd=new FormData();fd.append('file',fi.files[0]);fd.append('body',document.getElementById('gcInput').value.trim());
+  fi.value='';document.getElementById('gcInput').value='';
+  api('/portal/api/admin/gc/'+GC_CUR+'/attach',{method:'POST',body:fd}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Upload failed');return;}loadGcThread();
   });
 }
 function fmtTs(ts){if(!ts)return '';try{var d=new Date(ts);if(isNaN(d))return '';return d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}

@@ -102,8 +102,19 @@
   .bub.me{background:var(--orange);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
   .bub .t{display:block;font-size:10.5px;opacity:.72;margin-top:4px}
   .composer{display:flex;gap:9px;padding:14px 16px;border-top:1px solid var(--line)}
-  .composer input{flex:1;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:#f8fafc;font-size:13.5px;font-family:inherit}
+  .composer input[type=text],.composer input:not([type]){flex:1;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:#f8fafc;font-size:13.5px;font-family:inherit}
   .composer .btn{width:auto;padding:11px 18px}
+  .composer .clip{width:auto;border:none;background:none;cursor:pointer;font-size:20px;line-height:1;padding:0 4px;opacity:.75}
+  .composer .clip:hover{opacity:1}
+  .bub .seen{display:block;font-size:10px;opacity:.72;margin-top:1px;text-align:right}
+  .bub .att{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.06);color:var(--ink);font-size:12.5px;font-weight:600;text-decoration:none}
+  .bub.me .att{background:rgba(255,255,255,.22);color:#fff}
+  .typing{height:16px;padding:2px 16px 0;font-size:11.5px;color:#889;display:flex;align-items:center;gap:5px}
+  .typing .dots{display:inline-flex;gap:3px}
+  .typing .dots span{width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;animation:tb 1s infinite}
+  .typing .dots span:nth-child(2){animation-delay:.15s}
+  .typing .dots span:nth-child(3){animation-delay:.3s}
+  @keyframes tb{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
   .msgempty{color:var(--muted);font-size:13px;text-align:center;padding:40px 12px}
 </style>
 </head>
@@ -281,23 +292,49 @@ function renderMessages(){
   var h='<div class="hello"><div><h2>Messages</h2>'
     +'<div class="sub">Direct line to <b>'+esc(gc.name)+'</b>, your general contractor. Ask about documents they need, upload deadlines, or prequal requirements.</div></div></div>';
   h+='<div class="msgwrap"><div class="thread" id="msgThread"><div class="msgempty">Loading\u2026</div></div>'
-    +'<div class="composer"><input id="msgInput" placeholder="Message '+esc(gc.name)+'\u2026" onkeydown="if(event.key===\'Enter\')sendMsg()">'
+    +'<div class="typing" id="msgTyping"></div>'
+    +'<div class="composer">'
+    +'<input type="file" id="msgFile" style="display:none" onchange="attachMsg()">'
+    +'<button class="clip" title="Attach a document" onclick="document.getElementById(\'msgFile\').click()">\uD83D\uDCCE</button>'
+    +'<input id="msgInput" placeholder="Message '+esc(gc.name)+'\u2026" oninput="pingTyping()" onkeydown="if(event.key===\'Enter\')sendMsg()">'
     +'<button class="btn orange" onclick="sendMsg()">Send</button></div></div>';
   document.getElementById('messages').innerHTML=h;
+  MSG_SIG='';
   loadMsgs();
+  if(MSG_POLL)clearInterval(MSG_POLL);
+  MSG_POLL=setInterval(function(){if(document.getElementById('msgThread'))loadMsgs(true);else{clearInterval(MSG_POLL);MSG_POLL=null;}},2500);
 }
 function fmtTs(ts){if(!ts)return '';try{var d=new Date(ts);if(isNaN(d))return '';return d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
-function loadMsgs(){
+var MSG_POLL=null,MSG_TYPING_TS=0,MSG_SIG='';
+function msgSig(msgs,typing){return (msgs||[]).map(function(m){return (m.ts||'')+(m.seen?'1':'0')+((m.attachments||[]).length);}).join('|')+(typing?'T':'');}
+function attHtml(m){return (m.attachments||[]).map(function(a){
+  return '<a class="att" href="'+esc(a.url)+'" target="_blank" rel="noopener">\uD83D\uDCC4 '+esc(a.name)+'</a>';}).join('');}
+function loadMsgs(silent){
   api('/portal/api/messages').then(function(r){
     var th=document.getElementById('msgThread');if(!th)return;
     var msgs=(r.j.messages||[]);
+    var tp=document.getElementById('msgTyping');if(tp)tp.innerHTML=r.j.peer_typing?'<span>Typing</span><span class="dots"><span></span><span></span><span></span></span>':'';
+    var sig=msgSig(msgs,r.j.peer_typing);
+    if(silent&&sig===MSG_SIG)return;
+    MSG_SIG=sig;
     if(!msgs.length){th.innerHTML='<div class="msgempty">No messages yet. Send the first one \u2014 '+esc((DATA.gc&&DATA.gc.name)||'your GC')+' will see it in their console.</div>';}
     else{th.innerHTML=msgs.map(function(m){
-      return '<div class="bub '+(m.mine?'me':'them')+'">'+esc(m.body)+'<span class="t">'+esc(fmtTs(m.ts))+'</span></div>';}).join('');
+      var seen=m.mine?('<span class="seen">'+(m.seen?'\u2713\u2713 Seen':'\u2713 Sent')+'</span>'):'';
+      return '<div class="bub '+(m.mine?'me':'them')+'">'+(m.body?esc(m.body):'')+attHtml(m)+'<span class="t">'+esc(fmtTs(m.ts))+'</span>'+seen+'</div>';}).join('');
       th.scrollTop=th.scrollHeight;}
     // reading clears unread — refresh the pip
     var pip=document.getElementById('msgPip');if(pip){pip.style.display='none';}
     if(DATA.gc)DATA.gc.unread=0;
+  });
+}
+function pingTyping(){var now=Date.now();if(now-MSG_TYPING_TS<2200)return;MSG_TYPING_TS=now;api('/portal/api/typing',{method:'POST'});}
+function attachMsg(){
+  var fi=document.getElementById('msgFile');if(!fi.files||!fi.files[0])return;
+  var inp=document.getElementById('msgInput');
+  var fd=new FormData();fd.append('file',fi.files[0]);fd.append('body',inp?inp.value.trim():'');
+  fi.value='';if(inp)inp.value='';
+  api('/portal/api/attach',{method:'POST',body:fd}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Upload failed');return;}loadMsgs();
   });
 }
 function sendMsg(){

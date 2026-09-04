@@ -111,7 +111,18 @@
   .bub.me{background:var(--orange);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
   .bub .t{display:block;font-size:10.5px;opacity:.7;margin-top:3px}
   .composer{display:flex;gap:8px;padding:13px 16px;border-top:1px solid var(--line)}
-  .composer input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:13.5px;font-family:inherit}
+  .composer input[type=text],.composer input:not([type]){flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:13.5px;font-family:inherit}
+  .clip{border:none;background:none;cursor:pointer;font-size:19px;line-height:1;padding:0 4px;opacity:.75}
+  .clip:hover{opacity:1}
+  .bub .seen{display:block;font-size:10px;opacity:.7;margin-top:1px;text-align:right}
+  .bub .att{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.06);color:var(--ink);font-size:12.5px;font-weight:600;text-decoration:none}
+  .bub.me .att{background:rgba(255,255,255,.22);color:#fff}
+  .typing{height:16px;padding:0 16px 4px;font-size:11.5px;color:var(--muted,#889);display:flex;align-items:center;gap:5px}
+  .typing .dots{display:inline-flex;gap:3px}
+  .typing .dots span{width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;animation:tb 1s infinite}
+  .typing .dots span:nth-child(2){animation-delay:.15s}
+  .typing .dots span:nth-child(3){animation-delay:.3s}
+  @keyframes tb{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
   @media(max-width:720px){.board{grid-template-columns:1fr}.pane{border-right:0;border-bottom:1px solid var(--paneline)}}
 </style>
 </head>
@@ -167,8 +178,11 @@
       <div class="sub">Your direct line to Origin Management Solutions for help, documents, and questions.</div></div></div>
     <div class="card" style="padding:0;overflow:hidden">
       <div class="thread" id="ownerThread" style="height:52vh"></div>
+      <div class="typing" id="ownerTyping"></div>
       <div class="composer">
-        <input id="ownerInput" placeholder="Message Origin…" onkeydown="if(event.key==='Enter')sendOwner()">
+        <input type="file" id="ownerFile" style="display:none" onchange="attachOwner()">
+        <button class="clip" title="Attach a document" onclick="$('ownerFile').click()">📎</button>
+        <input id="ownerInput" placeholder="Message Origin…" oninput="pingOwnerTyping()" onkeydown="if(event.key==='Enter')sendOwner()">
         <button class="btn orange sm" onclick="sendOwner()">Send</button>
       </div>
     </div>
@@ -260,8 +274,11 @@
     <button class="x" onclick="closeMsg()">×</button>
   </div>
   <div class="thread" id="subThread"></div>
+  <div class="typing" id="subTyping"></div>
   <div class="composer">
-    <input id="subInput" placeholder="Message this subcontractor…" onkeydown="if(event.key==='Enter')sendSub()">
+    <input type="file" id="subMsgFile" style="display:none" onchange="attachSub()">
+    <button class="clip" title="Attach a document" onclick="$('subMsgFile').click()">📎</button>
+    <input id="subInput" placeholder="Message this subcontractor…" oninput="pingSubTyping()" onkeydown="if(event.key==='Enter')sendSub()">
     <button class="btn orange sm" onclick="sendSub()">Send</button>
   </div>
 </div>
@@ -631,29 +648,64 @@ async function saveSub(){
   SEL=r.data.slug||SEL;hideAdd();await boot();
 }
 
+/* ── shared messaging helpers ── */
+function msgSig(msgs,typing){return (msgs||[]).map(m=>(m.ts||'')+(m.seen?'1':'0')+((m.attachments||[]).length)).join('|')+(typing?'T':'')}
+function attHtml(m){return (m.attachments||[]).map(a=>`<a class="att" href="${esc(q(a.url))}" target="_blank" rel="noopener">📄 ${esc(a.name)}</a>`).join('')}
+function bub(m){
+  const seen=m.mine?`<span class="seen">${m.seen?'✓✓ Seen':'✓ Sent'}</span>`:'';
+  return `<div class="bub ${m.mine?'me':'them'}">${m.body?esc(m.body):''}${attHtml(m)}<span class="t">${esc((m.ts||'').replace('T',' ').slice(0,16))}</span>${seen}</div>`;
+}
+function typingHtml(on){return on?'<span>Typing</span><span class="dots"><span></span><span></span><span></span></span>':''}
+async function apiForm(path,fd){const r=await fetch(q(path),{method:'POST',body:fd});let d={};try{d=await r.json()}catch(e){}return{ok:r.ok,data:d}}
+
 /* owner thread */
+let OWNER_POLL=null,OWNER_TYPING_TS=0,OWNER_SIG='';
 async function loadOwner(silent){
   const r=await api('/portal/api/gc/owner-messages');if(!r.ok)return;
   const msgs=r.data.messages||[];
+  $('ownerTyping').innerHTML=typingHtml(r.data.peer_typing);
+  const sig=msgSig(msgs,r.data.peer_typing);
+  if(silent&&sig===OWNER_SIG){startOwnerPoll();return}
+  OWNER_SIG=sig;
   $('ownerThread').innerHTML=msgs.map(bub).join('')||'<div class="empty">No messages yet. Say hello to Origin.</div>';
   $('ownerThread').scrollTop=$('ownerThread').scrollHeight;
   const un=msgs.filter(m=>m.sender==='owner'&&!m.mine).length;
   const pip=$('ownerPip');if(un){pip.textContent=un;pip.style.display=''}else{pip.style.display='none'}
+  startOwnerPoll();
 }
+function startOwnerPoll(){if(OWNER_POLL)return;OWNER_POLL=setInterval(()=>{if($('origin').classList.contains('page')&&$('origin').classList.contains('active'))loadOwner(true)},2500)}
 async function sendOwner(){
   const t=$('ownerInput').value.trim();if(!t)return;$('ownerInput').value='';
   await api('/portal/api/gc/owner-messages',{method:'POST',body:JSON.stringify({body:t})});loadOwner();
 }
-function bub(m){return `<div class="bub ${m.mine?'me':'them'}">${esc(m.body)}<span class="t">${esc((m.ts||'').replace('T',' ').slice(0,16))}</span></div>`}
+function pingOwnerTyping(){const now=Date.now();if(now-OWNER_TYPING_TS<2200)return;OWNER_TYPING_TS=now;api('/portal/api/gc/owner-typing',{method:'POST'})}
+async function attachOwner(){
+  const fi=$('ownerFile');if(!fi.files||!fi.files[0])return;
+  const fd=new FormData();fd.append('file',fi.files[0]);fd.append('body',$('ownerInput').value.trim());
+  fi.value='';$('ownerInput').value='';
+  const r=await apiForm('/portal/api/gc/owner-attach',fd);if(!r.ok){alert((r.data&&r.data.error)||'Upload failed');return}loadOwner();
+}
 
 /* sub message drawer */
-let MSUB=null;
-function openMsg(slug,name){MSUB=slug;$('mName').textContent=name;$('msgDrawer').classList.add('open');$('subInput').value='';loadSub()}
-function closeMsg(){$('msgDrawer').classList.remove('open');MSUB=null;boot()}
-async function loadSub(){
-  if(!MSUB)return;const r=await api('/portal/api/gc/sub/'+MSUB+'/messages');if(!r.ok)return;
-  $('subThread').innerHTML=(r.data.messages||[]).map(bub).join('')||'<div class="empty">No messages yet.</div>';
+let MSUB=null,SUB_POLL=null,SUB_TYPING_TS=0,SUB_SIG='';
+function openMsg(slug,name){MSUB=slug;$('mName').textContent=name;$('msgDrawer').classList.add('open');$('subInput').value='';$('subTyping').innerHTML='';SUB_SIG='';loadSub();if(SUB_POLL)clearInterval(SUB_POLL);SUB_POLL=setInterval(()=>loadSub(true),2500)}
+function closeMsg(){$('msgDrawer').classList.remove('open');MSUB=null;if(SUB_POLL){clearInterval(SUB_POLL);SUB_POLL=null}boot()}
+async function loadSub(silent){
+  if(!MSUB)return;const r=await api('/portal/api/gc/sub/'+MSUB+'/messages');if(!r.ok||!MSUB)return;
+  const msgs=r.data.messages||[];
+  $('subTyping').innerHTML=typingHtml(r.data.peer_typing);
+  const sig=msgSig(msgs,r.data.peer_typing);
+  if(silent&&sig===SUB_SIG)return;
+  SUB_SIG=sig;
+  $('subThread').innerHTML=msgs.map(bub).join('')||'<div class="empty">No messages yet.</div>';
   $('subThread').scrollTop=$('subThread').scrollHeight;
+}
+function pingSubTyping(){if(!MSUB)return;const now=Date.now();if(now-SUB_TYPING_TS<2200)return;SUB_TYPING_TS=now;api('/portal/api/gc/sub/'+MSUB+'/typing',{method:'POST'})}
+async function attachSub(){
+  const fi=$('subMsgFile');if(!fi.files||!fi.files[0]||!MSUB)return;
+  const fd=new FormData();fd.append('file',fi.files[0]);fd.append('body',$('subInput').value.trim());
+  fi.value='';$('subInput').value='';
+  const r=await apiForm('/portal/api/gc/sub/'+MSUB+'/attach',fd);if(!r.ok){alert((r.data&&r.data.error)||'Upload failed');return}loadSub();
 }
 async function sendSub(){
   const t=$('subInput').value.trim();if(!t||!MSUB)return;$('subInput').value='';
