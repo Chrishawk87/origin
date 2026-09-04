@@ -263,11 +263,13 @@
 <div class="drawer" id="docDrawer" style="width:min(820px,96vw)">
   <div class="dh"><div class="nm" id="docViewName">Document</div>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-      <button class="btn green sm" id="docEditBtn" style="display:none" onclick="editFromView()">Fill in details</button>
+      <button class="btn sm" id="docFillBtn" style="display:none" onclick="editFromView()">Fill in details</button>
+      <button class="btn green sm" id="docEditBtn" onclick="toggleEdit()">Edit</button>
       <button class="btn ghost sm" onclick="printDocFrame()">Print</button>
       <button class="x" onclick="closeDocView()">×</button>
     </div>
   </div>
+  <div id="docHint" style="display:none;padding:7px 16px;font-size:12px;background:#fffbe6;color:#7a5b00;border-bottom:1px solid var(--line)">Editing — click anywhere in the document and type to change it. Click <b>Save changes</b> when you\u2019re done.</div>
   <iframe id="docFrame" title="Document" style="flex:1;width:100%;border:0;background:#fff" src="about:blank"></iframe>
 </div>
 
@@ -441,13 +443,42 @@ function viewDoc(slug,file){
   VIEWSUB=slug;VIEWIDX=docs.findIndex(d=>d.file===file);
   const d=docs[VIEWIDX]||{};
   $('docViewName').textContent=d.name||'Document';
-  $('docEditBtn').style.display=(d&&d.mid)?'':'none';
+  $('docFillBtn').style.display=(d&&d.mid)?'':'none';
+  resetEditState();
   $('docFrame').src=docUrl(slug,file);
   $('docDrawer').classList.add('open');
 }
-function closeDocView(){$('docDrawer').classList.remove('open');$('docFrame').src='about:blank';VIEWSUB=null;VIEWIDX=null}
-function editFromView(){if(VIEWSUB!==null&&VIEWIDX!==null&&VIEWIDX>=0){const s=VIEWSUB,i=VIEWIDX;closeDocView();openFill(s,i)}}
+function resetEditState(){EDITING=false;const b=$('docEditBtn');if(b){b.textContent='Edit';b.disabled=false}$('docHint').style.display='none'}
+function closeDocView(){if(EDITING&&!confirm('You\u2019re still editing. Close without saving your changes?'))return;$('docDrawer').classList.remove('open');$('docFrame').src='about:blank';VIEWSUB=null;VIEWIDX=null;resetEditState()}
+function editFromView(){if(VIEWSUB!==null&&VIEWIDX!==null&&VIEWIDX>=0){const s=VIEWSUB,i=VIEWIDX;resetEditState();closeDocView();openFill(s,i)}}
 function printDocFrame(){const f=$('docFrame');if(f&&f.contentWindow){try{f.contentWindow.focus();f.contentWindow.print()}catch(e){window.open(f.src,'_blank')}}}
+/* ── in-place editing: type right into the document, then Save ── */
+let EDITING=false;
+function docFrameDoc(){const f=$('docFrame');try{return f&&f.contentDocument}catch(e){return null}}
+function toggleEdit(){if(!EDITING){startEdit()}else{saveEdit()}}
+function startEdit(){
+  const doc=docFrameDoc();
+  if(!doc||!doc.body){alert('The document is still loading \u2014 give it a second, then try Edit again.');return}
+  doc.body.contentEditable='true';
+  doc.body.style.outline='none';
+  try{doc.execCommand('styleWithCSS',false,true)}catch(e){}
+  EDITING=true;
+  $('docEditBtn').textContent='Save changes';
+  $('docHint').style.display='';
+  doc.body.focus();
+}
+async function saveEdit(){
+  if(VIEWSUB===null||VIEWIDX===null||VIEWIDX<0)return;
+  const doc=docFrameDoc();if(!doc){return}
+  if(doc.body)doc.body.contentEditable='false';
+  const html='<!doctype html>\n'+doc.documentElement.outerHTML;
+  const btn=$('docEditBtn');btn.disabled=true;btn.textContent='Saving\u2026';
+  const r=await api('/portal/api/gc/sub/'+VIEWSUB+'/doc/save-html',{method:'POST',body:JSON.stringify({index:VIEWIDX,html:html})});
+  btn.disabled=false;
+  if(r.ok){EDITING=false;btn.textContent='Edit';$('docHint').style.display='none';
+    $('docFrame').src=docUrl(VIEWSUB,r.data.file||'')+'&_t='+Date.now();}
+  else{btn.textContent='Save changes';if(doc.body)doc.body.contentEditable='true';alert(r.data.error||'Could not save your changes.')}
+}
 function printDoc(slug,file){if(!file)return;const w=window.open(docUrl(slug,file),'_blank');
   if(w){try{w.addEventListener('load',function(){try{w.focus();w.print()}catch(e){}})}catch(e){}}}
 async function editDoc(slug,index,cur){

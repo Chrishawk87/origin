@@ -1729,6 +1729,39 @@ def register_portal(app) -> None:
         save_client(rec)
         return {"ok": True, "fields": fields, "file": row["file"]}
 
+    @app.post("/portal/api/gc/sub/{sub_slug}/doc/save-html")
+    def gc_doc_save_html(sub_slug: str, request: Request, body: dict = Body(...)):
+        """Persist a GC's in-place manual edits to an HTML document. The GC edits
+        the document right in the dashboard viewer and saves; we overwrite the
+        same file so View/Print show their edits. body: {index, html}."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        try:
+            idx = int(body.get("index"))
+        except (TypeError, ValueError):
+            return JSONResponse({"error": "which document?"}, status_code=400)
+        docs = rec.get("documents", [])
+        if idx < 0 or idx >= len(docs):
+            return JSONResponse({"error": "document not found"}, status_code=404)
+        row = docs[idx]
+        fname = os.path.basename(row.get("file") or "")
+        if not fname or Path(fname).suffix.lower() not in (".html", ".htm"):
+            return JSONResponse(
+                {"error": "this document can't be edited in place"},
+                status_code=400)
+        html = body.get("html")
+        if not html or not str(html).strip():
+            return JSONResponse({"error": "nothing to save"}, status_code=400)
+        docs_dir = _client_dir(sub_slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        (docs_dir / fname).write_text(str(html), encoding="utf-8")
+        # Mark as hand-edited so a later "Fill in details" reset is a clear choice.
+        row["edited"] = _now()
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "file": fname}
+
     @app.get("/portal/api/gc/sub/{sub_slug}/doc")
     def gc_doc(sub_slug: str, request: Request, file: str = ""):
         """Serve one of the sub's document files so the GC can VIEW or PRINT it.
