@@ -199,6 +199,35 @@ def _autofill_fields(rec: Dict[str, Any]) -> Dict[str, str]:
     return fields
 
 
+def _recover_doc_mid(row: Dict[str, Any]) -> str:
+    """Find the library-master id (mid) for a document row that lost it.
+
+    Documents published before the mid wiring shipped have no ``mid`` on their
+    row, so they read as "not editable". If such a row is a template-derived
+    HTML document, match its title back to a library master so auto-fill and
+    the Fill editor light up for it again. Uploaded files (PDFs, the GC's own
+    docs) are never matched — we must not overwrite them with a template."""
+    mid = (row.get("mid") or "").strip()
+    if mid:
+        return mid
+    fname = os.path.basename(row.get("file") or "")
+    if Path(fname).suffix.lower() not in (".html", ".htm"):
+        return ""
+    if (row.get("source") or "") not in ("asset-library", "origin-draft", "origin-ai"):
+        return ""
+    title = (row.get("name") or "").strip().lower()
+    if not title:
+        return ""
+    try:
+        from . import compliance as _cmp
+        for t in _cmp.list_templates():
+            if (t.get("title") or "").strip().lower() == title:
+                return t["id"]
+    except Exception:
+        pass
+    return ""
+
+
 def _autofill_ai_enrich(rec: Dict[str, Any], fields: Dict[str, str]) -> Dict[str, str]:
     """Optional polish on top of _autofill_fields: if an LLM is configured, ask
     it to turn a bare trade keyword into a proper one-sentence scope of work and
@@ -1811,9 +1840,11 @@ def register_portal(app) -> None:
     def gc_doc_autofill(sub_slug: str, request: Request, body: dict = Body(...)):
         """One-click auto-fill: pull the company name, scope and dates the
         platform already knows about this sub (and anything the GC already filled
-        on another of the sub's documents) and, when apply=true, populate every
-        editable document at once. Returns the suggested {TOKEN: value} set.
-        body: {apply?: bool, use_ai?: bool}."""
+        on another of the sub's documents) and, when apply=true, populate the
+        chosen editable documents. Returns the suggested {TOKEN: value} set.
+        body: {apply?: bool, use_ai?: bool, indices?: [int], index?: int}.
+        When neither indices nor index is given, every editable document is
+        filled (back-compat with the "Auto-fill all" button)."""
         rec, slug, err = _gc_owned_sub(request, sub_slug)
         if err:
             return err
@@ -1824,14 +1855,34 @@ def register_portal(app) -> None:
         if not body.get("apply"):
             return {"ok": True, "fields": suggested, "applied": 0}
         from . import compliance as _cmp
+        docs = rec.get("documents", [])
+        # Work out which rows the GC asked to fill. Absent a selection, do all.
+        want = None
+        if isinstance(body.get("indices"), list):
+            want = set()
+            for i in body["indices"]:
+                try:
+                    want.add(int(i))
+                except (TypeError, ValueError):
+                    pass
+        elif body.get("index") is not None:
+            try:
+                want = {int(body["index"])}
+            except (TypeError, ValueError):
+                want = set()
         docs_dir = _client_dir(sub_slug) / "docs"
         docs_dir.mkdir(parents=True, exist_ok=True)
         applied = 0
         details = []
-        for row in rec.get("documents", []):
-            mid = row.get("mid")
+        for idx, row in enumerate(docs):
+            if want is not None and idx not in want:
+                continue
+            # Recover a lost mid from the document title so docs added before the
+            # mid wiring (gap-finder / asset-library) are still fillable.
+            mid = row.get("mid") or _recover_doc_mid(row)
             if not mid:
                 continue  # only editable library/gap docs carry tokens
+            row["mid"] = mid  # persist the recovery so future fills are instant
             # Existing values win — auto-fill never clobbers a hand-typed field.
             fields = dict(suggested)
             fields.update({k: v for k, v in (row.get("fields") or {}).items() if v})

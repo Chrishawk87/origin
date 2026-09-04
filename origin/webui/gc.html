@@ -264,6 +264,7 @@
 <div class="drawer" id="docDrawer" style="width:min(820px,96vw)">
   <div class="dh"><div class="nm" id="docViewName">Document</div>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button class="btn sm" id="docAutofillBtn" onclick="autofillView()">&#10024; Auto-fill</button>
       <button class="btn sm" id="docFillBtn" style="display:none" onclick="editFromView()">Fill in details</button>
       <button class="btn green sm" id="docEditBtn" onclick="toggleEdit()">Edit</button>
       <button class="btn ghost sm" onclick="printDocFrame()">Print</button>
@@ -455,6 +456,20 @@ function viewDoc(slug,file){
 function resetEditState(){EDITING=false;const b=$('docEditBtn');if(b){b.textContent='Edit';b.disabled=false}$('docHint').style.display='none'}
 function closeDocView(){if(EDITING&&!confirm('You\u2019re still editing. Close without saving your changes?'))return;$('docDrawer').classList.remove('open');$('docFrame').src='about:blank';VIEWSUB=null;VIEWIDX=null;resetEditState()}
 function editFromView(){if(VIEWSUB!==null&&VIEWIDX!==null&&VIEWIDX>=0){const s=VIEWSUB,i=VIEWIDX;resetEditState();closeDocView();openFill(s,i)}}
+async function autofillView(){
+  if(VIEWSUB===null||VIEWIDX===null||VIEWIDX<0)return;
+  const btn=$('docAutofillBtn');const old=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Filling\u2026'}
+  const s=VIEWSUB,i=VIEWIDX;
+  const r=await api('/portal/api/gc/sub/'+s+'/doc/autofill',{method:'POST',body:JSON.stringify({apply:true,index:i})});
+  if(btn){btn.disabled=false;btn.textContent=old}
+  if(!r.ok){alert((r.data&&r.data.error)||'Auto-fill failed.');return}
+  if(!r.data.applied){alert('This document doesn\u2019t have fill-in fields to auto-fill. Use Edit to type into it directly.');return}
+  await boot();
+  // Reload the just-filled document in place so the GC sees the values.
+  const sub=(SUBS||[]).find(x=>x.slug===s)||{};const d=(sub.documents||[])[i];
+  if(d&&d.file){VIEWSUB=s;VIEWIDX=i;resetEditState();$('docFrame').src=docUrl(s,d.file)+'&_t='+Date.now()}
+}
 function printDocFrame(){const f=$('docFrame');if(f&&f.contentWindow){try{f.contentWindow.focus();f.contentWindow.print()}catch(e){window.open(f.src,'_blank')}}}
 /* ── in-place editing: type right into the document, then Save ── */
 let EDITING=false;
