@@ -255,6 +255,7 @@
     <div class="empty">Loading…</div>
   </div>
   <div class="composer" style="justify-content:flex-end;gap:8px">
+    <button class="btn sm" onclick="autofillInto()" style="margin-right:auto">&#10024; Auto-fill</button>
     <button class="btn ghost sm" onclick="closeFill()">Cancel</button>
     <button class="btn green sm" onclick="saveFill()" id="fillSaveBtn">Save &amp; update document</button>
   </div>
@@ -416,7 +417,10 @@ function renderDetail(){
     <div class="stitle">Safety metrics</div><div class="cards">${safety}</div>
     <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
       <span>Documents on file</span>
-      <button class="btn orange sm" onclick='uploadSubDoc(${JSON.stringify(s.slug)})'>+ Upload</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn green sm" onclick='autofillAll(${JSON.stringify(s.slug)})' title="Fill company name, scope and dates into every document at once">\u2728 Auto-fill all</button>
+        <button class="btn orange sm" onclick='uploadSubDoc(${JSON.stringify(s.slug)})'>+ Upload</button>
+      </div>
     </div>${onFileHtml}
     <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
       <span>Required for their trade${scope?(' · '+esc(scope)):''}</span>
@@ -521,6 +525,23 @@ async function openFill(slug,index){
   $('fillDrawer').classList.add('open');
 }
 function closeFill(){$('fillDrawer').classList.remove('open')}
+/* ✨ one-click auto-fill: populate the drawer inputs from what we already know */
+async function autofillInto(){
+  const r=await api('/portal/api/gc/sub/'+FILLSUB+'/doc/autofill',{method:'POST',body:JSON.stringify({apply:false})});
+  if(!r.ok){alert(r.data.error||'Could not auto-fill.');return}
+  const f=r.data.fields||{};let n=0;
+  FILLFIELDS.forEach(fl=>{const el=$('fill_'+fl.token);if(el&&f[fl.token]&&!el.value.trim()){el.value=f[fl.token];n++}});
+  if(!n)alert('Everything we can auto-fill is already filled in. Add a scope on the sub (Edit sub) to auto-fill more.');
+}
+/* ✨ fill company name, scope and dates into EVERY editable document at once */
+async function autofillAll(slug){
+  if(!confirm('Auto-fill company name, scope and dates into every editable document for this sub? Anything you\u2019ve already typed is kept.'))return;
+  const r=await api('/portal/api/gc/sub/'+slug+'/doc/autofill',{method:'POST',body:JSON.stringify({apply:true})});
+  if(!r.ok){alert(r.data.error||'Could not auto-fill.');return}
+  const n=r.data.applied||0;
+  alert(n?('Auto-filled '+n+' document'+(n===1?'':'s')+'. Open any one to review or edit.'):'No editable documents yet. Publish programs from the gap finder or asset library first, then auto-fill.');
+  await boot();
+}
 async function saveFill(){
   if(FILLSUB===null||FILLIDX===null)return;
   const fields={};FILLFIELDS.forEach(f=>{const el=$('fill_'+f.token);if(el)fields[f.token]=el.value.trim()});

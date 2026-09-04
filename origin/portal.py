@@ -167,6 +167,84 @@ def _render_library_doc(mid: str, fields: Optional[dict]):
     return _cmp.wrap_document(html, title), title
 
 
+def _autofill_fields(rec: Dict[str, Any]) -> Dict[str, str]:
+    """Build a best-guess {TOKEN: value} set for a sub from what the platform
+    already knows — so the GC fills every document with one click instead of
+    typing the same company details into each one.
+
+    Priority (never overwrites a stronger source with a weaker one):
+      1. Values the GC already filled on ANY of this sub's documents. Fill one,
+         and the rest inherit it — this is the biggest win and needs no AI.
+      2. The sub's own profile: company name, scope/trade, today's date.
+    Returns only tokens we have a value for; unknown ones are simply omitted so
+    the GC can still type them by hand.
+    """
+    import time as _t
+    fields: Dict[str, str] = {}
+    valid = {t for t, _ in _LIB_DOC_FIELDS}
+    # 1. propagate anything already filled elsewhere on this sub
+    for d in rec.get("documents", []):
+        for k, v in (d.get("fields") or {}).items():
+            if k in valid and v and not fields.get(k):
+                fields[k] = str(v).strip()
+    # 2. deterministic facts from the sub's profile
+    company = (rec.get("company") or "").strip()
+    if company and not fields.get("COMPANY_NAME"):
+        fields["COMPANY_NAME"] = company
+    scope_src = (rec.get("scope") or rec.get("trade") or "").strip()
+    if scope_src and not fields.get("SCOPE"):
+        fields["SCOPE"] = scope_src
+    if not fields.get("EFFECTIVE_DATE"):
+        fields["EFFECTIVE_DATE"] = _t.strftime("%Y-%m-%d")
+    return fields
+
+
+def _autofill_ai_enrich(rec: Dict[str, Any], fields: Dict[str, str]) -> Dict[str, str]:
+    """Optional polish on top of _autofill_fields: if an LLM is configured, ask
+    it to turn a bare trade keyword into a proper one-sentence scope of work and
+    to suggest a sensible administrator title. Purely additive — it only fills
+    tokens still missing or weak, never overwrites known-good values, and any
+    failure (no API key, network, bad JSON) is swallowed so auto-fill always
+    works without AI."""
+    try:
+        need_scope = len((fields.get("SCOPE") or "").split()) < 4
+        need_title = not fields.get("ADMIN_TITLE")
+        if not (need_scope or need_title):
+            return fields
+        from .config import load_config
+        from .llm import build_provider
+        provider = build_provider(load_config().llm)
+        company = fields.get("COMPANY_NAME") or rec.get("company") or "the company"
+        trade = (rec.get("trade") or rec.get("scope") or "").strip() or "general contracting"
+        prompt = (
+            "You are helping fill a workplace-safety program document for a "
+            "subcontractor. Return ONLY a compact JSON object (no prose, no code "
+            "fences) with any of these string keys you can reasonably infer:\n"
+            '  "SCOPE"       - one plain-English sentence describing the work '
+            f"{company} performs, based on their trade: \"{trade}\".\n"
+            '  "ADMIN_TITLE" - the job title of whoever administers safety at a '
+            "company like this (e.g. \"Safety Manager\", \"Owner\").\n"
+            "Do not invent a person's name, address, or date. Keep values short."
+        )
+        msgs = [{"role": "user", "content": prompt}]
+        raw = (provider.complete(msgs, []).text or "").strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`")
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw
+        start, end = raw.find("{"), raw.rfind("}")
+        if start >= 0 and end > start:
+            data = json.loads(raw[start:end + 1])
+            valid = {t for t, _ in _LIB_DOC_FIELDS}
+            if need_scope and isinstance(data.get("SCOPE"), str) and data["SCOPE"].strip():
+                fields["SCOPE"] = data["SCOPE"].strip()
+            if need_title and isinstance(data.get("ADMIN_TITLE"), str) and data["ADMIN_TITLE"].strip():
+                fields["ADMIN_TITLE"] = data["ADMIN_TITLE"].strip()
+            fields = {k: v for k, v in fields.items() if k in valid and v}
+    except Exception:
+        pass
+    return fields
+
+
 def _b64e(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).decode().rstrip("=")
 
@@ -1728,6 +1806,51 @@ def register_portal(app) -> None:
         rec["updated"] = _now()
         save_client(rec)
         return {"ok": True, "fields": fields, "file": row["file"]}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/doc/autofill")
+    def gc_doc_autofill(sub_slug: str, request: Request, body: dict = Body(...)):
+        """One-click auto-fill: pull the company name, scope and dates the
+        platform already knows about this sub (and anything the GC already filled
+        on another of the sub's documents) and, when apply=true, populate every
+        editable document at once. Returns the suggested {TOKEN: value} set.
+        body: {apply?: bool, use_ai?: bool}."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        suggested = _autofill_fields(rec)
+        # AI polish is on by default but degrades silently when no LLM is set up.
+        if body.get("use_ai", True):
+            suggested = _autofill_ai_enrich(rec, suggested)
+        if not body.get("apply"):
+            return {"ok": True, "fields": suggested, "applied": 0}
+        from . import compliance as _cmp
+        docs_dir = _client_dir(sub_slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        applied = 0
+        details = []
+        for row in rec.get("documents", []):
+            mid = row.get("mid")
+            if not mid:
+                continue  # only editable library/gap docs carry tokens
+            # Existing values win — auto-fill never clobbers a hand-typed field.
+            fields = dict(suggested)
+            fields.update({k: v for k, v in (row.get("fields") or {}).items() if v})
+            doc_html, title = _render_library_doc(mid, fields)
+            if not doc_html:
+                continue
+            fname = os.path.basename(row.get("file") or "")
+            if not fname or Path(fname).suffix.lower() not in (".html", ".htm"):
+                fname = _cmp.safe_filename(title or row.get("name") or "document"
+                                          ).rsplit(".", 1)[0] + ".html"
+            (docs_dir / fname).write_text(doc_html, encoding="utf-8")
+            row["file"] = fname
+            row["fields"] = fields
+            applied += 1
+            details.append({"name": row.get("name") or title, "file": fname})
+        if applied:
+            rec["updated"] = _now()
+            save_client(rec)
+        return {"ok": True, "fields": suggested, "applied": applied, "docs": details}
 
     @app.post("/portal/api/gc/sub/{sub_slug}/doc/save-html")
     def gc_doc_save_html(sub_slug: str, request: Request, body: dict = Body(...)):
