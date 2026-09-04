@@ -1617,5 +1617,15 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _abate_exc:  # pragma: no cover
         print(f"[abatement] disabled — registration failed: {_abate_exc}")
 
+    # ── Multi-tenant PLATFORM foundation (Phase 1: roles, auth, AI wall) ──
+    # New Postgres-backed white-label backbone. Fully isolated: its own modules,
+    # own tables, own /platform routes. The AI owner-only wall stays OFF until
+    # PLATFORM_AI_WALL=1 is set, so registering it changes nothing today.
+    try:
+        from . import platform_auth as _platform
+        _platform.register_platform(app)
+    except Exception as _platform_exc:  # pragma: no cover
+        print(f"[platform] disabled — registration failed: {_platform_exc}")
+
     app.state.engine = eng
     return app

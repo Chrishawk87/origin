@@ -12,3 +12,5 @@ openai>=1.40
 mammoth
 xhtml2pdf
 markdown>=3.5          # convert program-template markdown bodies to HTML
+sqlalchemy>=2.0        # multi-tenant platform data layer (Phase 1 foundation)
+psycopg[binary]>=3.1   # Postgres driver for the platform database on Railway

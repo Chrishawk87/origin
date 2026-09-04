@@ -1,0 +1,6 @@
+company,employees,trade,naics,authority,state,city,address,zip,penalty,citations,violation_types,issued,activity_nr,osha_url
+JUAN GARZA,2,HVAC_Mechanical_Plumbing,238220,Federal OSHA,TX,CYPRESS,9210 OCEAN ONYX,77433,14186.0,3,Serious,2026-06-09T00:00:00,348786500,https://www.osha.gov/ords/imis/establishment.inspection_detail?id=348786500
+DONALD CLAIBORNE,3,HVAC_Mechanical_Plumbing,238220,Federal OSHA,TX,HOUSTON,4303 HOWCHER STREET,77047,7448.0,3,Serious,2026-05-19T00:00:00,348615725,https://www.osha.gov/ords/imis/establishment.inspection_detail?id=348615725
+"TDINDUSTRIES, INC.",22,HVAC_Mechanical_Plumbing,238220,Federal OSHA,TX,HOUSTON,17795 JOHN F KENNEDY BLVD.,77032,14470.0,4,Serious,2026-05-18T00:00:00,348640756,https://www.osha.gov/ords/imis/establishment.inspection_detail?id=348640756
+PEDRAZA A.C. LLC,1,HVAC_Mechanical_Plumbing,238220,Federal OSHA,TX,HOUSTON,13455 CUTTEN RD SUITE 1E,77069,4965.0,2,Serious,2026-05-08T00:00:00,348642349,https://www.osha.gov/ords/imis/establishment.inspection_detail?id=348642349
+"A & L BUILDING SOLUTIONS, INC.",5,HVAC_Mechanical_Plumbing,238220,Federal OSHA,TX,HOUSTON,1319 TEXAS AVE.,77002,15888.0,4,Serious,2026-04-02T00:00:00,348539222,https://www.osha.gov/ords/imis/establishment.inspection_detail?id=348539222

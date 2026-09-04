@@ -1,0 +1,3 @@
+company,employees,trade,naics,authority,state,city,address,zip,penalty,citations,violation_types,issued,activity_nr,osha_url
+"S. HOLCOMB ENTERPRISES, INC.",5,Oil_and_Gas,213112,Federal OSHA,TX,HOUSTON,10729 CHICKADEE LN,77048,7944.0,2,Serious,2026-04-30T00:00:00,348592593,https://www.osha.gov/ords/imis/establishment.inspection_detail?id=348592593
+"PREFERRED INDUSTRIAL CONTRACTORS, INC.",3,Oil_and_Gas,237120,Federal OSHA,TX,HOUSTON,12000 LAWNDALE ST,77017,6385.0,1,Other,2025-11-25T00:00:00,348502402,https://www.osha.gov/ords/imis/establishment.inspection_detail?id=348502402
