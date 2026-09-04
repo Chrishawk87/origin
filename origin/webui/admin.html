@@ -94,6 +94,50 @@
   .composer{display:flex;gap:8px;padding:13px 16px;border-top:1px solid var(--line)}
   .composer input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#f8fafc;font-size:13.5px;font-family:inherit}
   .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 10px}
+
+  /* ── shared two-pane board (matches GC console) ── */
+  :root{--pane:#1C1F24;--pane2:#23272e;--paneline:#33383f;--panetext:#e7ebef;--panemuted:#9aa4ae}
+  .themebtn{font-size:12.5px;color:#e6c6b6;cursor:pointer;border:1px solid rgba(255,255,255,.3);padding:5px 10px;border-radius:7px;background:none;font-family:inherit}
+  main{padding:0}
+  .pagewrap{max-width:1080px;margin:0 auto;padding:22px 20px 70px}
+  .board{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 147px)}
+  .pane{background:var(--pane);color:var(--panetext);border-right:1px solid var(--paneline);display:flex;flex-direction:column}
+  .pane .phead{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px}
+  .pane .phead h3{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--panemuted);font-weight:700}
+  .pane .add{background:var(--orange);color:#fff;border:0;border-radius:7px;font-size:12px;font-weight:700;padding:5px 9px;cursor:pointer}
+  .pane-search{width:100%;padding:8px 10px;border:1px solid var(--paneline);border-radius:8px;background:var(--pane2);color:var(--panetext);font-size:13px;font-family:inherit}
+  .pane-search::placeholder{color:var(--panemuted)}
+  .subs{overflow-y:auto;padding:0 10px 12px;flex:1}
+  .subrow{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1px solid transparent}
+  .subrow:hover{background:var(--pane2)}
+  .subrow.sel{background:var(--pane2);border-color:var(--orange)}
+  .subrow .av{height:34px;width:34px;border-radius:8px;background:#31363d;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#c7ced5;flex-shrink:0;object-fit:cover}
+  .subrow .nm{font-weight:700;font-size:13.5px;color:#fff}
+  .subrow .st{font-size:11.5px;margin-top:2px;color:var(--panemuted)}
+  .subrow .rdot{margin-left:auto;width:8px;height:8px;border-radius:999px;background:var(--green);flex-shrink:0}
+  .subrow .rdot.docs{background:var(--amber)}
+  .pane .empty{color:var(--panemuted)}
+  .detail{padding:22px 26px 60px;overflow-y:auto;max-height:calc(100vh - 147px)}
+  .detail .section-title:first-child{margin-top:0}
+  @media(max-width:720px){.board{grid-template-columns:1fr}.pane{border-right:0;border-bottom:1px solid var(--paneline)}.detail{max-height:none}}
+
+  /* ── dark mode (real theme flip) ── */
+  [data-theme="dark"]{
+    --ink:#e7ebef; --muted:#9aa4ae; --line:#33383f; --bg:#15181c; --card:#20242b;
+    --greenbg:#123626; --amberbg:#3a2f14; --redbg:#3a1f1a;
+  }
+  [data-theme="dark"] body{background:var(--bg);color:var(--ink)}
+  [data-theme="dark"] input.f,[data-theme="dark"] select.f,[data-theme="dark"] textarea.f,
+  [data-theme="dark"] .bar select,[data-theme="dark"] .qrow input{background:#1a1e23;color:var(--ink);border-color:var(--line)}
+  [data-theme="dark"] nav.tabs{background:#1a1e23;border-bottom-color:var(--line)}
+  [data-theme="dark"] .tab.active{color:#fff}
+  [data-theme="dark"] .toolbar{background:#1a1e23}
+  [data-theme="dark"] .req,[data-theme="dark"] .subcard,[data-theme="dark"] .card{background:var(--card);border-color:var(--line)}
+  [data-theme="dark"] .req .note{background:#1a1e23;border-left-color:var(--line)}
+  [data-theme="dark"] .x{background:var(--card);border-color:var(--line)}
+  [data-theme="dark"] .btn.ghost{background:var(--card);color:var(--ink);border-color:var(--line)}
+  [data-theme="dark"] .btn.ghost:hover{background:#2a2f37}
+  [data-theme="dark"] .platlbl,[data-theme="dark"] .word{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -112,7 +156,10 @@
 <div id="app">
   <header class="topbar"><div class="wrap">
     <div class="word">Orig<span>in</span> <span class="adminbadge">ADMIN</span></div>
-    <div class="who" onclick="adminLogout()">Sign out</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="themebtn" id="themeBtn" onclick="toggleTheme()">Dark</button>
+      <div class="who" onclick="adminLogout()">Sign out</div>
+    </div>
   </div></header>
   <div class="toolbar"><div class="wrap" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0">
     <span style="font-size:12px;color:#6b7480;margin-right:2px">Origin tools:</span>
@@ -128,20 +175,23 @@
     <div class="tab" data-page="requests" onclick="tab(this)">Document Requests <span class="pip" id="reqPip" style="display:none">0</span></div>
   </div></nav>
 
-  <main><div class="wrap">
+  <main>
     <section id="update" class="page active">
-      <div class="hello">
-        <div><h2>Update Client Status</h2><div class="sub">Type each grade and expiration date. Save publishes it to the client's portal instantly.</div></div>
-        <div class="bar">
-          <select id="clientPick" onchange="pick(this.value)"></select>
-          <button class="btn ghost sm" onclick="newClient()">+ New client</button>
-          <button class="btn ghost sm" onclick="seedTest()">Seed test client</button>
+      <div class="board">
+        <aside class="pane">
+          <div class="phead"><h3>Clients</h3><button class="add" onclick="newClient()">+ New</button></div>
+          <div style="padding:0 12px 8px"><input class="pane-search" id="clientSearch" placeholder="Search clients…" oninput="renderClientList()"></div>
+          <div class="subs" id="clientList"></div>
+          <div style="padding:10px 14px;border-top:1px solid var(--paneline)"><button class="btn ghost sm" style="width:100%" onclick="seedTest()">Seed test client</button></div>
+        </aside>
+        <div class="detail">
+          <select id="clientPick" onchange="pick(this.value)" style="display:none"></select>
+          <div id="editor"></div>
         </div>
       </div>
-      <div id="editor"></div>
     </section>
 
-    <section id="leads" class="page">
+    <section id="leads" class="page"><div class="pagewrap">
       <div class="hello">
         <div><h2>New Leads</h2><div class="sub">Captured from your free tools (citation check, grade rescue, RAVS decoder, readiness quiz), plus Lead Radar. Convert a lead to spin up their portal account and email an invite.</div></div>
         <div class="bar"><button class="btn ghost sm" onclick="loadLeads()">\u21bb Refresh</button></div>
@@ -172,13 +222,13 @@
       </div>
 
       <div id="leadList"></div>
-    </section>
+    </div></section>
 
-    <section id="requests" class="page">
+    <section id="requests" class="page"><div class="pagewrap">
       <div class="hello"><div><h2>Document Requests</h2><div class="sub">When a client requests a program, it lands here. Quote it, charge per document, then deliver.</div></div></div>
       <div id="reqList"></div>
-    </section>
-    <section id="gcs" class="page">
+    </div></section>
+    <section id="gcs" class="page"><div class="pagewrap">
       <div class="hello">
         <div><h2>General Contractors</h2><div class="sub">Each GC logs in at <b>/gc</b> to manage their own subcontractors. You can manage any of them here too, and message them directly.</div></div>
         <button class="btn orange sm" onclick="showAddGc()">+ Add GC</button>
@@ -198,10 +248,10 @@
         </div>
       </div>
       <div id="gcRoster"></div>
-    </section>
+    </div></section>
 
     <div class="foot">Origin Management Solutions · Internal Admin Console</div>
-  </div></div></main>
+  </main>
 </div>
 
 <!-- owner <-> GC message drawer -->
@@ -358,27 +408,54 @@ function tab(el){document.querySelectorAll('.tab').forEach(function(t){t.classLi
   var id=el.getAttribute('data-page');document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();if(id==='gcs')loadGcs();}
 
+var CLIENTS=[];         // roster from /portal/api/admin/clients
 function loadClients(cb){
   api('/portal/api/admin/clients').then(function(r){
     var list=(r.j.clients||[]);
+    CLIENTS=list;
     var sel=document.getElementById('clientPick');
     sel.innerHTML='<option value="">— pick a client —</option>'+list.map(function(c){
       return '<option value="'+esc(c.slug)+'">'+esc(c.company)+'</option>';}).join('');
+    renderClientList();
     if(cb)cb(list);
     else if(list.length&&!CUR){sel.value=list[0].slug;pick(list[0].slug);}
     else if(!list.length){document.getElementById('editor').innerHTML='<div class="card">No clients yet. Click <b>Seed test client</b> to create a sample, or <b>+ New client</b>.</div>';}
   });
 }
+function clientInitials(name){return (name||'?').trim().slice(0,2).toUpperCase();}
+function renderClientList(){
+  var box=document.getElementById('clientList');if(!box)return;
+  var qEl=document.getElementById('clientSearch');
+  var term=(qEl?qEl.value:'').trim().toLowerCase();
+  var list=CLIENTS.filter(function(c){return !term||(c.company||'').toLowerCase().indexOf(term)>=0||(c.email||'').toLowerCase().indexOf(term)>=0;});
+  if(!list.length){box.innerHTML='<div style="padding:16px 14px;color:var(--panemuted);font-size:13px">'+(CLIENTS.length?'No matches.':'No clients yet.')+'</div>';return;}
+  var cur=CUR&&CUR.slug?CUR.slug:'';
+  box.innerHTML=list.map(function(c){
+    var isDocs=(c.client_type==='docs');
+    var st=isDocs?'Documents':'Prequal monitoring';
+    var dotCls=c.open_requests?'rdot docs':'rdot';
+    var badge=c.open_requests?(' · <b>'+c.open_requests+'</b> open request'+(c.open_requests===1?'':'s')):'';
+    return '<div class="subrow'+(c.slug===cur?' sel':'')+'" onclick="pick(\\''+esc(c.slug)+'\\')">'
+      +'<div class="av">'+esc(clientInitials(c.company))+'</div>'
+      +'<div class="nm">'+esc(c.company||'—')+'<span class="st">'+st+badge+'</span></div>'
+      +'<span class="'+dotCls+'"></span></div>';
+  }).join('');
+}
 function pick(slug){
-  if(!slug){CUR=null;document.getElementById('editor').innerHTML='';return;}
-  api('/portal/api/admin/client/'+slug).then(function(r){if(r.ok){CUR=r.j;renderEditor();}});
+  if(!slug){CUR=null;document.getElementById('editor').innerHTML='';renderClientList();return;}
+  api('/portal/api/admin/client/'+slug).then(function(r){if(r.ok){CUR=r.j;var sel=document.getElementById('clientPick');if(sel)sel.value=slug;renderEditor();renderClientList();}});
 }
 function newClient(){CUR={slug:'',company:'',email:'',client_type:'prequal',plan:'Professional',
   platforms:{isnetworld:{label:'ISNetworld',grade:'',status:'Compliant'},avetta:{label:'Avetta',grade:'',status:'Compliant'},pec:{label:'PEC Premier',grade:'',status:'Green'},veriforce:{label:'Veriforce',grade:'',status:'Active'}},
   coi:[],documents:[],available:[],pin_set:false};
-  document.getElementById('clientPick').value='';renderEditor();}
+  document.getElementById('clientPick').value='';renderEditor();renderClientList();}
 function seedTest(){api('/portal/api/admin/seed',{method:'POST'}).then(function(r){
   if(r.ok){alert('Test client created.\\nLogin: '+r.j.login.email+' / PIN '+r.j.login.pin);CUR=null;loadClients();}});}
+
+// ─────────────── Theme toggle ───────────────
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);var b=document.getElementById('themeBtn');if(b)b.textContent=(t==='dark'?'Light':'Dark');}
+function toggleTheme(){var n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';applyTheme(n);try{window.name='origin-theme:'+n;}catch(e){}}
+(function(){try{var m=(window.name||'');if(m.indexOf('origin-theme:')===0){applyTheme(m.slice(13));}}catch(e){}})();
 
 var STAT_PREQ=['Compliant','Action needed','Not compliant'],STAT_GREEN=['Green','Yellow','Red'],STAT_ACT=['Active','Pending','Inactive'];
 function opts(list,cur){return list.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('');}
