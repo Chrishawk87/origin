@@ -265,6 +265,7 @@ function renderGcRoster(){
     return '<div class="subcard">'+logo+
       '<div><div class="nm">'+esc(g.name)+'</div><div class="meta">'+esc(g.email||'no login email')+' · '+subLbl+'</div></div>'+
       '<div class="sp"></div>'+
+      '<button class="btn orange sm" onclick="openGcBoard(\''+esc(g.slug)+'\')">Open dashboard</button> '+
       '<button class="btn sm" onclick="openGcThread(\''+esc(g.slug)+'\',\''+esc(g.name).replace(/'/g,"\\'")+'\')">Message'+unread+'</button> '+
       '<button class="btn sm" onclick="inviteGc(\''+esc(g.slug)+'\')">Email login</button> '+
       '<button class="btn sm" onclick="editGc(\''+esc(g.slug)+'\')">Edit</button> '+
@@ -293,10 +294,20 @@ function saveGc(){
   var slug=val('g_slug');if(slug)body.slug=slug;
   api('/portal/api/admin/gc',{method:'POST',body:body}).then(function(r){
     if(!r.ok){alert((r.j&&r.j.error)||'Save failed');return;}
+    var d=r.j||{};
     var s=document.getElementById('gcSaved');if(s){s.classList.add('show');setTimeout(function(){s.classList.remove('show');},2500);}
+    // On a brand-new GC, tell Chris whether the login email actually went out.
+    if(d.is_new){
+      if(d.invited){alert('GC created. Login link + PIN emailed to '+val('g_email')+'.');}
+      else if((val('g_email')||'').indexOf('@')>-1){
+        alert('GC created, but the login email did not send.\n'+((d.invite_error)||'Email may be off (no RESEND_API_KEY).')+
+              '\n\nGive them this link + PIN yourself:\n'+(d.gc_url||'/gc')+'\nPIN: '+(d.temp_pin||'(set one via Edit)'));
+      }
+    }
     hideAddGc();loadGcs();
   });
 }
+function openGcBoard(slug){window.open('/gc?gc='+encodeURIComponent(slug),'_blank');}
 function inviteGc(slug){
   var g=GCS.filter(function(x){return x.slug===slug;})[0];
   if(g&&!(g.email||'').trim()){alert('Add a login email for this GC first (Edit), then email their login.');return;}

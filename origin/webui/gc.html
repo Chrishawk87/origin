@@ -3,21 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Origin — General Contractor Console</title>
+<title>Origin — Contractor Monitoring</title>
 <style>
   :root{
     --charcoal:#1C1F24; --charcoal2:#2a2e35; --orange:#E8551F; --orange2:#F2712F;
     --ink:#2B2F36; --muted:#6B7280; --line:#E3E6EA; --bg:#F2F0EE; --card:#fff;
-    --green:#1E7A46; --greenbg:#e7f4ec; --amber:#B7791F; --red:#C8461A; --redbg:#fbe9e7;
+    --green:#1E7A46; --greenbg:#e7f4ec; --amber:#B7791F; --amberbg:#fbf3e2;
+    --red:#C8461A; --redbg:#fbe9e7;
+    --pane:#1C1F24; --pane2:#23272e; --paneline:#33383f; --panetext:#e7ebef; --panemuted:#9aa4ae;
     --shadow:0 1px 3px rgba(20,25,30,.08),0 6px 20px rgba(20,25,30,.06);
-  }
-  html[data-theme="dark"]{
-    --ink:#e8efea; --muted:#93a49b; --line:#2c333a; --bg:#12151a; --card:#1a1e24;
-    --charcoal:#0d0f12; --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
   .hidden{display:none !important}
   .word{font-weight:800;font-size:18px;color:var(--charcoal)}.word span{color:var(--orange)}
   #login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#1C1F24,#0d0f12);padding:24px}
@@ -29,27 +26,71 @@
   .field input{width:100%;padding:10px 11px;border:1px solid #E3E6EA;border-radius:8px;font-size:13.5px;background:#f8fafc;font-family:inherit}
   .btn{background:var(--charcoal);color:#fff;border:0;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer}
   .btn:hover{background:var(--charcoal2)}.btn.orange{background:var(--orange)}.btn.orange:hover{background:var(--orange2)}
+  .btn.green{background:var(--green)}.btn.green:hover{background:#155e35}
   .btn.ghost{background:var(--card);color:var(--muted);border:1px solid var(--line)}
   .btn.sm{padding:7px 12px;font-size:12.5px}
   .err{color:var(--red);font-size:13px;margin-top:10px;min-height:16px}
   #app{display:none}
   header.topbar{background:var(--charcoal);color:#fff}
-  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+  .topbar .inner{display:flex;align-items:center;justify-content:space-between;height:58px;padding:0 22px}
   .topbar .brand{display:flex;align-items:center;gap:11px}
   .topbar .brand img{height:34px;width:34px;border-radius:7px;object-fit:cover;background:#fff}
   .topbar .brand .nm{font-weight:800;font-size:16px}
   .topbar .brand .tag{font-size:11px;color:#e6c6b6}
   .topctl{display:flex;align-items:center;gap:8px}
   .who{font-size:12.5px;color:#e6c6b6;cursor:pointer;border:1px solid rgba(255,255,255,.3);padding:5px 10px;border-radius:7px}
-  nav.tabs{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-  nav.tabs .wrap{display:flex;gap:4px}
-  .tab{padding:13px 16px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+  .ownerbar{background:var(--amberbg);color:var(--amber);font-size:12.5px;font-weight:600;text-align:center;padding:6px 12px;border-bottom:1px solid var(--line)}
+  nav.tabs{background:var(--card);border-bottom:1px solid var(--line)}
+  nav.tabs .inner{display:flex;gap:4px;padding:0 22px}
+  .tab{padding:12px 15px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
   .tab.active{color:var(--ink);border-bottom-color:var(--orange)}
   .tab .pip{background:var(--orange);color:#fff;font-size:11px;border-radius:999px;padding:1px 7px;margin-left:6px;font-weight:700}
-  main{padding:22px 0 70px}.page{display:none}.page.active{display:block}
-  .hello{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px}
-  .hello h2{margin:0;font-size:21px}.hello .sub{color:var(--muted);font-size:13px;margin-top:4px}
-  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:22px 0 10px}
+  .page{display:none}.page.active{display:block}
+
+  /* ── monitoring two-pane ── */
+  .board{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 117px)}
+  .pane{background:var(--pane);color:var(--panetext);border-right:1px solid var(--paneline);display:flex;flex-direction:column}
+  .pane .phead{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px}
+  .pane .phead h3{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--panemuted);font-weight:700}
+  .pane .add{background:var(--orange);color:#fff;border:0;border-radius:7px;font-size:12px;font-weight:700;padding:5px 9px;cursor:pointer}
+  .subs{overflow-y:auto;padding:0 10px 16px;flex:1}
+  .subrow{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1px solid transparent}
+  .subrow:hover{background:var(--pane2)}
+  .subrow.sel{background:var(--pane2);border-color:var(--orange)}
+  .subrow .av{height:34px;width:34px;border-radius:8px;background:#31363d;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#c7ced5;flex-shrink:0;object-fit:cover}
+  .subrow .nm{font-weight:700;font-size:13.5px;color:#fff}
+  .subrow .st{font-size:11.5px;margin-top:2px}
+  .subrow .st.bad{color:#f0a58a}.subrow .st.ok{color:#8fd6ab}.subrow .st.warn{color:#e8c98c}
+  .subrow .rdot{margin-left:auto;width:8px;height:8px;border-radius:999px;background:var(--red);flex-shrink:0}
+  .subrow .rdot.ok{background:var(--green)}.subrow .rdot.warn{background:var(--amber)}
+  .detail{padding:22px 26px 60px;overflow-y:auto}
+  .dhead{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .dhead h2{margin:0;font-size:22px}
+  .dhead .scope{color:var(--muted);font-size:13px;margin-top:4px}
+  .dhead .sp{flex:1}
+  .abadge{font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px;background:var(--redbg);color:var(--red)}
+  .abadge.ok{background:var(--greenbg);color:var(--green)}
+  .stitle{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:26px 0 11px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .mcard{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:15px 16px}
+  .mcard .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+  .mcard .v{font-size:26px;font-weight:800;margin-top:6px;line-height:1}
+  .mcard .pill{display:inline-block;margin-top:9px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--greenbg);color:var(--green)}
+  .mcard .pill.bad{background:var(--redbg);color:var(--red)}
+  .mcard .pill.warn{background:var(--amberbg);color:var(--amber)}
+  .grade-F,.grade-D{color:var(--red)}.grade-A,.grade-B{color:var(--green)}.grade-C{color:var(--amber)}
+  .docrow{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);padding:13px 15px;margin-bottom:9px}
+  .docrow .dn{font-weight:700;font-size:14px}
+  .docrow .ds{font-size:12px;color:var(--muted);margin-top:2px}
+  .docrow .sp{flex:1}
+  .tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
+  .tag.miss{background:var(--redbg);color:var(--red)}.tag.exp{background:var(--amberbg);color:var(--amber)}
+  .scopenote{color:var(--muted);font-size:12px;margin-top:16px;padding:12px 14px;background:var(--card);border:1px dashed var(--line);border-radius:10px}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:40px 10px}
+  .pane .empty{color:var(--panemuted)}
+
+  /* generic cards/forms (add sub, branding, messages) */
+  .wrap{max-width:1080px;margin:0 auto;padding:22px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:18px}
   label.lbl{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
   input.f,select.f,textarea.f{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--bg);color:var(--ink);font-family:inherit}
@@ -57,20 +98,13 @@
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
   .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
   .saved{color:var(--green);font-weight:700;font-size:13px;display:none}.saved.show{display:inline}
-  /* roster */
-  .subcard{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;background:var(--card);box-shadow:var(--shadow)}
-  .subcard .lg{height:40px;width:40px;border-radius:9px;object-fit:cover;background:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--muted);font-size:15px;flex-shrink:0}
-  .subcard .nm{font-weight:700;font-size:14.5px}
-  .subcard .meta{font-size:12px;color:var(--muted);margin-top:2px}
-  .subcard .sp{flex:1}
-  .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--greenbg);color:var(--green)}
-  .badge.no{background:var(--redbg);color:var(--red)}
-  .dot{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;background:var(--orange);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 5px}
-  /* drawer / chat */
+  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:0 0 10px}
+  .hello{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+  .hello h2{margin:0;font-size:21px}.hello .sub{color:var(--muted);font-size:13px;margin-top:4px}
   .drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,94vw);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .22s ease;z-index:40;display:flex;flex-direction:column}
   .drawer.open{transform:none}
-  .drawer .dhead{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
-  .drawer .dhead .nm{font-weight:800;font-size:15px}.drawer .dhead .x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:20px;border:0;background:none}
+  .drawer .dh{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .drawer .dh .nm{font-weight:800;font-size:15px}.drawer .dh .x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:20px;border:0;background:none}
   .thread{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
   .bub{max-width:82%;padding:9px 12px;border-radius:13px;font-size:13.5px;line-height:1.4}
   .bub.them{background:var(--bg);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}
@@ -78,8 +112,7 @@
   .bub .t{display:block;font-size:10.5px;opacity:.7;margin-top:3px}
   .composer{display:flex;gap:8px;padding:13px 16px;border-top:1px solid var(--line)}
   .composer input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:13.5px;font-family:inherit}
-  .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 10px}
-  .foot{color:var(--muted);font-size:12px;text-align:center;padding:24px 0 40px}
+  @media(max-width:720px){.board{grid-template-columns:1fr}.pane{border-right:0;border-bottom:1px solid var(--paneline)}}
 </style>
 </head>
 <body>
@@ -87,97 +120,99 @@
 <section id="login">
   <div class="login-card">
     <div class="word">Orig<span>in</span> <span class="gcbadge">GC</span></div>
-    <h1>General Contractor Console</h1>
-    <p>Manage your subcontractors and their compliance in one place.</p>
+    <h1>Contractor Monitoring</h1>
+    <p>Track your subcontractors' prequal grades, safety metrics, and documents in one place.</p>
     <div class="field"><label>Email</label><input id="email" type="email" placeholder="you@company.com"></div>
     <div class="field"><label>PIN</label><input id="pin" type="password" placeholder="••••"></div>
-    <button class="btn orange" onclick="login()">Log In</button>
+    <button class="btn orange" onclick="login()" style="width:100%">Log In</button>
     <div class="err" id="loginErr"></div>
     <div style="margin-top:14px"><a href="#" onclick="forgotPin();return false" style="color:#6B7280;font-size:13px;text-decoration:underline">Forgot PIN?</a></div>
   </div>
 </section>
 
 <div id="app">
-  <header class="topbar"><div class="wrap">
+  <header class="topbar"><div class="inner">
     <div class="brand">
       <img id="gcLogo" alt="" style="display:none">
-      <div><div class="nm" id="gcName">—</div><div class="tag" id="gcTag">Subcontractor management</div></div>
+      <div><div class="nm" id="gcName">—</div><div class="tag">contractor monitoring</div></div>
     </div>
     <div class="topctl">
       <button class="btn ghost sm" id="themeBtn" onclick="toggleTheme()">Dark</button>
-      <div class="who" onclick="logout()">Sign out</div>
+      <div class="who" id="signout" onclick="logout()">Sign out</div>
     </div>
   </div></header>
+  <div class="ownerbar hidden" id="ownerBar"></div>
 
-  <nav class="tabs"><div class="wrap">
-    <div class="tab active" data-page="subs" onclick="tab(this)">My Subcontractors</div>
+  <nav class="tabs"><div class="inner">
+    <div class="tab active" data-page="monitor" onclick="tab(this)">Monitoring</div>
     <div class="tab" data-page="origin" onclick="tab(this)">Messages with Origin <span class="pip" id="ownerPip" style="display:none">0</span></div>
     <div class="tab" data-page="brand" onclick="tab(this)">Branding</div>
   </div></nav>
 
-  <main><div class="wrap">
+  <!-- ── MONITORING ── -->
+  <section id="monitor" class="page active">
+    <div class="board">
+      <aside class="pane">
+        <div class="phead"><h3>Your subcontractors</h3><button class="add" onclick="showAdd()">+ Add</button></div>
+        <div class="subs" id="subList"></div>
+      </aside>
+      <div class="detail" id="detail"></div>
+    </div>
+  </section>
 
-    <section id="subs" class="page active">
-      <div class="hello">
-        <div><h2>My Subcontractors</h2><div class="sub" id="subsSub">Add the companies working under you and message them directly.</div></div>
-        <button class="btn orange sm" onclick="showAdd()">+ Add subcontractor</button>
+  <!-- ── MESSAGES WITH ORIGIN ── -->
+  <section id="origin" class="page"><div class="wrap">
+    <div class="hello"><div><h2>Messages with Origin</h2>
+      <div class="sub">Your direct line to Origin Management Solutions for help, documents, and questions.</div></div></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="thread" id="ownerThread" style="height:52vh"></div>
+      <div class="composer">
+        <input id="ownerInput" placeholder="Message Origin…" onkeydown="if(event.key==='Enter')sendOwner()">
+        <button class="btn orange sm" onclick="sendOwner()">Send</button>
       </div>
-      <div id="addBox" class="card hidden" style="margin-bottom:16px">
-        <div class="section-title" style="margin-top:0">New / edit subcontractor</div>
-        <div class="row2">
-          <div><label class="lbl">Company name</label><input class="f" id="a_company"></div>
-          <div><label class="lbl">Contact email (their login)</label><input class="f" id="a_email" type="email"></div>
-        </div>
-        <div class="row3">
-          <div><label class="lbl">Type</label>
-            <select class="f" id="a_type"><option value="prequal">Prequal-managed</option><option value="docs">Documentation</option></select></div>
-          <div><label class="lbl">Scope / trade</label><input class="f" id="a_trade" placeholder="e.g. electrical"></div>
-          <div><label class="lbl">Set login PIN (optional)</label><input class="f" id="a_pin" placeholder="4+ digits"></div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
-          <button class="btn orange sm" onclick="saveSub()">Save subcontractor</button>
-          <button class="btn ghost sm" onclick="hideAdd()">Cancel</button>
-          <span class="saved" id="subSaved">Saved</span>
-          <input type="hidden" id="a_slug">
-        </div>
-      </div>
-      <div id="roster"></div>
-    </section>
+    </div>
+  </div></section>
 
-    <section id="origin" class="page">
-      <div class="hello"><div><h2>Messages with Origin</h2>
-        <div class="sub">Your direct line to Origin Management Solutions for help, documents, and questions.</div></div></div>
-      <div class="card" style="padding:0;overflow:hidden">
-        <div class="thread" id="ownerThread" style="height:52vh"></div>
-        <div class="composer">
-          <input id="ownerInput" placeholder="Message Origin…" onkeydown="if(event.key==='Enter')sendOwner()">
-          <button class="btn orange sm" onclick="sendOwner()">Send</button>
-        </div>
+  <!-- ── BRANDING ── -->
+  <section id="brand" class="page"><div class="wrap">
+    <div class="hello"><div><h2>Branding</h2><div class="sub">Your logo appears across your console and to your subcontractors.</div></div></div>
+    <div class="card" style="max-width:460px">
+      <label class="lbl">Company logo</label>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
+        <img id="brandPreview" style="height:56px;width:56px;border-radius:11px;object-fit:cover;background:var(--bg);display:none">
+        <input type="file" id="logoFile" accept="image/*" onchange="uploadLogo()">
       </div>
-    </section>
+      <div class="hint">PNG, JPG or SVG. Square works best.</div>
+    </div>
+  </div></section>
+</div>
 
-    <section id="brand" class="page">
-      <div class="hello"><div><h2>Branding</h2><div class="sub">Your logo appears across your console and to your subcontractors.</div></div></div>
-      <div class="card" style="max-width:460px">
-        <label class="lbl">Company logo</label>
-        <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
-          <img id="brandPreview" style="height:56px;width:56px;border-radius:11px;object-fit:cover;background:var(--bg);display:none">
-          <input type="file" id="logoFile" accept="image/*" onchange="uploadLogo()">
-        </div>
-        <div class="hint">PNG, JPG or SVG. Square works best.</div>
-      </div>
-    </section>
-
-    <div class="foot">Origin Management Solutions · Subcontractor compliance, handled.</div>
-  </div></main>
+<!-- add / edit subcontractor drawer -->
+<div class="drawer" id="addDrawer">
+  <div class="dh"><div class="nm" id="addTitle">Add subcontractor</div><button class="x" onclick="hideAdd()">×</button></div>
+  <div style="padding:18px;overflow-y:auto">
+    <div style="margin-bottom:10px"><label class="lbl">Company name</label><input class="f" id="a_company"></div>
+    <div style="margin-bottom:10px"><label class="lbl">Contact email (their login)</label><input class="f" id="a_email" type="email"></div>
+    <div class="row2">
+      <div><label class="lbl">Type</label>
+        <select class="f" id="a_type"><option value="prequal">Prequal-managed</option><option value="docs">Documentation</option></select></div>
+      <div><label class="lbl">Set login PIN (optional)</label><input class="f" id="a_pin" placeholder="4+ digits"></div>
+    </div>
+    <div style="margin-bottom:10px"><label class="lbl">Scope / trade (e.g. welding &amp; hot work)</label><input class="f" id="a_trade" placeholder="drives which documents show"></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+      <button class="btn orange sm" onclick="saveSub()">Save subcontractor</button>
+      <span class="saved" id="subSaved">Saved</span>
+      <input type="hidden" id="a_slug">
+    </div>
+    <div class="hint">New subs with an email get a portal login automatically.</div>
+  </div>
 </div>
 
 <!-- sub message drawer -->
-<div class="drawer" id="drawer">
-  <div class="dhead">
-    <img id="dLogo" class="lg" style="display:none;height:34px;width:34px;border-radius:8px">
-    <div class="nm" id="dName">—</div>
-    <button class="x" onclick="closeDrawer()">×</button>
+<div class="drawer" id="msgDrawer">
+  <div class="dh">
+    <div class="nm" id="mName">—</div>
+    <button class="x" onclick="closeMsg()">×</button>
   </div>
   <div class="thread" id="subThread"></div>
   <div class="composer">
@@ -188,8 +223,14 @@
 
 <script>
 const $=id=>document.getElementById(id);
-async function api(path,opts){const r=await fetch(path,Object.assign({headers:{'Content-Type':'application/json'}},opts||{}));let d={};try{d=await r.json()}catch(e){}return{ok:r.ok,status:r.status,data:d}}
+const GCQ=new URLSearchParams(location.search).get('gc');           // owner acting for a GC
+function q(p){return GCQ?(p+(p.includes('?')?'&':'?')+'gc='+encodeURIComponent(GCQ)):p}
+async function api(path,opts){const r=await fetch(q(path),Object.assign({headers:{'Content-Type':'application/json'}},opts||{}));let d={};try{d=await r.json()}catch(e){}return{ok:r.ok,status:r.status,data:d}}
 function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function initials(n){return(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+function ago(iso){if(!iso)return'—';const t=Date.parse((iso||'').replace(' ','T'));if(isNaN(t))return'—';
+  const m=Math.max(0,(Date.now()-t)/6e4);if(m<60)return Math.round(m)+'m ago';const h=m/60;if(h<24)return Math.round(h)+'h ago';
+  return Math.round(h/24)+'d ago'}
 
 /* theme */
 function applyTheme(t){document.documentElement.setAttribute('data-theme',t);$('themeBtn').textContent=t==='dark'?'Light':'Dark'}
@@ -211,45 +252,113 @@ async function forgotPin(){
   const msg=(r.data&&r.data.message)||'If that email is on file, we just sent a new PIN to it.';
   alert(msg+'\n\nCheck your email, then log in with the new PIN.');
 }
-async function logout(){await api('/portal/api/gc/logout',{method:'POST'});location.reload()}
+async function logout(){await api('/portal/api/gc/logout',{method:'POST'});location.href='/gc'}
 function tab(el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(el.dataset.page).classList.add('active');
   if(el.dataset.page==='origin')loadOwner();}
 
-let GC=null, SUBS=[];
+let GC=null,SUBS=[],SEL=null;
 async function boot(){
   const r=await api('/portal/api/gc/home');
   if(!r.ok){$('login').style.display='flex';$('app').style.display='none';return}
   $('login').style.display='none';$('app').style.display='block';
   GC=r.data.gc;SUBS=r.data.subs||[];
   $('gcName').textContent=GC.name||'General Contractor';
-  if(GC.logo){const u='/portal/api/gc/'+GC.slug+'/logo';$('gcLogo').src=u;$('gcLogo').style.display='';
+  if(GC.logo){const u=q('/portal/api/gc/'+GC.slug+'/logo');$('gcLogo').src=u;$('gcLogo').style.display='';
     $('brandPreview').src=u;$('brandPreview').style.display=''}
-  renderRoster();loadOwner(true);
+  if(r.data.is_owner){$('ownerBar').classList.remove('hidden');
+    $('ownerBar').textContent='Viewing '+(GC.name||'this GC')+'\u2019s monitoring board as owner';
+    $('signout').textContent='Back to admin';$('signout').onclick=function(){location.href='/admin'}}
+  // keep selection if still present, else first sub
+  if(SEL&&!SUBS.some(s=>s.slug===SEL))SEL=null;
+  if(!SEL&&SUBS.length)SEL=SUBS[0].slug;
+  renderList();renderDetail();loadOwner(true);
 }
 
-/* roster */
-function renderRoster(){
-  const el=$('roster');
-  if(!SUBS.length){el.innerHTML='<div class="empty">No subcontractors yet. Add your first one above.</div>';return}
-  el.innerHTML=SUBS.map(s=>{
-    const initials=(s.company||'?').split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
-    const logo=s.logo?`<img class="lg" src="/portal/api/client/${s.slug}/logo">`:`<div class="lg">${esc(initials)}</div>`;
-    const login=s.has_login?'<span class="badge">Portal active</span>':'<span class="badge no">No login</span>';
-    const unread=s.unread?`<span class="dot">${s.unread}</span>`:'';
-    return `<div class="subcard">${logo}
-      <div><div class="nm">${esc(s.company)}</div><div class="meta">${esc(s.email||'—')} · ${esc(s.client_type||'')}</div></div>
-      <div class="sp"></div>${login}
-      <button class="btn ghost sm" onclick='editSub(${JSON.stringify(s.slug)})'>Edit</button>
-      <button class="btn orange sm" onclick='openDrawer(${JSON.stringify(s.slug)},${JSON.stringify(s.company)},${JSON.stringify(s.logo||"")})'>Message ${unread}</button>
-    </div>`}).join('');
+/* ── left pane ── */
+function subState(s){
+  if(s.action_required)return{cls:'bad',dot:'',txt:'Action required'};
+  if(s.coi_status==='expiring')return{cls:'warn',dot:'warn',txt:'COI expiring soon'};
+  return{cls:'ok',dot:'ok',txt:'All current'};
 }
-function showAdd(){$('addBox').classList.remove('hidden');['a_company','a_email','a_trade','a_pin','a_slug'].forEach(i=>$(i).value='');$('a_type').value='prequal';$('a_company').focus()}
-function hideAdd(){$('addBox').classList.add('hidden')}
+function renderList(){
+  const el=$('subList');
+  if(!SUBS.length){el.innerHTML='<div class="empty">No subcontractors yet.<br>Click <b>+ Add</b> to start monitoring one.</div>';$('detail').innerHTML='<div class="empty">Add a subcontractor to see their monitoring board.</div>';return}
+  el.innerHTML=SUBS.map(s=>{
+    const st=subState(s);const av=s.logo?`<img class="av" src="${q('/portal/api/client/'+s.slug+'/logo')}">`:`<div class="av">${esc(initials(s.company))}</div>`;
+    return `<div class="subrow ${s.slug===SEL?'sel':''}" onclick='pick(${JSON.stringify(s.slug)})'>${av}
+      <div><div class="nm">${esc(s.company)}</div><div class="st ${st.cls}">${esc(st.txt)}</div></div>
+      <span class="rdot ${st.dot}"></span></div>`}).join('');
+}
+function pick(slug){SEL=slug;renderList();renderDetail()}
+
+/* ── right detail ── */
+const PLAT_ORDER=['isnetworld','avetta','veriforce','pec'];
+function gradeClass(g){g=(g||'').trim().toUpperCase();return g&&/^[A-F]$/.test(g)?('grade-'+g):''}
+function platPill(status){const s=(status||'').toLowerCase();
+  if(s.includes('action')||s.includes('fail')||s.includes('expired')||s.includes('not'))return'bad';
+  if(s.includes('pend')||s.includes('review'))return'warn';return''}
+function renderDetail(){
+  const s=SUBS.find(x=>x.slug===SEL);const el=$('detail');if(!s){el.innerHTML='';return}
+  const st=subState(s);
+  const scope=(s.trade||s.scope||'').trim();
+  // prequal cards
+  const plats=s.platforms||{};
+  const cards=PLAT_ORDER.filter(k=>plats[k]).map(k=>{const p=plats[k];const g=(p.grade||'—').trim()||'—';
+    return `<div class="mcard"><div class="k">${esc(p.label||k)}</div>
+      <div class="v ${gradeClass(p.grade)}">${esc(g)}</div>
+      <span class="pill ${platPill(p.status)}">${esc(p.status||'—')}</span></div>`}).join('')
+    ||'<div class="empty" style="grid-column:1/-1">No prequal platforms recorded yet.</div>';
+  // safety metrics
+  const coiMap={current:['COI Current','pill'],expiring:['COI Expiring','pill warn'],expired:['COI Expired','pill bad'],none:['No COI on file','pill bad']};
+  const coi=coiMap[s.coi_status]||coiMap.none;
+  const safety=`
+    <div class="mcard"><div class="k">TRIR</div><div class="v">${esc((s.trir||'—').toString())}</div><span class="pill ${(parseFloat(s.trir)||0)>3?'warn':''}">Recordable rate</span></div>
+    <div class="mcard"><div class="k">EMR</div><div class="v">${esc((s.emr||'—').toString())}</div><span class="pill ${(parseFloat(s.emr)||0)>1?'warn':''}">Mod rate</span></div>
+    <div class="mcard"><div class="k">COI</div><div class="v" style="font-size:20px">${esc(coi[0].replace('COI ',''))}</div><span class="${coi[1]}">${s.coi_soonest?('Soonest '+esc(s.coi_soonest)):'Insurance'}</span></div>`;
+  // missing / expiring documents (scope-filtered)
+  const missing=(s.documents||[]).filter(d=>d.to_build&&!d.file);
+  const expCoi=(s.coi||[]).filter(c=>{const t=Date.parse((c.expires||'')+'T00:00:00');return !isNaN(t)&&(t-Date.now())/864e5<=45});
+  let docs='';
+  missing.forEach(d=>{docs+=`<div class="docrow"><div><div class="dn">${esc(d.name||'Document')}</div><div class="ds">${esc(d.sub||'Required program')}</div></div>
+    <div class="sp"></div><span class="tag miss">Missing</span>
+    <button class="btn green sm" onclick='fillDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.name||"document")})'>Fill from library</button></div>`});
+  expCoi.forEach(c=>{docs+=`<div class="docrow"><div><div class="dn">${esc(c.name||'Certificate of Insurance')}</div><div class="ds">${esc(c.carrier||'')} · expires ${esc(c.expires||'')}</div></div>
+    <div class="sp"></div><span class="tag exp">Expiring</span>
+    <button class="btn green sm" onclick='fillDoc(${JSON.stringify(s.slug)},${JSON.stringify((c.name||"COI")+" renewal")})'>Request update</button></div>`});
+  if(!docs)docs='<div class="empty">All required documents are current. Nothing outstanding.</div>';
+  const noteScope=scope?('Only '+esc(scope)+' documents show — the library filters to each sub\u2019s scope.'):'Documents are filtered to each sub\u2019s scope. Set a sub\u2019s scope to narrow this list.';
+
+  el.innerHTML=`
+    <div class="dhead">
+      <div><h2>${esc(s.company)}</h2>
+        <div class="scope">Scope: ${esc(scope||'not set')} · last synced ${ago(s.updated)}</div></div>
+      <div class="sp"></div>
+      <span class="abadge ${st.cls==='ok'?'ok':''}">${st.cls==='ok'?'All clear':(st.cls==='warn'?'Review soon':'Action required')}</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="btn ghost sm" onclick='editSub(${JSON.stringify(s.slug)})'>Edit sub</button>
+      <button class="btn ghost sm" onclick='openMsg(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Message ${s.unread?('· '+s.unread):''}</button>
+    </div>
+    <div class="stitle">Prequal grades</div><div class="cards">${cards}</div>
+    <div class="stitle">Safety metrics</div><div class="cards">${safety}</div>
+    <div class="stitle">Missing / expiring documents</div>${docs}
+    <div class="scopenote">${noteScope}</div>`;
+}
+async function fillDoc(slug,program){
+  const r=await api('/portal/api/gc/sub/'+slug+'/request-doc',{method:'POST',body:JSON.stringify({program:program})});
+  if(r.ok){alert('Requested "'+program+'" from Origin. We\u2019ll prepare it and it will appear in this sub\u2019s documents.')}
+  else{alert(r.data.error||'Could not send the request.')}
+}
+
+/* add / edit sub */
+function showAdd(){$('addTitle').textContent='Add subcontractor';['a_company','a_email','a_trade','a_pin','a_slug'].forEach(i=>$(i).value='');$('a_type').value='prequal';$('addDrawer').classList.add('open');$('a_company').focus()}
+function hideAdd(){$('addDrawer').classList.remove('open')}
 async function editSub(slug){
-  const r=await api('/portal/api/gc/sub/'+slug);if(!r.ok)return;
-  const s=r.data;showAdd();$('a_slug').value=s.slug;$('a_company').value=s.company||'';$('a_email').value=s.email||'';
-  $('a_type').value=s.client_type||'prequal';$('a_trade').value=s.trade||'';
+  const r=await api('/portal/api/gc/sub/'+slug);if(!r.ok)return;const s=r.data;
+  $('addTitle').textContent='Edit subcontractor';$('addDrawer').classList.add('open');
+  $('a_slug').value=s.slug;$('a_company').value=s.company||'';$('a_email').value=s.email||'';
+  $('a_type').value=s.client_type||'prequal';$('a_trade').value=s.trade||s.scope||'';$('a_pin').value='';
 }
 async function saveSub(){
   const body={slug:$('a_slug').value,company:$('a_company').value.trim(),email:$('a_email').value.trim(),
@@ -258,15 +367,17 @@ async function saveSub(){
   const r=await api('/portal/api/gc/sub',{method:'POST',body:JSON.stringify(body)});
   if(!r.ok){alert(r.data.error||'Could not save');return}
   const sv=$('subSaved');sv.classList.add('show');setTimeout(()=>sv.classList.remove('show'),1500);
-  hideAdd();await boot();
+  SEL=r.data.slug||SEL;hideAdd();await boot();
 }
 
 /* owner thread */
 async function loadOwner(silent){
   const r=await api('/portal/api/gc/owner-messages');if(!r.ok)return;
-  const box=$('ownerThread');box.innerHTML=(r.data.messages||[]).map(m=>bub(m)).join('')||'<div class="empty">No messages yet. Say hello to Origin.</div>';
-  box.scrollTop=box.scrollHeight;
-  const un=(r.data.messages||[]).filter(m=>m.sender==='owner'&&!m.mine).length;
+  const msgs=r.data.messages||[];
+  $('ownerThread').innerHTML=msgs.map(bub).join('')||'<div class="empty">No messages yet. Say hello to Origin.</div>';
+  $('ownerThread').scrollTop=$('ownerThread').scrollHeight;
+  const un=msgs.filter(m=>m.sender==='owner'&&!m.mine).length;
+  const pip=$('ownerPip');if(un){pip.textContent=un;pip.style.display=''}else{pip.style.display='none'}
 }
 async function sendOwner(){
   const t=$('ownerInput').value.trim();if(!t)return;$('ownerInput').value='';
@@ -274,29 +385,25 @@ async function sendOwner(){
 }
 function bub(m){return `<div class="bub ${m.mine?'me':'them'}">${esc(m.body)}<span class="t">${esc((m.ts||'').replace('T',' ').slice(0,16))}</span></div>`}
 
-/* sub drawer */
-let DSUB=null;
-async function openDrawer(slug,name,logo){
-  DSUB=slug;$('dName').textContent=name;$('drawer').classList.add('open');
-  if(logo){$('dLogo').src='/portal/api/client/'+slug+'/logo';$('dLogo').style.display=''}else{$('dLogo').style.display='none'}
-  await loadSub();
-}
-function closeDrawer(){$('drawer').classList.remove('open');DSUB=null;boot()}
+/* sub message drawer */
+let MSUB=null;
+function openMsg(slug,name){MSUB=slug;$('mName').textContent=name;$('msgDrawer').classList.add('open');$('subInput').value='';loadSub()}
+function closeMsg(){$('msgDrawer').classList.remove('open');MSUB=null;boot()}
 async function loadSub(){
-  if(!DSUB)return;const r=await api('/portal/api/gc/sub/'+DSUB+'/messages');if(!r.ok)return;
-  const box=$('subThread');box.innerHTML=(r.data.messages||[]).map(m=>bub(m)).join('')||'<div class="empty">No messages yet.</div>';
-  box.scrollTop=box.scrollHeight;
+  if(!MSUB)return;const r=await api('/portal/api/gc/sub/'+MSUB+'/messages');if(!r.ok)return;
+  $('subThread').innerHTML=(r.data.messages||[]).map(bub).join('')||'<div class="empty">No messages yet.</div>';
+  $('subThread').scrollTop=$('subThread').scrollHeight;
 }
 async function sendSub(){
-  const t=$('subInput').value.trim();if(!t||!DSUB)return;$('subInput').value='';
-  await api('/portal/api/gc/sub/'+DSUB+'/messages',{method:'POST',body:JSON.stringify({body:t})});loadSub();
+  const t=$('subInput').value.trim();if(!t||!MSUB)return;$('subInput').value='';
+  await api('/portal/api/gc/sub/'+MSUB+'/messages',{method:'POST',body:JSON.stringify({body:t})});loadSub();
 }
 
 /* logo */
 async function uploadLogo(){
   const f=$('logoFile').files[0];if(!f)return;
   const fd=new FormData();fd.append('file',f);
-  const r=await fetch('/portal/api/gc/logo',{method:'POST',body:fd});
+  const r=await fetch(q('/portal/api/gc/logo'),{method:'POST',body:fd});
   if(r.ok){boot()}else{alert('Upload failed')}
 }
 

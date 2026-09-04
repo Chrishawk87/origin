@@ -553,8 +553,61 @@ def find_gc_by_email(email: str) -> Optional[Dict[str, Any]]:
     return matches[0]
 
 
+def _coi_summary(coi: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Roll a list of COI lines up into a single monitoring status.
+    'expired' if any line is past due, 'expiring' if any is within 30 days,
+    else 'current'. Also returns the soonest expiry date it saw."""
+    from datetime import date, datetime
+    today = date.today()
+    worst = "current"   # current < expiring < expired
+    rank = {"current": 0, "expiring": 1, "expired": 2}
+    soonest = ""
+    for line in coi or []:
+        raw = (line.get("expires") or "").strip()
+        if not raw:
+            continue
+        try:
+            exp = datetime.strptime(raw[:10], "%Y-%m-%d").date()
+        except Exception:
+            continue
+        if not soonest or raw[:10] < soonest:
+            soonest = raw[:10]
+        days = (exp - today).days
+        state = "expired" if days < 0 else ("expiring" if days <= 30 else "current")
+        if rank[state] > rank[worst]:
+            worst = state
+    if not (coi or []):
+        worst = "none"
+    return {"status": worst, "soonest": soonest}
+
+
+def _monitoring_flags(rec: Dict[str, Any]) -> Dict[str, Any]:
+    """Compute the at-a-glance state for one sub: whether any prequal grade is
+    failing/needs action, whether COI is expiring/expired, and whether any
+    required document is still missing (a build target with no file yet)."""
+    platforms = rec.get("platforms", {}) or {}
+    bad_grade = False
+    for p in platforms.values():
+        grade = (str(p.get("grade") or "")).strip().upper()
+        status = (str(p.get("status") or "")).strip().lower()
+        if grade in ("F", "D") or "action" in status or "fail" in status \
+                or "expired" in status or "not" in status:
+            bad_grade = True
+    coi = _coi_summary(rec.get("coi", []))
+    missing_docs = [d for d in rec.get("documents", [])
+                    if d.get("to_build") and not d.get("file")]
+    action = bad_grade or coi["status"] in ("expired", "expiring") or bool(missing_docs)
+    return {
+        "action_required": action,
+        "coi_status": coi["status"],
+        "coi_soonest": coi["soonest"],
+        "missing_count": len(missing_docs),
+    }
+
+
 def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
-    """Summary rows for every subcontractor placed under this GC."""
+    """Full monitoring rows for every subcontractor placed under this GC.
+    Carries the prequal grades, COI, and documents the GC dashboard renders."""
     gc_slug = (gc_slug or "").strip()
     out: List[Dict[str, Any]] = []
     if not gc_slug or not CLIENTS_DIR.is_dir():
@@ -563,6 +616,7 @@ def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
         rec = load_client(d.name)
         if not rec or (rec.get("gc_slug", "") or "") != gc_slug:
             continue
+        flags = _monitoring_flags(rec)
         out.append({
             "slug": rec.get("slug"),
             "company": rec.get("company"),
@@ -574,6 +628,18 @@ def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
             "unread": sum(1 for m in rec.get("messages", [])
                           if m.get("sender") == "sub" and not m.get("read_gc")),
             "updated": rec.get("updated"),
+            # ---- monitoring payload (drives the contractor-monitoring board) ----
+            "scope": rec.get("scope", ""),
+            "trade": rec.get("trade", ""),
+            "platforms": rec.get("platforms", {}),
+            "coi": rec.get("coi", []),
+            "documents": rec.get("documents", []),
+            "trir": rec.get("trir", ""),
+            "emr": rec.get("emr", ""),
+            "action_required": flags["action_required"],
+            "coi_status": flags["coi_status"],
+            "coi_soonest": flags["coi_soonest"],
+            "missing_count": flags["missing_count"],
         })
     return out
 
@@ -1106,7 +1172,9 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "GC name required"}, status_code=400)
         incoming_slug = (body.get("slug") or "").strip()
         slug = incoming_slug or slugify(name)
-        rec = load_gc(slug) or _blank_gc(name, body.get("email", ""))
+        existing = load_gc(slug)
+        is_new = existing is None
+        rec = existing or _blank_gc(name, body.get("email", ""))
         rec["slug"] = slug
         rec["name"] = name
         for key in ("email", "brand_primary"):
@@ -1115,8 +1183,23 @@ def register_portal(app) -> None:
         pin = (body.get("pin") or "").strip()
         if pin:
             rec["pin_hash"] = hash_pin(slug, pin)
-        save_gc(rec)
-        return {"ok": True, "slug": slug}
+        # A brand-new GC with an email gets an automatic login email — the same
+        # way accepting a client emails them their portal. If Chris didn't set a
+        # PIN, mint a temporary one so the email always carries working creds.
+        email = (rec.get("email") or "").strip()
+        invited = False
+        invite_err = ""
+        temp_pin = ""
+        if is_new and "@" in email:
+            temp_pin = pin or f"{random.randint(0, 999999):06d}"
+            rec["pin_hash"] = hash_pin(slug, temp_pin)
+            save_gc(rec)
+            invited, invite_err = _send_gc_login_email(request, rec, temp_pin)
+        else:
+            save_gc(rec)
+        return {"ok": True, "slug": slug, "is_new": is_new,
+                "invited": invited, "invite_error": invite_err,
+                "temp_pin": temp_pin, "gc_url": _gc_login_url(request)}
 
     @app.get("/portal/api/admin/gc/{slug}")
     def admin_get_gc(slug: str, request: Request):
@@ -1280,6 +1363,37 @@ def register_portal(app) -> None:
         _ensure_project(rec)
         save_client(rec)
         return {"ok": True, "slug": sub_slug}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/request-doc")
+    def gc_request_doc(sub_slug: str, request: Request, body: dict = Body(...)):
+        """'Fill from library' — the GC asks Origin to prepare a document for one
+        of its subs. Logs a real request on the sub (shows in the admin Requests
+        tab) and emails Chris, so the button does actual work."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        program = (body.get("program") or "a document").strip()
+        gc = load_gc(slug)
+        gc_name = (gc.get("name") if gc else "") or slug
+        rec.setdefault("requests", []).append({
+            "program": program, "note": f"Requested by GC: {gc_name}",
+            "ts": _now(), "status": "new", "price": "", "source": "gc",
+        })
+        save_client(rec)
+        try:
+            from .compliance import send_email
+            send_email(
+                to=os.environ.get("ORIGIN_MAIL_FROM", "info@originmanagementsolutions.com"),
+                subject=f"GC document request — {rec.get('company')}",
+                body=(f"{gc_name} requested '{program}' for their subcontractor "
+                      f"{rec.get('company')}.\n\nOpen the admin console to prepare it."),
+            )
+        except Exception as exc:  # pragma: no cover
+            print(f"[portal] gc doc-request email skipped: {exc}")
+        return {"ok": True}
 
     @app.post("/portal/api/gc/sub/{sub_slug}/remove")
     def gc_remove_sub(sub_slug: str, request: Request):
