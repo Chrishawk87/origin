@@ -1645,5 +1645,20 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _gc_exc:  # pragma: no cover
         print(f"[platform] GC console disabled — registration failed: {_gc_exc}")
 
+    # Logo upload/serving for GC + sub branding. Isolated + wrapped.
+    try:
+        from . import platform_media as _media
+        _media.register_media(app)
+    except Exception as _media_exc:  # pragma: no cover
+        print(f"[platform] media disabled — registration failed: {_media_exc}")
+
+    # Subcontractor Dashboard at /platform/sub — subs log in, see docs sent to
+    # them, and reply to their GC (makes GC↔sub messaging two-way). Isolated.
+    try:
+        from . import platform_sub as _sub
+        _sub.register_sub(app)
+    except Exception as _sub_exc:  # pragma: no cover
+        print(f"[platform] sub dashboard disabled — registration failed: {_sub_exc}")
+
     app.state.engine = eng
     return app

@@ -25,7 +25,10 @@ from starlette.requests import Request
 
 from . import platform_db as db
 from . import platform_auth as auth
-from .platform_db import Tenant, User, Subcontractor, ROLE_OWNER, ROLE_GC_ADMIN
+from .platform_db import (
+    Tenant, User, Subcontractor, GcMessage,
+    ROLE_OWNER, ROLE_GC_ADMIN,
+)
 
 
 def _require_owner(request):
@@ -73,12 +76,20 @@ def register_console(app) -> None:
                 admins = s.scalars(
                     select(User).where(User.gc_id == t.id,
                                        User.role == ROLE_GC_ADMIN)).all()
+                # unread messages FROM this GC waiting on the owner
+                unread = s.scalar(
+                    select(func.count(GcMessage.id)).where(
+                        GcMessage.gc_id == t.id,
+                        GcMessage.sender_role == ROLE_GC_ADMIN,
+                        GcMessage.read_by_owner == False)) or 0  # noqa: E712
                 out.append({
                     "id": t.id, "name": t.name, "slug": t.slug,
                     "brand_primary": t.brand_primary, "brand_text": t.brand_text,
+                    "logo_url": t.logo_url or "",
                     "active": t.active,
                     "subs": int(sub_n), "admins": int(admin_n),
                     "admin_emails": [a.email for a in admins],
+                    "unread": int(unread),
                 })
         return {"gcs": out}
 
@@ -181,7 +192,12 @@ _CONSOLE_HTML = r"""<!doctype html>
 <title>Origin — Owner Console</title>
 <style>
   :root { --brand:#1E7A46; --ink:#12211a; --muted:#5b6b63; --line:#e6ebe8;
-          --bg:#f4f6f5; --card:#fff; --red:#c0392b; --amber:#d99200; --ok:#1E7A46; }
+          --bg:#f4f6f5; --card:#fff; --red:#c0392b; --amber:#d99200; --ok:#1E7A46;
+          --field:#fff; --chip:#eef2f0; --chip-ink:#1E7A46; }
+  html[data-theme="dark"] {
+          --ink:#e8efea; --muted:#93a49b; --line:#26332c;
+          --bg:#0f1712; --card:#16211b; --red:#e5776a; --amber:#e0aa3e; --ok:#4bbe7c;
+          --field:#0f1712; --chip:#1d2a22; --chip-ink:#8fe0ac; }
   * { box-sizing:border-box; }
   body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
          Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
@@ -209,11 +225,11 @@ _CONSOLE_HTML = r"""<!doctype html>
   .card h2 { font-size:15px; margin:0 0 14px; display:flex; align-items:center; justify-content:space-between; }
   .card h2 .hint { font-weight:400; font-size:12px; color:var(--muted); }
   label { display:block; font-size:12px; color:var(--muted); margin:0 0 4px; font-weight:600; }
-  input[type=text], input[type=email], input[type=password] {
+  input[type=text], input[type=email], input[type=password], textarea {
     width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:9px;
-    font-size:14px; font-family:inherit; background:#fff; }
+    font-size:14px; font-family:inherit; background:var(--field); color:var(--ink); }
   input[type=color] { width:46px; height:40px; padding:2px; border:1px solid var(--line);
-    border-radius:9px; background:#fff; cursor:pointer; vertical-align:bottom; }
+    border-radius:9px; background:var(--field); cursor:pointer; vertical-align:bottom; }
   .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
   .row > div { flex:1; min-width:150px; }
   button.primary { background:var(--brand); color:#fff; border:0; padding:10px 16px; border-radius:9px;
@@ -253,6 +269,29 @@ _CONSOLE_HTML = r"""<!doctype html>
   .empty { color:var(--muted); font-size:14px; padding:6px 0; }
   .hidden { display:none !important; }
   .stack > * + * { margin-top:12px; }
+  .dot { display:inline-block; min-width:18px; height:18px; line-height:18px; text-align:center;
+    background:var(--red); color:#fff; border-radius:9px; font-size:11px; font-weight:700;
+    padding:0 5px; margin-left:6px; }
+  /* owner<->GC message drawer */
+  .drawer-bg { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; z-index:50; }
+  .drawer-bg.open { display:block; }
+  .drawer { position:fixed; top:0; right:0; height:100%; width:min(440px,92vw); background:var(--card);
+    border-left:1px solid var(--line); box-shadow:-8px 0 40px rgba(0,0,0,.25); z-index:51;
+    transform:translateX(100%); transition:transform .18s ease; display:flex; flex-direction:column; }
+  .drawer.open { transform:translateX(0); }
+  .drawer .dh { padding:16px 18px; border-bottom:1px solid var(--line); display:flex;
+    align-items:center; justify-content:space-between; }
+  .drawer .dh .t { font-weight:600; }
+  .drawer .dh .sub { font-size:12px; color:var(--muted); }
+  .drawer .dh button { background:var(--chip); color:var(--ink); border:0; width:30px; height:30px;
+    border-radius:8px; cursor:pointer; font-size:16px; }
+  .thread { flex:1; overflow-y:auto; padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
+  .bub { max-width:82%; padding:9px 12px; border-radius:12px; font-size:14px; line-height:1.4; word-wrap:break-word; }
+  .bub.me { align-self:flex-end; background:var(--brand); color:#fff; border-bottom-right-radius:4px; }
+  .bub.them { align-self:flex-start; background:var(--chip); color:var(--ink); border-bottom-left-radius:4px; }
+  .bub .ts { display:block; font-size:10px; opacity:.7; margin-top:3px; }
+  .composer { border-top:1px solid var(--line); padding:12px; display:flex; gap:8px; align-items:flex-end; }
+  .composer textarea { flex:1; resize:none; height:40px; max-height:120px; }
   /* login */
   #login { max-width:390px; margin:9vh auto 0; }
   #login h2 { text-align:center; }
@@ -287,6 +326,7 @@ _CONSOLE_HTML = r"""<!doctype html>
     <div class="r">
       <span class="badge">Owner</span>
       <span id="who-email"></span>
+      <button id="themeBtn" onclick="toggleTheme()" title="Toggle light / dark">Dark</button>
       <button onclick="doLogout()">Sign out</button>
     </div>
   </header>
@@ -332,6 +372,24 @@ _CONSOLE_HTML = r"""<!doctype html>
     <button class="danger" id="delgc-confirm" disabled onclick="confirmDeleteGC()">Delete GC</button>
   </div>
 </dialog>
+
+<div class="drawer-bg" id="drawer-bg" onclick="closeThread()"></div>
+<div class="drawer" id="drawer">
+  <div class="dh">
+    <div>
+      <div class="t" id="th-name">Messages</div>
+      <div class="sub">Direct thread with this GC</div>
+    </div>
+    <button onclick="closeThread()" title="Close">&times;</button>
+  </div>
+  <div class="thread" id="th-body"></div>
+  <div class="composer">
+    <textarea id="th-input" placeholder="Message this GC…" onkeydown="threadKey(event)"></textarea>
+    <button class="primary" onclick="sendThread()">Send</button>
+  </div>
+</div>
+
+<input type="file" id="logo-file" accept="image/*" class="hidden" onchange="uploadLogo(event)">
 
 <script>
 async function api(path, opts){
@@ -419,10 +477,15 @@ function renderGC(g){
     ? `<span class="pill">${g.admins} admin${g.admins===1?'':'s'}</span>`
     : `<span class="pill warn">Needs admin</span>`;
   const brand = esc(g.brand_primary||'#1E7A46');
+  const logo = g.logo_url
+    ? `<img class="glogo" src="${esc(g.logo_url)}" alt="" style="object-fit:cover">`
+    : `<div class="glogo" style="background:${brand}">${initials(g.name)}</div>`;
+  const nm = esc(g.name).replace(/'/g,"\\'");
+  const msgBadge = g.unread>0 ? `<span class="dot">${g.unread}</span>` : '';
   return `
   <div class="gc">
     <div class="top">
-      <div class="glogo" style="background:${brand}">${initials(g.name)}</div>
+      ${logo}
       <div>
         <div class="name">${esc(g.name)}</div>
         <div class="slug">/${esc(g.slug)}</div>
@@ -434,8 +497,10 @@ function renderGC(g){
     <div class="emails">${emails}</div>
     <div class="actions-row">
       <a class="ghost" href="/platform/gc?gc=${encodeURIComponent(g.id)}">Open workspace →</a>
+      <button class="ghost" onclick="openThread('${g.id}','${nm}')">Messages${msgBadge}</button>
+      <button class="ghost" onclick="pickLogo('${g.id}')">Set logo</button>
       <button class="ghost" onclick="toggleIssue('${g.id}')">Issue admin login</button>
-      <button class="danger-ghost" onclick="askDeleteGC('${g.id}','${esc(g.name).replace(/'/g,"\\'")}')">Delete GC</button>
+      <button class="danger-ghost" onclick="askDeleteGC('${g.id}','${nm}')">Delete GC</button>
     </div>
     <div class="issue" id="issue-${g.id}">
       <div class="row">
@@ -489,6 +554,82 @@ async function issueAdmin(id){
   document.getElementById('ie-'+id).value='';
   document.getElementById('ip-'+id).value='';
   loadGCs();
+}
+
+// ── theme ────────────────────────────────────────────────────────────
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t==='dark'?'dark':'light');
+  const b = document.getElementById('themeBtn');
+  if(b) b.textContent = t==='dark' ? 'Light' : 'Dark';
+}
+function initTheme(){ applyTheme(localStorage.getItem('origin-theme')||'light'); }
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme')==='dark' ? 'dark':'light';
+  const next = cur==='dark' ? 'light' : 'dark';
+  localStorage.setItem('origin-theme', next);
+  applyTheme(next);
+}
+initTheme();
+
+// ── GC logo upload ───────────────────────────────────────────────────
+let LOGO_GC = null;
+function pickLogo(id){ LOGO_GC = id; document.getElementById('logo-file').click(); }
+async function uploadLogo(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file || !LOGO_GC) return;
+  if(file.size > 1500000){ alert('Image is too large (max ~1.5 MB). Please pick a smaller file.'); return; }
+  const dataUrl = await new Promise((res,rej)=>{
+    const r = new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file);
+  });
+  const {ok, data} = await api('/platform/media/logo', {method:'POST',
+    body:JSON.stringify({scope:'gc', id:LOGO_GC, image:dataUrl})});
+  if(!ok){ alert(data.error||'Could not upload logo.'); return; }
+  loadGCs();
+}
+
+// ── owner <-> GC messaging ───────────────────────────────────────────
+let THREAD_GC = null;
+async function openThread(id, name){
+  THREAD_GC = id;
+  document.getElementById('th-name').textContent = name;
+  document.getElementById('th-body').innerHTML = '<div class="empty">Loading…</div>';
+  document.getElementById('drawer-bg').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+  await loadThread();
+  setTimeout(()=>document.getElementById('th-input').focus(), 60);
+}
+function closeThread(){
+  document.getElementById('drawer-bg').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+  THREAD_GC = null;
+  loadGCs();  // refresh unread badges
+}
+async function loadThread(){
+  if(!THREAD_GC) return;
+  const {ok, data} = await api('/platform/gc-messages?gc='+encodeURIComponent(THREAD_GC));
+  const body = document.getElementById('th-body');
+  if(!ok){ body.innerHTML='<div class="err">Could not load messages.</div>'; return; }
+  const msgs = data.messages||[];
+  if(!msgs.length){ body.innerHTML='<div class="empty">No messages yet. Say hello.</div>'; return; }
+  body.innerHTML = msgs.map(m=>{
+    const mine = m.role==='owner';
+    const t = m.created_at ? new Date(m.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+    return `<div class="bub ${mine?'me':'them'}">${esc(m.body)}<span class="ts">${mine?'You':'GC'} · ${t}</span></div>`;
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+function threadKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendThread(); } }
+async function sendThread(){
+  if(!THREAD_GC) return;
+  const inp = document.getElementById('th-input');
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value='';
+  const {ok, data} = await api('/platform/gc-messages', {method:'POST',
+    body:JSON.stringify({gc:THREAD_GC, body:text})});
+  if(!ok){ alert(data.error||'Could not send.'); inp.value=text; return; }
+  loadThread();
 }
 
 boot();

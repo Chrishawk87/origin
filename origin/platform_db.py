@@ -121,6 +121,8 @@ class Subcontractor(Base):
     emr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # rolled-up health: 'green' | 'amber' | 'red' (computed, cached here)
     health: Mapped[str] = mapped_column(String(8), default="green")
+    # optional company logo (a served path like /platform/media/logo/<file>)
+    logo_url: Mapped[str] = mapped_column(String(500), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="subs")
@@ -218,6 +220,28 @@ class Message(Base):
     sub: Mapped["Subcontractor"] = relationship(back_populates="messages")
 
 
+# ── owner ↔ GC message thread (one thread per GC, no sub) ────────────────
+class GcMessage(Base):
+    """A direct message between the platform OWNER (Chris) and a GC's admins.
+
+    Distinct from Message (which is GC↔sub, scoped to a sub). This thread has a
+    gc_id but no sub_id: it's the private line between the owner and that GC.
+    """
+    __tablename__ = "gc_messages"
+    __table_args__ = (Index("ix_gcmsg_gc", "gc_id"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    gc_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    sender_user_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("users.id"), nullable=True)
+    sender_role: Mapped[str] = mapped_column(String(16))  # owner | gc_admin
+    body: Mapped[str] = mapped_column(Text)
+    read_by_owner: Mapped[bool] = mapped_column(Boolean, default=False)
+    read_by_gc: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── owner-owned master library program ───────────────────────────────────
 class LibraryProgram(Base):
     """A master safety document you (owner) stock. `scope_tags` decides which
@@ -285,9 +309,45 @@ def get_engine():
     return _ENGINE
 
 
+def _migrate() -> None:
+    """Add columns that `create_all` can't add to already-existing tables.
+
+    create_all only creates missing *tables*; it never ALTERs an existing one.
+    So when we add a new column to a model that shipped earlier (e.g. the sub
+    logo), existing databases won't have it. This runs a defensive, idempotent
+    ALTER TABLE ADD COLUMN for those, working on both SQLite and Postgres.
+    Never raises into the boot path — a failed migration just leaves things as-is.
+    """
+    from sqlalchemy import inspect, text
+    eng = get_engine()
+    # (table, column, DDL type) tuples to ensure exist
+    wanted = [
+        ("subcontractors", "logo_url", "VARCHAR(500)"),
+        ("tenants", "logo_url", "VARCHAR(500)"),
+    ]
+    try:
+        insp = inspect(eng)
+        tables = set(insp.get_table_names())
+        with eng.begin() as conn:
+            for table, column, ddl in wanted:
+                if table not in tables:
+                    continue
+                cols = {c["name"] for c in insp.get_columns(table)}
+                if column in cols:
+                    continue
+                try:
+                    conn.execute(text(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {ddl} DEFAULT ''"))
+                except Exception as exc:  # pragma: no cover
+                    print(f"[platform] migrate skip {table}.{column}: {exc}")
+    except Exception as exc:  # pragma: no cover
+        print(f"[platform] migrate skipped: {exc}")
+
+
 def init_db() -> None:
     """Create every table if it doesn't exist. Safe to call on each boot."""
     Base.metadata.create_all(get_engine())
+    _migrate()
 
 
 def session() -> Session:
