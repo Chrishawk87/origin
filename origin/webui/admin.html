@@ -435,7 +435,7 @@ function renderClientList(){
     var st=isDocs?'Documents':'Prequal monitoring';
     var dotCls=c.open_requests?'rdot docs':'rdot';
     var badge=c.open_requests?(' · <b>'+c.open_requests+'</b> open request'+(c.open_requests===1?'':'s')):'';
-    return '<div class="subrow'+(c.slug===cur?' sel':'')+'" onclick="pick(\\''+esc(c.slug)+'\\')">'
+    return '<div class="subrow'+(c.slug===cur?' sel':'')+'" onclick="pick(\''+esc(c.slug)+'\')">'
       +'<div class="av">'+esc(clientInitials(c.company))+'</div>'
       +'<div class="nm">'+esc(c.company||'—')+'<span class="st">'+st+badge+'</span></div>'
       +'<span class="'+dotCls+'"></span></div>';
