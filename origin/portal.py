@@ -978,6 +978,10 @@ def load_owner() -> Dict[str, Any]:
     return {
         "slug": "owner",
         "name": "Origin",
+        "company": "Origin Management Solutions",
+        "email": "",
+        "phone": "",
+        "members": [],
         "documents": [],
         "doc_folders": list(DOC_FOLDER_DEFAULTS),
         "created": _now(),
@@ -990,6 +994,35 @@ def save_owner(data: Dict[str, Any]) -> Dict[str, Any]:
     data["updated"] = _now()
     _owner_file().write_text(json.dumps(data, indent=2), encoding="utf-8")
     return data
+
+
+# ─────────────────────── Origin staff members (multi-user) ───────────────────────
+# The admin console started life behind a single shared password (ORIGIN_ADMIN_PASSWORD).
+# To let each Origin teammate sign in as themselves — and to be able to hand out or
+# revoke access one person at a time — the owner record now also carries a "members"
+# list. Each member has their own email + PIN (PBKDF2-hashed, keyed on the "owner"
+# slug). Any staff member logs in with email+PIN and gets a normal admin session; the
+# master password still works alongside this and is never removed here.
+
+def _ensure_owner_members(rec: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return the owner's staff members list, creating it if absent. Mutates rec
+    in place (caller decides whether to persist)."""
+    members = rec.get("members")
+    if not isinstance(members, list):
+        rec["members"] = []
+    return rec["members"]
+
+
+def find_owner_member_by_email(email: str) -> Optional[Dict[str, Any]]:
+    """Find the Origin staff member whose email matches, or None."""
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+    rec = load_owner()
+    for m in _ensure_owner_members(rec):
+        if (m.get("email", "") or "").strip().lower() == email:
+            return m
+    return None
 
 
 # ─────────────────────── GC members (multi-user) ───────────────────────
@@ -1208,6 +1241,42 @@ def _gc_login_url(request) -> str:
 
 def _portal_login_url(request) -> str:
     return f"{_base_url(request)}/portal"
+
+
+def _admin_login_url(request) -> str:
+    return f"{_base_url(request)}/admin"
+
+
+def _send_admin_login_email(request, name: str, email: str, temp_pin: str):
+    """Email an Origin staff teammate their /admin login link + a temporary PIN.
+    Returns (sent, error)."""
+    to = (email or "").strip()
+    if "@" not in to:
+        return False, "No email on file."
+    try:
+        from .compliance import send_email, resend_configured, smtp_configured
+    except Exception as exc:  # pragma: no cover
+        return False, f"mailer unavailable: {exc}"
+    if not (resend_configured() or smtp_configured()):
+        return False, ("Email isn't turned on yet (no RESEND_API_KEY). The PIN was "
+                       "set \u2014 give your teammate their login link and PIN yourself.")
+    nm = (name or "").strip()
+    res = send_email(
+        to=to,
+        subject="Your Origin admin login \u2014 Origin Management Solutions",
+        body=(
+            f"Hi{(' ' + nm) if nm else ''},\n\n"
+            f"You've been given access to the Origin admin console, where the team "
+            f"manages contractors, documents and compliance.\n\n"
+            f"Sign in here: {_admin_login_url(request)}\n"
+            f"Email: {to}\n"
+            f"PIN: {temp_pin}\n\n"
+            f"Keep this PIN private.\n\n"
+            f"\u2014 Origin Management Solutions\n"
+            f"info@originmanagementsolutions.com"
+        ),
+    )
+    return bool(res.get("sent")), res.get("error", "")
 
 
 def _send_gc_login_email(request, gc_rec: Dict[str, Any], temp_pin: str):
@@ -1621,6 +1690,22 @@ def register_portal(app) -> None:
     # ===================== ADMIN API =====================
     @app.post("/portal/api/admin/login")
     def admin_login(request: Request, body: dict = Body(...)):
+        # Two ways in: (1) the master password (ORIGIN_ADMIN_PASSWORD), or (2) an
+        # individual Origin staff login (email + PIN) set up under Account & Team.
+        # Both land on the same admin session; staff sessions also carry their
+        # member id so we can show who they are.
+        email = (body.get("email") or "").strip()
+        pin = (body.get("pin") or "").strip()
+        if email or pin:
+            member = find_owner_member_by_email(email)
+            if not member or not member.get("pin_hash") \
+                    or not verify_pin("owner", pin, member["pin_hash"]):
+                return JSONResponse({"error": "Wrong email or PIN."}, status_code=401)
+            resp = JSONResponse({"ok": True, "name": member.get("name", "")})
+            resp.set_cookie(ADMIN_COOKIE, _session("admin", "", member=member.get("id", "")),
+                            httponly=True, samesite="lax", max_age=SESSION_TTL,
+                            secure=_secure(request))
+            return resp
         # Fail closed: if no admin password is configured, do NOT fall back to a
         # guessable default — refuse admin access entirely.
         if not ADMIN_PASSWORD:
@@ -3273,6 +3358,105 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "file not found"}, status_code=404)
         return FileResponse(str(path), content_disposition_type="inline",
                             filename=name.split("_", 1)[-1])
+
+    # ---- Origin account profile + staff logins (Account & Team) ----
+    def _owner_member_public(m: Dict[str, Any]) -> Dict[str, Any]:
+        return {"id": m.get("id"), "name": m.get("name"), "email": m.get("email"),
+                "role": m.get("role", "staff"),
+                "has_login": bool(m.get("pin_hash")), "created": m.get("created")}
+
+    @app.get("/portal/api/admin/owner/account")
+    def owner_account(request: Request):
+        """Origin's own company profile + the list of staff logins."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        members = [_owner_member_public(m) for m in _ensure_owner_members(rec)]
+        return {"company": rec.get("company", "") or rec.get("name", "") or "",
+                "email": rec.get("email", "") or "",
+                "phone": rec.get("phone", "") or "",
+                "members": members}
+
+    @app.post("/portal/api/admin/owner/account")
+    def owner_account_save(request: Request, body: dict = Body(...)):
+        """Save Origin's company name, contact email and phone."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        company = (body.get("company") or "").strip()
+        if not company:
+            return JSONResponse({"error": "A company name is required."}, status_code=400)
+        rec["company"] = company
+        rec["name"] = company  # keep the legacy display name in sync
+        rec["email"] = (body.get("email") or "").strip()
+        rec["phone"] = (body.get("phone") or "").strip()
+        save_owner(rec)
+        return {"ok": True, "company": rec["company"],
+                "email": rec["email"], "phone": rec["phone"]}
+
+    @app.post("/portal/api/admin/owner/members")
+    def owner_add_member(request: Request, body: dict = Body(...)):
+        """Invite an Origin teammate: creates a staff login with a temp PIN and
+        emails them the /admin sign-in. body: {name, email}."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        name = (body.get("name") or "").strip()
+        email = (body.get("email") or "").strip()
+        if not name or "@" not in email:
+            return JSONResponse({"error": "A name and a valid email are required."},
+                                status_code=400)
+        # An email is the login key — it can only belong to one staff login.
+        if find_owner_member_by_email(email):
+            return JSONResponse(
+                {"error": "That email already has a login."}, status_code=409)
+        members = _ensure_owner_members(rec)
+        temp_pin = f"{random.randint(0, 999999):06d}"
+        member = {
+            "id": "s_" + secrets.token_hex(4),
+            "name": name,
+            "email": email,
+            "pin_hash": hash_pin("owner", temp_pin),
+            "role": "staff",
+            "created": _now(),
+            "updated": _now(),
+        }
+        members.append(member)
+        save_owner(rec)
+        sent, err = _send_admin_login_email(request, name, email, temp_pin)
+        return {"ok": True, "id": member["id"], "temp_pin": temp_pin,
+                "sent": sent, "email_error": err, "admin_url": _admin_login_url(request)}
+
+    @app.post("/portal/api/admin/owner/members/{mid}/resend")
+    def owner_resend_member(mid: str, request: Request):
+        """Reset a teammate's PIN and re-email their /admin login."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        member = next((m for m in _ensure_owner_members(rec) if m.get("id") == mid), None)
+        if not member:
+            return JSONResponse({"error": "teammate not found"}, status_code=404)
+        temp_pin = f"{random.randint(0, 999999):06d}"
+        member["pin_hash"] = hash_pin("owner", temp_pin)
+        member["updated"] = _now()
+        save_owner(rec)
+        sent, err = _send_admin_login_email(
+            request, member.get("name", ""), member.get("email", ""), temp_pin)
+        return {"ok": True, "temp_pin": temp_pin, "sent": sent, "email_error": err}
+
+    @app.post("/portal/api/admin/owner/members/{mid}/remove")
+    def owner_remove_member(mid: str, request: Request):
+        """Remove a teammate's login."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        members = _ensure_owner_members(rec)
+        member = next((m for m in members if m.get("id") == mid), None)
+        if not member:
+            return JSONResponse({"error": "teammate not found"}, status_code=404)
+        rec["members"] = [m for m in members if m.get("id") != mid]
+        save_owner(rec)
+        return {"ok": True}
 
     @app.get("/portal/api/admin/owner/documents")
     def owner_documents(request: Request):
