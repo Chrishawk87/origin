@@ -357,8 +357,11 @@ def _unsign(tok: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _session(role: str, slug: str = "") -> str:
-    return _sign({"role": role, "slug": slug, "exp": time.time() + SESSION_TTL})
+def _session(role: str, slug: str = "", member: str = "") -> str:
+    payload = {"role": role, "slug": slug, "exp": time.time() + SESSION_TTL}
+    if member:
+        payload["member"] = member
+    return _sign(payload)
 
 
 # ─────────────────────────── storage ───────────────────────────
@@ -697,6 +700,84 @@ def find_gc_by_email(email: str) -> Optional[Dict[str, Any]]:
     return matches[0]
 
 
+# ─────────────────────── GC members (multi-user) ───────────────────────
+# A GC used to be a single login (one email + one PIN on the GC record). To let
+# a GC split its subcontractors across several people in its office, each GC now
+# carries a "members" list: the owner (the person you set up) plus any admins the
+# owner invites. Each member has their own email + PIN and their own "subs"
+# assignment — "all" for the owner, or a list of sub slugs for an admin who
+# should only see the accounts assigned to them. This is backward compatible:
+# older GC records with just a top-level email/pin are treated as a single owner
+# member, materialized on first touch.
+
+def _ensure_gc_members(rec: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return the GC's members list, synthesizing an owner member from the
+    legacy top-level email/pin_hash if the record predates the members list.
+    Mutates rec in place (caller decides whether to persist)."""
+    members = rec.get("members")
+    if isinstance(members, list) and members:
+        return members
+    rec["members"] = [{
+        "id": "owner",
+        "name": rec.get("name", "") or "Owner",
+        "email": rec.get("email", "") or "",
+        "pin_hash": rec.get("pin_hash", "") or "",
+        "role": "owner",
+        "subs": "all",          # the owner always sees every sub
+        "created": rec.get("created", _now()),
+        "updated": rec.get("updated", _now()),
+    }]
+    return rec["members"]
+
+
+def _gc_owner_member(rec: Dict[str, Any]) -> Dict[str, Any]:
+    for m in _ensure_gc_members(rec):
+        if m.get("role") == "owner":
+            return m
+    return _ensure_gc_members(rec)[0]
+
+
+def _sync_owner_to_top(rec: Dict[str, Any]) -> None:
+    """Keep the legacy top-level email/pin_hash mirrored to the owner member so
+    old code paths (find_gc_by_email, existing sessions) keep working."""
+    owner = _gc_owner_member(rec)
+    rec["email"] = owner.get("email", "")
+    rec["pin_hash"] = owner.get("pin_hash", "")
+
+
+def find_gc_member_by_email(email: str):
+    """Find the (gc_rec, member) whose member email matches, across every GC.
+    Returns (None, None) if no member has that email."""
+    email = (email or "").strip().lower()
+    if not email or not GCS_DIR.is_dir():
+        return None, None
+    hits = []
+    for d in sorted(GCS_DIR.iterdir()):
+        rec = load_gc(d.name)
+        if not rec:
+            continue
+        for m in _ensure_gc_members(rec):
+            if (m.get("email", "") or "").strip().lower() == email:
+                hits.append((rec, m))
+    if not hits:
+        return None, None
+    hits.sort(key=lambda pair: pair[0].get("updated", ""), reverse=True)
+    return hits[0]
+
+
+def _member_subs(member: Optional[Dict[str, Any]]):
+    """The set of sub slugs a member may see, or None meaning 'all'.
+    None (no member) = owner acting via ?gc=, who sees everything."""
+    if member is None:
+        return None
+    if member.get("role") == "owner":
+        return None
+    subs = member.get("subs")
+    if subs == "all" or subs is None:
+        return None
+    return set(subs)
+
+
 def _coi_summary(coi: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Roll a list of COI lines up into a single monitoring status.
     'expired' if any line is past due, 'expiring' if any is within 30 days,
@@ -948,6 +1029,36 @@ def register_portal(app) -> None:
             want = (request.query_params.get("gc") or "").strip()
             return want or None
         return None
+
+    def acting_gc_member(request: Request) -> Optional[Dict[str, Any]]:
+        """The specific GC member (owner or invited admin) behind this request.
+        Returns None when the site owner is acting via ?gc= (they see everything),
+        so callers treat None as 'full access'."""
+        gs = gc_session(request)
+        if not gs or not gs.get("slug"):
+            return None
+        rec = load_gc(gs["slug"])
+        if not rec:
+            return None
+        want = gs.get("member") or "owner"
+        for m in _ensure_gc_members(rec):
+            if m.get("id") == want:
+                return m
+        # Session references a member that no longer exists (removed): deny by
+        # returning a locked-down phantom admin with no subs.
+        return {"id": want, "role": "admin", "subs": []}
+
+    def _member_can_see(request: Request, sub_slug: str) -> bool:
+        allowed = _member_subs(acting_gc_member(request))
+        return allowed is None or sub_slug in allowed
+
+    def _is_gc_owner(request: Request) -> bool:
+        """True if the caller may manage members/assignments: the site owner
+        acting via ?gc=, or a GC member whose role is owner."""
+        if admin_session(request) and not gc_session(request):
+            return True
+        m = acting_gc_member(request)
+        return bool(m and m.get("role") == "owner")
 
     def _secure(request: Request) -> bool:
         # Railway terminates TLS at its edge and forwards plain HTTP internally,
@@ -1321,12 +1432,17 @@ def register_portal(app) -> None:
         rec = existing or _blank_gc(name, body.get("email", ""))
         rec["slug"] = slug
         rec["name"] = name
+        owner = _gc_owner_member(rec)  # materialize members; keeps owner in sync
         for key in ("email", "brand_primary"):
             if key in body:
                 rec[key] = body[key]
+        owner["name"] = name
+        if "email" in body:
+            owner["email"] = rec["email"]
         pin = (body.get("pin") or "").strip()
         if pin:
             rec["pin_hash"] = hash_pin(slug, pin)
+            owner["pin_hash"] = rec["pin_hash"]
         # A brand-new GC with an email gets an automatic login email — the same
         # way accepting a client emails them their portal. If Chris didn't set a
         # PIN, mint a temporary one so the email always carries working creds.
@@ -1337,6 +1453,7 @@ def register_portal(app) -> None:
         if is_new and "@" in email:
             temp_pin = pin or f"{random.randint(0, 999999):06d}"
             rec["pin_hash"] = hash_pin(slug, temp_pin)
+            owner["pin_hash"] = rec["pin_hash"]
             save_gc(rec)
             invited, invite_err = _send_gc_login_email(request, rec, temp_pin)
         else:
@@ -1390,6 +1507,7 @@ def register_portal(app) -> None:
                 status_code=400)
         temp_pin = f"{random.randint(0, 999999):06d}"
         rec["pin_hash"] = hash_pin(slug, temp_pin)
+        _gc_owner_member(rec)["pin_hash"] = rec["pin_hash"]  # keep owner in sync
         save_gc(rec)
         sent, err = _send_gc_login_email(request, rec, temp_pin)
         return {"ok": True, "slug": slug, "to": to, "temp_pin": temp_pin,
@@ -1406,13 +1524,16 @@ def register_portal(app) -> None:
             return JSONResponse(
                 {"error": "Too many attempts. Please wait a few minutes and try again."},
                 status_code=429)
-        rec = find_gc_by_email(email)
-        if not rec or not rec.get("pin_hash") or not verify_pin(rec["slug"], pin, rec["pin_hash"]):
+        rec, member = find_gc_member_by_email(email)
+        if (not rec or not member or not member.get("pin_hash")
+                or not verify_pin(rec["slug"], pin, member["pin_hash"])):
             _login_note_fail(key)
             return JSONResponse({"error": "Wrong email or PIN."}, status_code=401)
         _login_clear(key)
-        resp = JSONResponse({"ok": True, "name": rec.get("name")})
-        resp.set_cookie(GC_COOKIE, _session("gc", rec["slug"]),
+        resp = JSONResponse({"ok": True, "name": rec.get("name"),
+                             "member": member.get("name"),
+                             "role": member.get("role", "admin")})
+        resp.set_cookie(GC_COOKIE, _session("gc", rec["slug"], member.get("id", "owner")),
                         httponly=True, samesite="lax", max_age=SESSION_TTL,
                         secure=_secure(request))
         return resp
@@ -1433,13 +1554,206 @@ def register_portal(app) -> None:
                    "message": "If that email is on file, we just sent a new PIN to it."}
         if "@" not in email:
             return JSONResponse(generic)
-        rec = find_gc_by_email(email)
-        if rec:
+        rec, member = find_gc_member_by_email(email)
+        if rec and member:
             temp_pin = f"{random.randint(0, 999999):06d}"
-            rec["pin_hash"] = hash_pin(rec["slug"], temp_pin)
+            member["pin_hash"] = hash_pin(rec["slug"], temp_pin)
+            member["updated"] = _now()
+            if member.get("role") == "owner":
+                rec["pin_hash"] = member["pin_hash"]  # keep legacy mirror
             save_gc(rec)
-            _send_gc_login_email(request, rec, temp_pin)
+            # Email the member who asked (not necessarily the owner's address).
+            _send_gc_login_email(request, {**rec, "email": member.get("email", "")}, temp_pin)
         return JSONResponse(generic)
+
+    @app.post("/portal/api/gc/change-pin")
+    def gc_change_pin(request: Request, body: dict = Body(...)):
+        """A logged-in GC member changes their OWN PIN: enter the current PIN and
+        pick a new one. Requires a real GC session (not the site owner acting via
+        ?gc=). Lets a GC replace the temporary PIN we emailed them."""
+        gs = gc_session(request)
+        if not gs or not gs.get("slug"):
+            return JSONResponse({"error": "Sign in to change your PIN."}, status_code=401)
+        current = (body.get("current_pin") or "").strip()
+        new_pin = (body.get("new_pin") or "").strip()
+        if len(new_pin) < 4:
+            return JSONResponse({"error": "Your new PIN must be at least 4 digits."},
+                                status_code=400)
+        rec = load_gc(gs["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        member = None
+        want = gs.get("member") or "owner"
+        for m in _ensure_gc_members(rec):
+            if m.get("id") == want:
+                member = m
+                break
+        if not member:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        if not member.get("pin_hash") or not verify_pin(rec["slug"], current, member["pin_hash"]):
+            return JSONResponse({"error": "That current PIN isn't right."}, status_code=403)
+        member["pin_hash"] = hash_pin(rec["slug"], new_pin)
+        member["updated"] = _now()
+        if member.get("role") == "owner":
+            rec["pin_hash"] = member["pin_hash"]  # keep legacy mirror
+        save_gc(rec)
+        return {"ok": True}
+
+    # ---- GC team members (owner invites admins, splits subs among them) ----
+    def _member_public(m: Dict[str, Any], all_slugs: set) -> Dict[str, Any]:
+        subs = m.get("subs")
+        assigned = "all" if (m.get("role") == "owner" or subs == "all" or subs is None) \
+            else [s for s in subs if s in all_slugs]
+        return {"id": m.get("id"), "name": m.get("name"), "email": m.get("email"),
+                "role": m.get("role", "admin"), "subs": assigned,
+                "has_login": bool(m.get("pin_hash")), "created": m.get("created")}
+
+    @app.get("/portal/api/gc/members")
+    def gc_members(request: Request):
+        """List this GC's team members and each one's sub assignment (owner only)."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        if not _is_gc_owner(request):
+            return JSONResponse({"error": "Only the account owner can manage the team."},
+                                status_code=403)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "GC not found"}, status_code=404)
+        all_slugs = {s["slug"] for s in clients_for_gc(slug)}
+        members = [_member_public(m, all_slugs) for m in _ensure_gc_members(rec)]
+        return {"members": members, "subs": [{"slug": s["slug"], "company": s["company"]}
+                                             for s in clients_for_gc(slug)]}
+
+    @app.post("/portal/api/gc/members")
+    def gc_add_member(request: Request, body: dict = Body(...)):
+        """Owner invites a teammate: creates an admin member with a temp PIN and
+        emails them the /gc login. body: {name, email, subs?: "all"|[slug,...]}."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        if not _is_gc_owner(request):
+            return JSONResponse({"error": "Only the account owner can add teammates."},
+                                status_code=403)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "GC not found"}, status_code=404)
+        name = (body.get("name") or "").strip()
+        email = (body.get("email") or "").strip()
+        if not name or "@" not in email:
+            return JSONResponse({"error": "A name and a valid email are required."},
+                                status_code=400)
+        # No two members (across any GC) can share an email — it's the login key.
+        other_rec, other_m = find_gc_member_by_email(email)
+        if other_m:
+            return JSONResponse(
+                {"error": "That email is already used by another login."}, status_code=409)
+        members = _ensure_gc_members(rec)
+        valid_slugs = {s["slug"] for s in clients_for_gc(slug)}
+        raw = body.get("subs")
+        if raw == "all":
+            subs: Any = "all"
+        elif isinstance(raw, list):
+            subs = [s for s in raw if s in valid_slugs]
+        else:
+            subs = []  # start with nothing assigned; owner assigns next
+        temp_pin = f"{random.randint(0, 999999):06d}"
+        member = {
+            "id": "m_" + secrets.token_hex(4),
+            "name": name,
+            "email": email,
+            "pin_hash": hash_pin(rec["slug"], temp_pin),
+            "role": "admin",
+            "subs": subs,
+            "created": _now(),
+            "updated": _now(),
+        }
+        members.append(member)
+        save_gc(rec)
+        sent, err = _send_gc_login_email(
+            request, {**rec, "email": email, "name": name}, temp_pin)
+        return {"ok": True, "id": member["id"], "temp_pin": temp_pin,
+                "sent": sent, "email_error": err, "gc_url": _gc_login_url(request)}
+
+    @app.post("/portal/api/gc/members/{mid}/subs")
+    def gc_member_subs(mid: str, request: Request, body: dict = Body(...)):
+        """Owner sets which subs a teammate can see. body: {subs: "all"|[slug,...]}."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        if not _is_gc_owner(request):
+            return JSONResponse({"error": "Only the account owner can change assignments."},
+                                status_code=403)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "GC not found"}, status_code=404)
+        member = next((m for m in _ensure_gc_members(rec) if m.get("id") == mid), None)
+        if not member:
+            return JSONResponse({"error": "teammate not found"}, status_code=404)
+        if member.get("role") == "owner":
+            return JSONResponse({"error": "The owner always sees every sub."},
+                                status_code=400)
+        valid_slugs = {s["slug"] for s in clients_for_gc(slug)}
+        raw = body.get("subs")
+        if raw == "all":
+            member["subs"] = "all"
+        elif isinstance(raw, list):
+            member["subs"] = [s for s in raw if s in valid_slugs]
+        else:
+            return JSONResponse({"error": "subs must be \"all\" or a list of slugs."},
+                                status_code=400)
+        member["updated"] = _now()
+        save_gc(rec)
+        return {"ok": True, "subs": member["subs"]}
+
+    @app.post("/portal/api/gc/members/{mid}/remove")
+    def gc_remove_member(mid: str, request: Request):
+        """Owner removes a teammate. The owner member itself cannot be removed."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        if not _is_gc_owner(request):
+            return JSONResponse({"error": "Only the account owner can remove teammates."},
+                                status_code=403)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "GC not found"}, status_code=404)
+        members = _ensure_gc_members(rec)
+        member = next((m for m in members if m.get("id") == mid), None)
+        if not member:
+            return JSONResponse({"error": "teammate not found"}, status_code=404)
+        if member.get("role") == "owner":
+            return JSONResponse({"error": "You can't remove the account owner."},
+                                status_code=400)
+        rec["members"] = [m for m in members if m.get("id") != mid]
+        save_gc(rec)
+        return {"ok": True}
+
+    @app.post("/portal/api/gc/members/{mid}/resend")
+    def gc_resend_member(mid: str, request: Request):
+        """Owner resets a teammate's PIN and re-emails their login."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        if not _is_gc_owner(request):
+            return JSONResponse({"error": "Only the account owner can do this."},
+                                status_code=403)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "GC not found"}, status_code=404)
+        member = next((m for m in _ensure_gc_members(rec) if m.get("id") == mid), None)
+        if not member:
+            return JSONResponse({"error": "teammate not found"}, status_code=404)
+        temp_pin = f"{random.randint(0, 999999):06d}"
+        member["pin_hash"] = hash_pin(rec["slug"], temp_pin)
+        member["updated"] = _now()
+        if member.get("role") == "owner":
+            rec["pin_hash"] = member["pin_hash"]
+        save_gc(rec)
+        sent, err = _send_gc_login_email(
+            request, {**rec, "email": member.get("email", ""), "name": member.get("name", "")},
+            temp_pin)
+        return {"ok": True, "temp_pin": temp_pin, "sent": sent, "email_error": err}
 
     @app.get("/portal/api/gc/home")
     def gc_home(request: Request):
@@ -1451,10 +1765,21 @@ def register_portal(app) -> None:
         rec = load_gc(slug)
         if not rec:
             return JSONResponse({"error": "GC not found"}, status_code=404)
+        subs = clients_for_gc(slug)
+        # An invited admin only sees the subcontractors assigned to them; the
+        # owner (and the site owner acting via ?gc=) sees the whole roster.
+        allowed = _member_subs(acting_gc_member(request))
+        if allowed is not None:
+            subs = [s for s in subs if s.get("slug") in allowed]
+        member = acting_gc_member(request)
+        gc_out = {k: v for k, v in rec.items() if k not in ("pin_hash", "members")}
         return {
-            "gc": {k: v for k, v in rec.items() if k != "pin_hash"},
-            "subs": clients_for_gc(slug),
-            "is_owner": bool(admin_session(request) and not gc_session(request)),
+            "gc": gc_out,
+            "subs": subs,
+            "is_owner": _is_gc_owner(request),
+            "member": ({"id": member.get("id"), "name": member.get("name"),
+                        "role": member.get("role", "admin")} if member else
+                       {"id": "owner", "name": rec.get("name"), "role": "owner"}),
         }
 
     # ---- GC manages its own subcontractors (owner may act via ?gc=) ----
@@ -1465,6 +1790,8 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "not signed in"}, status_code=401)
         rec = load_client(sub_slug)
         if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        if not _member_can_see(request, sub_slug):
             return JSONResponse({"error": "not found"}, status_code=404)
         if _sync_docs(rec):
             save_client(rec)
@@ -1549,6 +1876,9 @@ def register_portal(app) -> None:
             return None, None, JSONResponse({"error": "not signed in"}, status_code=401)
         rec = load_client(sub_slug)
         if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return None, slug, JSONResponse({"error": "not found"}, status_code=404)
+        # An invited admin can only act on the subs assigned to them.
+        if not _member_can_see(request, sub_slug):
             return None, slug, JSONResponse({"error": "not found"}, status_code=404)
         return rec, slug, None
 
