@@ -1627,5 +1627,14 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _platform_exc:  # pragma: no cover
         print(f"[platform] disabled — registration failed: {_platform_exc}")
 
+    # Owner Console — the private control room at /platform (owner-only routes to
+    # create GCs and issue their admin logins). Isolated + wrapped so any failure
+    # leaves the app and the platform auth layer untouched.
+    try:
+        from . import platform_console as _console
+        _console.register_console(app)
+    except Exception as _console_exc:  # pragma: no cover
+        print(f"[platform] console disabled — registration failed: {_console_exc}")
+
     app.state.engine = eng
     return app

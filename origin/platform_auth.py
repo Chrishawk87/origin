@@ -180,6 +180,31 @@ def owner_exists(sess) -> bool:
     return sess.scalar(select(User).where(User.role == ROLE_OWNER)) is not None
 
 
+def ensure_owner() -> Optional[str]:
+    """Create the single owner account on boot, from env, if none exists yet.
+
+    Reads OWNER_EMAIL (defaults to Chris's business email) and OWNER_PASSWORD.
+    Does nothing if an owner already exists (idempotent) or if OWNER_PASSWORD is
+    unset — so a fresh deploy without the var set simply has no owner yet, and
+    setting the var + redeploying creates it. Returns the owner email if it made
+    one, else None. Never raises into the boot path (caller wraps it too)."""
+    pw = (os.environ.get("OWNER_PASSWORD") or "").strip()
+    if not pw:
+        return None
+    email = (os.environ.get("OWNER_EMAIL")
+             or "info@originmanagementsolutions.com").strip().lower()
+    try:
+        with db.session() as s:
+            if owner_exists(s):
+                return None
+            s.add(User(email=email, password_hash=hash_password(pw),
+                       role=ROLE_OWNER, name="Owner"))
+            s.commit()
+        return email
+    except Exception:
+        return None
+
+
 # ── slug helper ──────────────────────────────────────────────────────────
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
@@ -197,6 +222,12 @@ def register_platform(app) -> None:
     from fastapi.responses import JSONResponse
 
     db.init_db()
+
+    # Bootstrap the owner account from env (OWNER_EMAIL / OWNER_PASSWORD) on the
+    # first boot after those vars are set. Idempotent and self-silencing.
+    made = ensure_owner()
+    if made:
+        print(f"[platform] owner account created for {made}")
 
     # legacy owner token still opens the AI (so Chris isn't locked out mid-migration)
     legacy_token = (os.environ.get("ORIGIN_TOKEN") or "").strip()
