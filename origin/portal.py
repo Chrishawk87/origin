@@ -1589,15 +1589,14 @@ def register_portal(app) -> None:
         title = _cmp.master_title(mid)
         docs_dir = _client_dir(sub_slug) / "docs"
         docs_dir.mkdir(parents=True, exist_ok=True)
-        fname = None
-        try:
-            pdf_path = _cmp.unique_path(docs_dir, (_cmp.safe_filename(title).rsplit(".", 1)[0] + ".pdf"))
-            _cmp.render_pdf(html, pdf_path, title=title)
-            fname = pdf_path.name
-        except Exception:
-            html_path = _cmp.unique_path(docs_dir, _cmp.safe_filename(title))
-            html_path.write_text(html, encoding="utf-8")
-            fname = html_path.name
+        # Store the library master as a clean, continuous HTML document so the GC
+        # views it as a normal scrollable/printable page — NOT a paginated PDF that
+        # the browser viewer shows as PowerPoint-like page cards.
+        doc_html = _cmp.wrap_document(html, title)
+        html_path = _cmp.unique_path(
+            docs_dir, (_cmp.safe_filename(title).rsplit(".", 1)[0] + ".html"))
+        html_path.write_text(doc_html, encoding="utf-8")
+        fname = html_path.name
         publish = body.get("publish")
         publish = True if publish is None else bool(publish)
         row = {"name": title, "sub": "From Asset Library", "file": fname,
@@ -1629,6 +1628,11 @@ def register_portal(app) -> None:
         path = _client_dir(sub_slug) / "docs" / name
         if not path.is_file():
             return JSONResponse({"error": "file not found"}, status_code=404)
+        # Serve HTML documents inline as a normal continuous page (View/Print),
+        # not as a download; everything else (PDF, images) streams as a file.
+        if path.suffix.lower() in (".html", ".htm"):
+            return HTMLResponse(path.read_text(encoding="utf-8", errors="replace"),
+                                headers=_NO_STORE)
         return FileResponse(str(path))
 
     @app.post("/portal/api/gc/sub/{sub_slug}/doc/upload")
