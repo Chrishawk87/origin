@@ -130,6 +130,43 @@ def slugify(name: str) -> str:
     return s or "client"
 
 
+# ── Asset-library document fill-in ───────────────────────────────────────────
+# When a GC pulls a master into a sub's vault it still carries {{TOKENS}}. These
+# are the fields the GC can fill in from the app (token -> friendly label). The
+# document is always re-rendered from the pristine master so a field can be
+# edited again later (we never lose the token by baking a value into the file).
+_LIB_DOC_FIELDS = [
+    ("COMPANY_NAME",          "Company name"),
+    ("COMPANY_ADDRESS",       "Company address"),
+    ("EFFECTIVE_DATE",        "Effective date"),
+    ("PROGRAM_ADMINISTRATOR", "Program administrator"),
+    ("ADMIN_TITLE",           "Administrator title"),
+    ("SCOPE",                 "Scope of work"),
+]
+
+
+def _render_library_doc(mid: str, fields: Optional[dict]):
+    """Re-render an asset-library master with the GC's fill-in values applied to
+    its {{TOKENS}}, wrapped as a clean, continuous, printable HTML document.
+    Returns (doc_html, title); (None, None) if the master no longer exists."""
+    from . import compliance as _cmp
+    html = _cmp.read_master_html(mid)
+    if not html:
+        return None, None
+    title = _cmp.master_title(mid)
+    f = fields or {}
+    for token, _label in _LIB_DOC_FIELDS:
+        val = f.get(token) or f.get(token.lower())
+        if val:
+            html = html.replace("{{%s}}" % token, str(val))
+    # Keep the review-date tokens coherent with a supplied effective date so the
+    # cover table doesn't show raw {{...}} placeholders next to a real date.
+    eff = f.get("EFFECTIVE_DATE") or f.get("effective_date")
+    if eff:
+        html = html.replace("{{LAST_REVIEW_DATE}}", str(eff))
+    return _cmp.wrap_document(html, title), title
+
+
 def _b64e(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).decode().rstrip("=")
 
@@ -1583,24 +1620,28 @@ def register_portal(app) -> None:
             from . import compliance as _cmp
         except Exception as exc:  # pragma: no cover
             return JSONResponse({"error": f"asset library unavailable: {exc}"}, status_code=500)
-        html = _cmp.read_master_html(mid)
-        if not html:
+        # Pre-fill the two fields we already know so the document isn't blank on
+        # arrival; the GC can complete the rest with the "Fill in details" editor.
+        fields = {"COMPANY_NAME": rec.get("company", "") or "",
+                  "EFFECTIVE_DATE": time.strftime("%Y-%m-%d")}
+        doc_html, title = _render_library_doc(mid, fields)
+        if not doc_html:
             return JSONResponse({"error": "that library document was not found"}, status_code=404)
-        title = _cmp.master_title(mid)
         docs_dir = _client_dir(sub_slug) / "docs"
         docs_dir.mkdir(parents=True, exist_ok=True)
         # Store the library master as a clean, continuous HTML document so the GC
         # views it as a normal scrollable/printable page — NOT a paginated PDF that
         # the browser viewer shows as PowerPoint-like page cards.
-        doc_html = _cmp.wrap_document(html, title)
         html_path = _cmp.unique_path(
             docs_dir, (_cmp.safe_filename(title).rsplit(".", 1)[0] + ".html"))
         html_path.write_text(doc_html, encoding="utf-8")
         fname = html_path.name
         publish = body.get("publish")
         publish = True if publish is None else bool(publish)
+        # Keep mid + fields on the row so the GC can re-edit the fill-in values
+        # later (we re-render from the pristine master each time).
         row = {"name": title, "sub": "From Asset Library", "file": fname,
-               "source": "asset-library"}
+               "source": "asset-library", "mid": mid, "fields": fields}
         if publish:
             for existing in rec.setdefault("documents", []):
                 if existing.get("name") == title:
@@ -1611,6 +1652,63 @@ def register_portal(app) -> None:
         rec["updated"] = _now()
         save_client(rec)
         return {"ok": True, "published": publish, "title": title, "file": fname}
+
+    @app.get("/portal/api/gc/doc-fields")
+    def gc_doc_fields(request: Request):
+        """The fill-in fields a GC can complete on an asset-library document, in
+        display order (token + friendly label)."""
+        gc = acting_gc_slug(request)
+        if not gc:
+            return JSONResponse({"error": "sign in required"}, status_code=401)
+        return {"fields": [{"token": t, "label": l} for t, l in _LIB_DOC_FIELDS]}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/doc/fill")
+    def gc_doc_fill(sub_slug: str, request: Request, body: dict = Body(...)):
+        """Edit an asset-library document's fill-in values (company name, address,
+        effective date, administrator, scope). Re-renders the document from the
+        pristine master so fields can be changed as many times as needed.
+        body: {index, fields:{TOKEN: value, ...}}."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        try:
+            idx = int(body.get("index"))
+        except (TypeError, ValueError):
+            return JSONResponse({"error": "which document?"}, status_code=400)
+        docs = rec.get("documents", [])
+        if idx < 0 or idx >= len(docs):
+            return JSONResponse({"error": "document not found"}, status_code=404)
+        row = docs[idx]
+        mid = row.get("mid")
+        if not mid:
+            return JSONResponse(
+                {"error": "this document isn't an editable library document"},
+                status_code=400)
+        # Merge the incoming values onto whatever was already filled.
+        incoming = body.get("fields") or {}
+        fields = dict(row.get("fields") or {})
+        valid = {t for t, _ in _LIB_DOC_FIELDS}
+        for k, v in incoming.items():
+            if k in valid:
+                fields[k] = (str(v).strip() if v is not None else "")
+        doc_html, title = _render_library_doc(mid, fields)
+        if not doc_html:
+            return JSONResponse({"error": "the source library document is missing"},
+                                status_code=404)
+        # Rewrite the same file so View/Print keep working unchanged.
+        docs_dir = _client_dir(sub_slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        fname = os.path.basename(row.get("file") or "")
+        if not fname or Path(fname).suffix.lower() not in (".html", ".htm"):
+            from . import compliance as _cmp
+            fname = _cmp.unique_path(
+                docs_dir, (_cmp.safe_filename(title).rsplit(".", 1)[0] + ".html")).name
+        (docs_dir / fname).write_text(doc_html, encoding="utf-8")
+        row["file"] = fname
+        row["fields"] = fields
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "fields": fields, "file": row["file"]}
 
     @app.get("/portal/api/gc/sub/{sub_slug}/doc")
     def gc_doc(sub_slug: str, request: Request, file: str = ""):

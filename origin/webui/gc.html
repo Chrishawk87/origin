@@ -248,6 +248,18 @@
   </div>
 </div>
 
+<!-- fill-in-details drawer (edit a library document's company info) -->
+<div class="drawer" id="fillDrawer" style="width:min(520px,96vw)">
+  <div class="dh"><div class="nm" id="fillName">Fill in details</div><button class="x" onclick="closeFill()">×</button></div>
+  <div style="padding:18px;overflow-y:auto;flex:1" id="fillBody">
+    <div class="empty">Loading…</div>
+  </div>
+  <div class="composer" style="justify-content:flex-end;gap:8px">
+    <button class="btn ghost sm" onclick="closeFill()">Cancel</button>
+    <button class="btn green sm" onclick="saveFill()" id="fillSaveBtn">Save &amp; update document</button>
+  </div>
+</div>
+
 <script>
 const $=id=>document.getElementById(id);
 const GCQ=new URLSearchParams(location.search).get('gc');           // owner acting for a GC
@@ -350,8 +362,11 @@ function renderDetail(){
   const expCoi=(s.coi||[]).filter(c=>{const t=Date.parse((c.expires||'')+'T00:00:00');return !isNaN(t)&&(t-Date.now())/864e5<=45});
 
   let onFileHtml=onFile.map(x=>{const d=x.d;
+    const editable=!!d.mid;
+    const fillBtn=editable?`<button class="btn sm" onclick='openFill(${JSON.stringify(s.slug)},${x.i})'>Fill in details</button>`:'';
     return `<div class="docrow"><div style="flex:1"><div class="dn">${esc(d.name||'Document')}</div>
       <div class="ds">${esc(d.sub||d.source||'On file')}</div></div>
+      ${fillBtn}
       <button class="btn ghost sm" onclick='viewDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.file)})'>View</button>
       <button class="btn ghost sm" onclick='printDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.file)})'>Print</button>
       <button class="btn ghost sm" onclick='editDoc(${JSON.stringify(s.slug)},${x.i},${JSON.stringify(d.name||"")})'>Rename</button>
@@ -426,6 +441,34 @@ async function doUploadSubDoc(){
   const fd=new FormData();fd.append('file',f);fd.append('name',nm.trim());
   const r=await fetch(q('/portal/api/gc/sub/'+UPSUB+'/doc/upload'),{method:'POST',body:fd});
   if(r.ok){await boot()}else{alert('Upload failed')}
+}
+
+/* ── fill-in details: complete an asset-library document's company info ── */
+let FILLSUB=null,FILLIDX=null,FILLFIELDS=[];
+async function openFill(slug,index){
+  FILLSUB=slug;FILLIDX=index;
+  const sub=(SUBS||[]).find(x=>x.slug===slug)||{};
+  const d=(sub.documents||[])[index]||{};
+  const cur=d.fields||{};
+  if(!FILLFIELDS.length){const r=await api('/portal/api/gc/doc-fields');FILLFIELDS=(r.ok&&r.data.fields)||[]}
+  $('fillName').textContent='Fill in details — '+(d.name||'Document');
+  $('fillBody').innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:12px">These fill into the document (company name, dates, administrator). You can change them any time — Save re-renders a clean copy.</div>'+
+    FILLFIELDS.map(f=>{
+      const v=esc(cur[f.token]||'');
+      const ph=f.token==='EFFECTIVE_DATE'?'YYYY-MM-DD':'';
+      return '<label style="display:block;font-size:12px;font-weight:700;margin:10px 0 4px">'+esc(f.label)+
+        '</label><input class="f" id="fill_'+f.token+'" value="'+v+'" placeholder="'+ph+'">';
+    }).join('');
+  $('fillDrawer').classList.add('open');
+}
+function closeFill(){$('fillDrawer').classList.remove('open')}
+async function saveFill(){
+  if(FILLSUB===null||FILLIDX===null)return;
+  const fields={};FILLFIELDS.forEach(f=>{const el=$('fill_'+f.token);if(el)fields[f.token]=el.value.trim()});
+  $('fillSaveBtn').disabled=true;
+  const r=await api('/portal/api/gc/sub/'+FILLSUB+'/doc/fill',{method:'POST',body:JSON.stringify({index:FILLIDX,fields:fields})});
+  $('fillSaveBtn').disabled=false;
+  if(r.ok){closeFill();await boot()}else{alert(r.data.error||'Could not save.')}
 }
 
 /* add / edit sub */
