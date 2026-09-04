@@ -180,67 +180,83 @@ _CONSOLE_HTML = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Origin — Owner Console</title>
 <style>
-  :root { --green:#1E7A46; --ink:#12211a; --muted:#5b6b63; --line:#e3e9e5;
-          --bg:#f5f7f6; --card:#ffffff; --danger:#b23b3b; }
+  :root { --brand:#1E7A46; --ink:#12211a; --muted:#5b6b63; --line:#e6ebe8;
+          --bg:#f4f6f5; --card:#fff; --red:#c0392b; --amber:#d99200; --ok:#1E7A46; }
   * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",
-         Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
-  header { background:var(--green); color:#fff; padding:16px 22px; display:flex;
-           align-items:center; justify-content:space-between; }
-  header h1 { margin:0; font-size:17px; font-weight:600; letter-spacing:.2px; }
-  header .who { font-size:13px; opacity:.9; display:flex; gap:12px; align-items:center; }
-  header button { background:rgba(255,255,255,.16); color:#fff; border:0;
-                  padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; }
-  header button:hover { background:rgba(255,255,255,.28); }
-  main { max-width:920px; margin:0 auto; padding:26px 20px 60px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
-          padding:20px 22px; margin-bottom:18px; }
-  h2 { font-size:15px; margin:0 0 14px; }
+  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+         Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
+  header { color:#fff; padding:16px 26px; display:flex; align-items:center; justify-content:space-between;
+    box-shadow:0 1px 0 rgba(0,0,0,.06); background:var(--brand); }
+  header .brand { display:flex; align-items:center; gap:12px; }
+  header .logo { width:34px; height:34px; border-radius:9px; background:rgba(255,255,255,.2);
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; }
+  header h1 { margin:0; font-size:18px; font-weight:600; letter-spacing:.2px; }
+  header .r { display:flex; gap:10px; align-items:center; font-size:13px; }
+  header .badge { background:rgba(255,255,255,.18); padding:5px 10px; border-radius:20px; font-weight:600; }
+  header button { color:#fff; background:rgba(255,255,255,.16);
+    border:0; padding:8px 13px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+  header button:hover { background:rgba(255,255,255,.3); }
+  main { max-width:1080px; margin:0 auto; padding:24px 22px 70px; }
+
+  .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .tile .n { font-size:26px; font-weight:700; line-height:1.1; }
+  .tile .l { font-size:12px; color:var(--muted); margin-top:2px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+  .tile.green .n{color:var(--ok)} .tile.warn .n{color:var(--amber)}
+  @media(max-width:760px){ .tiles{grid-template-columns:repeat(2,1fr)} }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px; margin-bottom:18px; }
+  .card h2 { font-size:15px; margin:0 0 14px; display:flex; align-items:center; justify-content:space-between; }
+  .card h2 .hint { font-weight:400; font-size:12px; color:var(--muted); }
   label { display:block; font-size:12px; color:var(--muted); margin:0 0 4px; font-weight:600; }
   input[type=text], input[type=email], input[type=password] {
-    width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px;
-    font-size:14px; background:#fff; }
-  input[type=color] { width:46px; height:38px; padding:2px; border:1px solid var(--line);
-    border-radius:8px; background:#fff; cursor:pointer; vertical-align:bottom; }
+    width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff; }
+  input[type=color] { width:46px; height:40px; padding:2px; border:1px solid var(--line);
+    border-radius:9px; background:#fff; cursor:pointer; vertical-align:bottom; }
   .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
   .row > div { flex:1; min-width:150px; }
-  button.primary { background:var(--green); color:#fff; border:0; padding:10px 16px;
-    border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
-  button.primary:hover { filter:brightness(1.06); }
-  button.ghost, a.ghost { background:#fff; color:var(--green); border:1px solid var(--green);
-    padding:8px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
-    text-decoration:none; display:inline-block; line-height:1.2; }
-  a.ghost:hover { background:#f0f7f2; }
-  button.danger-ghost { background:#fff; color:var(--danger); border:1px solid var(--danger);
-    padding:8px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+  button.primary { background:var(--brand); color:#fff; border:0; padding:10px 16px; border-radius:9px;
+    font-size:14px; font-weight:600; cursor:pointer; }
+  button.primary:hover { filter:brightness(1.07); }
+  button.ghost, a.ghost { background:#eef2f0; color:var(--brand); border:0;
+    padding:8px 13px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
+    text-decoration:none; display:inline-block; line-height:1.3; }
+  a.ghost:hover, button.ghost:hover { background:#e2ece6; }
+  button.danger-ghost { background:#fff; color:var(--red); border:1px solid var(--red);
+    padding:8px 13px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
   button.danger-ghost:hover { background:#fbecec; }
-  dialog { border:0; border-radius:12px; padding:22px; max-width:440px;
-    box-shadow:0 10px 40px rgba(0,0,0,.2); }
+
+  dialog { border:0; border-radius:12px; padding:22px; max-width:440px; box-shadow:0 10px 40px rgba(0,0,0,.25); }
   dialog h3 { margin:0 0 10px; font-size:16px; }
   dialog .actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
-  dialog button { padding:8px 14px; border-radius:8px; border:1px solid var(--line);
-    background:#fff; cursor:pointer; font-size:14px; }
-  dialog button.danger { background:var(--danger); color:#fff; border:0; font-weight:600; }
+  dialog button { padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:14px; }
+  dialog button.danger { background:var(--red); color:#fff; border:0; font-weight:600; }
   dialog button.danger:disabled { opacity:.45; cursor:not-allowed; }
-  .gc { border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+
+  .gc { border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:12px; background:#fff; }
   .gc .top { display:flex; align-items:center; gap:12px; }
-  .swatch { width:26px; height:26px; border-radius:6px; border:1px solid rgba(0,0,0,.1); }
-  .gc .name { font-weight:600; }
-  .gc .meta { font-size:12px; color:var(--muted); margin-left:auto; text-align:right; }
-  .gc .emails { font-size:12px; color:var(--muted); margin-top:6px; }
+  .gc .glogo { width:34px; height:34px; border-radius:9px; color:#fff; display:flex; align-items:center;
+    justify-content:center; font-weight:800; font-size:14px; flex:0 0 auto; }
+  .gc .name { font-weight:600; font-size:16px; }
+  .gc .slug { font-size:12px; color:var(--muted); }
+  .gc .meta { margin-left:auto; text-align:right; font-size:12px; color:var(--muted); }
+  .gc .pill { display:inline-block; background:#eef2f0; border-radius:20px; padding:3px 10px; font-weight:600; margin-left:6px; }
+  .gc .pill.warn { background:#fbf0d3; color:#8a6400; }
+  .gc .emails { font-size:12px; color:var(--muted); margin-top:8px; }
+  .gc .actions-row { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .issue { margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); display:none; }
   .issue.open { display:block; }
   .note { font-size:12px; color:var(--muted); margin-top:8px; }
-  .ok { color:var(--green); font-weight:600; }
-  .err { color:var(--danger); font-weight:600; }
-  .empty { color:var(--muted); font-size:14px; }
-  /* login */
-  #login { max-width:380px; margin:9vh auto 0; }
-  #login .card { text-align:left; }
-  #login h2 { text-align:center; }
-  .brandline { text-align:center; color:var(--muted); font-size:13px; margin:-6px 0 18px; }
+  .ok { color:var(--ok); font-weight:600; }
+  .err { color:var(--red); font-weight:600; }
+  .empty { color:var(--muted); font-size:14px; padding:6px 0; }
   .hidden { display:none !important; }
   .stack > * + * { margin-top:12px; }
+  /* login */
+  #login { max-width:390px; margin:9vh auto 0; }
+  #login h2 { text-align:center; }
+  .brandline { text-align:center; color:var(--muted); font-size:13px; margin:-6px 0 18px; }
 </style>
 </head>
 <body>
@@ -264,10 +280,19 @@ _CONSOLE_HTML = r"""<!doctype html>
 
 <div id="app" class="hidden">
   <header>
-    <h1>Origin — Owner Console</h1>
-    <div class="who"><span id="who-email"></span><button onclick="doLogout()">Sign out</button></div>
+    <div class="brand">
+      <div class="logo">OM</div>
+      <h1>Origin — Owner Console</h1>
+    </div>
+    <div class="r">
+      <span class="badge">Owner</span>
+      <span id="who-email"></span>
+      <button onclick="doLogout()">Sign out</button>
+    </div>
   </header>
   <main>
+    <div class="tiles" id="tiles"></div>
+
     <div class="card">
       <h2>Add a General Contractor</h2>
       <div class="row">
@@ -287,7 +312,7 @@ _CONSOLE_HTML = r"""<!doctype html>
     </div>
 
     <div class="card">
-      <h2>Your General Contractors</h2>
+      <h2>Your General Contractors <span class="hint">Open a workspace to manage subs, or issue an admin login</span></h2>
       <div id="gc-list"><div class="empty">Loading…</div></div>
     </div>
   </main>
@@ -315,6 +340,7 @@ async function api(path, opts){
   return {ok:r.ok, status:r.status, data};
 }
 function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function initials(name){ return (name||'GC').trim().slice(0,2).toUpperCase(); }
 
 async function boot(){
   const {data} = await api('/platform/me');
@@ -365,24 +391,48 @@ async function loadGCs(){
   const {ok, data} = await api('/platform/gcs');
   if(!ok){ el.innerHTML='<div class="err">Could not load GCs.</div>'; return; }
   const gcs = data.gcs||[];
+  drawTiles(gcs);
   if(!gcs.length){ el.innerHTML='<div class="empty">No GCs yet. Create your first one above.</div>'; return; }
   el.innerHTML = gcs.map(renderGC).join('');
+}
+
+function drawTiles(gcs){
+  const totalGCs = gcs.length;
+  const totalSubs = gcs.reduce((a,g)=>a+(g.subs||0), 0);
+  const totalAdmins = gcs.reduce((a,g)=>a+(g.admins||0), 0);
+  const needAdmin = gcs.filter(g=>!(g.admins>0)).length;
+  const tiles = [
+    {n:totalGCs, l:'General Contractors', c:''},
+    {n:totalSubs, l:'Subcontractors', c:'green'},
+    {n:totalAdmins, l:'Admin logins', c:''},
+    {n:needAdmin, l:'Need an admin', c:needAdmin?'warn':''},
+  ];
+  document.getElementById('tiles').innerHTML = tiles.map(t=>
+    `<div class="tile ${t.c}"><div class="n">${t.n}</div><div class="l">${t.l}</div></div>`).join('');
 }
 
 function renderGC(g){
   const emails = g.admin_emails && g.admin_emails.length
     ? 'Admin logins: '+g.admin_emails.map(esc).join(', ')
-    : 'No admin login yet';
+    : '<span style="color:var(--amber);font-weight:600">No admin login yet</span>';
+  const adminPill = g.admins>0
+    ? `<span class="pill">${g.admins} admin${g.admins===1?'':'s'}</span>`
+    : `<span class="pill warn">Needs admin</span>`;
+  const brand = esc(g.brand_primary||'#1E7A46');
   return `
   <div class="gc">
     <div class="top">
-      <div class="swatch" style="background:${esc(g.brand_primary)}"></div>
-      <div class="name">${esc(g.name)}</div>
-      <div class="meta">${g.subs} sub${g.subs===1?'':'s'} · ${g.admins} admin${g.admins===1?'':'s'}<br>
-        <span style="opacity:.7">/${esc(g.slug)}</span></div>
+      <div class="glogo" style="background:${brand}">${initials(g.name)}</div>
+      <div>
+        <div class="name">${esc(g.name)}</div>
+        <div class="slug">/${esc(g.slug)}</div>
+      </div>
+      <div class="meta">
+        <span class="pill">${g.subs} sub${g.subs===1?'':'s'}</span>${adminPill}
+      </div>
     </div>
     <div class="emails">${emails}</div>
-    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+    <div class="actions-row">
       <a class="ghost" href="/platform/gc?gc=${encodeURIComponent(g.id)}">Open workspace →</a>
       <button class="ghost" onclick="toggleIssue('${g.id}')">Issue admin login</button>
       <button class="danger-ghost" onclick="askDeleteGC('${g.id}','${esc(g.name).replace(/'/g,"\\'")}')">Delete GC</button>
