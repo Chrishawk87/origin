@@ -176,6 +176,145 @@ def _save_msgfile(dirpath: Path, upload) -> str:
     return safe
 
 
+def _find_msg_att(rec: Dict[str, Any], file: str):
+    """Locate a message attachment inside a record's thread by its on-disk
+    filename (the stable handle the frontend passes back). Returns (msg, att)
+    or (None, None)."""
+    for m in rec.get("messages", []) or []:
+        for a in (m.get("attachments") or []):
+            if a.get("file") == file:
+                return m, a
+    return None, None
+
+
+def _stamp_pdf(msgdir: Path, srcfile: str, entry: Dict[str, Any]) -> str:
+    """Best-effort: overlay an Approved/Rejected + typed-signature stamp onto the
+    first page of a PDF and write a new *_signed.pdf beside it. Returns the new
+    filename, or '' when the source isn't a PDF or anything goes wrong (the
+    review is still recorded in metadata either way)."""
+    try:
+        if not (srcfile or "").lower().endswith(".pdf"):
+            return ""
+        from io import BytesIO
+        from reportlab.pdfgen import canvas
+        from pypdf import PdfReader, PdfWriter
+        src = Path(msgdir) / srcfile
+        reader = PdfReader(str(src))
+        page0 = reader.pages[0]
+        w = float(page0.mediabox.width)
+        h = float(page0.mediabox.height)
+        status = (entry.get("status") or "Reviewed").upper()
+        col = (0.09, 0.5, 0.27) if status == "APPROVED" else (
+            (0.80, 0.15, 0.15) if status == "REJECTED" else (0.20, 0.30, 0.55))
+        bw, bh = 258, 82
+        x = max(12.0, w - bw - 22)
+        y = 22.0
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=(w, h))
+        c.setStrokeColorRGB(*col)
+        c.setLineWidth(1.6)
+        c.roundRect(x, y, bw, bh, 7, stroke=1, fill=0)
+        c.setFillColorRGB(*col)
+        c.setFont("Helvetica-Bold", 15)
+        c.drawString(x + 12, y + bh - 22, status)
+        c.setFillColorRGB(0.12, 0.12, 0.12)
+        c.setFont("Helvetica-Oblique", 12)
+        c.drawString(x + 12, y + bh - 41, (entry.get("signature") or entry.get("signer") or "")[:34])
+        c.setFont("Helvetica", 8.5)
+        who = (entry.get("signer") or "")
+        when = (entry.get("ts") or "")[:16].replace("T", " ")
+        c.drawString(x + 12, y + bh - 55, (who + ("  ·  " if who else "") + when)[:52])
+        if entry.get("note"):
+            c.drawString(x + 12, y + bh - 68, ("Note: " + entry["note"])[:52])
+        c.save()
+        buf.seek(0)
+        overlay = PdfReader(buf)
+        page0.merge_page(overlay.pages[0])
+        writer = PdfWriter()
+        for p in reader.pages:
+            writer.add_page(p)
+        out = os.path.splitext(srcfile)[0] + "_signed.pdf"
+        with open(Path(msgdir) / out, "wb") as fh:
+            writer.write(fh)
+        return out
+    except Exception:
+        return ""
+
+
+# ── In-terminal document actions (sign / review, note, replace, save) ─────────
+# These operate on a single attachment dict `att` (located by its on-disk
+# filename) living inside a thread's message. They are storage-agnostic: the
+# caller passes the right msgfiles dir, the record's docs dir, and the record
+# itself, so the same logic serves the owner<->GC, GC<->sub and sub threads.
+
+def _do_review(msgdir: Path, att: Dict[str, Any], who: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Record an Approve/Reject decision and/or typed e-signature and, for PDFs,
+    stamp a fresh *_signed.pdf. The decision is always saved in metadata even if
+    the visual stamp can't be produced."""
+    entry = {
+        "by": who,
+        "status": (body.get("status") or "Signed").strip(),
+        "signer": (body.get("signer") or "").strip(),
+        "signature": (body.get("signature") or "").strip(),
+        "note": (body.get("note") or "").strip(),
+        "ts": _now(),
+    }
+    signed = _stamp_pdf(msgdir, att.get("file", ""), entry)
+    if signed:
+        att["signed_file"] = signed
+    att.setdefault("reviews", []).append(entry)
+    return {"ok": True, "review": entry, "signed_file": att.get("signed_file", "")}
+
+
+def _do_note(att: Dict[str, Any], who: str, body: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Append a free-text markup note to the attachment. Returns None if empty."""
+    text = (body.get("text") or body.get("note") or "").strip()
+    if not text:
+        return None
+    entry = {"by": who, "text": text, "ts": _now()}
+    att.setdefault("notes", []).append(entry)
+    return entry
+
+
+def _do_save_doc(rec: Dict[str, Any], msgdir: Path, docsdir: Path,
+                 att: Dict[str, Any], who: str) -> Optional[Dict[str, Any]]:
+    """Copy the attachment (signed copy if one exists) into the account's
+    Documents folder and add a documents row so it shows in the vault."""
+    src_name = att.get("signed_file") or att.get("file") or ""
+    src = Path(msgdir) / os.path.basename(src_name)
+    if not src.is_file():
+        return None
+    docsdir.mkdir(parents=True, exist_ok=True)
+    dest_name = secrets.token_hex(3) + "_" + os.path.basename(src_name)
+    (docsdir / dest_name).write_bytes(src.read_bytes())
+    disp = att.get("name") or os.path.basename(att.get("file", "")) or dest_name
+    doc_name = os.path.splitext(disp)[0] or dest_name
+    row = {"name": doc_name, "sub": "Saved from messages",
+           "file": dest_name, "source": "message"}
+    rec.setdefault("documents", []).append(row)
+    att["saved"] = True
+    att["saved_file"] = dest_name
+    return row
+
+
+def _do_replace(msgdir: Path, att: Dict[str, Any], upload, note: str, who: str) -> Dict[str, Any]:
+    """Store an uploaded new version, push the old file into att['versions'], and
+    point the attachment at the new file. Any prior signature is voided because
+    it no longer describes the current file."""
+    old = {"file": att.get("file"), "name": att.get("name"),
+           "by": who, "ts": _now()}
+    if att.get("signed_file"):
+        old["signed_file"] = att["signed_file"]
+    safe = _save_msgfile(msgdir, upload)
+    att.setdefault("versions", []).append(old)
+    att["file"] = safe
+    att["name"] = os.path.basename(getattr(upload, "filename", "") or safe)
+    att.pop("signed_file", None)
+    if (note or "").strip():
+        _do_note(att, who, {"text": "Replaced file — " + note.strip()})
+    return {"file": safe, "name": att["name"]}
+
+
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
     return s or "client"
@@ -2434,8 +2573,15 @@ def register_portal(app) -> None:
             atts = []
             for a in (m.get("attachments") or []):
                 fn = a.get("file", "")
+                signed = a.get("signed_file", "")
                 atts.append({"name": a.get("name", fn),
-                             "url": (file_base + fn) if (file_base and fn) else ""})
+                             "file": fn,
+                             "url": (file_base + fn) if (file_base and fn) else "",
+                             "signed_url": (file_base + signed) if (file_base and signed) else "",
+                             "reviews": a.get("reviews", []),
+                             "notes": a.get("notes", []),
+                             "versions": len(a.get("versions", [])),
+                             "saved": bool(a.get("saved"))})
             out.append({
                 "body": m.get("body", ""),
                 "ts": m.get("ts", ""),
@@ -2445,6 +2591,44 @@ def register_portal(app) -> None:
                 "attachments": atts,
             })
         return out
+
+    def _run_msg_act(rec, msgdir: Path, docsdir: Path, save_fn, who: str,
+                     body: dict):
+        """Dispatch an in-terminal attachment action (review / note / save) and
+        persist. Returns the endpoint's JSON response."""
+        file = (body.get("file") or "").strip()
+        action = (body.get("action") or "").strip()
+        _msg, att = _find_msg_att(rec, file)
+        if not att:
+            return JSONResponse({"error": "attachment not found"}, status_code=404)
+        if action == "review":
+            res = _do_review(msgdir, att, who, body)
+        elif action == "note":
+            entry = _do_note(att, who, body)
+            if not entry:
+                return JSONResponse({"error": "empty note"}, status_code=400)
+            res = {"ok": True, "note": entry}
+        elif action == "save":
+            row = _do_save_doc(rec, msgdir, docsdir, att, who)
+            if not row:
+                return JSONResponse({"error": "file no longer on disk"},
+                                    status_code=404)
+            res = {"ok": True, "doc": row}
+        else:
+            return JSONResponse({"error": "unknown action"}, status_code=400)
+        save_fn(rec)
+        return res
+
+    def _run_msg_replace(rec, msgdir: Path, save_fn, who: str,
+                         target: str, upload, note: str):
+        """Replace an attachment's file with an uploaded new version, keeping the
+        old one in history. Returns the endpoint's JSON response."""
+        _msg, att = _find_msg_att(rec, (target or "").strip())
+        if not att:
+            return JSONResponse({"error": "attachment not found"}, status_code=404)
+        res = _do_replace(msgdir, att, upload, note, who)
+        save_fn(rec)
+        return {"ok": True, **res}
 
     # ---- owner <-> GC ----
     @app.get("/portal/api/admin/gc/{slug}/messages")
@@ -2513,7 +2697,30 @@ def register_portal(app) -> None:
         fp = _gc_dir(slug) / "msgfiles" / os.path.basename(fname)
         if not fp.is_file():
             return JSONResponse({"error": "not found"}, status_code=404)
-        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
+        return FileResponse(str(fp), content_disposition_type="inline",
+                            filename=os.path.basename(fname).split("_", 1)[-1])
+
+    @app.post("/portal/api/admin/gc/{slug}/msg/act")
+    def owner_gc_msg_act(slug: str, request: Request, body: dict = Body(...)):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return _run_msg_act(rec, _gc_dir(slug) / "msgfiles",
+                            _gc_dir(slug) / "docs", save_gc, "owner", body)
+
+    @app.post("/portal/api/admin/gc/{slug}/msg/replace")
+    def owner_gc_msg_replace(slug: str, request: Request,
+                             file: UploadFile = File(...),
+                             target: str = Form(...), note: str = Form("")):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return _run_msg_replace(rec, _gc_dir(slug) / "msgfiles", save_gc,
+                                "owner", target, file, note)
 
     @app.get("/portal/api/gc/owner-messages")
     def gc_owner_messages(request: Request):
@@ -2587,7 +2794,33 @@ def register_portal(app) -> None:
         fp = _gc_dir(slug) / "msgfiles" / os.path.basename(fname)
         if not fp.is_file():
             return JSONResponse({"error": "not found"}, status_code=404)
-        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
+        return FileResponse(str(fp), content_disposition_type="inline",
+                            filename=os.path.basename(fname).split("_", 1)[-1])
+
+    @app.post("/portal/api/gc/owner-msg/act")
+    def gc_owner_msg_act(request: Request, body: dict = Body(...)):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        who = "gc" if gc_session(request) else "owner"
+        return _run_msg_act(rec, _gc_dir(slug) / "msgfiles",
+                            _gc_dir(slug) / "docs", save_gc, who, body)
+
+    @app.post("/portal/api/gc/owner-msg/replace")
+    def gc_owner_msg_replace(request: Request, file: UploadFile = File(...),
+                             target: str = Form(...), note: str = Form("")):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        who = "gc" if gc_session(request) else "owner"
+        return _run_msg_replace(rec, _gc_dir(slug) / "msgfiles", save_gc,
+                                who, target, file, note)
 
     # ---- GC <-> sub ----
     @app.get("/portal/api/gc/sub/{sub_slug}/messages")
@@ -2665,7 +2898,26 @@ def register_portal(app) -> None:
         fp = _client_dir(sub_slug) / "msgfiles" / os.path.basename(fname)
         if not fp.is_file():
             return JSONResponse({"error": "not found"}, status_code=404)
-        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
+        return FileResponse(str(fp), content_disposition_type="inline",
+                            filename=os.path.basename(fname).split("_", 1)[-1])
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/msg/act")
+    def gc_sub_msg_act(sub_slug: str, request: Request, body: dict = Body(...)):
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        return _run_msg_act(rec, _client_dir(sub_slug) / "msgfiles",
+                            _client_dir(sub_slug) / "docs", save_client, "gc", body)
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/msg/replace")
+    def gc_sub_msg_replace(sub_slug: str, request: Request,
+                           file: UploadFile = File(...),
+                           target: str = Form(...), note: str = Form("")):
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        return _run_msg_replace(rec, _client_dir(sub_slug) / "msgfiles",
+                                save_client, "gc", target, file, note)
 
     # ---- sub side of the GC<->sub thread ----
     @app.get("/portal/api/messages")
@@ -2738,7 +2990,32 @@ def register_portal(app) -> None:
         fp = _client_dir(sess["slug"]) / "msgfiles" / os.path.basename(fname)
         if not fp.is_file():
             return JSONResponse({"error": "not found"}, status_code=404)
-        return FileResponse(str(fp), filename=os.path.basename(fname).split("_", 1)[-1])
+        return FileResponse(str(fp), content_disposition_type="inline",
+                            filename=os.path.basename(fname).split("_", 1)[-1])
+
+    @app.post("/portal/api/msg/act")
+    def sub_msg_act(request: Request, body: dict = Body(...)):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        return _run_msg_act(rec, _client_dir(sess["slug"]) / "msgfiles",
+                            _client_dir(sess["slug"]) / "docs", save_client,
+                            "sub", body)
+
+    @app.post("/portal/api/msg/replace")
+    def sub_msg_replace(request: Request, file: UploadFile = File(...),
+                        target: str = Form(...), note: str = Form("")):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        return _run_msg_replace(rec, _client_dir(sess["slug"]) / "msgfiles",
+                                save_client, "sub", target, file, note)
 
     # ===================== LOGOS =====================
     def _save_logo(dirpath: Path, upload) -> str:

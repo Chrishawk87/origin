@@ -115,8 +115,30 @@
   .clip{border:none;background:none;cursor:pointer;font-size:19px;line-height:1;padding:0 4px;opacity:.75}
   .clip:hover{opacity:1}
   .bub .seen{display:block;font-size:10px;opacity:.7;margin-top:1px;text-align:right}
-  .bub .att{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.06);color:var(--ink);font-size:12.5px;font-weight:600;text-decoration:none}
+  .bub .att{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.06);color:var(--ink);font-size:12.5px;font-weight:600;text-decoration:none;cursor:pointer}
   .bub.me .att{background:rgba(255,255,255,.22);color:#fff}
+  .attb{display:inline-block;margin-left:5px;padding:1px 6px;border-radius:20px;font-size:10px;font-weight:700;vertical-align:middle}
+  .attb.ok{background:#dcfce7;color:#166534}.attb.no{background:#fee2e2;color:#991b1b}
+  .attb.sig{background:#e0e7ff;color:#3730a3}.attb.sv{background:#fef3c7;color:#92400e}.attb.vv{background:#e2e8f0;color:#334155}
+  .vw-ov{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;z-index:9000;padding:18px}
+  .vw-card{background:var(--card,#fff);border-radius:14px;width:min(1040px,100%);height:min(88vh,860px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  .vw-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .vw-head b{font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+  .vw-x{border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#889;padding:0 4px}
+  .vw-main{flex:1;display:flex;min-height:0}
+  .vw-prev{flex:1;background:#f1f5f9;min-width:0}
+  .vw-prev iframe,.vw-prev img{width:100%;height:100%;border:0;object-fit:contain}
+  .vw-side{width:270px;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .vw-acts{display:flex;flex-wrap:wrap;gap:6px;padding:12px}
+  .vw-acts button{flex:1 1 46%;padding:8px 6px;border:1px solid var(--line);border-radius:8px;background:var(--card,#fff);font-size:12px;font-weight:600;cursor:pointer;color:var(--ink)}
+  .vw-acts button.pri{background:var(--orange,#ea6a1e);color:#fff;border-color:transparent}
+  .vw-form{padding:0 12px 10px;border-bottom:1px solid var(--line)}
+  .vw-form input,.vw-form textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;background:var(--card,#fff);color:var(--ink)}
+  .vw-hist{flex:1;overflow:auto;padding:10px 12px;font-size:12px;color:var(--ink)}
+  .vw-hist .h{font-weight:700;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin:8px 0 4px}
+  .vw-hist .it{padding:6px 8px;background:rgba(120,130,150,.12);border-radius:6px;margin-bottom:5px;line-height:1.35}
+  .vw-hist .it .m{color:#94a3b8;font-size:10.5px}
+  @media(max-width:720px){.vw-main{flex-direction:column}.vw-side{width:auto;border-left:none;border-top:1px solid var(--line)}}
   .typing{height:16px;padding:0 16px 4px;font-size:11.5px;color:var(--muted,#889);display:flex;align-items:center;gap:5px}
   .typing .dots{display:inline-flex;gap:3px}
   .typing .dots span{width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;animation:tb 1s infinite}
@@ -650,13 +672,114 @@ async function saveSub(){
 
 /* ── shared messaging helpers ── */
 function msgSig(msgs,typing){return (msgs||[]).map(m=>(m.ts||'')+(m.seen?'1':'0')+((m.attachments||[]).length)).join('|')+(typing?'T':'')}
-function attHtml(m){return (m.attachments||[]).map(a=>`<a class="att" href="${esc(q(a.url))}" target="_blank" rel="noopener">📄 ${esc(a.name)}</a>`).join('')}
-function bub(m){
+var ATT_REG={};
+function attBadges(a){var b='';var rv=(a.reviews||[]);
+  if(rv.length){var st=(rv[rv.length-1].status||'Signed');
+    var cls=/approv/i.test(st)?'ok':(/reject/i.test(st)?'no':'sig');
+    b+=`<span class="attb ${cls}">${esc(st)}</span>`;}
+  if(a.saved)b+='<span class="attb sv">Saved</span>';
+  if(a.versions)b+=`<span class="attb vv">v${a.versions+1}</span>`;
+  return b;}
+function attHtml(m,scope){return (m.attachments||[]).map(a=>{
+  ATT_REG[scope+'|'+a.file]=a;
+  return `<span class="att" onclick="openViewer('${scope}','${esc(a.file)}')">📄 ${esc(a.name)}${attBadges(a)}</span>`;}).join('')}
+function bub(m,scope){
   const seen=m.mine?`<span class="seen">${m.seen?'✓✓ Seen':'✓ Sent'}</span>`:'';
-  return `<div class="bub ${m.mine?'me':'them'}">${m.body?esc(m.body):''}${attHtml(m)}<span class="t">${esc((m.ts||'').replace('T',' ').slice(0,16))}</span>${seen}</div>`;
+  return `<div class="bub ${m.mine?'me':'them'}">${m.body?esc(m.body):''}${attHtml(m,scope)}<span class="t">${esc((m.ts||'').replace('T',' ').slice(0,16))}</span>${seen}</div>`;
 }
 function typingHtml(on){return on?'<span>Typing</span><span class="dots"><span></span><span></span><span></span></span>':''}
 async function apiForm(path,fd){const r=await fetch(q(path),{method:'POST',body:fd});let d={};try{d=await r.json()}catch(e){}return{ok:r.ok,data:d}}
+
+/* ── in-app document viewer (scope-aware: owner | sub) ── */
+var VW_FILE='',VW_SCOPE='';
+function vwCfg(){
+  if(VW_SCOPE==='sub')return{act:'/portal/api/gc/sub/'+MSUB+'/msg/act',rep:'/portal/api/gc/sub/'+MSUB+'/msg/replace',reload:()=>loadSub(false)};
+  return{act:'/portal/api/gc/owner-msg/act',rep:'/portal/api/gc/owner-msg/replace',reload:()=>loadOwner(false)};
+}
+function vwEnsure(){
+  if($('vwOv'))return;
+  const d=document.createElement('div');d.id='vwOv';d.className='vw-ov';
+  d.innerHTML='<div class="vw-card">'
+   +'<div class="vw-head"><b id="vwTitle">Document</b>'
+   +'<input type="file" id="vwFile" style="display:none" onchange="vwDoReplace()">'
+   +'<button class="vw-x" onclick="closeViewer()" title="Close">\u00d7</button></div>'
+   +'<div class="vw-main"><div class="vw-prev" id="vwPrev"></div>'
+   +'<div class="vw-side"><div class="vw-acts">'
+   +'<button class="pri" onclick="vwReviewForm()">Sign / Review</button>'
+   +'<button onclick="vwNoteForm()">Add note</button>'
+   +'<button onclick="document.getElementById(\'vwFile\').click()">Replace</button>'
+   +'<button onclick="vwDownload()">Download</button>'
+   +'<button onclick="vwSave()">Save to platform</button></div>'
+   +'<div class="vw-form" id="vwForm" style="display:none"></div>'
+   +'<div class="vw-hist" id="vwHist"></div></div></div>';
+  document.body.appendChild(d);
+  d.addEventListener('click',e=>{if(e.target===d)closeViewer();});
+}
+function openViewer(scope,file){
+  const a=ATT_REG[scope+'|'+file];if(!a)return;VW_SCOPE=scope;VW_FILE=file;vwEnsure();
+  $('vwOv').style.display='flex';
+  $('vwTitle').textContent=a.name||'Document';
+  $('vwForm').style.display='none';
+  const url=q(a.signed_url||a.url);const low=(a.name||a.url||'').toLowerCase();
+  const prev=$('vwPrev');
+  if(/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(low))prev.innerHTML=`<img src="${esc(url)}">`;
+  else prev.innerHTML=`<iframe src="${esc(url)}"></iframe>`;
+  vwHist(a);
+}
+function closeViewer(){const o=$('vwOv');if(o)o.style.display='none';VW_FILE='';}
+function vwTs(ts){return (ts||'').replace('T',' ').slice(0,16)}
+function vwHist(a){
+  let h='';const rv=(a.reviews||[]);
+  if(rv.length){h+='<div class="h">Sign-offs</div>';rv.forEach(r=>{
+    h+=`<div class="it"><b>${esc(r.status||'Signed')}</b>${r.signature?' \u2014 '+esc(r.signature):''}${r.note?'<br>'+esc(r.note):''}<div class="m">${esc(vwTs(r.ts))}</div></div>`;});}
+  const nt=(a.notes||[]);
+  if(nt.length){h+='<div class="h">Notes</div>';nt.forEach(n=>{
+    h+=`<div class="it">${esc(n.text)}<div class="m">${esc(vwTs(n.ts))}</div></div>`;});}
+  if(a.versions)h+=`<div class="h">Versions</div><div class="it">${a.versions+1} version(s) \u2014 newest shown</div>`;
+  if(!h)h='<div class="m" style="color:#94a3b8">No sign-offs or notes yet.</div>';
+  $('vwHist').innerHTML=h;
+}
+function vwReviewForm(){
+  const f=$('vwForm');f.style.display='block';
+  f.innerHTML='<input id="vwSig" placeholder="Type your name to sign">'
+   +'<textarea id="vwRNote" rows="2" placeholder="Note (optional)"></textarea>'
+   +'<div style="display:flex;gap:6px"><button style="flex:1;padding:8px;border:none;border-radius:7px;background:#16a34a;color:#fff;font-weight:600;cursor:pointer" onclick="vwReview(\'Approved\')">Approve</button>'
+   +'<button style="flex:1;padding:8px;border:none;border-radius:7px;background:#dc2626;color:#fff;font-weight:600;cursor:pointer" onclick="vwReview(\'Rejected\')">Reject</button>'
+   +'<button style="flex:1;padding:8px;border:1px solid var(--line);border-radius:7px;background:var(--card,#fff);color:var(--ink);font-weight:600;cursor:pointer" onclick="vwReview(\'Signed\')">Sign</button></div>';
+}
+function vwNoteForm(){
+  const f=$('vwForm');f.style.display='block';
+  f.innerHTML='<textarea id="vwN" rows="2" placeholder="Add a note / markup for this document"></textarea>'
+   +'<button style="padding:8px 14px;border:none;border-radius:7px;background:var(--orange,#ea6a1e);color:#fff;font-weight:600;cursor:pointer" onclick="vwAddNote()">Save note</button>';
+}
+function vwAfter(){const f=VW_FILE,s=VW_SCOPE;Promise.resolve(vwCfg().reload()).then(()=>{if(f&&ATT_REG[s+'|'+f])openViewer(s,f);});}
+async function vwReview(status){
+  const sig=($('vwSig')||{}).value||'';const note=($('vwRNote')||{}).value||'';
+  const r=await api(vwCfg().act,{method:'POST',body:JSON.stringify({file:VW_FILE,action:'review',status:status,signer:sig.trim(),signature:sig.trim(),note:note.trim()})});
+  if(!r.ok){alert((r.data&&r.data.error)||'Could not sign');return}vwAfter();
+}
+async function vwAddNote(){
+  const t=($('vwN')||{}).value||'';if(!t.trim())return;
+  const r=await api(vwCfg().act,{method:'POST',body:JSON.stringify({file:VW_FILE,action:'note',text:t.trim()})});
+  if(!r.ok){alert((r.data&&r.data.error)||'Could not add note');return}vwAfter();
+}
+async function vwSave(){
+  const r=await api(vwCfg().act,{method:'POST',body:JSON.stringify({file:VW_FILE,action:'save'})});
+  if(!r.ok){alert((r.data&&r.data.error)||'Could not save');return}
+  alert('Saved to Documents.');vwAfter();
+}
+function vwDownload(){
+  const a=ATT_REG[VW_SCOPE+'|'+VW_FILE];if(!a)return;const url=q(a.signed_url||a.url);
+  const el=document.createElement('a');el.href=url;el.download=a.name||'document';document.body.appendChild(el);el.click();el.remove();
+}
+async function vwDoReplace(){
+  const fi=$('vwFile');if(!fi.files||!fi.files[0])return;
+  const fd=new FormData();fd.append('file',fi.files[0]);fd.append('target',VW_FILE);fd.append('note','');
+  fi.value='';
+  const r=await apiForm(vwCfg().rep,fd);
+  if(!r.ok){alert((r.data&&r.data.error)||'Replace failed');return}
+  const nf=r.data&&r.data.file;if(nf)VW_FILE=nf;vwAfter();
+}
 
 /* owner thread */
 let OWNER_POLL=null,OWNER_TYPING_TS=0,OWNER_SIG='';
@@ -667,7 +790,7 @@ async function loadOwner(silent){
   const sig=msgSig(msgs,r.data.peer_typing);
   if(silent&&sig===OWNER_SIG){startOwnerPoll();return}
   OWNER_SIG=sig;
-  $('ownerThread').innerHTML=msgs.map(bub).join('')||'<div class="empty">No messages yet. Say hello to Origin.</div>';
+  $('ownerThread').innerHTML=msgs.map(m=>bub(m,'owner')).join('')||'<div class="empty">No messages yet. Say hello to Origin.</div>';
   $('ownerThread').scrollTop=$('ownerThread').scrollHeight;
   const un=msgs.filter(m=>m.sender==='owner'&&!m.mine).length;
   const pip=$('ownerPip');if(un){pip.textContent=un;pip.style.display=''}else{pip.style.display='none'}
@@ -697,7 +820,7 @@ async function loadSub(silent){
   const sig=msgSig(msgs,r.data.peer_typing);
   if(silent&&sig===SUB_SIG)return;
   SUB_SIG=sig;
-  $('subThread').innerHTML=msgs.map(bub).join('')||'<div class="empty">No messages yet.</div>';
+  $('subThread').innerHTML=msgs.map(m=>bub(m,'sub')).join('')||'<div class="empty">No messages yet.</div>';
   $('subThread').scrollTop=$('subThread').scrollHeight;
 }
 function pingSubTyping(){if(!MSUB)return;const now=Date.now();if(now-SUB_TYPING_TS<2200)return;SUB_TYPING_TS=now;api('/portal/api/gc/sub/'+MSUB+'/typing',{method:'POST'})}
