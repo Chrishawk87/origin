@@ -90,6 +90,21 @@
   .modal .mactions{display:flex;gap:10px;margin-top:18px}
   .btn.ghost{background:#fff;color:var(--muted);border:1px solid var(--line)}.btn.ghost:hover{background:#f4f7fa}
   .check{width:52px;height:52px;border-radius:50%;background:var(--greenbg);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px}
+  .pip{background:var(--orange);color:#fff;font-size:11px;border-radius:999px;padding:1px 7px;margin-left:5px;font-weight:700}
+  .gcbrand{display:flex;align-items:center;gap:9px}
+  .gcbrand img{height:30px;width:30px;border-radius:7px;object-fit:cover;background:rgba(255,255,255,.12)}
+  .gcbrand .gcx{font-size:11px;color:#cbb;line-height:1.2}
+  .gcbrand .gcx b{color:#fff;font-size:13px;display:block;font-weight:700}
+  .msgwrap{display:flex;flex-direction:column;height:calc(100vh - 250px);min-height:340px;background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);overflow:hidden}
+  .thread{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .bub{max-width:80%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.42}
+  .bub.them{background:var(--bg);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}
+  .bub.me{background:var(--orange);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .bub .t{display:block;font-size:10.5px;opacity:.72;margin-top:4px}
+  .composer{display:flex;gap:9px;padding:14px 16px;border-top:1px solid var(--line)}
+  .composer input{flex:1;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:#f8fafc;font-size:13.5px;font-family:inherit}
+  .composer .btn{width:auto;padding:11px 18px}
+  .msgempty{color:var(--muted);font-size:13px;text-align:center;padding:40px 12px}
 </style>
 </head>
 <body>
@@ -124,7 +139,7 @@
 <div id="app">
   <header class="topbar"><div class="wrap">
     <div class="brandmark"><span class="word">Orig<span>in</span></span></div>
-    <div class="who"><span class="co" id="coName">—</span><span class="out" onclick="doLogout()">Sign out</span></div>
+    <div class="who"><span class="gcbrand" id="gcBrand" style="display:none"></span><span class="co" id="coName">—</span><span class="out" onclick="doLogout()">Sign out</span></div>
   </div></header>
 
   <nav class="tabs"><div class="wrap">
@@ -133,6 +148,7 @@
     <div class="tab" data-page="prequal" id="tabPrequal" onclick="go(this)">Prequal Status</div>
     <div class="tab" data-page="coi" onclick="go(this)">Insurance &amp; COI</div>
     <div class="tab" data-page="docs" onclick="go(this)">My Documents</div>
+    <div class="tab hidden" data-page="messages" id="tabMsgs" onclick="go(this)">Messages <span class="pip" id="msgPip" style="display:none">0</span></div>
   </div></nav>
 
   <main><div class="wrap">
@@ -141,6 +157,7 @@
     <section id="prequal" class="page"></section>
     <section id="coi" class="page"></section>
     <section id="docs" class="page"></section>
+    <section id="messages" class="page"></section>
     <div class="foot">Origin Management Solutions · Client Compliance Portal</div>
   </div></main>
 
@@ -230,7 +247,54 @@ function render(){
   document.getElementById('tabPrequal').classList.toggle('hidden',!prequal);
   // if prequal tab was active but now hidden, jump to overview
   if(!prequal&&document.getElementById('prequal').classList.contains('active')){go(document.querySelector('.tab'));}
+  renderGc();
   renderOverview(prequal); renderScope(); renderPrequal(); renderCOI(); renderDocs();
+}
+// ─────────────── GC branding + messaging (sub side) ───────────────
+function renderGc(){
+  var gc=DATA.gc;
+  var brand=document.getElementById('gcBrand');
+  var tab=document.getElementById('tabMsgs');
+  var pip=document.getElementById('msgPip');
+  if(!gc){brand.style.display='none';tab.classList.add('hidden');document.getElementById('messages').innerHTML='';return;}
+  // topbar chip: "Managed with [GC name]"
+  var logo=gc.has_logo?('<img src="/portal/api/gc/'+esc(gc.slug)+'/logo?t='+Date.now()+'">'):'';
+  brand.innerHTML=logo+'<span class="gcx">on behalf of<b>'+esc(gc.name)+'</b></span>';
+  brand.style.display='';
+  tab.classList.remove('hidden');
+  if(gc.unread){pip.textContent=gc.unread;pip.style.display='';}else{pip.style.display='none';}
+  renderMessages();
+}
+function renderMessages(){
+  var gc=DATA.gc;if(!gc)return;
+  var h='<div class="hello"><div><h2>Messages</h2>'
+    +'<div class="sub">Direct line to <b>'+esc(gc.name)+'</b>, your general contractor. Ask about documents they need, upload deadlines, or prequal requirements.</div></div></div>';
+  h+='<div class="msgwrap"><div class="thread" id="msgThread"><div class="msgempty">Loading\u2026</div></div>'
+    +'<div class="composer"><input id="msgInput" placeholder="Message '+esc(gc.name)+'\u2026" onkeydown="if(event.key===\'Enter\')sendMsg()">'
+    +'<button class="btn orange" onclick="sendMsg()">Send</button></div></div>';
+  document.getElementById('messages').innerHTML=h;
+  loadMsgs();
+}
+function fmtTs(ts){if(!ts)return '';try{var d=new Date(ts);if(isNaN(d))return '';return d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
+function loadMsgs(){
+  api('/portal/api/messages').then(function(r){
+    var th=document.getElementById('msgThread');if(!th)return;
+    var msgs=(r.j.messages||[]);
+    if(!msgs.length){th.innerHTML='<div class="msgempty">No messages yet. Send the first one \u2014 '+esc((DATA.gc&&DATA.gc.name)||'your GC')+' will see it in their console.</div>';}
+    else{th.innerHTML=msgs.map(function(m){
+      return '<div class="bub '+(m.mine?'me':'them')+'">'+esc(m.body)+'<span class="t">'+esc(fmtTs(m.ts))+'</span></div>';}).join('');
+      th.scrollTop=th.scrollHeight;}
+    // reading clears unread — refresh the pip
+    var pip=document.getElementById('msgPip');if(pip){pip.style.display='none';}
+    if(DATA.gc)DATA.gc.unread=0;
+  });
+}
+function sendMsg(){
+  var inp=document.getElementById('msgInput');if(!inp)return;var body=inp.value.trim();if(!body)return;
+  inp.value='';
+  api('/portal/api/messages',{method:'POST',body:{body:body}}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Could not send. Please try again.');inp.value=body;return;}loadMsgs();
+  });
 }
 function renderScope(){
   var d=DATA, h='';

@@ -74,6 +74,26 @@
   .qrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px}
   .qrow input{width:120px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:#f8fafc}
   .foot{color:var(--muted);font-size:12px;text-align:center;padding:24px 0 40px}
+  /* GC roster + messaging */
+  .subcard{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;background:#fff;box-shadow:var(--shadow)}
+  .subcard .lg{height:40px;width:40px;border-radius:9px;object-fit:cover;background:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--muted);font-size:15px;flex-shrink:0}
+  .subcard .nm{font-weight:700;font-size:14.5px}
+  .subcard .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .subcard .sp{flex:1}
+  .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--greenbg);color:var(--green)}
+  .dot{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;background:var(--orange);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 5px}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,94vw);background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .22s ease;z-index:40;display:flex;flex-direction:column}
+  .drawer.open{transform:none}
+  .drawer .dhead{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .drawer .dhead .nm{font-weight:800;font-size:15px}.drawer .dhead .x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:20px;border:0;background:none}
+  .thread{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+  .bub{max-width:82%;padding:9px 12px;border-radius:13px;font-size:13.5px;line-height:1.4}
+  .bub.them{background:var(--bg);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}
+  .bub.me{background:var(--orange);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .bub .t{display:block;font-size:10.5px;opacity:.7;margin-top:3px}
+  .composer{display:flex;gap:8px;padding:13px 16px;border-top:1px solid var(--line)}
+  .composer input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#f8fafc;font-size:13.5px;font-family:inherit}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 10px}
 </style>
 </head>
 <body>
@@ -103,6 +123,7 @@
   </div></div>
   <nav class="tabs"><div class="wrap">
     <div class="tab active" data-page="update" onclick="tab(this)">Update Client Status</div>
+    <div class="tab" data-page="gcs" onclick="tab(this)">General Contractors <span class="pip" id="gcPip" style="display:none">0</span></div>
     <div class="tab" data-page="leads" onclick="tab(this)">New Leads <span class="pip" id="leadPip" style="display:none">0</span></div>
     <div class="tab" data-page="requests" onclick="tab(this)">Document Requests <span class="pip" id="reqPip" style="display:none">0</span></div>
   </div></nav>
@@ -157,8 +178,43 @@
       <div class="hello"><div><h2>Document Requests</h2><div class="sub">When a client requests a program, it lands here. Quote it, charge per document, then deliver.</div></div></div>
       <div id="reqList"></div>
     </section>
+    <section id="gcs" class="page">
+      <div class="hello">
+        <div><h2>General Contractors</h2><div class="sub">Each GC logs in at <b>/gc</b> to manage their own subcontractors. You can manage any of them here too, and message them directly.</div></div>
+        <button class="btn orange sm" onclick="showAddGc()">+ Add GC</button>
+      </div>
+      <div id="addGcBox" class="card hidden" style="margin-bottom:16px">
+        <div class="section-title" style="margin-top:0">New / edit general contractor</div>
+        <div class="row3">
+          <div><label class="lbl">Company name</label><input class="f" id="g_name"></div>
+          <div><label class="lbl">Login email</label><input class="f" id="g_email" type="email"></div>
+          <div><label class="lbl">Set / reset PIN</label><input class="f" id="g_pin" placeholder="4+ digits"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <button class="btn orange sm" onclick="saveGc()">Save GC</button>
+          <button class="btn ghost sm" onclick="hideAddGc()">Cancel</button>
+          <span class="saved" id="gcSaved">Saved</span>
+          <input type="hidden" id="g_slug">
+        </div>
+      </div>
+      <div id="gcRoster"></div>
+    </section>
+
     <div class="foot">Origin Management Solutions · Internal Admin Console</div>
   </div></div></main>
+</div>
+
+<!-- owner <-> GC message drawer -->
+<div class="drawer" id="gcDrawer">
+  <div class="dhead">
+    <div class="nm" id="gcdName">—</div>
+    <button class="x" onclick="closeGcDrawer()">×</button>
+  </div>
+  <div class="thread" id="gcThread"></div>
+  <div class="composer">
+    <input id="gcInput" placeholder="Message this GC…" onkeydown="if(event.key==='Enter')sendGcThread()">
+    <button class="btn orange sm" onclick="sendGcThread()">Send</button>
+  </div>
 </div>
 
 <script>
@@ -174,13 +230,110 @@ function adminLogin(){
     if(!r.ok){document.getElementById('loginErr').textContent=r.j.error||'Login failed';return;}
     document.getElementById('login').style.display='none';
     document.getElementById('app').style.display='block';
-    loadClients(); loadRequests(); loadLeads();
+    loadClients(); loadRequests(); loadLeads(); loadGcs();
   });
 }
 function adminLogout(){api('/portal/api/admin/logout',{method:'POST'}).then(function(){location.reload();});}
+
+// ─────────────── General Contractors ───────────────
+var GCS=[];            // roster from /portal/api/admin/gcs
+var GC_CUR='';         // slug of GC whose message drawer is open
+function loadGcs(){
+  api('/portal/api/admin/gcs').then(function(r){
+    GCS=(r.j.gcs||[]);
+    var pip=document.getElementById('gcPip');
+    var totUnread=GCS.reduce(function(a,g){return a+(g.unread||0);},0);
+    if(pip){if(totUnread){pip.textContent=totUnread;pip.style.display='';}else{pip.style.display='none';}}
+    renderGcRoster();
+    var sel=document.getElementById('f_gc');   // keep the client editor dropdown fresh
+    if(sel){var keep=sel.value;sel.innerHTML=gcOptions(keep);}
+  });
+}
+function gcOptions(cur){
+  return '<option value="">— Direct (managed by Origin) —</option>'+
+    GCS.map(function(g){return '<option value="'+esc(g.slug)+'"'+(g.slug===cur?' selected':'')+'>'+esc(g.name)+'</option>';}).join('');
+}
+function gcInitials(name){return (name||'?').trim().slice(0,2).toUpperCase();}
+function renderGcRoster(){
+  var box=document.getElementById('gcRoster');if(!box)return;
+  if(!GCS.length){box.innerHTML='<div class="empty">No general contractors yet. Click <b>+ Add GC</b> to create one — they’ll log in at <b>/gc</b> to manage their own subcontractors.</div>';return;}
+  box.innerHTML=GCS.map(function(g){
+    var logo=g.logo?('<img class="lg" src="/portal/api/gc/'+esc(g.slug)+'/logo?t='+Date.now()+'">')
+                    :('<div class="lg">'+esc(gcInitials(g.name))+'</div>');
+    var subLbl=(g.sub_count||0)+' sub'+(g.sub_count===1?'':'s');
+    var unread=g.unread?(' <span class="dot">'+g.unread+'</span>'):'';
+    return '<div class="subcard">'+logo+
+      '<div><div class="nm">'+esc(g.name)+'</div><div class="meta">'+esc(g.email||'no login email')+' · '+subLbl+'</div></div>'+
+      '<div class="sp"></div>'+
+      '<button class="btn sm" onclick="openGcThread(\''+esc(g.slug)+'\',\''+esc(g.name).replace(/'/g,"\\'")+'\')">Message'+unread+'</button> '+
+      '<button class="btn sm" onclick="editGc(\''+esc(g.slug)+'\')">Edit</button> '+
+      '<button class="btn ghost sm" onclick="delGc(\''+esc(g.slug)+'\',\''+esc(g.name).replace(/'/g,"\\'")+'\')">Delete</button>'+
+      '</div>';
+  }).join('');
+}
+function showAddGc(){document.getElementById('addGcBox').classList.remove('hidden');
+  ['g_name','g_email','g_pin','g_slug'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('g_name').focus();}
+function hideAddGc(){document.getElementById('addGcBox').classList.add('hidden');}
+function editGc(slug){
+  var g=GCS.filter(function(x){return x.slug===slug;})[0];if(!g)return;
+  document.getElementById('addGcBox').classList.remove('hidden');
+  document.getElementById('g_name').value=g.name||'';
+  document.getElementById('g_email').value=g.email||'';
+  document.getElementById('g_pin').value='';
+  document.getElementById('g_slug').value=g.slug;
+  document.getElementById('g_pin').placeholder='•••• leave blank to keep';
+  document.getElementById('g_name').focus();
+}
+function saveGc(){
+  var name=val('g_name');if(!name){alert('GC company name is required.');return;}
+  var body={name:name,email:val('g_email')};
+  var pin=val('g_pin');if(pin)body.pin=pin;
+  var slug=val('g_slug');if(slug)body.slug=slug;
+  api('/portal/api/admin/gc',{method:'POST',body:body}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Save failed');return;}
+    var s=document.getElementById('gcSaved');if(s){s.classList.add('show');setTimeout(function(){s.classList.remove('show');},2500);}
+    hideAddGc();loadGcs();
+  });
+}
+function delGc(slug,name){
+  if(!confirm('Delete GC “'+name+'”?\n\nTheir subcontractors are NOT deleted — they’ll simply be unassigned back to you (Direct).'))return;
+  api('/portal/api/admin/gc/'+slug+'/delete',{method:'POST'}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Delete failed');return;}
+    loadGcs();if(CUR&&CUR.slug)pick(CUR.slug);
+  });
+}
+// owner <-> GC message drawer
+function openGcThread(slug,name){
+  GC_CUR=slug;
+  document.getElementById('gcdName').textContent=name;
+  document.getElementById('gcDrawer').classList.add('open');
+  document.getElementById('gcInput').value='';
+  loadGcThread();
+}
+function closeGcDrawer(){document.getElementById('gcDrawer').classList.remove('open');GC_CUR='';loadGcs();}
+function loadGcThread(){
+  if(!GC_CUR)return;
+  api('/portal/api/admin/gc/'+GC_CUR+'/messages').then(function(r){
+    var msgs=(r.j.messages||[]);var th=document.getElementById('gcThread');
+    if(!msgs.length){th.innerHTML='<div class="empty">No messages yet. Say hello — this thread is shared with the GC when they log in at /gc.</div>';return;}
+    th.innerHTML=msgs.map(function(m){
+      return '<div class="bub '+(m.mine?'me':'them')+'">'+esc(m.body)+'<span class="t">'+esc(fmtTs(m.ts))+'</span></div>';
+    }).join('');
+    th.scrollTop=th.scrollHeight;
+  });
+}
+function sendGcThread(){
+  var inp=document.getElementById('gcInput');var body=inp.value.trim();if(!body||!GC_CUR)return;
+  inp.value='';
+  api('/portal/api/admin/gc/'+GC_CUR+'/messages',{method:'POST',body:{body:body}}).then(function(r){
+    if(!r.ok){alert((r.j&&r.j.error)||'Send failed');inp.value=body;return;}loadGcThread();
+  });
+}
+function fmtTs(ts){if(!ts)return '';try{var d=new Date(ts);if(isNaN(d))return '';return d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
 function tab(el){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');
   var id=el.getAttribute('data-page');document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();}
+  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();if(id==='gcs')loadGcs();}
 
 function loadClients(cb){
   api('/portal/api/admin/clients').then(function(r){
@@ -221,6 +374,11 @@ function renderEditor(){
       +'<option value="prequal"'+(docs?'':' selected')+'>Prequal-managed — has ISN / Avetta / PEC / Veriforce</option>'
       +'<option value="docs"'+(docs?' selected':'')+'>Documentation-only — safety programs, no prequal accounts</option></select></div>'
     +'<div><label class="lbl">Plan label</label><input class="f" id="f_plan" value="'+esc(c.plan)+'"></div>'
+    +'</div>';
+  h+='<div class="row2" style="margin-top:2px">'
+    +'<div><label class="lbl">Assigned general contractor</label><select class="f" id="f_gc">'+gcOptions(c.gc_slug||'')+'</select>'
+      +'<div class="hint" style="margin-top:4px">Place this company under a GC, or leave <b>Direct</b> to manage them yourself. The GC can see and message anyone assigned to them.</div></div>'
+    +'<div></div>'
     +'</div>';
   if(c.project_slug){
     h+='<div style="margin-top:10px"><a class="btn" href="/?project='+encodeURIComponent(c.project_slug)+'" target="_blank" rel="noopener">\u2192 Open in Origin AI</a>'
@@ -386,6 +544,7 @@ function addAvail(){document.getElementById('availList').insertAdjacentHTML('bef
 function gather(){
   var c=CUR;c.company=val('f_company');c.email=val('f_email');c.client_type=val('f_type');c.plan=val('f_plan');
   c.scope=val('f_scope');c.trade=val('f_trade');
+  var gcEl=document.getElementById('f_gc');c.gc_slug=gcEl?gcEl.value:(c.gc_slug||'');
   var pin=val('f_pin');
   c.platforms=c.platforms||{};
   document.querySelectorAll('.platrow').forEach(function(row){var k=row.getAttribute('data-plat');

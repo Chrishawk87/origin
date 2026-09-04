@@ -1617,48 +1617,14 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _abate_exc:  # pragma: no cover
         print(f"[abatement] disabled — registration failed: {_abate_exc}")
 
-    # ── Multi-tenant PLATFORM foundation (Phase 1: roles, auth, AI wall) ──
-    # New Postgres-backed white-label backbone. Fully isolated: its own modules,
-    # own tables, own /platform routes. The AI owner-only wall stays OFF until
-    # PLATFORM_AI_WALL=1 is set, so registering it changes nothing today.
-    try:
-        from . import platform_auth as _platform
-        _platform.register_platform(app)
-    except Exception as _platform_exc:  # pragma: no cover
-        print(f"[platform] disabled — registration failed: {_platform_exc}")
-
-    # Owner Console — the private control room at /platform (owner-only routes to
-    # create GCs and issue their admin logins). Isolated + wrapped so any failure
-    # leaves the app and the platform auth layer untouched.
-    try:
-        from . import platform_console as _console
-        _console.register_console(app)
-    except Exception as _console_exc:  # pragma: no cover
-        print(f"[platform] console disabled — registration failed: {_console_exc}")
-
-    # GC Console — a General Contractor's own workspace at /platform/gc (roster,
-    # add/remove subs, prequal grades). GC-scoped; the owner can open any GC via
-    # ?gc=<id>. Isolated + wrapped so any failure leaves everything else intact.
-    try:
-        from . import platform_gc as _gc
-        _gc.register_gc(app)
-    except Exception as _gc_exc:  # pragma: no cover
-        print(f"[platform] GC console disabled — registration failed: {_gc_exc}")
-
-    # Logo upload/serving for GC + sub branding. Isolated + wrapped.
-    try:
-        from . import platform_media as _media
-        _media.register_media(app)
-    except Exception as _media_exc:  # pragma: no cover
-        print(f"[platform] media disabled — registration failed: {_media_exc}")
-
-    # Subcontractor Dashboard at /platform/sub — subs log in, see docs sent to
-    # them, and reply to their GC (makes GC↔sub messaging two-way). Isolated.
-    try:
-        from . import platform_sub as _sub
-        _sub.register_sub(app)
-    except Exception as _sub_exc:  # pragma: no cover
-        print(f"[platform] sub dashboard disabled — registration failed: {_sub_exc}")
+    # ── RETIRED: the parallel Postgres "/platform" build ──
+    # The GC tier (owner → general contractor → subcontractor), logos, and
+    # two-way messaging now live natively inside the Client Compliance Portal
+    # above (portal.register_portal): the owner works in /admin, each GC logs in
+    # at /gc, and subs use the existing /portal. The old platform_* modules
+    # (platform_auth/console/gc/media/sub/db/seed) are no longer registered so
+    # there is exactly one live system. The files remain on disk for reference
+    # but are intentionally NOT wired into the app.
 
     app.state.engine = eng
     return app

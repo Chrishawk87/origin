@@ -93,6 +93,7 @@ ADMIN_PASSWORD = (os.environ.get("ORIGIN_ADMIN_PASSWORD")
 
 CLIENT_COOKIE = "origin_portal"
 ADMIN_COOKIE = "origin_admin"
+GC_COOKIE = "origin_gc"
 SESSION_TTL = 60 * 60 * 12  # 12 hours
 
 # --- client-login brute-force lockout (in-memory, per email) ---------------
@@ -303,6 +304,13 @@ def _blank_client(company: str, email: str, client_type: str = "prequal") -> Dic
         "company": company,
         "email": email,
         "pin_hash": "",
+        # Which GC (general contractor) this subcontractor belongs to. Empty means
+        # the record is owned directly by Origin/OMS (the owner) and not yet placed
+        # under a GC. Existing records predating the GC tier read as "" and keep
+        # working exactly as before.
+        "gc_slug": "",
+        "logo": "",          # filename of an uploaded logo in this record's docs/
+        "messages": [],      # two-way thread between this sub and its GC (+owner)
         "client_type": client_type,
         "plan": "Professional" if client_type == "prequal" else "Compliance Documentation",
         "platforms": {
@@ -430,6 +438,123 @@ def _public_view(rec: Dict[str, Any]) -> Dict[str, Any]:
     return safe
 
 
+# ─────────────────────────── GC (general contractor) tier ───────────────────
+# The product has three levels:
+#     owner (Origin/OMS, the admin) → GC → the GC's subcontractors (the clients).
+# A GC is a light record stored the same flat-JSON way as clients, under
+# PORTAL_DIR/gcs/<slug>/gc.json. Each subcontractor's client.json carries a
+# "gc_slug" pointing at its GC. GCs log in (email + PIN, exactly like clients)
+# and manage ONLY their own subcontractor list; the owner can see every GC and
+# act on any GC's behalf. This layers cleanly on top of the existing client
+# storage without disturbing it — a client with gc_slug "" simply belongs to no
+# GC and behaves as it always did.
+
+GCS_DIR = PORTAL_DIR / "gcs"
+
+
+def _gc_dir(slug: str) -> Path:
+    return GCS_DIR / slug
+
+
+def _gc_file(slug: str) -> Path:
+    return _gc_dir(slug) / "gc.json"
+
+
+def _blank_gc(name: str, email: str = "") -> Dict[str, Any]:
+    slug = slugify(name)
+    return {
+        "slug": slug,
+        "name": name,
+        "email": email,
+        "pin_hash": "",
+        "logo": "",          # filename of an uploaded logo in this GC's dir
+        "brand_primary": "#1E7A46",
+        "messages": [],      # two-way thread between this GC and the owner
+        "created": _now(),
+        "updated": _now(),
+    }
+
+
+def load_gc(slug: str) -> Optional[Dict[str, Any]]:
+    f = _gc_file(slug)
+    if not f.is_file():
+        return None
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def save_gc(data: Dict[str, Any]) -> Dict[str, Any]:
+    slug = data["slug"]
+    _gc_dir(slug).mkdir(parents=True, exist_ok=True)
+    data["updated"] = _now()
+    _gc_file(slug).write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return data
+
+
+def list_gcs() -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    if not GCS_DIR.is_dir():
+        return out
+    for d in sorted(GCS_DIR.iterdir()):
+        rec = load_gc(d.name)
+        if not rec:
+            continue
+        subs = clients_for_gc(rec.get("slug", ""))
+        out.append({
+            "slug": rec.get("slug"),
+            "name": rec.get("name"),
+            "email": rec.get("email"),
+            "logo": rec.get("logo", ""),
+            "sub_count": len(subs),
+            "unread": sum(1 for m in rec.get("messages", [])
+                          if m.get("sender") == "gc" and not m.get("read_owner")),
+            "updated": rec.get("updated"),
+        })
+    return out
+
+
+def find_gc_by_email(email: str) -> Optional[Dict[str, Any]]:
+    email = (email or "").strip().lower()
+    if not email or not GCS_DIR.is_dir():
+        return None
+    matches: List[Dict[str, Any]] = []
+    for d in sorted(GCS_DIR.iterdir()):
+        rec = load_gc(d.name)
+        if rec and (rec.get("email", "").strip().lower() == email):
+            matches.append(rec)
+    if not matches:
+        return None
+    matches.sort(key=lambda r: r.get("updated", ""), reverse=True)
+    return matches[0]
+
+
+def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
+    """Summary rows for every subcontractor placed under this GC."""
+    gc_slug = (gc_slug or "").strip()
+    out: List[Dict[str, Any]] = []
+    if not gc_slug or not CLIENTS_DIR.is_dir():
+        return out
+    for d in sorted(CLIENTS_DIR.iterdir()):
+        rec = load_client(d.name)
+        if not rec or (rec.get("gc_slug", "") or "") != gc_slug:
+            continue
+        out.append({
+            "slug": rec.get("slug"),
+            "company": rec.get("company"),
+            "email": rec.get("email"),
+            "logo": rec.get("logo", ""),
+            "client_type": rec.get("client_type", "prequal"),
+            "has_login": bool(rec.get("pin_hash")),
+            "open_requests": sum(1 for r in rec.get("requests", []) if r.get("status") == "new"),
+            "unread": sum(1 for m in rec.get("messages", [])
+                          if m.get("sender") == "sub" and not m.get("read_gc")),
+            "updated": rec.get("updated"),
+        })
+    return out
+
+
 # ─────────────────────────── seed ───────────────────────────
 
 def seed_test_client() -> Dict[str, Any]:
@@ -497,6 +622,22 @@ def register_portal(app) -> None:
         p = _unsign(request.cookies.get(ADMIN_COOKIE, ""))
         return bool(p and p.get("role") == "admin")
 
+    def gc_session(request: Request) -> Optional[Dict[str, Any]]:
+        p = _unsign(request.cookies.get(GC_COOKIE, ""))
+        return p if p and p.get("role") == "gc" else None
+
+    def acting_gc_slug(request: Request) -> Optional[str]:
+        """The GC a request is scoped to. A GC login is scoped to its own slug.
+        The owner (admin) may act for any GC by passing ?gc=<slug>. Returns the
+        slug if the caller is allowed to act for it, else None."""
+        gs = gc_session(request)
+        if gs:
+            return gs.get("slug") or None
+        if admin_session(request):
+            want = (request.query_params.get("gc") or "").strip()
+            return want or None
+        return None
+
     def _secure(request: Request) -> bool:
         # Railway terminates TLS at its edge and forwards plain HTTP internally,
         # so request.url.scheme is "http" even for real HTTPS visitors. Honor the
@@ -521,6 +662,12 @@ def register_portal(app) -> None:
     def admin_page():
         f = webui / "admin.html"
         html = f.read_text(encoding="utf-8") if f.is_file() else "<h1>Admin</h1><p>page missing</p>"
+        return HTMLResponse(html, headers=_NO_STORE)
+
+    @app.get("/gc", response_class=HTMLResponse)
+    def gc_page():
+        f = webui / "gc.html"
+        html = f.read_text(encoding="utf-8") if f.is_file() else "<h1>GC Console</h1><p>page missing</p>"
         return HTMLResponse(html, headers=_NO_STORE)
 
     # ===================== CLIENT API =====================
@@ -607,7 +754,23 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "account not found"}, status_code=404)
         if _sync_docs(rec):
             save_client(rec)
-        return _public_view(rec)
+        out = _public_view(rec)
+        # Surface the sub's GC (if any) so the portal can show branding + a
+        # messages tab. Unread = messages the GC sent that the sub hasn't read.
+        gc_slug = (rec.get("gc_slug", "") or "").strip()
+        gc = load_gc(gc_slug) if gc_slug else None
+        if gc:
+            out["gc"] = {
+                "slug": gc.get("slug"),
+                "name": gc.get("name"),
+                "has_logo": bool(gc.get("logo")),
+                "brand_primary": gc.get("brand_primary", ""),
+                "unread": sum(1 for m in rec.get("messages", [])
+                              if m.get("sender") == "gc" and not m.get("read_sub")),
+            }
+        else:
+            out["gc"] = None
+        return out
 
     @app.post("/portal/api/request")
     def portal_request(request: Request, body: dict = Body(...)):
@@ -770,7 +933,7 @@ def register_portal(app) -> None:
                                                  body.get("client_type", "prequal"))
         rec["slug"] = slug
         rec["company"] = company
-        for key in ("email", "client_type", "plan", "scope", "trade"):
+        for key in ("email", "client_type", "plan", "scope", "trade", "gc_slug"):
             if key in body:
                 rec[key] = body[key]
         for key in ("platforms", "coi", "documents", "available"):
@@ -793,6 +956,405 @@ def register_portal(app) -> None:
         if d.is_dir():
             shutil.rmtree(d, ignore_errors=True)
         return {"ok": True}
+
+    # ===================== GC TIER (owner + GC console) =====================
+    # Owner (admin) manages the roster of GCs and can act for any of them.
+    # A GC logs in with email+PIN and manages ONLY its own subcontractors.
+
+    def _sub_view(rec: Dict[str, Any]) -> Dict[str, Any]:
+        out = dict(rec)
+        out["pin_set"] = bool(rec.get("pin_hash"))
+        out.pop("pin_hash", None)
+        return out
+
+    def _logo_ext(filename: str) -> str:
+        ext = os.path.splitext(filename or "")[1].lower()
+        return ext if ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg") else ".png"
+
+    # ---- owner: list / create / edit / delete GCs ----
+    @app.get("/portal/api/admin/gcs")
+    def admin_gcs(request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        return {"gcs": list_gcs()}
+
+    @app.post("/portal/api/admin/gc")
+    def admin_save_gc(request: Request, body: dict = Body(...)):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        name = (body.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "GC name required"}, status_code=400)
+        incoming_slug = (body.get("slug") or "").strip()
+        slug = incoming_slug or slugify(name)
+        rec = load_gc(slug) or _blank_gc(name, body.get("email", ""))
+        rec["slug"] = slug
+        rec["name"] = name
+        for key in ("email", "brand_primary"):
+            if key in body:
+                rec[key] = body[key]
+        pin = (body.get("pin") or "").strip()
+        if pin:
+            rec["pin_hash"] = hash_pin(slug, pin)
+        save_gc(rec)
+        return {"ok": True, "slug": slug}
+
+    @app.get("/portal/api/admin/gc/{slug}")
+    def admin_get_gc(slug: str, request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        out = {k: v for k, v in rec.items() if k != "pin_hash"}
+        out["pin_set"] = bool(rec.get("pin_hash"))
+        out["subs"] = clients_for_gc(slug)
+        return out
+
+    @app.post("/portal/api/admin/gc/{slug}/delete")
+    def admin_delete_gc(slug: str, request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        # Never delete the subcontractors — just unassign them back to the owner.
+        for c in clients_for_gc(slug):
+            rec = load_client(c["slug"])
+            if rec:
+                rec["gc_slug"] = ""
+                save_client(rec)
+        import shutil
+        d = _gc_dir(slug)
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
+        return {"ok": True}
+
+    # ---- GC login / session ----
+    @app.post("/portal/api/gc/login")
+    def gc_login(request: Request, body: dict = Body(...)):
+        email = (body.get("email") or "").strip()
+        pin = (body.get("pin") or "").strip()
+        key = "gc:" + email.lower()
+        if _login_locked(key):
+            return JSONResponse(
+                {"error": "Too many attempts. Please wait a few minutes and try again."},
+                status_code=429)
+        rec = find_gc_by_email(email)
+        if not rec or not rec.get("pin_hash") or not verify_pin(rec["slug"], pin, rec["pin_hash"]):
+            _login_note_fail(key)
+            return JSONResponse({"error": "Wrong email or PIN."}, status_code=401)
+        _login_clear(key)
+        resp = JSONResponse({"ok": True, "name": rec.get("name")})
+        resp.set_cookie(GC_COOKIE, _session("gc", rec["slug"]),
+                        httponly=True, samesite="lax", max_age=SESSION_TTL,
+                        secure=_secure(request))
+        return resp
+
+    @app.post("/portal/api/gc/logout")
+    def gc_logout():
+        resp = JSONResponse({"ok": True})
+        resp.delete_cookie(GC_COOKIE)
+        return resp
+
+    @app.get("/portal/api/gc/home")
+    def gc_home(request: Request):
+        """A GC's own view: its brand, its subcontractor roster, and its thread
+        with the owner. Also serves the owner when acting for a GC via ?gc=."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "GC not found"}, status_code=404)
+        return {
+            "gc": {k: v for k, v in rec.items() if k != "pin_hash"},
+            "subs": clients_for_gc(slug),
+            "is_owner": bool(admin_session(request) and not gc_session(request)),
+        }
+
+    # ---- GC manages its own subcontractors (owner may act via ?gc=) ----
+    @app.get("/portal/api/gc/sub/{sub_slug}")
+    def gc_get_sub(sub_slug: str, request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        if _sync_docs(rec):
+            save_client(rec)
+        return _sub_view(rec)
+
+    @app.post("/portal/api/gc/sub")
+    def gc_save_sub(request: Request, body: dict = Body(...)):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        company = (body.get("company") or "").strip()
+        if not company:
+            return JSONResponse({"error": "company name required"}, status_code=400)
+        incoming_slug = (body.get("slug") or "").strip()
+        email = (body.get("email") or "").strip()
+        if not incoming_slug and email:
+            existing = find_by_email(email)
+            if existing:
+                incoming_slug = existing["slug"]
+        sub_slug = incoming_slug or slugify(company)
+        rec = load_client(sub_slug)
+        if rec is None:
+            rec = _blank_client(company, email, body.get("client_type", "prequal"))
+        elif (rec.get("gc_slug", "") or "") not in ("", slug):
+            # belongs to a different GC — a GC may not poach another's sub
+            return JSONResponse({"error": "That company is managed by another GC."},
+                                status_code=403)
+        rec["slug"] = sub_slug
+        rec["company"] = company
+        rec["gc_slug"] = slug
+        for key in ("email", "client_type", "plan", "scope", "trade"):
+            if key in body:
+                rec[key] = body[key]
+        for key in ("platforms", "coi", "documents", "available"):
+            if key in body and body[key] is not None:
+                rec[key] = body[key]
+        pin = (body.get("pin") or "").strip()
+        if pin:
+            rec["pin_hash"] = hash_pin(sub_slug, pin)
+        _ensure_project(rec)
+        save_client(rec)
+        return {"ok": True, "slug": sub_slug}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/remove")
+    def gc_remove_sub(sub_slug: str, request: Request):
+        """Unplace a sub from this GC (does not delete the subcontractor)."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        rec["gc_slug"] = ""
+        save_client(rec)
+        return {"ok": True}
+
+    # ===================== MESSAGING =====================
+    # Two independent two-way threads:
+    #   owner  <-> GC   : stored on the GC record ("messages"), sender owner|gc
+    #   GC     <-> sub  : stored on the client record ("messages"), sender gc|sub
+
+    def _thread_out(msgs, viewer: str):
+        """Normalise a stored thread for the client, tagging each message 'me' or
+        'them' from the viewer's perspective."""
+        out = []
+        for m in msgs or []:
+            out.append({
+                "body": m.get("body", ""),
+                "ts": m.get("ts", ""),
+                "sender": m.get("sender", ""),
+                "mine": m.get("sender") == viewer,
+            })
+        return out
+
+    # ---- owner <-> GC ----
+    @app.get("/portal/api/admin/gc/{slug}/messages")
+    def owner_gc_messages(slug: str, request: Request):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        changed = False
+        for m in rec.get("messages", []):
+            if m.get("sender") == "gc" and not m.get("read_owner"):
+                m["read_owner"] = True
+                changed = True
+        if changed:
+            save_gc(rec)
+        return {"messages": _thread_out(rec.get("messages", []), "owner")}
+
+    @app.post("/portal/api/admin/gc/{slug}/messages")
+    def owner_gc_send(slug: str, request: Request, body: dict = Body(...)):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        text = (body.get("body") or "").strip()
+        if not text:
+            return JSONResponse({"error": "empty message"}, status_code=400)
+        rec.setdefault("messages", []).append({
+            "sender": "owner", "body": text, "ts": _now(),
+            "read_owner": True, "read_gc": False})
+        save_gc(rec)
+        return {"ok": True}
+
+    @app.get("/portal/api/gc/owner-messages")
+    def gc_owner_messages(request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        # mark owner->gc messages read only when a real GC (not the owner) reads
+        if gc_session(request):
+            changed = False
+            for m in rec.get("messages", []):
+                if m.get("sender") == "owner" and not m.get("read_gc"):
+                    m["read_gc"] = True
+                    changed = True
+            if changed:
+                save_gc(rec)
+        return {"messages": _thread_out(rec.get("messages", []), "gc")}
+
+    @app.post("/portal/api/gc/owner-messages")
+    def gc_owner_send(request: Request, body: dict = Body(...)):
+        # Only a real GC posts into the owner thread as "gc". The owner posts from
+        # the admin side. If the owner is acting for a GC, block to avoid confusion.
+        gs = gc_session(request)
+        if not gs:
+            return JSONResponse({"error": "GC only"}, status_code=403)
+        rec = load_gc(gs["slug"])
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        text = (body.get("body") or "").strip()
+        if not text:
+            return JSONResponse({"error": "empty message"}, status_code=400)
+        rec.setdefault("messages", []).append({
+            "sender": "gc", "body": text, "ts": _now(),
+            "read_owner": False, "read_gc": True})
+        save_gc(rec)
+        return {"ok": True}
+
+    # ---- GC <-> sub ----
+    @app.get("/portal/api/gc/sub/{sub_slug}/messages")
+    def gc_sub_messages(sub_slug: str, request: Request):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        changed = False
+        for m in rec.get("messages", []):
+            if m.get("sender") == "sub" and not m.get("read_gc"):
+                m["read_gc"] = True
+                changed = True
+        if changed:
+            save_client(rec)
+        return {"messages": _thread_out(rec.get("messages", []), "gc")}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/messages")
+    def gc_sub_send(sub_slug: str, request: Request, body: dict = Body(...)):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        text = (body.get("body") or "").strip()
+        if not text:
+            return JSONResponse({"error": "empty message"}, status_code=400)
+        rec.setdefault("messages", []).append({
+            "sender": "gc", "body": text, "ts": _now(),
+            "read_gc": True, "read_sub": False})
+        save_client(rec)
+        return {"ok": True}
+
+    # ---- sub side of the GC<->sub thread ----
+    @app.get("/portal/api/messages")
+    def sub_messages(request: Request):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        changed = False
+        for m in rec.get("messages", []):
+            if m.get("sender") == "gc" and not m.get("read_sub"):
+                m["read_sub"] = True
+                changed = True
+        if changed:
+            save_client(rec)
+        return {"messages": _thread_out(rec.get("messages", []), "sub"),
+                "gc_slug": rec.get("gc_slug", "")}
+
+    @app.post("/portal/api/messages")
+    def sub_send(request: Request, body: dict = Body(...)):
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        text = (body.get("body") or "").strip()
+        if not text:
+            return JSONResponse({"error": "empty message"}, status_code=400)
+        rec.setdefault("messages", []).append({
+            "sender": "sub", "body": text, "ts": _now(),
+            "read_gc": False, "read_sub": True})
+        save_client(rec)
+        return {"ok": True}
+
+    # ===================== LOGOS =====================
+    def _save_logo(dirpath: Path, upload) -> str:
+        dirpath.mkdir(parents=True, exist_ok=True)
+        fname = "logo" + _logo_ext(getattr(upload, "filename", "") or "")
+        (dirpath / fname).write_bytes(upload.file.read())
+        return fname
+
+    @app.post("/portal/api/admin/gc/{slug}/logo")
+    def admin_gc_logo(slug: str, request: Request, file: UploadFile = File(...)):
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        rec["logo"] = _save_logo(_gc_dir(slug), file)
+        save_gc(rec)
+        return {"ok": True, "logo": rec["logo"]}
+
+    @app.post("/portal/api/gc/logo")
+    def gc_self_logo(request: Request, file: UploadFile = File(...)):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_gc(slug)
+        if not rec:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        rec["logo"] = _save_logo(_gc_dir(slug), file)
+        save_gc(rec)
+        return {"ok": True, "logo": rec["logo"]}
+
+    @app.get("/portal/api/gc/{slug}/logo")
+    def serve_gc_logo(slug: str):
+        rec = load_gc(slug)
+        if not rec or not rec.get("logo"):
+            return JSONResponse({"error": "no logo"}, status_code=404)
+        fp = _gc_dir(slug) / os.path.basename(rec["logo"])
+        if not fp.is_file():
+            return JSONResponse({"error": "no logo"}, status_code=404)
+        return FileResponse(str(fp))
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/logo")
+    def gc_sub_logo(sub_slug: str, request: Request, file: UploadFile = File(...)):
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        rec["logo"] = _save_logo(_client_dir(sub_slug) / "docs", file)
+        save_client(rec)
+        return {"ok": True, "logo": rec["logo"]}
+
+    @app.get("/portal/api/client/{slug}/logo")
+    def serve_client_logo(slug: str):
+        rec = load_client(slug)
+        if not rec or not rec.get("logo"):
+            return JSONResponse({"error": "no logo"}, status_code=404)
+        fp = _client_dir(slug) / "docs" / os.path.basename(rec["logo"])
+        if not fp.is_file():
+            return JSONResponse({"error": "no logo"}, status_code=404)
+        return FileResponse(str(fp))
 
     @app.post("/portal/api/admin/client/{slug}/upload")
     def admin_upload(slug: str, request: Request, file: UploadFile = File(...),

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Origin — General Contractor Console</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --charcoal2:#2a2e35; --orange:#E8551F; --orange2:#F2712F;
+    --ink:#2B2F36; --muted:#6B7280; --line:#E3E6EA; --bg:#F2F0EE; --card:#fff;
+    --green:#1E7A46; --greenbg:#e7f4ec; --amber:#B7791F; --red:#C8461A; --redbg:#fbe9e7;
+    --shadow:0 1px 3px rgba(20,25,30,.08),0 6px 20px rgba(20,25,30,.06);
+  }
+  html[data-theme="dark"]{
+    --ink:#e8efea; --muted:#93a49b; --line:#2c333a; --bg:#12151a; --card:#1a1e24;
+    --charcoal:#0d0f12; --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .hidden{display:none !important}
+  .word{font-weight:800;font-size:18px;color:var(--charcoal)}.word span{color:var(--orange)}
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#1C1F24,#0d0f12);padding:24px}
+  .login-card{background:#fff;border-radius:16px;box-shadow:var(--shadow);width:100%;max-width:380px;padding:32px 28px;text-align:center}
+  .gcbadge{font-size:11px;background:var(--orange);color:#fff;padding:3px 9px;border-radius:6px;font-weight:700;margin-left:6px}
+  .login-card h1{font-size:17px;margin:16px 0 4px;color:#2B2F36}.login-card p{color:#6B7280;font-size:13px;margin:0 0 18px}
+  .field{text-align:left;margin-bottom:12px}
+  .field label{display:block;font-size:11.5px;color:#6B7280;margin-bottom:4px;font-weight:600}
+  .field input{width:100%;padding:10px 11px;border:1px solid #E3E6EA;border-radius:8px;font-size:13.5px;background:#f8fafc;font-family:inherit}
+  .btn{background:var(--charcoal);color:#fff;border:0;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer}
+  .btn:hover{background:var(--charcoal2)}.btn.orange{background:var(--orange)}.btn.orange:hover{background:var(--orange2)}
+  .btn.ghost{background:var(--card);color:var(--muted);border:1px solid var(--line)}
+  .btn.sm{padding:7px 12px;font-size:12.5px}
+  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:16px}
+  #app{display:none}
+  header.topbar{background:var(--charcoal);color:#fff}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+  .topbar .brand{display:flex;align-items:center;gap:11px}
+  .topbar .brand img{height:34px;width:34px;border-radius:7px;object-fit:cover;background:#fff}
+  .topbar .brand .nm{font-weight:800;font-size:16px}
+  .topbar .brand .tag{font-size:11px;color:#e6c6b6}
+  .topctl{display:flex;align-items:center;gap:8px}
+  .who{font-size:12.5px;color:#e6c6b6;cursor:pointer;border:1px solid rgba(255,255,255,.3);padding:5px 10px;border-radius:7px}
+  nav.tabs{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  nav.tabs .wrap{display:flex;gap:4px}
+  .tab{padding:13px 16px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+  .tab.active{color:var(--ink);border-bottom-color:var(--orange)}
+  .tab .pip{background:var(--orange);color:#fff;font-size:11px;border-radius:999px;padding:1px 7px;margin-left:6px;font-weight:700}
+  main{padding:22px 0 70px}.page{display:none}.page.active{display:block}
+  .hello{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+  .hello h2{margin:0;font-size:21px}.hello .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:22px 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:18px}
+  label.lbl{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  input.f,select.f,textarea.f{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--bg);color:var(--ink);font-family:inherit}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .saved{color:var(--green);font-weight:700;font-size:13px;display:none}.saved.show{display:inline}
+  /* roster */
+  .subcard{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;background:var(--card);box-shadow:var(--shadow)}
+  .subcard .lg{height:40px;width:40px;border-radius:9px;object-fit:cover;background:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--muted);font-size:15px;flex-shrink:0}
+  .subcard .nm{font-weight:700;font-size:14.5px}
+  .subcard .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .subcard .sp{flex:1}
+  .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--greenbg);color:var(--green)}
+  .badge.no{background:var(--redbg);color:var(--red)}
+  .dot{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;background:var(--orange);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 5px}
+  /* drawer / chat */
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,94vw);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .22s ease;z-index:40;display:flex;flex-direction:column}
+  .drawer.open{transform:none}
+  .drawer .dhead{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .drawer .dhead .nm{font-weight:800;font-size:15px}.drawer .dhead .x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:20px;border:0;background:none}
+  .thread{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+  .bub{max-width:82%;padding:9px 12px;border-radius:13px;font-size:13.5px;line-height:1.4}
+  .bub.them{background:var(--bg);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}
+  .bub.me{background:var(--orange);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .bub .t{display:block;font-size:10.5px;opacity:.7;margin-top:3px}
+  .composer{display:flex;gap:8px;padding:13px 16px;border-top:1px solid var(--line)}
+  .composer input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:13.5px;font-family:inherit}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 10px}
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:24px 0 40px}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <div class="login-card">
+    <div class="word">Orig<span>in</span> <span class="gcbadge">GC</span></div>
+    <h1>General Contractor Console</h1>
+    <p>Manage your subcontractors and their compliance in one place.</p>
+    <div class="field"><label>Email</label><input id="email" type="email" placeholder="you@company.com"></div>
+    <div class="field"><label>PIN</label><input id="pin" type="password" placeholder="••••"></div>
+    <button class="btn orange" onclick="login()">Log In</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</section>
+
+<div id="app">
+  <header class="topbar"><div class="wrap">
+    <div class="brand">
+      <img id="gcLogo" alt="" style="display:none">
+      <div><div class="nm" id="gcName">—</div><div class="tag" id="gcTag">Subcontractor management</div></div>
+    </div>
+    <div class="topctl">
+      <button class="btn ghost sm" id="themeBtn" onclick="toggleTheme()">Dark</button>
+      <div class="who" onclick="logout()">Sign out</div>
+    </div>
+  </div></header>
+
+  <nav class="tabs"><div class="wrap">
+    <div class="tab active" data-page="subs" onclick="tab(this)">My Subcontractors</div>
+    <div class="tab" data-page="origin" onclick="tab(this)">Messages with Origin <span class="pip" id="ownerPip" style="display:none">0</span></div>
+    <div class="tab" data-page="brand" onclick="tab(this)">Branding</div>
+  </div></nav>
+
+  <main><div class="wrap">
+
+    <section id="subs" class="page active">
+      <div class="hello">
+        <div><h2>My Subcontractors</h2><div class="sub" id="subsSub">Add the companies working under you and message them directly.</div></div>
+        <button class="btn orange sm" onclick="showAdd()">+ Add subcontractor</button>
+      </div>
+      <div id="addBox" class="card hidden" style="margin-bottom:16px">
+        <div class="section-title" style="margin-top:0">New / edit subcontractor</div>
+        <div class="row2">
+          <div><label class="lbl">Company name</label><input class="f" id="a_company"></div>
+          <div><label class="lbl">Contact email (their login)</label><input class="f" id="a_email" type="email"></div>
+        </div>
+        <div class="row3">
+          <div><label class="lbl">Type</label>
+            <select class="f" id="a_type"><option value="prequal">Prequal-managed</option><option value="docs">Documentation</option></select></div>
+          <div><label class="lbl">Scope / trade</label><input class="f" id="a_trade" placeholder="e.g. electrical"></div>
+          <div><label class="lbl">Set login PIN (optional)</label><input class="f" id="a_pin" placeholder="4+ digits"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <button class="btn orange sm" onclick="saveSub()">Save subcontractor</button>
+          <button class="btn ghost sm" onclick="hideAdd()">Cancel</button>
+          <span class="saved" id="subSaved">Saved</span>
+          <input type="hidden" id="a_slug">
+        </div>
+      </div>
+      <div id="roster"></div>
+    </section>
+
+    <section id="origin" class="page">
+      <div class="hello"><div><h2>Messages with Origin</h2>
+        <div class="sub">Your direct line to Origin Management Solutions for help, documents, and questions.</div></div></div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="thread" id="ownerThread" style="height:52vh"></div>
+        <div class="composer">
+          <input id="ownerInput" placeholder="Message Origin…" onkeydown="if(event.key==='Enter')sendOwner()">
+          <button class="btn orange sm" onclick="sendOwner()">Send</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="brand" class="page">
+      <div class="hello"><div><h2>Branding</h2><div class="sub">Your logo appears across your console and to your subcontractors.</div></div></div>
+      <div class="card" style="max-width:460px">
+        <label class="lbl">Company logo</label>
+        <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
+          <img id="brandPreview" style="height:56px;width:56px;border-radius:11px;object-fit:cover;background:var(--bg);display:none">
+          <input type="file" id="logoFile" accept="image/*" onchange="uploadLogo()">
+        </div>
+        <div class="hint">PNG, JPG or SVG. Square works best.</div>
+      </div>
+    </section>
+
+    <div class="foot">Origin Management Solutions · Subcontractor compliance, handled.</div>
+  </div></main>
+</div>
+
+<!-- sub message drawer -->
+<div class="drawer" id="drawer">
+  <div class="dhead">
+    <img id="dLogo" class="lg" style="display:none;height:34px;width:34px;border-radius:8px">
+    <div class="nm" id="dName">—</div>
+    <button class="x" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="thread" id="subThread"></div>
+  <div class="composer">
+    <input id="subInput" placeholder="Message this subcontractor…" onkeydown="if(event.key==='Enter')sendSub()">
+    <button class="btn orange sm" onclick="sendSub()">Send</button>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+async function api(path,opts){const r=await fetch(path,Object.assign({headers:{'Content-Type':'application/json'}},opts||{}));let d={};try{d=await r.json()}catch(e){}return{ok:r.ok,status:r.status,data:d}}
+function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* theme */
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);$('themeBtn').textContent=t==='dark'?'Light':'Dark'}
+function toggleTheme(){const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';applyTheme(n);try{window.name='origin-theme:'+n}catch(e){}}
+(function(){let t='light';try{if((window.name||'').startsWith('origin-theme:'))t=window.name.split(':')[1]}catch(e){}applyTheme(t)})();
+
+/* auth */
+async function login(){
+  $('loginErr').textContent='';
+  const r=await api('/portal/api/gc/login',{method:'POST',body:JSON.stringify({email:$('email').value.trim(),pin:$('pin').value.trim()})});
+  if(!r.ok){$('loginErr').textContent=r.data.error||'Login failed';return}
+  boot();
+}
+async function logout(){await api('/portal/api/gc/logout',{method:'POST'});location.reload()}
+function tab(el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(el.dataset.page).classList.add('active');
+  if(el.dataset.page==='origin')loadOwner();}
+
+let GC=null, SUBS=[];
+async function boot(){
+  const r=await api('/portal/api/gc/home');
+  if(!r.ok){$('login').style.display='flex';$('app').style.display='none';return}
+  $('login').style.display='none';$('app').style.display='block';
+  GC=r.data.gc;SUBS=r.data.subs||[];
+  $('gcName').textContent=GC.name||'General Contractor';
+  if(GC.logo){const u='/portal/api/gc/'+GC.slug+'/logo';$('gcLogo').src=u;$('gcLogo').style.display='';
+    $('brandPreview').src=u;$('brandPreview').style.display=''}
+  renderRoster();loadOwner(true);
+}
+
+/* roster */
+function renderRoster(){
+  const el=$('roster');
+  if(!SUBS.length){el.innerHTML='<div class="empty">No subcontractors yet. Add your first one above.</div>';return}
+  el.innerHTML=SUBS.map(s=>{
+    const initials=(s.company||'?').split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    const logo=s.logo?`<img class="lg" src="/portal/api/client/${s.slug}/logo">`:`<div class="lg">${esc(initials)}</div>`;
+    const login=s.has_login?'<span class="badge">Portal active</span>':'<span class="badge no">No login</span>';
+    const unread=s.unread?`<span class="dot">${s.unread}</span>`:'';
+    return `<div class="subcard">${logo}
+      <div><div class="nm">${esc(s.company)}</div><div class="meta">${esc(s.email||'—')} · ${esc(s.client_type||'')}</div></div>
+      <div class="sp"></div>${login}
+      <button class="btn ghost sm" onclick='editSub(${JSON.stringify(s.slug)})'>Edit</button>
+      <button class="btn orange sm" onclick='openDrawer(${JSON.stringify(s.slug)},${JSON.stringify(s.company)},${JSON.stringify(s.logo||"")})'>Message ${unread}</button>
+    </div>`}).join('');
+}
+function showAdd(){$('addBox').classList.remove('hidden');['a_company','a_email','a_trade','a_pin','a_slug'].forEach(i=>$(i).value='');$('a_type').value='prequal';$('a_company').focus()}
+function hideAdd(){$('addBox').classList.add('hidden')}
+async function editSub(slug){
+  const r=await api('/portal/api/gc/sub/'+slug);if(!r.ok)return;
+  const s=r.data;showAdd();$('a_slug').value=s.slug;$('a_company').value=s.company||'';$('a_email').value=s.email||'';
+  $('a_type').value=s.client_type||'prequal';$('a_trade').value=s.trade||'';
+}
+async function saveSub(){
+  const body={slug:$('a_slug').value,company:$('a_company').value.trim(),email:$('a_email').value.trim(),
+    client_type:$('a_type').value,trade:$('a_trade').value.trim(),pin:$('a_pin').value.trim()};
+  if(!body.company){alert('Company name is required');return}
+  const r=await api('/portal/api/gc/sub',{method:'POST',body:JSON.stringify(body)});
+  if(!r.ok){alert(r.data.error||'Could not save');return}
+  const sv=$('subSaved');sv.classList.add('show');setTimeout(()=>sv.classList.remove('show'),1500);
+  hideAdd();await boot();
+}
+
+/* owner thread */
+async function loadOwner(silent){
+  const r=await api('/portal/api/gc/owner-messages');if(!r.ok)return;
+  const box=$('ownerThread');box.innerHTML=(r.data.messages||[]).map(m=>bub(m)).join('')||'<div class="empty">No messages yet. Say hello to Origin.</div>';
+  box.scrollTop=box.scrollHeight;
+  const un=(r.data.messages||[]).filter(m=>m.sender==='owner'&&!m.mine).length;
+}
+async function sendOwner(){
+  const t=$('ownerInput').value.trim();if(!t)return;$('ownerInput').value='';
+  await api('/portal/api/gc/owner-messages',{method:'POST',body:JSON.stringify({body:t})});loadOwner();
+}
+function bub(m){return `<div class="bub ${m.mine?'me':'them'}">${esc(m.body)}<span class="t">${esc((m.ts||'').replace('T',' ').slice(0,16))}</span></div>`}
+
+/* sub drawer */
+let DSUB=null;
+async function openDrawer(slug,name,logo){
+  DSUB=slug;$('dName').textContent=name;$('drawer').classList.add('open');
+  if(logo){$('dLogo').src='/portal/api/client/'+slug+'/logo';$('dLogo').style.display=''}else{$('dLogo').style.display='none'}
+  await loadSub();
+}
+function closeDrawer(){$('drawer').classList.remove('open');DSUB=null;boot()}
+async function loadSub(){
+  if(!DSUB)return;const r=await api('/portal/api/gc/sub/'+DSUB+'/messages');if(!r.ok)return;
+  const box=$('subThread');box.innerHTML=(r.data.messages||[]).map(m=>bub(m)).join('')||'<div class="empty">No messages yet.</div>';
+  box.scrollTop=box.scrollHeight;
+}
+async function sendSub(){
+  const t=$('subInput').value.trim();if(!t||!DSUB)return;$('subInput').value='';
+  await api('/portal/api/gc/sub/'+DSUB+'/messages',{method:'POST',body:JSON.stringify({body:t})});loadSub();
+}
+
+/* logo */
+async function uploadLogo(){
+  const f=$('logoFile').files[0];if(!f)return;
+  const fd=new FormData();fd.append('file',f);
+  const r=await fetch('/portal/api/gc/logo',{method:'POST',body:fd});
+  if(r.ok){boot()}else{alert('Upload failed')}
+}
+
+boot();
+</script>
+</body>
+</html>
