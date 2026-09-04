@@ -1636,5 +1636,14 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _console_exc:  # pragma: no cover
         print(f"[platform] console disabled — registration failed: {_console_exc}")
 
+    # GC Console — a General Contractor's own workspace at /platform/gc (roster,
+    # add/remove subs, prequal grades). GC-scoped; the owner can open any GC via
+    # ?gc=<id>. Isolated + wrapped so any failure leaves everything else intact.
+    try:
+        from . import platform_gc as _gc
+        _gc.register_gc(app)
+    except Exception as _gc_exc:  # pragma: no cover
+        print(f"[platform] GC console disabled — registration failed: {_gc_exc}")
+
     app.state.engine = eng
     return app

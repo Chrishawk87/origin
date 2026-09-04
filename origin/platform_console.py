@@ -132,6 +132,36 @@ def register_console(app) -> None:
             created = {"email": u.email, "name": u.name, "gc": t.name}
         return {"ok": True, "admin": created}
 
+    @app.delete("/platform/gcs/{gc_id}")
+    def delete_gc(gc_id: str, request: Request):
+        """Remove a GC entirely — used when Chris stops working with a client.
+
+        Deletes the tenant and, by ORM cascade, every one of its subcontractors
+        (with their grades, COIs, documents, messages) AND every login tied to
+        the GC — both the gc_admin accounts and any sub logins — so no one from
+        that GC can sign in again. Owner-only, irreversible.
+        """
+        if not _require_owner(request):
+            return JSONResponse({"error": "owner only"}, status_code=403)
+        with db.session() as s:
+            t = s.get(Tenant, gc_id)
+            if not t:
+                return JSONResponse({"error": "GC not found"}, status_code=404)
+            name = t.name
+            sub_n = s.scalar(select(func.count(Subcontractor.id)).where(
+                Subcontractor.gc_id == gc_id)) or 0
+            login_n = s.scalar(select(func.count(User.id)).where(
+                User.gc_id == gc_id)) or 0
+            revoked = [u.email for u in s.scalars(
+                select(User).where(User.gc_id == gc_id)).all()]
+            # ORM cascade (Tenant.subs / Tenant.users are delete-orphan) removes
+            # every sub, their grades/COIs/docs/messages, and every login.
+            s.delete(t)
+            s.commit()
+        return {"ok": True, "deleted": name,
+                "subs_removed": int(sub_n), "logins_revoked": int(login_n),
+                "revoked_emails": revoked}
+
     # ── the console page (public HTML; content gated by owner session) ────
     @app.get("/platform", response_class=HTMLResponse)
     def console_page():
@@ -177,8 +207,21 @@ _CONSOLE_HTML = r"""<!doctype html>
   button.primary { background:var(--green); color:#fff; border:0; padding:10px 16px;
     border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
   button.primary:hover { filter:brightness(1.06); }
-  button.ghost { background:#fff; color:var(--green); border:1px solid var(--green);
+  button.ghost, a.ghost { background:#fff; color:var(--green); border:1px solid var(--green);
+    padding:8px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
+    text-decoration:none; display:inline-block; line-height:1.2; }
+  a.ghost:hover { background:#f0f7f2; }
+  button.danger-ghost { background:#fff; color:var(--danger); border:1px solid var(--danger);
     padding:8px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+  button.danger-ghost:hover { background:#fbecec; }
+  dialog { border:0; border-radius:12px; padding:22px; max-width:440px;
+    box-shadow:0 10px 40px rgba(0,0,0,.2); }
+  dialog h3 { margin:0 0 10px; font-size:16px; }
+  dialog .actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+  dialog button { padding:8px 14px; border-radius:8px; border:1px solid var(--line);
+    background:#fff; cursor:pointer; font-size:14px; }
+  dialog button.danger { background:var(--danger); color:#fff; border:0; font-weight:600; }
+  dialog button.danger:disabled { opacity:.45; cursor:not-allowed; }
   .gc { border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
   .gc .top { display:flex; align-items:center; gap:12px; }
   .swatch { width:26px; height:26px; border-radius:6px; border:1px solid rgba(0,0,0,.1); }
@@ -249,6 +292,21 @@ _CONSOLE_HTML = r"""<!doctype html>
     </div>
   </main>
 </div>
+
+<dialog id="dlg-delgc">
+  <h3>Delete GC</h3>
+  <div id="delgc-text"></div>
+  <div class="note">This permanently removes the GC, all of its subcontractors and their records, and <b>every login</b> for this GC (admins and subs) — so no one from it can sign in again. This cannot be undone.</div>
+  <div style="margin-top:12px">
+    <label>Type the GC's name to confirm</label>
+    <input id="delgc-input" type="text" autocomplete="off" oninput="delgcCheck()">
+  </div>
+  <div id="delgc-msg" class="note"></div>
+  <div class="actions">
+    <button onclick="document.getElementById('dlg-delgc').close()">Cancel</button>
+    <button class="danger" id="delgc-confirm" disabled onclick="confirmDeleteGC()">Delete GC</button>
+  </div>
+</dialog>
 
 <script>
 async function api(path, opts){
@@ -324,7 +382,11 @@ function renderGC(g){
         <span style="opacity:.7">/${esc(g.slug)}</span></div>
     </div>
     <div class="emails">${emails}</div>
-    <button class="ghost" style="margin-top:10px" onclick="toggleIssue('${g.id}')">Issue admin login</button>
+    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <a class="ghost" href="/platform/gc?gc=${encodeURIComponent(g.id)}">Open workspace →</a>
+      <button class="ghost" onclick="toggleIssue('${g.id}')">Issue admin login</button>
+      <button class="danger-ghost" onclick="askDeleteGC('${g.id}','${esc(g.name).replace(/'/g,"\\'")}')">Delete GC</button>
+    </div>
     <div class="issue" id="issue-${g.id}">
       <div class="row">
         <div><label>Admin email</label><input type="email" id="ie-${g.id}" placeholder="admin@gc.com"></div>
@@ -337,6 +399,32 @@ function renderGC(g){
 }
 
 function toggleIssue(id){ document.getElementById('issue-'+id).classList.toggle('open'); }
+
+let DEL_GC = null;
+function askDeleteGC(id, name){
+  DEL_GC = {id, name};
+  document.getElementById('delgc-text').innerHTML = 'Permanently delete <b>'+esc(name)+'</b>?';
+  const inp = document.getElementById('delgc-input');
+  inp.value=''; document.getElementById('delgc-msg').textContent='';
+  document.getElementById('delgc-confirm').disabled = true;
+  document.getElementById('dlg-delgc').showModal();
+  setTimeout(()=>inp.focus(), 50);
+}
+function delgcCheck(){
+  const typed = document.getElementById('delgc-input').value.trim();
+  document.getElementById('delgc-confirm').disabled =
+    !DEL_GC || typed.toLowerCase() !== DEL_GC.name.trim().toLowerCase();
+}
+async function confirmDeleteGC(){
+  if(!DEL_GC) return;
+  const msg = document.getElementById('delgc-msg');
+  msg.textContent = 'Deleting…';
+  const {ok, data} = await api('/platform/gcs/'+DEL_GC.id, {method:'DELETE'});
+  if(!ok){ msg.innerHTML='<span class="err">'+esc(data.error||'Could not delete')+'</span>'; return; }
+  document.getElementById('dlg-delgc').close();
+  DEL_GC = null;
+  loadGCs();
+}
 
 async function issueAdmin(id){
   const email = document.getElementById('ie-'+id).value.trim();
