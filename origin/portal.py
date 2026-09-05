@@ -97,6 +97,10 @@ ADMIN_COOKIE = "origin_admin"
 GC_COOKIE = "origin_gc"
 SESSION_TTL = 60 * 60 * 12  # 12 hours
 
+# The admin console's sections. A staff member's `perms` is a subset of these
+# (the tabs they may open). The owner / master-password login always gets all.
+ADMIN_SECTIONS = ["update", "board", "gcs", "owndocs", "leads", "requests"]
+
 # --- client-login brute-force lockout (in-memory, per email) ---------------
 # PINs are short, so we throttle guessing: too many misses within the window
 # temporarily locks that email. Resets on a correct login or a redeploy.
@@ -1375,6 +1379,89 @@ def register_portal(app) -> None:
         p = _unsign(request.cookies.get(ADMIN_COOKIE, ""))
         return bool(p and p.get("role") == "admin")
 
+    def _admin_access(request: Request) -> Optional[Dict[str, Any]]:
+        """Resolve what the current admin session is allowed to do.
+        Returns None if there's no valid admin session. Otherwise a dict:
+          {ok, name, owner, manage, sections}. The master-password login and the
+          owner member get everything; a staff member gets exactly their perms."""
+        p = _unsign(request.cookies.get(ADMIN_COOKIE, ""))
+        if not p or p.get("role") != "admin":
+            return None
+        mid = p.get("member") or ""
+        if not mid:
+            # master-password login — full owner access
+            return {"ok": True, "name": "", "owner": True, "manage": True,
+                    "sections": list(ADMIN_SECTIONS)}
+        rec = load_owner()
+        member = next((m for m in _ensure_owner_members(rec) if m.get("id") == mid), None)
+        if member is None:
+            return {"ok": False, "removed": True}
+        is_owner = member.get("role") == "owner"
+        perms = member.get("perms")
+        if is_owner or perms == "all":
+            sections = list(ADMIN_SECTIONS)
+        elif isinstance(perms, list):
+            sections = [s for s in ADMIN_SECTIONS if s in perms]
+        else:
+            sections = []
+        return {"ok": True, "name": member.get("name", ""), "owner": is_owner,
+                "manage": is_owner or bool(member.get("manage")), "sections": sections}
+
+    def _required_section(rest: str) -> str:
+        """Map an admin API path (the part after /portal/api/admin/) to the
+        section that guards it. 'open' means no section gate."""
+        first = rest.split("/", 1)[0]
+        if first in ("login", "logout", "me"):
+            return "open"
+        if first == "clients":
+            return "clients"          # shared by the Clients + Compliance Board tabs
+        if first in ("client", "library", "seed"):
+            return "update"
+        if first in ("gc", "gcs"):
+            return "gcs"
+        if first == "owner":
+            sub = rest.split("/")[1] if "/" in rest else ""
+            if sub in ("account", "members"):
+                return "account"      # manage-gated
+            return "owndocs"
+        if first in ("requests", "request"):
+            return "requests"
+        if first in ("leads", "lead", "radar"):
+            return "leads"
+        return "update"
+
+    @app.middleware("http")
+    async def _admin_perms_guard(request: Request, call_next):
+        """Central per-teammate access control for the admin API. The owner /
+        master login is never restricted here; only staff members with a limited
+        perms set get a 403 when they reach for a section they weren't given."""
+        path = request.url.path
+        if path.startswith("/portal/api/admin/"):
+            need = _required_section(path[len("/portal/api/admin/"):])
+            if need != "open":
+                acc = _admin_access(request)
+                # No valid session: let the endpoint's own guard answer with 401.
+                if acc is not None:
+                    if not acc.get("ok"):
+                        return JSONResponse({"error": "Your access was removed."},
+                                            status_code=403)
+                    if need == "account":
+                        if not acc.get("manage"):
+                            return JSONResponse(
+                                {"error": "Only managers can manage the team."},
+                                status_code=403)
+                    elif need == "clients":
+                        secs = set(acc.get("sections", []))
+                        if not ({"update", "board"} & secs):
+                            return JSONResponse(
+                                {"error": "You don't have access to that."},
+                                status_code=403)
+                    elif need not in acc.get("sections", []):
+                        return JSONResponse(
+                            {"error": "You don't have access to that."},
+                            status_code=403)
+        return await call_next(request)
+
     def gc_session(request: Request) -> Optional[Dict[str, Any]]:
         p = _unsign(request.cookies.get(GC_COOKIE, ""))
         return p if p and p.get("role") == "gc" else None
@@ -1726,6 +1813,17 @@ def register_portal(app) -> None:
         resp = JSONResponse({"ok": True})
         resp.delete_cookie(ADMIN_COOKIE)
         return resp
+
+    @app.get("/portal/api/admin/me")
+    def admin_me(request: Request):
+        """Who's signed in and what they're allowed to see. The console calls this
+        on load to (a) confirm the session is still valid and (b) show only the
+        tabs this person has access to."""
+        acc = _admin_access(request)
+        if not acc or not acc.get("ok"):
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        return {"name": acc.get("name", ""), "owner": acc.get("owner", False),
+                "manage": acc.get("manage", False), "sections": acc.get("sections", [])}
 
     @app.get("/portal/api/admin/clients")
     def admin_clients(request: Request):
@@ -3361,8 +3459,18 @@ def register_portal(app) -> None:
 
     # ---- Origin account profile + staff logins (Account & Team) ----
     def _owner_member_public(m: Dict[str, Any]) -> Dict[str, Any]:
+        is_owner = m.get("role") == "owner"
+        perms = m.get("perms")
+        if is_owner or perms == "all":
+            sections = list(ADMIN_SECTIONS)
+        elif isinstance(perms, list):
+            sections = [s for s in ADMIN_SECTIONS if s in perms]
+        else:
+            sections = []
         return {"id": m.get("id"), "name": m.get("name"), "email": m.get("email"),
                 "role": m.get("role", "staff"),
+                "sections": sections,
+                "manage": bool(m.get("manage")) or is_owner,
                 "has_login": bool(m.get("pin_hash")), "created": m.get("created")}
 
     @app.get("/portal/api/admin/owner/account")
@@ -3411,6 +3519,8 @@ def register_portal(app) -> None:
             return JSONResponse(
                 {"error": "That email already has a login."}, status_code=409)
         members = _ensure_owner_members(rec)
+        raw = body.get("sections")
+        perms = [s for s in raw if s in ADMIN_SECTIONS] if isinstance(raw, list) else []
         temp_pin = f"{random.randint(0, 999999):06d}"
         member = {
             "id": "s_" + secrets.token_hex(4),
@@ -3418,6 +3528,8 @@ def register_portal(app) -> None:
             "email": email,
             "pin_hash": hash_pin("owner", temp_pin),
             "role": "staff",
+            "perms": perms,
+            "manage": bool(body.get("manage")),
             "created": _now(),
             "updated": _now(),
         }
@@ -3454,9 +3566,32 @@ def register_portal(app) -> None:
         member = next((m for m in members if m.get("id") == mid), None)
         if not member:
             return JSONResponse({"error": "teammate not found"}, status_code=404)
+        if member.get("role") == "owner":
+            return JSONResponse({"error": "You can't remove the account owner."},
+                                status_code=400)
         rec["members"] = [m for m in members if m.get("id") != mid]
         save_owner(rec)
         return {"ok": True}
+
+    @app.post("/portal/api/admin/owner/members/{mid}/perms")
+    def owner_member_perms(mid: str, request: Request, body: dict = Body(...)):
+        """Set which sections a teammate can open, and whether they can manage the
+        team. body: {sections: [key,...], manage: bool}."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        rec = load_owner()
+        member = next((m for m in _ensure_owner_members(rec) if m.get("id") == mid), None)
+        if not member:
+            return JSONResponse({"error": "teammate not found"}, status_code=404)
+        if member.get("role") == "owner":
+            return JSONResponse({"error": "The owner always has full access."},
+                                status_code=400)
+        raw = body.get("sections")
+        member["perms"] = [s for s in raw if s in ADMIN_SECTIONS] if isinstance(raw, list) else []
+        member["manage"] = bool(body.get("manage"))
+        member["updated"] = _now()
+        save_owner(rec)
+        return {"ok": True, "sections": member["perms"], "manage": member["manage"]}
 
     @app.get("/portal/api/admin/owner/documents")
     def owner_documents(request: Request):

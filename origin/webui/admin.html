@@ -222,6 +222,7 @@
   <header class="topbar"><div class="wrap">
     <div class="word">Orig<span>in</span> <span class="adminbadge">ADMIN</span></div>
     <div style="display:flex;align-items:center;gap:8px">
+      <span id="meName" style="font-size:12px;color:#6b7480"></span>
       <button class="themebtn" id="themeBtn" onclick="toggleTheme()">Dark</button>
       <div class="who" onclick="adminLogout()">Sign out</div>
     </div>
@@ -368,8 +369,11 @@
           <div><label class="lbl">Email</label><input class="f" id="mem_email" type="email"></div>
           <div style="display:flex;align-items:flex-end"><button class="btn orange sm" style="width:100%" onclick="addMember()">Invite teammate</button></div>
         </div>
+        <div style="margin-top:4px"><label class="lbl">What can they see &amp; do?</label>
+          <div id="inv_perms" style="margin-top:4px"></div>
+        </div>
         <div id="memMsg" style="font-size:12px;margin:8px 0 4px"></div>
-        <div id="memList" style="margin-top:10px"></div>
+        <div id="memList" style="margin-top:14px"></div>
       </div>
     </div></section>
 
@@ -395,6 +399,76 @@
 
 <script>
 var CUR=null; // current client record being edited
+var ME=null;  // logged-in admin: {name, owner, manage, sections:[...]}
+var SECTION_DEFS=[
+  ['update','Update Client Status'],
+  ['board','Compliance Board'],
+  ['gcs','General Contractors'],
+  ['owndocs','Origin Documents'],
+  ['leads','New Leads'],
+  ['requests','Document Requests']
+];
+function secLabel(k){for(var i=0;i<SECTION_DEFS.length;i++){if(SECTION_DEFS[i][0]===k)return SECTION_DEFS[i][1];}return k;}
+function can(s){return !!(ME&&ME.sections&&ME.sections.indexOf(s)>=0);}
+function secChecks(prefix,selected,manage){
+  selected=selected||[];
+  var boxes=SECTION_DEFS.map(function(d){
+    var on=selected.indexOf(d[0])>=0?' checked':'';
+    return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:2px 0">'+
+      '<input type="checkbox" data-sec="'+prefix+'" value="'+d[0]+'"'+on+'> '+esc(d[1])+'</label>';
+  }).join('');
+  var mg='<label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 0 0;margin-top:4px;border-top:1px dashed var(--paneline)">'+
+    '<input type="checkbox" data-manage="'+prefix+'"'+(manage?' checked':'')+'> Can manage team &amp; company profile</label>';
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">'+boxes+'</div>'+mg;
+}
+function readChecks(prefix){
+  var secs=[];
+  document.querySelectorAll('[data-sec="'+prefix+'"]').forEach(function(c){if(c.checked)secs.push(c.value);});
+  var mgEl=document.querySelector('[data-manage="'+prefix+'"]');
+  return {sections:secs,manage:!!(mgEl&&mgEl.checked)};
+}
+function accessSummary(m){
+  if(m.role==='owner')return 'Full access · account owner';
+  var names=(m.sections||[]).map(function(s){return secLabel(s);});
+  var txt=names.length?names.join(', '):'No sections yet';
+  if(m.manage)txt+=' · can manage team';
+  return txt;
+}
+function applyAccess(){
+  if(!ME)return;
+  SECTION_DEFS.forEach(function(d){
+    var t=document.querySelector('.tab[data-page="'+d[0]+'"]');
+    if(t)t.style.display=can(d[0])?'':'none';
+  });
+  var acc=document.querySelector('.tab[data-page="account"]');
+  if(acc)acc.style.display=ME.manage?'':'none';
+  var nm=document.getElementById('meName');
+  if(nm)nm.textContent=ME.name?('Signed in as '+ME.name):'';
+  var active=document.querySelector('.tab.active');
+  if(active&&active.style.display==='none'){
+    var first=Array.prototype.slice.call(document.querySelectorAll('.tab')).filter(function(t){return t.style.display!=='none';})[0];
+    if(first)tab(first);
+  }
+}
+function boot(){
+  api('/portal/api/admin/me').then(function(r){
+    if(!r.ok){showLogin();return;}
+    ME=r.j||{};
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    applyAccess();
+    if(can('update'))loadClients();
+    if(can('requests'))loadRequests();
+    if(can('leads'))loadLeads();
+    if(can('gcs'))loadGcs();
+    if(can('owndocs'))loadOwnDocs(true);
+  });
+}
+function showLogin(){
+  ME=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login').style.display='flex';
+}
 function api(path,opts){opts=opts||{};opts.credentials='same-origin';
   if(opts.body&&typeof opts.body!=='string'&&!(opts.body instanceof FormData)){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(opts.body);}
   return fetch(path,opts).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};}).catch(function(){return {ok:r.ok,j:{}};});});}
@@ -405,11 +479,7 @@ function showStaffLogin(on){
   document.getElementById('loginMaster').style.display=on?'none':'block';
   document.getElementById('loginStaff').style.display=on?'block':'none';
 }
-function afterLogin(){
-  document.getElementById('login').style.display='none';
-  document.getElementById('app').style.display='block';
-  loadClients(); loadRequests(); loadLeads(); loadGcs(); loadOwnDocs(true);
-}
+function afterLogin(){boot();}
 function adminLogin(){
   document.getElementById('loginErr').textContent='';
   api('/portal/api/admin/login',{method:'POST',body:{password:document.getElementById('pw').value}}).then(function(r){
@@ -433,6 +503,7 @@ function loadAccount(){
     document.getElementById('acc_company').value=j.company||'';
     document.getElementById('acc_email').value=j.email||'';
     document.getElementById('acc_phone').value=j.phone||'';
+    var inv=document.getElementById('inv_perms');if(inv)inv.innerHTML=secChecks('inv',[],false);
     renderMembers(j.members||[]);
   });
 }
@@ -447,21 +518,44 @@ function renderMembers(members){
   var el=document.getElementById('memList');
   if(!members.length){el.innerHTML='<div class="sub">No staff logins yet. Invite a teammate above.</div>';return;}
   el.innerHTML=members.map(function(m){
-    var badge=m.role==='staff'?'':' <span class="adminbadge">owner</span>';
-    return '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px;padding:10px 14px">'+
-      '<div><div style="font-weight:600">'+esc(m.name||'')+badge+'</div>'+
-      '<div class="sub" style="margin:0">'+esc(m.email||'')+(m.has_login?'':' · no PIN set')+'</div></div>'+
-      '<div style="display:flex;gap:8px">'+
-        '<button class="btn ghost sm" onclick="resendMember(\''+m.id+'\')">Resend login</button>'+
-        '<button class="btn ghost sm" onclick="removeMember(\''+m.id+'\',\''+esc(m.name||'')+'\')">Remove</button>'+
-      '</div></div>';
+    var isOwner=m.role==='owner';
+    var badge=isOwner?' <span class="adminbadge">owner</span>':'';
+    var actions=isOwner?'':(
+      '<button class="btn ghost sm" onclick="toggleEdit(\''+m.id+'\')">Edit access</button>'+
+      '<button class="btn ghost sm" onclick="resendMember(\''+m.id+'\')">Resend login</button>'+
+      '<button class="btn ghost sm" onclick="removeMember(\''+m.id+'\',\''+esc(m.name||'')+'\')">Remove</button>'
+    );
+    var editor=isOwner?'':(
+      '<div id="edit_'+m.id+'" style="display:none;margin-top:10px;border-top:1px solid var(--paneline);padding-top:10px">'+
+        '<label class="lbl">What can they see &amp; do?</label>'+
+        '<div style="margin-top:4px">'+secChecks('m_'+m.id,m.sections||[],!!m.manage)+'</div>'+
+        '<div style="margin-top:8px"><button class="btn orange sm" onclick="savePerms(\''+m.id+'\')">Save access</button></div>'+
+      '</div>'
+    );
+    return '<div class="card" style="margin:0 0 8px;padding:10px 14px">'+
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">'+
+        '<div><div style="font-weight:600">'+esc(m.name||'')+badge+'</div>'+
+        '<div class="sub" style="margin:0">'+esc(m.email||'')+(m.has_login?'':' · no PIN set')+'</div>'+
+        '<div class="sub" style="margin:3px 0 0;font-size:11px;color:#6b7480">'+esc(accessSummary(m))+'</div></div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+actions+'</div>'+
+      '</div>'+editor+
+    '</div>';
   }).join('');
+}
+function toggleEdit(id){var e=document.getElementById('edit_'+id);if(e)e.style.display=(e.style.display==='none'?'block':'none');}
+function savePerms(id){
+  var c=readChecks('m_'+id);
+  api('/portal/api/admin/owner/members/'+id+'/perms',{method:'POST',body:{sections:c.sections,manage:c.manage}}).then(function(r){
+    if(!r.ok){memNote((r.j&&r.j.error)||'Save failed',false);return;}
+    memNote('Access updated.',true);loadAccount();
+  });
 }
 function memNote(txt,ok){var el=document.getElementById('memMsg');el.style.color=ok?'#2e7d32':'#b3261e';el.textContent=txt;}
 function addMember(){
   var name=document.getElementById('mem_name').value,email=document.getElementById('mem_email').value;
   if(!name||!email){memNote('Enter a name and email.',false);return;}
-  api('/portal/api/admin/owner/members',{method:'POST',body:{name:name,email:email}}).then(function(r){
+  var c=readChecks('inv');
+  api('/portal/api/admin/owner/members',{method:'POST',body:{name:name,email:email,sections:c.sections,manage:c.manage}}).then(function(r){
     if(!r.ok){memNote((r.j&&r.j.error)||'Invite failed',false);return;}
     document.getElementById('mem_name').value='';document.getElementById('mem_email').value='';
     if(r.j.sent){memNote('Invite emailed to '+email+'.',true);}
@@ -1445,6 +1539,7 @@ function buildDrafts(publish){
 }
 document.getElementById('pw').addEventListener('keydown',function(e){if(e.key==='Enter')adminLogin();});
 document.getElementById('staffPin').addEventListener('keydown',function(e){if(e.key==='Enter')adminLoginStaff();});
+boot();
 </script>
 </body>
 </html>
