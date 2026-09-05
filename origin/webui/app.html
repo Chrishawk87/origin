@@ -57,26 +57,17 @@
     { url:'/portal/api/gc/home',  go:'/gc' },
     { url:'/portal/api/me',       go:'/portal' }
   ];
-  function remember(go){ try{ localStorage.setItem('origin_home', go); }catch(e){} }
-  function lastHome(){ try{ return localStorage.getItem('origin_home'); }catch(e){ return null; } }
-  function showPicker(){
-    var s=document.getElementById('spin'); if(s) s.style.display='none';
-    var st=document.getElementById('status'); if(st) st.style.display='none';
-    document.getElementById('pick').classList.add('show');
-    // Remember which door this device uses, so next time we skip straight to it.
-    var links=document.querySelectorAll('#pick a');
-    for(var k=0;k<links.length;k++){
-      links[k].addEventListener('click', function(ev){
-        remember(ev.currentTarget.getAttribute('href'));
-      });
-    }
-  }
+  // Only a *verified* sign-in ever records this device's home, so a stray tap
+  // can never poison it. Key is versioned (v2) so any old value is ignored.
+  function remember(go){ try{ localStorage.setItem('origin_home_v2', go); }catch(e){} }
+  function lastHome(){ try{ return localStorage.getItem('origin_home_v2'); }catch(e){ return null; } }
   function fallback(){
-    // Session has lapsed. If this device already has a home, send it straight
-    // to that dashboard's login (Chris's phone -> /admin). Otherwise, pick.
+    // Nobody is signed in on this device.
+    //  • If this device has previously signed in somewhere, reopen that login.
+    //  • Otherwise default to the owner/admin master-password screen (that's Chris).
     var home = lastHome();
     if(home==='/admin' || home==='/gc' || home==='/portal'){ location.replace(home); return; }
-    showPicker();
+    location.replace('/admin');
   }
   function step(i){
     if(i>=checks.length){ fallback(); return; }
