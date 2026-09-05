@@ -305,6 +305,23 @@ class Engine:
             on_tool_start=lambda n, a: emit({"type": "tool", "name": n, "args": a}),
             on_tool_result=lambda n, r: emit({"type": "result", "name": n, "result": r[:4000]}),
         )
+        # Verifiable-accuracy guard: confirm every OSHA/CFR citation in the answer
+        # against the Compliance Knowledge Base before the user sees it. Real
+        # citations get their official source appended; a regulation number the
+        # model asserted but that isn't in the KB is struck and flagged. Only acts
+        # when the answer actually cites a standard, so ordinary chat is untouched.
+        # Never allowed to break a turn — a guard failure leaves the answer as-is.
+        try:
+            from .citation_guard import guard_answer
+            if final:
+                guarded, creport = guard_answer(final)
+                if creport.get("changed"):
+                    final = guarded
+                    emit({"type": "citation_check",
+                          "verified": creport.get("verified", []),
+                          "unverified": creport.get("unverified", [])})
+        except Exception:
+            pass
         if self.active:
             self.active.save_history(self.agent.history)
         artifacts = self._diff_artifacts(before_files, self._workspace_files())
