@@ -566,7 +566,11 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     # ── access token (required when Origin is served over a network) ──
     @app.middleware("http")
     async def _auth(request, call_next):
-        if token and request.url.path.startswith("/api"):
+        # The Photo Audit tool is used by GC/sub/owner dashboards whose users
+        # authenticate by portal session, not the internal access token, so its
+        # analyze endpoint must not be gated by the token.
+        _public_api = request.url.path.startswith("/api/photo-audit/")
+        if token and request.url.path.startswith("/api") and not _public_api:
             supplied = request.headers.get("x-origin-token") or request.query_params.get("token")
             if supplied != token:
                 return JSONResponse({"error": "unauthorized — missing or wrong access token"},
@@ -1280,6 +1284,18 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         if photo_audit_html.is_file():
             return photo_audit_html.read_text(encoding="utf-8")
         return "<h1>Photo Walk-Through Audit</h1><p>Tool page missing.</p>"
+
+    # ── App launcher (the installed PWA opens here) ───────────────────────────
+    # Routes each phone to whichever dashboard it is signed in to — owner/admin,
+    # GC, or contractor — instead of dumping everyone on the internal AI console.
+    # Falls back to a sign-in picker when no session is present.
+    _app_launcher_html = Path(__file__).parent / "webui" / "app.html"
+
+    @app.get("/app", response_class=HTMLResponse)
+    def app_launcher():
+        if _app_launcher_html.is_file():
+            return _app_launcher_html.read_text(encoding="utf-8")
+        return "<h1>Origin</h1><p>Launcher page missing.</p>"
 
     @app.post("/api/photo-audit/analyze")
     async def photo_audit_analyze(request: Request):

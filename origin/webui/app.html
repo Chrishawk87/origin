@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Origin</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C1F24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  :root{ --bg:#EDEEF0; --ink:#1C1F24; --muted:#6b7280; --line:#dfe2e7; --orange:#d1541f; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .box{width:100%;max-width:360px;text-align:center}
+  .word{font-weight:800;font-size:30px;letter-spacing:.5px}
+  .word span{color:var(--orange)}
+  .spin{margin:26px auto 0;width:34px;height:34px;border:3px solid var(--line);
+    border-top-color:var(--orange);border-radius:50%;animation:sp .9s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .status{margin-top:16px;color:var(--muted);font-size:14px}
+  .pick{display:none;margin-top:26px}
+  .pick.show{display:block}
+  .pick .sub{color:var(--muted);font-size:14px;margin-bottom:14px}
+  .pick a{display:block;text-decoration:none;color:#fff;background:var(--ink);
+    border-radius:12px;padding:14px 16px;font-weight:700;margin:10px 0}
+  .pick a.gc{background:var(--orange)}
+  .pick a.portal{background:#2f6f4f}
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="word">ORIGIN<span>.</span></div>
+    <div id="spin" class="spin"></div>
+    <div id="status" class="status">Opening your dashboard…</div>
+
+    <div id="pick" class="pick">
+      <div class="sub">Sign in to continue</div>
+      <a class="admin" href="/admin">Owner / Admin</a>
+      <a class="gc" href="/gc">General Contractor</a>
+      <a class="portal" href="/portal">Contractor Portal</a>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // Route to whichever dashboard this phone is signed in to. Checked most-
+  // privileged first. Each endpoint returns 200 when signed in, 401 when not.
+  var checks = [
+    { url:'/portal/api/admin/me', go:'/admin' },
+    { url:'/portal/api/gc/home',  go:'/gc' },
+    { url:'/portal/api/me',       go:'/portal' }
+  ];
+  function showPicker(){
+    var s=document.getElementById('spin'); if(s) s.style.display='none';
+    var st=document.getElementById('status'); if(st) st.style.display='none';
+    document.getElementById('pick').classList.add('show');
+  }
+  function step(i){
+    if(i>=checks.length){ showPicker(); return; }
+    fetch(checks[i].url, {credentials:'same-origin', cache:'no-store'})
+      .then(function(r){
+        if(r.ok){ location.replace(checks[i].go); }
+        else{ step(i+1); }
+      })
+      .catch(function(){ step(i+1); });
+  }
+  step(0);
+})();
+</script>
+<script defer src="/pwa-install.js"></script>
+</body>
+</html>
