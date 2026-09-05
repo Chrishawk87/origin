@@ -1337,6 +1337,16 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         return Response("// missing", media_type="application/javascript",
                         status_code=404)
 
+    @app.get("/pwa-install.js")
+    def pwa_install_js():
+        f = _webui_dir / "pwa-install.js"
+        if f.is_file():
+            return Response(f.read_text(encoding="utf-8"),
+                            media_type="application/javascript",
+                            headers={"Cache-Control": "no-cache"})
+        return Response("// missing", media_type="application/javascript",
+                        status_code=404)
+
     @app.get("/apple-touch-icon.png")
     @app.get("/apple-touch-icon-precomposed.png")
     def pwa_apple_icon():
