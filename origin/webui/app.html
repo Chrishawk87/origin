@@ -57,16 +57,32 @@
     { url:'/portal/api/gc/home',  go:'/gc' },
     { url:'/portal/api/me',       go:'/portal' }
   ];
+  function remember(go){ try{ localStorage.setItem('origin_home', go); }catch(e){} }
+  function lastHome(){ try{ return localStorage.getItem('origin_home'); }catch(e){ return null; } }
   function showPicker(){
     var s=document.getElementById('spin'); if(s) s.style.display='none';
     var st=document.getElementById('status'); if(st) st.style.display='none';
     document.getElementById('pick').classList.add('show');
+    // Remember which door this device uses, so next time we skip straight to it.
+    var links=document.querySelectorAll('#pick a');
+    for(var k=0;k<links.length;k++){
+      links[k].addEventListener('click', function(ev){
+        remember(ev.currentTarget.getAttribute('href'));
+      });
+    }
+  }
+  function fallback(){
+    // Session has lapsed. If this device already has a home, send it straight
+    // to that dashboard's login (Chris's phone -> /admin). Otherwise, pick.
+    var home = lastHome();
+    if(home==='/admin' || home==='/gc' || home==='/portal'){ location.replace(home); return; }
+    showPicker();
   }
   function step(i){
-    if(i>=checks.length){ showPicker(); return; }
+    if(i>=checks.length){ fallback(); return; }
     fetch(checks[i].url, {credentials:'same-origin', cache:'no-store'})
       .then(function(r){
-        if(r.ok){ location.replace(checks[i].go); }
+        if(r.ok){ remember(checks[i].go); location.replace(checks[i].go); }
         else{ step(i+1); }
       })
       .catch(function(){ step(i+1); });
