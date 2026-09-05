@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Walk-Through Audit — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:940px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  .sectlbl{font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px;font-weight:800}
+  /* dropzone */
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:34px 20px;text-align:center;background:#FAFAFB;cursor:pointer;transition:.15s}
+  .drop:hover,.drop.hot{border-color:var(--orange);background:var(--cream)}
+  .drop .big{font-size:16px;font-weight:800;color:var(--charcoal)}
+  .drop .sub{font-size:13px;color:var(--grey);margin-top:5px}
+  .cam{display:inline-block;font-size:34px;margin-bottom:4px}
+  .btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .pickbtn{background:#fff;color:var(--charcoal);border:1.5px solid var(--line);border-radius:8px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer}
+  .pickbtn:hover{border-color:var(--orange);color:var(--orange)}
+  .thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .thumb{position:relative;width:104px;height:104px;border-radius:9px;overflow:hidden;border:1px solid var(--line);background:#000}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.62);color:#fff;border-radius:50%;width:22px;height:22px;line-height:20px;text-align:center;font-weight:800;cursor:pointer;font-size:14px}
+  .btn{appearance:none;border:0;border-radius:8px;padding:13px 24px;font-size:15px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff;margin-top:22px}
+  .btn:hover{background:var(--red)}
+  .btn:disabled{background:#C9CED6;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line);margin-left:8px}
+  .btn.ghost:hover{border-color:var(--orange);background:var(--cream)}
+  .disc{font-size:11.5px;color:var(--grey);margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
+  .hidden{display:none}
+  /* progress */
+  .working{text-align:center;padding:38px 20px;color:var(--grey)}
+  .spin{width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--orange);border-radius:50%;margin:0 auto 14px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* results */
+  .summary{background:var(--charcoal);color:#fff;border-radius:11px;padding:18px 20px;margin:6px 0 8px}
+  .summary .h{font-size:17px;font-weight:800}
+  .summary .s{font-size:13.5px;color:#C9CED6;margin-top:6px}
+  .counts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}
+  .pill{font-size:12px;font-weight:800;border-radius:20px;padding:4px 12px}
+  .pill.high{background:#F6DAD0;color:#8f2e10} .pill.medium{background:#FBEAD1;color:#8a5a09}
+  .pill.low{background:#DBEEE2;color:#155e35} .pill.none{background:#E6E8EB;color:#4a4f57}
+  .finding{border:1px solid var(--line);border-left:6px solid var(--grey);border-radius:11px;padding:15px 17px;margin-bottom:14px;background:#fff}
+  .finding.high{border-left-color:var(--red)} .finding.medium{border-left-color:var(--amber)} .finding.low{border-left-color:var(--green)}
+  .finding .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .finding .ft{font-weight:800;color:var(--charcoal);font-size:16px}
+  .sev{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;border-radius:6px;padding:3px 9px;color:#fff;white-space:nowrap}
+  .sev.high{background:var(--red)} .sev.medium{background:var(--amber)} .sev.low{background:var(--green)}
+  .finding .loc{font-size:12.5px;color:var(--grey);margin-top:2px}
+  .finding .desc{font-size:13.5px;color:var(--ink);margin-top:9px}
+  .fix{font-size:13px;color:#0d5030;background:#E7F3EC;border:1px solid #BFE0CC;border-radius:8px;padding:9px 12px;margin-top:11px}
+  .fix b{color:#0a3f26}
+  /* citation block */
+  .cite{background:#FBF4EF;border:1px solid #F0D9C9;border-radius:9px;padding:12px 14px;margin-top:12px}
+  .cite .cnum{font-size:15px;font-weight:800;color:var(--red)}
+  .cite .ctitle{font-size:13.5px;color:var(--charcoal);font-weight:700;margin-top:1px}
+  .cite a{color:var(--orange);font-size:12.5px;text-decoration:none;font-weight:700}
+  .cite a:hover{text-decoration:underline}
+  .req{margin-top:10px}
+  .req .rh{font-size:11.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--grey)}
+  .req ul{margin:5px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink)}
+  .nomatch{background:#F4F5F6;border:1px dashed var(--line);border-radius:8px;padding:11px 14px;margin-top:12px;font-size:12.5px;color:var(--grey)}
+  /* verbatim expander */
+  details.vb{margin-top:11px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  details.vb summary{cursor:pointer;list-style:none;padding:10px 13px;font-size:12.5px;font-weight:800;color:var(--charcoal);background:#F7F7F8;display:flex;justify-content:space-between;align-items:center}
+  details.vb summary::-webkit-details-marker{display:none}
+  details.vb summary .chev{color:var(--orange);font-weight:800}
+  details.vb[open] summary .chev{transform:rotate(90deg)}
+  details.vb .law{padding:13px 15px;font-size:12.5px;line-height:1.6;color:var(--ink);white-space:pre-wrap;max-height:420px;overflow:auto;border-top:1px solid var(--line);font-family:"SFMono-Regular",Menlo,Consolas,monospace}
+  .vbsrc{font-size:11px;color:var(--grey);padding:0 15px 12px}
+  .errbox{background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange);border-radius:10px;padding:14px 16px;font-size:14px}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a href="/" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Home</a><span class="tag">Photo Walk-Through Audit · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+
+      <!-- INTAKE -->
+      <div id="intake">
+        <h1>Inspect a site or machine from a photo</h1>
+        <p class="lede">Capture or upload photos of a worksite, a machine, or a condition. Origin's AI looks at each image the way an OSHA compliance officer would, names every visible hazard, and maps it to the exact OSHA standard — with the official osha.gov link and the verbatim law text — straight from Origin's compliance knowledge base. If a hazard matches no standard on file, it says so plainly rather than guessing.</p>
+
+        <div class="drop" id="drop">
+          <div class="cam">📸</div>
+          <div class="big">Add site photos</div>
+          <div class="sub">Take a photo, or drag &amp; drop / choose image files (JPEG or PNG)</div>
+          <div class="btns">
+            <button class="pickbtn" id="camBtn" type="button">Take a photo</button>
+            <button class="pickbtn" id="fileBtn" type="button">Choose files</button>
+          </div>
+        </div>
+        <input type="file" id="camInput" accept="image/*" capture="environment">
+        <input type="file" id="fileInput" accept="image/*" multiple>
+
+        <div class="thumbs" id="thumbs"></div>
+
+        <div>
+          <button class="btn" id="go" disabled>Inspect photos</button>
+          <button class="btn ghost" id="reset" type="button">Clear</button>
+        </div>
+        <div class="disc">This automated walk-through flags visible conditions and maps them to OSHA standards from Origin's knowledge base for your review. It is a screening aid, not an official OSHA inspection or a substitute for a qualified safety professional. Verify each standard at the linked osha.gov source before acting.</div>
+      </div>
+
+      <!-- WORKING -->
+      <div id="working" class="hidden">
+        <div class="working">
+          <div class="spin"></div>
+          <div style="font-weight:800;color:var(--charcoal);font-size:15px">Inspecting the photo(s)…</div>
+          <div style="font-size:13px;margin-top:5px">Identifying hazards and matching each to its OSHA standard.</div>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="result" class="hidden">
+        <div id="summary"></div>
+        <div id="findings"></div>
+        <div class="disc" id="rdisc"></div>
+        <button class="btn ghost" id="again" type="button" style="margin-left:0;margin-top:22px">← Inspect more photos</button>
+      </div>
+
+    </div>
+    <footer class="foot">Origin · OSHA-grounded photo screening — not an official inspection or legal advice</footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  var files = [];           // {id, file, url}
+  var seq = 0;
+  var $ = function(id){ return document.getElementById(id); };
+
+  var drop = $('drop'), thumbs = $('thumbs'), go = $('go');
+  var camInput = $('camInput'), fileInput = $('fileInput');
+
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function refresh(){
+    thumbs.innerHTML = '';
+    files.forEach(function(f){
+      var d = document.createElement('div'); d.className = 'thumb';
+      d.innerHTML = '<img src="'+f.url+'" alt=""><div class="del" data-id="'+f.id+'">×</div>';
+      thumbs.appendChild(d);
+    });
+    go.disabled = files.length === 0;
+  }
+
+  function addFiles(list){
+    Array.prototype.forEach.call(list, function(file){
+      if(!file.type || file.type.indexOf('image/') !== 0) return;
+      files.push({ id: ++seq, file: file, url: URL.createObjectURL(file) });
+    });
+    refresh();
+  }
+
+  thumbs.addEventListener('click', function(e){
+    var id = e.target.getAttribute && e.target.getAttribute('data-id');
+    if(!id) return;
+    files = files.filter(function(f){ return String(f.id) !== String(id); });
+    refresh();
+  });
+
+  $('camBtn').addEventListener('click', function(){ camInput.click(); });
+  $('fileBtn').addEventListener('click', function(){ fileInput.click(); });
+  drop.addEventListener('click', function(e){
+    if(e.target.tagName === 'BUTTON') return;
+    fileInput.click();
+  });
+  camInput.addEventListener('change', function(){ addFiles(this.files); this.value=''; });
+  fileInput.addEventListener('change', function(){ addFiles(this.files); this.value=''; });
+
+  ['dragenter','dragover'].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add('hot'); }); });
+  ['dragleave','drop'].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove('hot'); }); });
+  drop.addEventListener('drop', function(e){ if(e.dataTransfer) addFiles(e.dataTransfer.files); });
+
+  $('reset').addEventListener('click', function(){ files = []; refresh(); });
+  $('again').addEventListener('click', function(){
+    files = []; refresh();
+    $('result').classList.add('hidden'); $('intake').classList.remove('hidden');
+    window.scrollTo(0,0);
+  });
+
+  function sevPill(findings){
+    var c = {high:0, medium:0, low:0}, unmatched = 0;
+    findings.forEach(function(f){
+      var s = (f.severity||'medium'); if(c[s]===undefined) c[s]=0; c[s]++;
+      if(!f.standard) unmatched++;
+    });
+    var out = '';
+    if(c.high)   out += '<span class="pill high">'+c.high+' high</span>';
+    if(c.medium) out += '<span class="pill medium">'+c.medium+' medium</span>';
+    if(c.low)    out += '<span class="pill low">'+c.low+' low</span>';
+    if(unmatched)out += '<span class="pill none">'+unmatched+' no standard on file</span>';
+    return out;
+  }
+
+  function citeHtml(std){
+    if(!std){
+      return '<div class="nomatch"><b>No specific OSHA standard matched.</b> This hazard didn\'t resolve to a standard in Origin\'s knowledge base, so none is asserted. Have a qualified safety professional confirm the applicable requirement.</div>';
+    }
+    var h = '<div class="cite">';
+    h += '<div class="cnum">'+esc(std.citation)+'</div>';
+    if(std.standard_title) h += '<div class="ctitle">'+esc(std.standard_title)+'</div>';
+    if(std.url) h += '<a href="'+esc(std.url)+'" target="_blank" rel="noopener">View on osha.gov ↗</a>';
+    if(std.required_elements && std.required_elements.length){
+      h += '<div class="req"><div class="rh">A compliant written program must include</div><ul>';
+      std.required_elements.forEach(function(el){ h += '<li>'+esc(el)+'</li>'; });
+      h += '</ul></div>';
+    }
+    h += '</div>';
+    if(std.has_verbatim && std.verbatim_text){
+      h += '<details class="vb"><summary><span>Read the verbatim OSHA law text ('+esc(std.citation)+')</span><span class="chev">›</span></summary>';
+      h += '<div class="law">'+esc(std.verbatim_text)+'</div>';
+      if(std.verbatim_source) h += '<div class="vbsrc">Source: '+esc(std.verbatim_source)+'</div>';
+      h += '</details>';
+    }
+    return h;
+  }
+
+  function render(rep){
+    var findings = rep.findings || [];
+    var sh = '<div class="summary"><div class="h">'+(findings.length?('Inspection found '+findings.length+' hazard'+(findings.length>1?'s':'')):'No hazards identified')+'</div>';
+    if(rep.scene) sh += '<div class="s">Scene: '+esc(rep.scene)+'</div>';
+    sh += '<div class="s">'+ (rep.image_count||0) +' photo'+((rep.image_count||0)===1?'':'s')+' reviewed'+(rep.model?(' · '+esc(rep.model)):'')+'</div></div>';
+    sh += '<div class="counts">'+sevPill(findings)+'</div>';
+    $('summary').innerHTML = sh;
+
+    if(!findings.length){
+      $('findings').innerHTML = '<div class="nomatch">The AI reported no visible safety hazards in the photo(s). If you expected a hazard here, try a clearer or closer shot.</div>';
+    } else {
+      var fh = '';
+      findings.forEach(function(f){
+        var sev = (f.severity||'medium');
+        fh += '<div class="finding '+esc(sev)+'">';
+        fh += '<div class="top"><div><div class="ft">'+esc(f.title||'Hazard')+'</div>';
+        if(f.location) fh += '<div class="loc">Location: '+esc(f.location)+'</div>';
+        fh += '</div><span class="sev '+esc(sev)+'">'+esc(sev)+'</span></div>';
+        if(f.description) fh += '<div class="desc">'+esc(f.description)+'</div>';
+        if(f.recommended_action) fh += '<div class="fix"><b>How to fix:</b> '+esc(f.recommended_action)+'</div>';
+        fh += citeHtml(f.standard);
+        fh += '</div>';
+      });
+      $('findings').innerHTML = fh;
+    }
+    $('rdisc').textContent = rep.disclaimer || '';
+    $('intake').classList.add('hidden');
+    $('working').classList.add('hidden');
+    $('result').classList.remove('hidden');
+    window.scrollTo(0,0);
+  }
+
+  function showError(msg){
+    $('working').classList.add('hidden');
+    $('intake').classList.remove('hidden');
+    $('summary').innerHTML = '';
+    $('result').classList.add('hidden');
+    var box = document.createElement('div');
+    box.className = 'errbox'; box.style.marginTop = '16px';
+    box.textContent = msg;
+    $('intake').insertBefore(box, $('intake').firstChild.nextSibling);
+    setTimeout(function(){ if(box.parentNode) box.parentNode.removeChild(box); }, 8000);
+  }
+
+  go.addEventListener('click', function(){
+    if(!files.length) return;
+    var fd = new FormData();
+    files.forEach(function(f){ fd.append('files', f.file, f.file.name || 'photo.jpg'); });
+    $('intake').classList.add('hidden');
+    $('working').classList.remove('hidden');
+    fetch('/api/photo-audit/analyze', { method:'POST', body: fd })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if(res.j && res.j.error){ showError(res.j.error); return; }
+        render(res.j);
+      })
+      .catch(function(){ showError('Something went wrong reaching the inspector. Please try again.'); });
+  });
+})();
+</script>
+</body>
+</html>

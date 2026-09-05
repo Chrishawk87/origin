@@ -115,6 +115,116 @@ def training_requirement(citation: str) -> Optional[dict]:
     return None
 
 
+# ── OSHA verbatim law text (word-for-word CFR section bodies) ────────────────
+# osha_verbatim.jsonl carries the EXACT, word-for-word regulatory text of the
+# most common walk-through / inspection hazard sections (fall protection,
+# excavation, machine guarding, LOTO, scaffolds, HazCom, forklifts, electrical,
+# ladders, PPE, fire extinguishers, housekeeping, head/eye protection). Text is
+# reproduced from the federal CFR (public domain) with the official osha.gov URL
+# and a plain-language hazard label + keyword list on each record so a hazard
+# description can resolve to the exact standard AND its verbatim text. Unlike the
+# structural index (title/URL only), this layer returns the actual law language.
+# Absence is honest: not every section has a verbatim record yet — callers fall
+# back to osha_section() (citation + title + official link) when None comes back.
+@functools.lru_cache(maxsize=1)
+def _verbatim_records() -> List[dict]:
+    path = KB_DIR / "osha_verbatim.jsonl"
+    if not path.exists():
+        return []
+    out: List[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+@functools.lru_cache(maxsize=1)
+def _verbatim_index() -> Dict[str, dict]:
+    idx: Dict[str, dict] = {}
+    for r in _verbatim_records():
+        sec = r.get("section")
+        cit = r.get("citation")
+        if sec:
+            idx[sec] = r
+        if cit:
+            idx[cit] = r
+    return idx
+
+
+def verbatim_text(citation: str) -> Optional[dict]:
+    """Return the verbatim CFR-text record for a citation, or None.
+
+    Accepts a bare section ('1926.501'), a full citation ('29 CFR 1926.501'),
+    a subsection ('1926.501(b)(1)'), or any string containing one — it resolves
+    to the parent section's record. The record carries {section, citation, title,
+    hazard, keywords, part, url, text, source}. Never fabricates; None means no
+    verbatim body is stored for that section (use osha_section() for title+URL).
+    """
+    q = (citation or "").strip()
+    if not q:
+        return None
+    idx = _verbatim_index()
+    if q in idx:
+        return idx[q]
+    m = re.search(r"\b(\d{3,4}\.\d+[A-Za-z]?)", q)
+    if m and m.group(1) in idx:
+        return idx[m.group(1)]
+    return None
+
+
+# Generic words that appear across many OSHA titles/labels and carry no
+# hazard-distinguishing signal. Excluded from the verbatim overlap test so a
+# match must rest on a distinctive term (e.g. "trench", "pulley", "respirator").
+_VERBATIM_STOPWORDS = frozenset({
+    "the", "and", "for", "with", "from", "that", "this", "not", "are", "was",
+    "has", "have", "you", "your", "requirements", "requirement", "general",
+    "protection", "protective", "standard", "standards", "safety", "hazard",
+    "hazards", "osha", "cfr", "employee", "employees", "worker", "workers",
+    "equipment", "system", "systems", "use", "used", "using", "all", "other",
+    "must", "shall", "when", "where", "which", "than", "into", "near", "onto",
+    "missing", "damaged", "improper", "unsafe", "condition", "conditions",
+})
+
+
+def verbatim_search(query: str, limit: int = 5) -> List[dict]:
+    """Rank verbatim-text sections by how well a plain-language hazard matches
+    their hazard label + keyword list + title. Returns the section records (best
+    first). This is the hazard→verbatim entry point the photo walk-through audit
+    uses; it never invents a match — an empty list means nothing scored."""
+    ql = (query or "").lower()
+    # Distinctive query words only — generic regulatory filler ("protection",
+    # "hazard", "general", "requirements"...) is dropped from the OVERLAP test so
+    # two unrelated hazards can't be judged similar just because both are about
+    # "protection". Keyword-phrase hits below still use the full curated phrases.
+    q = {t for t in re.split(r"\W+", ql)
+         if len(t) > 2 and t not in _VERBATIM_STOPWORDS}
+    if not q:
+        return []
+    scored: List[tuple] = []
+    for r in _verbatim_records():
+        # Word-set haystack (NOT substring) so "thing" can't match "clothing";
+        # generic filler words are excluded here too.
+        hay_words = {
+            w for w in re.split(r"\W+", " ".join([
+                r.get("hazard", ""), r.get("title", ""),
+                " ".join(r.get("keywords", [])),
+            ]).lower())
+            if w and w not in _VERBATIM_STOPWORDS
+        }
+        # keyword phrase hits weigh most (a full labelled hazard phrase present)
+        kw_hits = sum(1 for k in r.get("keywords", []) if k and k.lower() in ql)
+        tok = sum(1 for t in q if t in hay_words)
+        s = kw_hits * 3 + tok
+        # Floor: a real match needs either a curated keyword-phrase hit or >=2
+        # distinctive overlapping words. One incidental shared word never
+        # force-fits — an unmatched hazard is reported honestly, not guessed.
+        if kw_hits >= 1 or tok >= 2:
+            scored.append((s, r))
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return [r for _s, r in scored[:limit]]
+
+
 # ── OSHA full structural index (every part / subpart / section) ──────────────
 # osha_index.jsonl is the complete table of contents of the OSHA regulatory tree
 # scraped from OSHA's standardnumber index: Parts 1904, 1910, 1915/1917/1918/1919

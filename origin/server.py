@@ -1266,6 +1266,49 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=400)
 
+    # ── Photo walk-through audit (vision hazard → verbatim OSHA) — internal ──
+    # Upload site/machine photos; a vision model names each visible hazard in
+    # PLAIN LANGUAGE (never a CFR number), and Origin maps every hazard to the
+    # exact OSHA standard from its own KB, attaching the verbatim law text and
+    # the official osha.gov link. Same bulletproof principle as the citation
+    # guard: the model never emits a citation, Origin resolves it deterministically.
+    from . import photo_audit as _photo_audit
+    photo_audit_html = Path(__file__).parent / "webui" / "photo_audit.html"
+
+    @app.get("/photo-audit", response_class=HTMLResponse)
+    def photo_audit_page():
+        if photo_audit_html.is_file():
+            return photo_audit_html.read_text(encoding="utf-8")
+        return "<h1>Photo Walk-Through Audit</h1><p>Tool page missing.</p>"
+
+    @app.post("/api/photo-audit/analyze")
+    async def photo_audit_analyze(request: Request):
+        # Accepts multipart image uploads under field "files". Reads each into
+        # memory (raw bytes + media type) and runs the vision → KB mapping. The
+        # live vision-capable provider is the engine's own agent LLM.
+        form = await request.form()
+        uploads = form.getlist("files")
+        images: list = []
+        for f in uploads:
+            if not hasattr(f, "filename") or not f.filename:
+                continue
+            mt = getattr(f, "content_type", "") or "image/jpeg"
+            if not str(mt).lower().startswith("image/"):
+                continue
+            data = await f.read()
+            if data:
+                images.append((data, mt))
+        if not images:
+            return JSONResponse(
+                {"error": "Attach at least one photo (JPEG/PNG) to inspect."},
+                status_code=400)
+        try:
+            return _photo_audit.analyze(images, provider=eng.agent.llm)
+        except Exception as e:  # vision call failed — report cleanly, never 500
+            return JSONResponse(
+                {"error": f"The photo could not be analyzed: {e}"},
+                status_code=502)
+
     @app.get("/gaps", response_class=HTMLResponse)
     def gaps_page():
         if gaps_html.is_file():
