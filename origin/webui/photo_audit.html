@@ -51,6 +51,15 @@
   .summary{background:var(--charcoal);color:#fff;border-radius:11px;padding:18px 20px;margin:6px 0 8px}
   .summary .h{font-size:17px;font-weight:800}
   .summary .s{font-size:13.5px;color:#C9CED6;margin-top:6px}
+  .summary.pass{background:#146c3d;box-shadow:0 2px 14px rgba(20,108,61,.28)}
+  .summary.pass .s{color:#D6F0E0}
+  .summary.fail{background:#9c3312;box-shadow:0 2px 14px rgba(156,51,18,.28)}
+  .summary.fail .s{color:#F6D9CE}
+  .summary .h .vmark{display:inline-block;min-width:24px;height:24px;line-height:24px;text-align:center;background:rgba(255,255,255,.22);border-radius:50%;margin-right:9px;font-weight:900}
+  .summary .h{display:flex;align-items:center;letter-spacing:.4px}
+  .passbox{background:#E7F3EC;border:1px solid #BFE0CC;border-radius:10px;padding:16px 18px;margin-top:12px}
+  .passbox .pbh{font-size:15px;font-weight:800;color:#0d5030}
+  .passbox .pbs{font-size:13px;color:#22503a;margin-top:5px}
   .counts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}
   .pill{font-size:12px;font-weight:800;border-radius:20px;padding:4px 12px}
   .pill.high{background:#F6DAD0;color:#8f2e10} .pill.medium{background:#FBEAD1;color:#8a5a09}
@@ -258,14 +267,19 @@
 
   function render(rep){
     var findings = rep.findings || [];
-    var sh = '<div class="summary"><div class="h">'+(findings.length?('Inspection found '+findings.length+' hazard'+(findings.length>1?'s':'')):'No hazards identified')+'</div>';
+    var passed = !findings.length;
+    var vClass = passed ? 'summary pass' : 'summary fail';
+    var vHead = passed
+      ? '<span class="vmark">✓</span> AUDIT PASSED'
+      : '<span class="vmark">!</span> '+findings.length+' HAZARD'+(findings.length>1?'S':'')+' TO FIX';
+    var sh = '<div class="'+vClass+'"><div class="h">'+vHead+'</div>';
     if(rep.scene) sh += '<div class="s">Scene: '+esc(rep.scene)+'</div>';
     sh += '<div class="s">'+ (rep.image_count||0) +' photo'+((rep.image_count||0)===1?'':'s')+' reviewed'+(rep.model?(' · '+esc(rep.model)):'')+'</div></div>';
     sh += '<div class="counts">'+sevPill(findings)+'</div>';
     $('summary').innerHTML = sh;
 
     if(!findings.length){
-      $('findings').innerHTML = '<div class="nomatch">The AI reported no visible safety hazards in the photo(s). If you expected a hazard here, try a clearer or closer shot.</div>';
+      $('findings').innerHTML = '<div class="passbox"><div class="pbh">Nothing to report — this walk-through is clear.</div><div class="pbs">The AI reviewed the photo(s) and found no visible safety hazards. If you expected a hazard here, try a clearer or closer shot and run it again.</div></div>';
     } else {
       var fh = '';
       findings.forEach(function(f){
