@@ -315,19 +315,76 @@
     setTimeout(function(){ if(box.parentNode) box.parentNode.removeChild(box); }, 8000);
   }
 
+  // Phone photos are often 8-12 megapixels / several MB. Base64 over the wire
+  // makes that ~33% larger and the vision call slow enough to time out or trip
+  // an edge error. Shrink each image to a sane size (long edge 1600px, JPEG ~72%)
+  // right here in the browser first — plenty of detail for hazard spotting, a
+  // fraction of the bytes. If anything about the resize fails, we fall back to
+  // sending the original untouched.
+  function downscale(file){
+    return new Promise(function(resolve){
+      if(!file || !file.type || file.type.indexOf('image/') !== 0){ resolve(file); return; }
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function(){
+        try{
+          var MAX = 1600;
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if(!w || !h){ URL.revokeObjectURL(url); resolve(file); return; }
+          var scale = Math.min(1, MAX / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = cw; canvas.height = ch;
+          canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(function(blob){
+            resolve(blob && blob.size < file.size ? blob : file);
+          }, 'image/jpeg', 0.72);
+        }catch(e){ URL.revokeObjectURL(url); resolve(file); }
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
   go.addEventListener('click', function(){
     if(!files.length) return;
-    var fd = new FormData();
-    files.forEach(function(f){ fd.append('files', f.file, f.file.name || 'photo.jpg'); });
     $('intake').classList.add('hidden');
     $('working').classList.remove('hidden');
-    fetch('/api/photo-audit/analyze', { method:'POST', body: fd })
-      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+    Promise.all(files.map(function(f){ return downscale(f.file); }))
+      .then(function(blobs){
+        var fd = new FormData();
+        blobs.forEach(function(b, i){
+          var base = (files[i].file.name || 'photo').replace(/\.[^.]+$/, '');
+          fd.append('files', b, base + '.jpg');
+        });
+        var ctrl = ('AbortController' in window) ? new AbortController() : null;
+        var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 90000) : null;
+        return fetch('/api/photo-audit/analyze',
+                     { method:'POST', body: fd, signal: ctrl ? ctrl.signal : undefined })
+          .then(function(r){
+            if(timer) clearTimeout(timer);
+            return r.text().then(function(t){
+              var j = null; try{ j = JSON.parse(t); }catch(e){}
+              return { ok:r.ok, status:r.status, j:j };
+            });
+          });
+      })
       .then(function(res){
         if(res.j && res.j.error){ showError(res.j.error); return; }
+        if(!res.j){
+          showError('The inspector couldn\'t return a result (server responded '+res.status+'). Try one clear photo at a time — if it keeps happening, the AI vision key may need to be set on the server.');
+          return;
+        }
         render(res.j);
       })
-      .catch(function(){ showError('Something went wrong reaching the inspector. Please try again.'); });
+      .catch(function(err){
+        if(err && err.name === 'AbortError'){
+          showError('The analysis took too long and timed out. Try a single, clear photo.');
+        } else {
+          showError('Something went wrong reaching the inspector. Please try again.');
+        }
+      });
   });
 })();
 </script>
