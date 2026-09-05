@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Origin Management Solutions — Client Compliance Portal</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C1F24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}</script>
 <style>
   :root{
     --charcoal:#1C1F24; --charcoal2:#2a2e35; --orange:#E8551F; --orange2:#F2712F;
@@ -174,7 +182,7 @@
 <div id="app">
   <header class="topbar"><div class="wrap">
     <div class="brandmark"><span class="word">Orig<span>in</span></span></div>
-    <div class="who"><span class="gcbrand" id="gcBrand" style="display:none"></span><span class="co" id="coName">—</span><span class="out" onclick="doLogout()">Sign out</span></div>
+    <div class="who"><button class="btn" onclick="location.href='/photo-audit?back=/portal'" style="background:var(--orange);color:#fff;border-color:var(--orange);font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer">📸 Photo Audit</button><span class="gcbrand" id="gcBrand" style="display:none"></span><span class="co" id="coName">—</span><span class="out" onclick="doLogout()">Sign out</span></div>
   </div></header>
 
   <nav class="tabs"><div class="wrap">

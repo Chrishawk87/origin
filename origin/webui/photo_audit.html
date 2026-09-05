@@ -87,11 +87,19 @@
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
   input[type=file]{display:none}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C1F24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}</script>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
-    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a href="/" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Home</a><span class="tag">Photo Walk-Through Audit · internal</span></div></header>
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a id="backLink" href="/" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Home</a><span class="tag">Photo Walk-Through Audit · internal</span></div></header>
     <div class="rule"></div>
     <div class="pad">
 
@@ -148,6 +156,15 @@
   var files = [];           // {id, file, url}
   var seq = 0;
   var $ = function(id){ return document.getElementById(id); };
+  // Return the user to their own dashboard when opened via ?back=
+  try {
+    var _bk = new URLSearchParams(location.search).get('back');
+    var _allow = { '/admin':'Admin', '/gc':'Dashboard', '/portal':'Portal' };
+    if (_bk && _allow.hasOwnProperty(_bk)) {
+      var _bl = $('backLink');
+      if (_bl){ _bl.setAttribute('href', _bk); _bl.textContent = '← ' + _allow[_bk]; }
+    }
+  } catch(e){}
 
   var drop = $('drop'), thumbs = $('thumbs'), go = $('go');
   var camInput = $('camInput'), fileInput = $('fileInput');

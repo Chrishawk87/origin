@@ -1309,6 +1309,53 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                 {"error": f"The photo could not be analyzed: {e}"},
                 status_code=502)
 
+    # ── PWA: manifest, service worker, and app icons ──────────────────────
+    # These make the platform installable to a phone/desktop home screen so the
+    # camera-based Photo Audit works like a native field app. Served at root so
+    # the service-worker scope covers the whole site. None of these live under
+    # /api, so the access-token middleware leaves them public (as it must — the
+    # browser fetches them before any token is available).
+    _webui_dir = Path(__file__).parent / "webui"
+
+    @app.get("/manifest.webmanifest")
+    def pwa_manifest():
+        f = _webui_dir / "manifest.webmanifest"
+        if f.is_file():
+            return Response(f.read_text(encoding="utf-8"),
+                            media_type="application/manifest+json")
+        return JSONResponse({"error": "manifest missing"}, status_code=404)
+
+    @app.get("/sw.js")
+    def pwa_service_worker():
+        f = _webui_dir / "sw.js"
+        if f.is_file():
+            # Service-Worker-Allowed lets the root-scoped SW control the whole app.
+            return Response(f.read_text(encoding="utf-8"),
+                            media_type="application/javascript",
+                            headers={"Service-Worker-Allowed": "/",
+                                     "Cache-Control": "no-cache"})
+        return Response("// missing", media_type="application/javascript",
+                        status_code=404)
+
+    @app.get("/apple-touch-icon.png")
+    @app.get("/apple-touch-icon-precomposed.png")
+    def pwa_apple_icon():
+        f = _webui_dir / "apple-touch-icon.png"
+        if f.is_file():
+            return FileResponse(str(f), media_type="image/png")
+        return Response(status_code=404)
+
+    @app.get("/icons/{name}")
+    def pwa_icon(name: str):
+        # Only serve known PNG icon files from the webui/icons folder.
+        import re as _re
+        if not _re.fullmatch(r"[A-Za-z0-9._-]+\.png", name or ""):
+            return Response(status_code=404)
+        f = _webui_dir / "icons" / name
+        if f.is_file():
+            return FileResponse(str(f), media_type="image/png")
+        return Response(status_code=404)
+
     @app.get("/gaps", response_class=HTMLResponse)
     def gaps_page():
         if gaps_html.is_file():

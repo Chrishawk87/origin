@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Origin — Contractor Monitoring</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C1F24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}</script>
 <style>
   :root{
     --charcoal:#1C1F24; --charcoal2:#2a2e35; --orange:#E8551F; --orange2:#F2712F;
@@ -170,6 +178,7 @@
       <div><div class="nm" id="gcName">—</div><div class="tag">contractor monitoring</div></div>
     </div>
     <div class="topctl">
+      <button class="btn sm" onclick="location.href='/photo-audit?back=/gc'" style="background:var(--orange);color:#fff;border-color:var(--orange);font-weight:700">📸 Photo Audit</button>
       <button class="btn ghost sm" id="themeBtn" onclick="toggleTheme()">Dark</button>
       <div class="who" id="signout" onclick="logout()">Sign out</div>
     </div>
