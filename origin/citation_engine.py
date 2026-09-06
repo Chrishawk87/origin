@@ -306,11 +306,11 @@ def analyze(payload: Dict[str, Any], *, explain_provider: Any = None) -> Dict[st
     # 7) TRAINING — OSHA-required if the standard carries a training mandate
     tr = kb.training_requirement(std) if std else None
     if tr:
-        tref = [{"citation": tr.get("citation", ""), "title": tr.get("title", ""),
-                 "url": tr.get("url", tr.get("source", "")), "version": "OSHA-2254"}]
+        tref = [{"citation": tr.get("citation", ""), "title": tr.get("standard_title", ""),
+                 "url": tr.get("source", ""), "version": "OSHA-2254"}]
         outputs["training"] = _item(
             "Training", "This standard carries a training requirement. Verbatim OSHA training "
-            "language:\n\n" + _clip(tr.get("text", ""), 800), OSHA_REQUIRED,
+            "language:\n\n" + _clip(tr.get("training_requirement", ""), 800), OSHA_REQUIRED,
             basis="OSHA 2254 training package has an entry for this section.",
             source_refs=tref, confidence=0.9, human_review=high_stakes)
     else:

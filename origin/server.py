@@ -1845,8 +1845,10 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         from . import capa as _capa
         from . import company_profile as _company
         from . import citation_engine as _ce
+        from . import program_engine as _program
         _capa.register_capa(app)
         _company.register_company(app)
+        _program.register_program(app)   # Phase 3: program/training/JSA package
 
         # Combined flow: analyze a citation AND fold it into the company posture in
         # one call — analyze → save → auto-open CAPA → recompute risk.
