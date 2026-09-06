@@ -1332,6 +1332,18 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return photo_audit_html.read_text(encoding="utf-8")
         return "<h1>Photo Walk-Through Audit</h1><p>Tool page missing.</p>"
 
+    # ── Safety Intelligence Engine — unified console ─────────────────────────
+    # One page over all six SIE phases (monitor / companies / programs /
+    # prequal / audits / citation). Page is a shell; the /api/* endpoints it
+    # calls are the deterministic engines, token-gated like the rest.
+    sie_html = Path(__file__).parent / "webui" / "sie.html"
+
+    @app.get("/sie", response_class=HTMLResponse)
+    def sie_console():
+        if sie_html.is_file():
+            return sie_html.read_text(encoding="utf-8")
+        return "<h1>Safety Intelligence Engine</h1><p>Console page missing.</p>"
+
     # ── App launcher (the installed PWA opens here) ───────────────────────────
     # Routes each phone to whichever dashboard it is signed in to — owner/admin,
     # GC, or contractor — instead of dumping everyone on the internal AI console.
