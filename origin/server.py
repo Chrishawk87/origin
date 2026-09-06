@@ -1836,6 +1836,53 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _cite_exc:  # pragma: no cover
         print(f"[citation] disabled — registration failed: {_cite_exc}")
 
+    # ── Safety Intelligence Engine — Phase 2 (company profile + risk + CAPA) ──
+    # Connects the Citation Engine to a company's posture: a citation becomes a
+    # tracked corrective action, the company gets a deterministic risk score, and
+    # the profile carries the company-specific required-standard set. Isolated +
+    # non-fatal + fully offline, same as every other SIE module.
+    try:
+        from . import capa as _capa
+        from . import company_profile as _company
+        from . import citation_engine as _ce
+        _capa.register_capa(app)
+        _company.register_company(app)
+
+        # Combined flow: analyze a citation AND fold it into the company posture in
+        # one call — analyze → save → auto-open CAPA → recompute risk.
+        from fastapi import Body as _Body, Request as _Request
+        from fastapi.responses import JSONResponse as _JSON
+
+        @app.post("/api/citation/track")
+        async def citation_track(request: _Request, body: dict = _Body(default=None)):
+            payload = body if isinstance(body, dict) else {}
+            if not payload:
+                try:
+                    payload = await request.json()
+                except Exception:
+                    payload = {}
+            if not isinstance(payload, dict) or not (
+                    payload.get("standard") or payload.get("text") or payload.get("description")):
+                return _JSON({"error": "Provide at least a 'standard' or 'text', plus a "
+                                       "'company' to track."}, status_code=400)
+            try:
+                record = _ce.analyze(payload)      # deterministic, offline
+                _ce.save(record)
+                out = {"ok": True, "citation": record}
+                company = (payload.get("company") or "").strip()
+                if company:
+                    _company.ensure(company)
+                    capa_rec = _capa.open_from_citation(
+                        record, company_id=payload.get("company_id", company),
+                        by=payload.get("by", "owner"))
+                    out["capa"] = capa_rec
+                    out["risk"] = _company.compute_risk(payload.get("company_id", company))
+                return out
+            except Exception as exc:  # never 500 the tool
+                return _JSON({"error": f"Citation tracking failed: {exc}"}, status_code=200)
+    except Exception as _p2_exc:  # pragma: no cover
+        print(f"[sie-phase2] disabled — registration failed: {_p2_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal
