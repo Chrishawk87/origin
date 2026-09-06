@@ -1824,6 +1824,18 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _abate_exc:  # pragma: no cover
         print(f"[abatement] disabled — registration failed: {_abate_exc}")
 
+    # ── Safety Intelligence Engine — Phase 1 (knowledge store + citation) ──
+    # Deterministic, offline-capable OSHA citation analyzer over a versioned,
+    # traceable knowledge store. Fully isolated + non-fatal, and requires no
+    # external LLM key to function. Registers the base knowledge version on boot.
+    try:
+        from . import knowledge_store as _ks
+        from . import citation_engine as _citation
+        _ks.ensure_base()
+        _citation.register_citation(app)
+    except Exception as _cite_exc:  # pragma: no cover
+        print(f"[citation] disabled — registration failed: {_cite_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal
