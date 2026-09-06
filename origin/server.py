@@ -1870,6 +1870,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _program.register_program(app)   # Phase 3: program/training/JSA package
         from . import audit_engine as _audit
         _audit.register_audit(app)       # Phase 4: walk-through audit → CAPA → risk
+        from . import prequal_engine as _prequal
+        _prequal.register_prequal(app)   # Phase 5: ISN/Avetta/Veriforce readiness + gaps
 
         # Combined flow: analyze a citation AND fold it into the company posture in
         # one call — analyze → save → auto-open CAPA → recompute risk.
