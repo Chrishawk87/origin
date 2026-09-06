@@ -32,11 +32,23 @@ workers:
     role: "real-time takes, contrarian angles"
   gemini:
     provider: gemini
-    # gemini-2.5-flash is unaffected by the OpenAI-compat "thought_signature"
-    # bug that breaks multi-turn tool calls on the -latest / 3.x thinking models.
-    model: gemini-2.5-flash
+    # gemini-3.6-flash is Google's current GA Flash model (the 2.x Flash line was
+    # retired — old pins now 404). The provider forces reasoning_effort="none",
+    # which keeps "thinking" off so no thought_signature is produced, sidestepping
+    # the OpenAI-compat bug that would otherwise break multi-turn tool calls.
+    model: gemini-3.6-flash
     api_key_env: GEMINI_API_KEY
     role: "long-context, multimodal, fast"
+
+# Photo Audit vision layer — self-healing. The tool tries these brains in order
+# and uses the first that works, so a retired Google model or a lapsed key can
+# never hard-fail the feature for a customer. `gemini-flash-latest` is an alias
+# that always points at Google's newest Flash model, so upgrades are automatic.
+# To prefer a different/better model later, edit the order or models below.
+vision:
+  order: [gemini, claude, gpt]
+  models:
+    gemini: gemini-flash-latest
 
 orchestrator:
   # Gemini is the free everyday brain (runs the agent by default). Switch to

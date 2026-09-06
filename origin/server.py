@@ -164,6 +164,53 @@ class Engine:
             self.brain_error = str(e)
             return _NullProvider(str(e))
 
+    def vision_chain(self) -> List[LLMProvider]:
+        """Ordered list of vision-capable brains for the Photo Audit tool.
+
+        The tool tries these in order and uses the FIRST that succeeds. This is
+        what makes the feature future-proof: if the primary model is one Google
+        just retired (a 404), or its key lapses, or it times out, the tool falls
+        straight through to the next brain instead of failing for a customer.
+
+        Order is config-driven (`vision.order`), defaulting to gemini → claude →
+        gpt. The Gemini entry is pointed at the `gemini-flash-latest` alias so it
+        auto-tracks Google's newest Flash model and never pins to a name that can
+        later be shut down. Any worker without a working API key is skipped."""
+        cfg = self.config.data.get("vision", {}) or {}
+        order = cfg.get("order") or ["gemini", "claude", "gpt"]
+        # Per-provider model overrides for the vision path (independent of the
+        # agent brain). Default: track Google's latest Flash via the alias.
+        model_overrides = dict(cfg.get("models") or {})
+        model_overrides.setdefault("gemini", "gemini-flash-latest")
+
+        chain: List[LLMProvider] = []
+        seen = set()
+        for name in order:
+            if name in seen or not self.pool.has(name):
+                continue
+            seen.add(name)
+            try:
+                prov = self.pool.provider(name)
+            except SystemExit:
+                continue
+            override = model_overrides.get(name)
+            if override and getattr(prov, "model", None) and prov.model != override:
+                # Clone so the vision model swap never mutates the shared agent
+                # provider (gemini also runs the everyday agent on a pinned model).
+                import copy
+                try:
+                    prov = copy.copy(prov)
+                    prov.model = override
+                except Exception:
+                    pass
+            if getattr(prov, "client", None) is not None:
+                chain.append(prov)
+        # Last resort: the agent's own brain, so the tool still works even with a
+        # bare/minimal config.
+        if not chain and getattr(self, "agent", None) and getattr(self.agent, "llm", None):
+            chain.append(self.agent.llm)
+        return chain
+
     # ── projects ───────────────────────────────────────────────────────────
     def open_project(self, slug: str) -> Project:
         proj = self.projects.get(slug)
@@ -1326,19 +1373,30 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         # timeout, letting the loop stay responsive and always returning clean JSON.
         import asyncio
         from starlette.concurrency import run_in_threadpool
+        # Build the resilient vision chain (primary + automatic fallbacks). If
+        # the newest model ever disappears, the next brain covers it — no
+        # unexplainable failure for a customer.
+        chain = eng.vision_chain() or [eng.agent.llm]
+        primary, fallbacks = chain[0], chain[1:]
         try:
-            return await asyncio.wait_for(
-                run_in_threadpool(_photo_audit.analyze, images, provider=eng.agent.llm),
+            report = await asyncio.wait_for(
+                run_in_threadpool(_photo_audit.analyze, images,
+                                  provider=primary, fallbacks=fallbacks),
                 timeout=110,
             )
+            return report
         except asyncio.TimeoutError:
             return JSONResponse(
                 {"error": "The inspection took too long and timed out. "
                           "Try again with a single, clearer photo."},
                 status_code=200)
-        except Exception as e:  # vision call failed — report cleanly, never 500/502
+        except Exception as e:  # every brain failed — report cleanly, never 500/502
+            # Keep the technical reason in the server log for debugging, but show
+            # the customer a calm, non-alarming message.
+            print(f"[photo-audit] all vision providers failed: {e}")
             return JSONResponse(
-                {"error": f"The photo could not be analyzed: {e}"},
+                {"error": "The photo inspector is temporarily unavailable. "
+                          "Please try again in a moment."},
                 status_code=200)
 
     # ── PWA: manifest, service worker, and app icons ──────────────────────

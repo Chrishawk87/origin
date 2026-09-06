@@ -153,10 +153,10 @@ class GeminiProvider(OpenAIProvider):
         cfg = dict(cfg)
         cfg.setdefault("base_url", "https://generativelanguage.googleapis.com/v1beta/openai/")
         cfg.setdefault("api_key_env", "GEMINI_API_KEY")
-        cfg.setdefault("model", "gemini-2.5-flash")
+        cfg.setdefault("model", "gemini-3.6-flash")
         super().__init__(cfg)
-        # Turn off "thinking" on 2.5 models so a tool call doesn't return a
-        # thought_signature that Gemini then demands back verbatim — the
-        # OpenAI-compat layer strips it, which 400s multi-turn tool loops.
-        # (reasoning_effort="none" is honored by Gemini 2.5 via the compat API.)
+        # Turn off "thinking" so a tool call doesn't return a thought_signature
+        # that Gemini then demands back verbatim — the OpenAI-compat layer strips
+        # it, which 400s multi-turn tool loops. reasoning_effort="none" keeps the
+        # 3.x Flash models non-thinking, which is what makes them safe here.
         self.extra_body.setdefault("reasoning_effort", "none")

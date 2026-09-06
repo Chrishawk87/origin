@@ -258,11 +258,43 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
-def analyze(images: List[Tuple[bytes, str]], provider=None) -> Dict[str, Any]:
+def _vision_with_fallback(images, providers) -> Tuple[str, str]:
+    """Try each vision provider in order; return (raw_text, model_used) from the
+    first that succeeds. Collect every failure so that if ALL of them fail we can
+    report why.
+
+    This is the resilience layer: the primary brain might be a Gemini model
+    Google just retired, or a provider whose key expired, or one that timed out.
+    Rather than hard-failing the tool for a customer, we fall through to the next
+    vision-capable brain (e.g. Claude, then GPT). Only if none work do we raise.
+    """
+    errors: List[str] = []
+    for p in providers:
+        if p is None:
+            continue
+        label = f"{getattr(p, 'name', '?')}/{getattr(p, 'model', '?')}"
+        try:
+            raw = _vision_call(p, images)
+            if raw and raw.strip():
+                return raw, getattr(p, "model", "")
+            errors.append(f"{label}: empty response")
+        except Exception as e:  # dead model / bad key / timeout — try the next one
+            errors.append(f"{label}: {e}")
+    raise RuntimeError(
+        "No available AI vision brain could analyze the photo. "
+        "Tried: " + "; ".join(errors) if errors
+        else "No AI vision brain is configured."
+    )
+
+
+def analyze(images: List[Tuple[bytes, str]], provider=None, fallbacks=None) -> Dict[str, Any]:
     """Run the full photo walk-through audit.
 
-    `images`   : list of (raw_bytes, media_type) — the uploaded photos.
-    `provider` : an LLM provider exposing .name/.model/.client (vision-capable).
+    `images`    : list of (raw_bytes, media_type) — the uploaded photos.
+    `provider`  : the preferred vision-capable LLM provider (.name/.model/.client).
+    `fallbacks` : optional ordered list of additional providers to try if the
+                  preferred one fails, so a retired model or dead key never hard-
+                  fails the tool for a customer.
 
     Returns a report dict:
       {
@@ -271,7 +303,7 @@ def analyze(images: List[Tuple[bytes, str]], provider=None) -> Dict[str, Any]:
         unmatched: int,           # hazards with no KB standard
         disclaimer: str
       }
-    Raises RuntimeError only if the vision call itself fails; hazard mapping is
+    Raises RuntimeError only if EVERY vision provider fails; hazard mapping is
     always best-effort and never fabricates.
     """
     if not images:
@@ -279,7 +311,8 @@ def analyze(images: List[Tuple[bytes, str]], provider=None) -> Dict[str, Any]:
                 "model": getattr(provider, "model", ""),
                 "disclaimer": _DISCLAIMER}
 
-    raw = _vision_call(provider, images)
+    chain = [provider] + list(fallbacks or [])
+    raw, used_model = _vision_with_fallback(images, chain)
     parsed = _extract_json(raw)
     hazards = parsed.get("hazards") or []
     if not isinstance(hazards, list):
@@ -312,7 +345,7 @@ def analyze(images: List[Tuple[bytes, str]], provider=None) -> Dict[str, Any]:
     return {
         "scene": (parsed.get("scene") or "").strip(),
         "image_count": len(images),
-        "model": getattr(provider, "model", ""),
+        "model": used_model or getattr(provider, "model", ""),
         "findings": findings,
         "unmatched": unmatched,
         "disclaimer": _DISCLAIMER,
