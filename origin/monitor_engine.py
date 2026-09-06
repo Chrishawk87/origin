@@ -30,7 +30,9 @@ isolated + non-fatal registration.
 
 from __future__ import annotations
 
+import hmac
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -352,7 +354,7 @@ def last_run() -> Dict[str, Any]:
 def register_monitor(app) -> None:
     """Attach Monitor routes. Isolated + non-fatal, mirroring the other SIE
     modules. Fully offline — no route consults an external model or the network."""
-    from fastapi import Body
+    from fastapi import Body, Header
     from fastapi.responses import JSONResponse
 
     @app.post("/api/monitor/sweep")
@@ -364,6 +366,35 @@ def register_monitor(app) -> None:
             days = DEFAULT_DUE_SOON_DAYS
         try:
             return sweep(due_soon_days=days, by=payload.get("by", "owner"))
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    # ── Cadence hook ─────────────────────────────────────────────────────────
+    # A token-guarded twin of /sweep for an EXTERNAL scheduler (Railway cron,
+    # cron-job.org, GitHub Actions) to hit on a cadence. The UI button keeps
+    # using the open /sweep above; this door only opens when the operator sets
+    # MONITOR_SWEEP_TOKEN and the caller presents the matching secret, so a
+    # public URL can't be triggered by a stranger. Still fully deterministic:
+    # it runs the exact same in-process sweep(), no model, no outbound network.
+    @app.post("/api/monitor/cron-sweep")
+    def monitor_cron_sweep(token: str = "",
+                           x_monitor_token: str = Header(default=""),
+                           body: dict = Body(default=None)):
+        secret = os.environ.get("MONITOR_SWEEP_TOKEN", "").strip()
+        if not secret:
+            return JSONResponse(
+                {"error": "cron sweep not configured; set MONITOR_SWEEP_TOKEN"},
+                status_code=503)
+        presented = (token or x_monitor_token or "").strip()
+        if not presented or not hmac.compare_digest(presented, secret):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        payload = body if isinstance(body, dict) else {}
+        try:
+            days = int(payload.get("due_soon_days", DEFAULT_DUE_SOON_DAYS))
+        except (TypeError, ValueError):
+            days = DEFAULT_DUE_SOON_DAYS
+        try:
+            return sweep(due_soon_days=days, by=payload.get("by", "cron"))
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
