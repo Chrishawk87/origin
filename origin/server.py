@@ -1365,6 +1365,11 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return JSONResponse(
                 {"error": "Attach at least one photo (JPEG/PNG) to inspect."},
                 status_code=400)
+        # Optional: bind this walk-through to a company. When supplied, the finished
+        # report is persisted as a durable audit and its high-severity findings
+        # auto-open CAPAs that feed the deterministic risk engine (Phase 4). Absent
+        # a company, the tool behaves exactly as before — a one-off screening.
+        _audit_company = (form.get("company") or "").strip()
         # The vision call inside analyze() is a SYNCHRONOUS network request. If we
         # ran it directly here it would block the whole async event loop until the
         # model replied — during which Railway's health checks get no response and
@@ -1384,6 +1389,20 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                                   provider=primary, fallbacks=fallbacks),
                 timeout=110,
             )
+            # Phase 4: if a company was named, remember the walk-through and fold
+            # its findings into that company's posture (audit record + CAPAs +
+            # risk). Non-fatal — persistence never breaks the inspection result.
+            if _audit_company and isinstance(report, dict) and report.get("findings"):
+                try:
+                    from . import audit_engine as _audit
+                    _rec = await run_in_threadpool(
+                        _audit.record_audit, report, company=_audit_company, by="owner")
+                    report["audit"] = {
+                        "id": _rec["id"], "company_id": _rec["company_id"],
+                        "summary": _rec["summary"], "capa_ids": _rec["capa_ids"],
+                    }
+                except Exception as _ae:
+                    print(f"[photo-audit] audit persist failed: {_ae}")
             return report
         except asyncio.TimeoutError:
             return JSONResponse(
@@ -1849,6 +1868,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _capa.register_capa(app)
         _company.register_company(app)
         _program.register_program(app)   # Phase 3: program/training/JSA package
+        from . import audit_engine as _audit
+        _audit.register_audit(app)       # Phase 4: walk-through audit → CAPA → risk
 
         # Combined flow: analyze a citation AND fold it into the company posture in
         # one call — analyze → save → auto-open CAPA → recompute risk.

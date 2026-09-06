@@ -203,6 +203,88 @@ def open_from_citation(citation_record: Dict[str, Any], *,
     return record
 
 
+# ── audit-finding severity (visual inspector's low/medium/high scale) ─────────
+# A photo walk-through finding is NOT an OSHA-issued citation, so it has no
+# OSHA classification (willful/serious/…). It carries the inspector's own
+# low/medium/high severity instead. Map that to a fixed hazard weight so audit
+# CAPAs feed the exact same deterministic risk math as citation CAPAs. Kept
+# below "serious" (0.6) so a self-identified visible hazard never out-weighs a
+# real OSHA serious citation of the same severity band.
+AUDIT_SEVERITY_WEIGHT: Dict[str, float] = {
+    "high": 0.6,
+    "medium": 0.4,
+    "low": 0.25,
+}
+
+
+def audit_severity_weight(severity: str) -> float:
+    return AUDIT_SEVERITY_WEIGHT.get(
+        (severity or "").strip().lower(), AUDIT_SEVERITY_WEIGHT["medium"])
+
+
+def open_from_audit_finding(finding: Dict[str, Any], *, company: str,
+                            company_id: str = "", audit_id: str = "",
+                            by: str = "system") -> Dict[str, Any]:
+    """Deterministically derive a CAPA from ONE photo walk-through finding.
+
+    The visual inspector describes the hazard in plain language; Origin has
+    already (in photo_audit) resolved it to an OSHA standard where one exists.
+    This carries that standard's source refs forward so the CAPA can always
+    answer *why* it exists. A finding Origin could NOT map to a KB standard is
+    tracked honestly and flagged for human review — never force-fit to a guess.
+    """
+    company = (company or "").strip()
+    cid = _slug(company_id or company)
+    std = finding.get("standard") or {}
+    severity = (finding.get("severity") or "medium").strip().lower()
+    matched = bool(std)
+
+    source_refs: List[Dict[str, str]] = []
+    if matched:
+        source_refs = [{
+            "citation": std.get("citation", ""),
+            "title": std.get("standard_title", ""),
+            "url": std.get("url", ""),
+            "version": "OSHA-2254" if std.get("has_verbatim") else "",
+            "jurisdiction": "Federal",
+        }]
+
+    record = {
+        "id": "capa-" + uuid.uuid4().hex[:10],
+        "company_id": cid,
+        "company": company,
+        "created_at": _now(),
+        "updated_at": _now(),
+        "source": "photo_audit",
+        "audit_id": audit_id,
+        "citation_id": "",
+        "standard": std.get("citation", ""),
+        "classification": "",                       # not an OSHA-issued class
+        "finding_severity": severity,
+        "severity_weight": audit_severity_weight(severity),
+        "penalty": "",
+        "penalty_amount": 0.0,
+        "abatement_date": "",
+        "title": (finding.get("title") or "").strip()
+                 or "Visible hazard from photo walk-through",
+        "hazard": (finding.get("description") or "").strip(),
+        "immediate_action": "",
+        "corrective_action": (finding.get("recommended_action") or "").strip(),
+        "root_cause_prompt": "",
+        "evidence_required": "",
+        "source_refs": source_refs,
+        "resolved": matched,
+        "stage": "open",
+        "stage_history": [{"stage": "open", "at": _now(), "by": by}],
+        # A hazard Origin couldn't source to a standard needs a human to classify
+        # it — same never-fabricate posture as the rest of the SIE.
+        "human_review_required": not matched,
+        "notes": [],
+    }
+    save(record)
+    return record
+
+
 def create_manual(*, company: str, title: str, hazard: str = "",
                   corrective_action: str = "", classification: str = "",
                   penalty: str = "", abatement_date: str = "",
