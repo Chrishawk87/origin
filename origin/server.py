@@ -1318,12 +1318,28 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return JSONResponse(
                 {"error": "Attach at least one photo (JPEG/PNG) to inspect."},
                 status_code=400)
+        # The vision call inside analyze() is a SYNCHRONOUS network request. If we
+        # ran it directly here it would block the whole async event loop until the
+        # model replied — during which Railway's health checks get no response and
+        # it recycles the worker, surfacing to the user as a raw 502 gateway error.
+        # So we push the blocking work onto a worker thread and cap it with a hard
+        # timeout, letting the loop stay responsive and always returning clean JSON.
+        import asyncio
+        from starlette.concurrency import run_in_threadpool
         try:
-            return _photo_audit.analyze(images, provider=eng.agent.llm)
-        except Exception as e:  # vision call failed — report cleanly, never 500
+            return await asyncio.wait_for(
+                run_in_threadpool(_photo_audit.analyze, images, provider=eng.agent.llm),
+                timeout=110,
+            )
+        except asyncio.TimeoutError:
+            return JSONResponse(
+                {"error": "The inspection took too long and timed out. "
+                          "Try again with a single, clearer photo."},
+                status_code=200)
+        except Exception as e:  # vision call failed — report cleanly, never 500/502
             return JSONResponse(
                 {"error": f"The photo could not be analyzed: {e}"},
-                status_code=502)
+                status_code=200)
 
     # ── PWA: manifest, service worker, and app icons ──────────────────────
     # These make the platform installable to a phone/desktop home screen so the
