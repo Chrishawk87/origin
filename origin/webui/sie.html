@@ -430,37 +430,95 @@ async function upsertCompany(){
 let CO_TRIGGERS = null;          // schema triggers, loaded once
 const _debounce = (fn, ms=280) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
+// Built-in fallbacks so the dropdowns ALWAYS populate, even if the backend
+// scoping routes aren't reachable yet. The live routes are still preferred
+// (they're the source of truth); these only fill in if a route is missing.
+const CO_STATES_FALLBACK = [
+  ["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],
+  ["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],["DC","District of Columbia"],
+  ["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],
+  ["IN","Indiana"],["IA","Iowa"],["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],
+  ["ME","Maine"],["MD","Maryland"],["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],
+  ["MS","Mississippi"],["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],
+  ["NH","New Hampshire"],["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],
+  ["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],["OR","Oregon"],
+  ["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],["SD","South Dakota"],
+  ["TN","Tennessee"],["TX","Texas"],["UT","Utah"],["VT","Vermont"],["VA","Virginia"],
+  ["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"],
+  ["PR","Puerto Rico"],["VI","U.S. Virgin Islands"],["GU","Guam"]
+].map(([code,name])=>({code,name})).sort((a,b)=>a.name.localeCompare(b.name));
+const CO_INDUSTRIES_FALLBACK = [
+  {label:"Roofing contractor",naics:"238160",group:"Specialty trade — construction"},
+  {label:"Electrical contractor",naics:"238210",group:"Specialty trade — construction"},
+  {label:"Plumbing, heating & HVAC contractor",naics:"238220",group:"Specialty trade — construction"},
+  {label:"Poured concrete foundation & structure contractor",naics:"238110",group:"Specialty trade — construction"},
+  {label:"Structural steel & precast concrete contractor",naics:"238120",group:"Specialty trade — construction"},
+  {label:"Framing contractor (carpentry)",naics:"238130",group:"Specialty trade — construction"},
+  {label:"Masonry contractor",naics:"238140",group:"Specialty trade — construction"},
+  {label:"Glass & glazing contractor",naics:"238150",group:"Specialty trade — construction"},
+  {label:"Drywall & insulation contractor",naics:"238310",group:"Specialty trade — construction"},
+  {label:"Painting & wall covering contractor",naics:"238320",group:"Specialty trade — construction"},
+  {label:"Flooring contractor",naics:"238330",group:"Specialty trade — construction"},
+  {label:"Finish carpentry contractor",naics:"238350",group:"Specialty trade — construction"},
+  {label:"Site preparation / excavation contractor",naics:"238910",group:"Specialty trade — construction"},
+  {label:"Fire sprinkler & fire protection contractor",naics:"238220",group:"Specialty trade — construction"},
+  {label:"Other building equipment contractor",naics:"238290",group:"Specialty trade — construction"},
+  {label:"Single-family home building (construction)",naics:"236115",group:"General construction"},
+  {label:"Commercial & institutional building construction",naics:"236220",group:"General construction"},
+  {label:"Water & sewer line construction",naics:"237110",group:"Heavy & civil construction"},
+  {label:"Oil & gas pipeline construction",naics:"237120",group:"Heavy & civil construction"},
+  {label:"Power & communication line construction",naics:"237130",group:"Heavy & civil construction"},
+  {label:"Highway, street & bridge construction",naics:"237310",group:"Heavy & civil construction"},
+  {label:"Crude petroleum & natural gas extraction (oil & gas operator)",naics:"211120",group:"Oil, gas & energy"},
+  {label:"Drilling oil & gas wells",naics:"213111",group:"Oil, gas & energy"},
+  {label:"Support activities for oil & gas operations (well servicing)",naics:"213112",group:"Oil, gas & energy"},
+  {label:"Petroleum refinery (refining)",naics:"324110",group:"Oil, gas & energy"},
+  {label:"Pipeline transportation of crude oil / natural gas",naics:"486110",group:"Oil, gas & energy"},
+  {label:"Machine shop / metal fabrication",naics:"332710",group:"Industrial & manufacturing"},
+  {label:"Fabricated structural metal manufacturing",naics:"332312",group:"Industrial & manufacturing"},
+  {label:"Commercial & industrial machinery repair / maintenance",naics:"811310",group:"Industrial & manufacturing"},
+  {label:"General warehousing & storage",naics:"493110",group:"Industrial & other"},
+  {label:"General freight trucking (long-distance)",naics:"484121",group:"Transportation"},
+  {label:"Landscaping services",naics:"561730",group:"Industrial & other"},
+  {label:"Remediation / environmental cleanup services",naics:"562910",group:"Environmental"},
+  {label:"Hazardous waste treatment & disposal",naics:"562211",group:"Environmental"},
+  {label:"Facilities support / building maintenance services",naics:"561210",group:"Industrial & other"},
+  {label:"Janitorial & building cleaning services",naics:"561720",group:"Industrial & other"}
+];
+
+function fillIndustrySelect(inds){
+  const isel=$('#co-industry'); if(!isel) return;
+  const groups={}; inds.forEach(x=>{ (groups[x.group||'Other']||(groups[x.group||'Other']=[])).push(x); });
+  isel.innerHTML = '<option value="">Select a trade / industry…</option>' +
+    Object.keys(groups).map(g=>`<optgroup label="${esc(g)}">`+
+      groups[g].map(x=>`<option value="${esc(x.label)}" data-naics="${esc(x.naics)}" title="${esc(x.title||'')}">${esc(x.label)} — ${esc(x.naics)}</option>`).join('')
+      +`</optgroup>`).join('');
+  isel.addEventListener('change', coIndustryChanged);
+}
+function fillStateSelect(sts){
+  const ssel=$('#co-state'); if(!ssel) return;
+  ssel.innerHTML = '<option value="">Select a state…</option>' +
+    sts.map(s=>`<option value="${esc(s.code)}">${esc(s.name)} (${esc(s.code)})</option>`).join('');
+  ssel.addEventListener('change', coStateChanged);
+}
+
 async function initCoForm(){
   if(CO_TRIGGERS) return;        // idempotent
-  const [sch, ind, sta] = await Promise.all([
-    api('/api/scoping/schema'),
-    api('/api/scoping/industries'),
-    api('/api/scoping/states'),
-  ]);
-  CO_TRIGGERS = (sch.j&&sch.j.triggers)||[];
-  renderHazGrid(CO_TRIGGERS, new Set());
+  // Load each piece independently so one missing route never stalls the others.
+  api('/api/scoping/schema').then(r=>{
+    CO_TRIGGERS = (r.j&&r.j.triggers)||[];
+    renderHazGrid(CO_TRIGGERS, new Set());
+  }).catch(()=>{ CO_TRIGGERS=[]; renderHazGrid([], new Set()); });
 
-  // Populate the industry dropdown (grouped), value = descriptive label so the
-  // keyword-matched hazard suggester still fires; data-naics auto-fills NAICS.
-  const inds=(ind.j&&ind.j.industries)||[];
-  const isel=$('#co-industry');
-  if(isel && inds.length){
-    const groups={}; inds.forEach(x=>{ (groups[x.group||'Other']||(groups[x.group||'Other']=[])).push(x); });
-    isel.innerHTML = '<option value="">Select a trade / industry…</option>' +
-      Object.keys(groups).map(g=>`<optgroup label="${esc(g)}">`+
-        groups[g].map(x=>`<option value="${esc(x.label)}" data-naics="${esc(x.naics)}" title="${esc(x.title||'')}">${esc(x.label)} — ${esc(x.naics)}</option>`).join('')
-        +`</optgroup>`).join('');
-    isel.addEventListener('change', coIndustryChanged);
-  }
+  api('/api/scoping/industries').then(r=>{
+    const inds=(r.j&&r.j.industries)||[];
+    fillIndustrySelect(inds.length ? inds : CO_INDUSTRIES_FALLBACK);
+  }).catch(()=>fillIndustrySelect(CO_INDUSTRIES_FALLBACK));
 
-  // Populate the state dropdown.
-  const sts=(sta.j&&sta.j.states)||[];
-  const ssel=$('#co-state');
-  if(ssel && sts.length){
-    ssel.innerHTML = '<option value="">Select a state…</option>' +
-      sts.map(s=>`<option value="${esc(s.code)}">${esc(s.name)} (${esc(s.code)})</option>`).join('');
-    ssel.addEventListener('change', coStateChanged);
-  }
+  api('/api/scoping/states').then(r=>{
+    const sts=(r.j&&r.j.states)||[];
+    fillStateSelect(sts.length ? sts : CO_STATES_FALLBACK);
+  }).catch(()=>fillStateSelect(CO_STATES_FALLBACK));
 
   const onScope = _debounce(coScopePreview, 320);
   const nx=$('#co-naics'); if(nx) nx.addEventListener('input', onScope);
