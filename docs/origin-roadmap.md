@@ -82,7 +82,9 @@
 
 ---
 
-## Stage 5 — Human-review queue as a first-class store
+## Stage 5 — Human-review queue as a first-class store — ✅ DONE (2026-09-07)
+
+**Shipped:** `review_engine.py` — a first-class, file-based review store (`ORIGIN_DATA_DIR/review/`) that turns Stage 4's lightweight per-audit `review_queue` into real ReviewItems, each carrying the one piece of net-new data no other collection holds: the human **decision** (reviewer, timestamp, approve / approve-with-edits / reject, and resulting action). Trust story is unchanged — the PENDING side is *derived*: `ingest_from_audits()` reconstructs it from the audits' review queues (idempotent, keyed by a stable `rev-audit_finding-<audit_id>-<finding_id>` id), so the store is rebuildable and never a second source of truth; only the decision is authoritative, and every decision writes STRAIGHT BACK to the audit→CAPA chain (`approve` → `audit_engine.promote_finding` opens the CAPA, optionally applying reviewer edits like a corrected citation; `reject` → new `audit_engine.reject_finding` dismisses it, no CAPA). Dependency runs review → audit only (audit_engine never imports the review layer). The inbox is self-healing: `GET /api/review/list` and `/api/review/overview` ingest before reporting (mirrors the spine's auto-rebuild). Owner-only routes (`/api/review/ingest`, `/overview`, `/list`, `/{id}`, `/{id}/approve`, `/{id}/reject`) — not in the GC allowlist, so a GC session can't reach them (safe-by-default), exactly as `/sie` was a deliberate follow-on for Stage 3. Spine now emits a `review` node type + `company--has_review-->review--about-->finding` edges (the review points at the SAME finding node the audit chain uses). `selftest_sie.py check_review()` green offline (ingest → approve-opens-CAPA → reject-dismisses → decisions survive re-ingest); full engine suite green; all 8 LLM keys unset.
 
 **Goal:** today review *flags* exist on findings but there is no queue. Make review a real workflow.
 
@@ -91,6 +93,8 @@
 - Console tab: an inbox where a safety professional approves/edits/rejects, with the decision written back to the chain.
 
 **Exit:** nothing model-derived reaches a customer as authoritative without a logged human decision available.
+
+**Follow-on (not blocking the exit):** the `/sie` console *inbox tab* (the model layer is done; the UI surface is a deliberate next step, like the GC-facing SIE was after Stage 3), GC-scoped review access (add `/api/review/*` to the GC allowlist with per-company ownership once GCs work their own queues), and the generic `source_type` path for model-authored prose — the store already accepts it; it is wired only for `audit_finding` today because that is the sole live producer (spine rule: add a type only when live data supports it).
 
 ---
 

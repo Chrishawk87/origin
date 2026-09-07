@@ -533,6 +533,146 @@ def check_perception(client, token: str) -> None:
           "unmatched/low-confidence route to review, never to a CAPA")
 
 
+# ── the human-review queue (Stage 5) ─────────────────────────────────────────
+def check_review(client, token: str) -> None:
+    """Stage 5 makes review a first-class store. The guarantees, all offline:
+
+      1. INGEST — the pending side of the store is reconstructed from the audits'
+         review queues (idempotent), so every unmatched / low-confidence finding
+         surfaces as a review item with WHY it was queued.
+      2. APPROVE writes back to the chain — confirming an item opens the CAPA on the
+         source audit (via promote_finding) and logs the reviewer + decision; the
+         corrective action never exists without that logged human decision.
+      3. REJECT writes back too — dismissing an item clears it from the audit queue,
+         opens NO CAPA, and records the reviewer decision.
+      4. Decisions are durable: a re-ingest never resurrects or clobbers a decided
+         item, and the store's rollup reflects the outcomes."""
+    from origin import review_engine as rv
+
+    H = {"X-Origin-Token": token}
+
+    # A fresh company + audit with exactly the two review-bound findings: one
+    # unmatched, one low-confidence. (A confident matched HIGH finding is included
+    # so the audit also auto-CAPAs — proving ingest pulls ONLY the queued ones.)
+    report = {
+        "scene": "Review-store walk-through",
+        "image_count": 1,
+        "findings": [
+            {   # confident matched → auto-CAPA, NOT a review item
+                "severity": "high",
+                "title": "Unprotected roof edge",
+                "description": "Fall from elevation",
+                "confidence": 0.9,
+                "standard": {
+                    "citation": "29 CFR 1926.501",
+                    "standard_title": "Duty to have fall protection",
+                    "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.501",
+                    "has_verbatim": True,
+                },
+            },
+            {   # unmatched → review
+                "severity": "high",
+                "title": "Ambiguous object near the panel",
+                "description": "Inspector unsure",
+                "standard": None,
+            },
+            {   # low-confidence match → review
+                "severity": "medium",
+                "title": "Possible machine guarding gap",
+                "description": "Loose match",
+                "confidence": 0.5,
+                "standard": {
+                    "citation": "29 CFR 1910.212",
+                    "standard_title": "General requirements for all machines",
+                    "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.212",
+                    "has_verbatim": False,
+                },
+            },
+        ],
+    }
+    r = client.post("/api/audit/from-report", headers=H, json={
+        "company": "Review Store Co", "report": report})
+    assert r.status_code == 200, r.text
+    audit = r.json().get("audit") or {}
+    audit_id = audit.get("id")
+    cid = audit.get("company_id")
+    assert audit_id and cid, f"audit did not persist: {audit}"
+    assert len(audit.get("capa_ids") or []) == 1, \
+        f"only the confident matched finding may auto-CAPA: {audit}"
+
+    # 1. Ingest reconstructs the pending side from the audit's review queue.
+    r = client.post("/api/review/ingest", headers=H, json={})
+    assert r.status_code == 200 and not r.json().get("error"), r.text
+
+    r = client.get(f"/api/review/list?company_id={cid}", headers=H)
+    assert r.status_code == 200, r.text
+    items = r.json().get("items") or []
+    pending = [i for i in items if i.get("status") == "pending"]
+    assert len(pending) == 2, \
+        f"both review-bound findings must surface as pending items: {items}"
+    reasons = {i.get("reason") for i in pending}
+    assert reasons == {"unmatched", "low_confidence"}, \
+        f"each item must record WHY it was queued: {reasons}"
+
+    # Idempotency: re-ingesting does not duplicate the pending items.
+    client.post("/api/review/ingest", headers=H, json={})
+    r = client.get(f"/api/review/list?company_id={cid}&status=pending", headers=H)
+    assert len(r.json().get("items") or []) == 2, "ingest must be idempotent"
+
+    by_reason = {i["reason"]: i for i in pending}
+    unmatched_item = by_reason["unmatched"]
+    lowconf_item = by_reason["low_confidence"]
+
+    # 2. APPROVE the low-confidence item (a real hazard the reviewer confirms) →
+    #    a CAPA opens on the source audit and the decision is logged.
+    r = client.post(f"/api/review/{lowconf_item['item_id']}/approve", headers=H,
+                     json={"by": "reviewer-jane"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out.get("ok"), f"approve failed: {out}"
+    item = out.get("item") or {}
+    assert item.get("status") == "approved" and item.get("reviewer") == "reviewer-jane", item
+    action = item.get("resulting_action") or {}
+    assert action.get("type") == "capa" and action.get("capa_id"), \
+        f"approve must open a CAPA on the chain: {action}"
+    # The CAPA is real and tracked, and the source audit no longer queues it.
+    r = client.get("/api/capa/list", headers=H)
+    assert action["capa_id"] in {c.get("id") for c in (r.json().get("items") or [])}, \
+        "approved item's CAPA missing from the tracker"
+    r = client.get(f"/api/audit/{audit_id}", headers=H)
+    aq_ids = {q.get("finding_id") for q in (r.json().get("review_queue") or [])}
+    assert lowconf_item["ref_id"] not in aq_ids, \
+        "approving must clear the finding from the audit's review queue"
+
+    # 3. REJECT the unmatched item → NO CAPA, decision logged, cleared from queue.
+    r = client.post(f"/api/review/{unmatched_item['item_id']}/reject", headers=H,
+                     json={"by": "reviewer-jane", "note": "not a hazard"})
+    assert r.status_code == 200, r.text
+    item = (r.json() or {}).get("item") or {}
+    assert item.get("status") == "rejected" and item.get("decision") == "reject", item
+    assert (item.get("resulting_action") or {}).get("type") == "dismissed", item
+    r = client.get(f"/api/audit/{audit_id}", headers=H)
+    assert not (r.json().get("review_queue") or []), \
+        "both findings decided — the audit review queue must now be empty"
+
+    # 4. Decisions are durable across a re-ingest and reflected in the rollup.
+    client.post("/api/review/ingest", headers=H, json={})
+    r = client.get(f"/api/review/{lowconf_item['item_id']}", headers=H)
+    assert r.json().get("status") == "approved", "re-ingest must not clobber a decision"
+    r = client.get(f"/api/review/{unmatched_item['item_id']}", headers=H)
+    assert r.json().get("status") == "rejected", "re-ingest must not resurrect a rejection"
+
+    r = client.get("/api/review/overview", headers=H)
+    assert r.status_code == 200, r.text
+    ov = r.json()
+    assert ov.get("approved", 0) >= 1 and ov.get("rejected", 0) >= 1, \
+        f"overview must reflect the logged decisions: {ov}"
+
+    print("[pass] human-review queue: unmatched/low-confidence findings ingest as "
+          "first-class items; approve opens the CAPA on the chain, reject dismisses "
+          "it — both log the reviewer decision; decisions survive re-ingest")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -552,6 +692,7 @@ def main() -> int:
         check_requirements(client, token, cid)
         check_tenancy(client, token, cid)
         check_perception(client, token)
+        check_review(client, token)
     finally:
         try:
             eng.shutdown()

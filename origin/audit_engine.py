@@ -218,10 +218,17 @@ def record_audit(report: Dict[str, Any], *, company: str, company_id: str = "",
 
 
 def promote_finding(audit_id: str, finding_id: str, *,
-                    by: str = "owner") -> Optional[Dict[str, Any]]:
+                    by: str = "owner",
+                    edits: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """Open a CAPA for a single finding on demand (e.g. a medium/low finding the
     auto-threshold skipped). Idempotent: if that finding already has a CAPA, the
-    existing one is returned rather than a duplicate opened."""
+    existing one is returned rather than a duplicate opened.
+
+    `edits` lets a human reviewer correct the finding before it becomes a CAPA —
+    the "approve with edits" path. Only a small, safe allowlist is patched
+    (title / severity / standard); a corrected `standard` is what lets a reviewer
+    supply the citation an unmatched detection was missing, so the CAPA still
+    carries a real source ref instead of being force-fit."""
     rec = get(audit_id)
     if not rec:
         return None
@@ -232,6 +239,11 @@ def promote_finding(audit_id: str, finding_id: str, *,
             break
     if target is None:
         return None
+    if isinstance(edits, dict):
+        for k in ("title", "severity", "standard", "description"):
+            if k in edits and edits[k] not in (None, ""):
+                target[k] = edits[k]
+        target["edited_by"] = by
     if target.get("capa_id"):
         return {"audit": rec, "capa": capa.get(target["capa_id"]), "created": False}
     c = capa.open_from_audit_finding(
@@ -251,6 +263,40 @@ def promote_finding(audit_id: str, finding_id: str, *,
     rec["updated_at"] = _now()
     save(rec)
     return {"audit": rec, "capa": c, "created": True}
+
+
+def reject_finding(audit_id: str, finding_id: str, *,
+                   by: str = "owner", note: str = "") -> Optional[Dict[str, Any]]:
+    """Dismiss a candidate finding: a human decided this review-queued detection is
+    NOT actionable. It leaves the review queue and opens no CAPA — the manual
+    counterpart to promote_finding on the reject side. Idempotent: rejecting a
+    finding that is already gone from the queue simply records the decision.
+
+    This is the audit-chain write-back for review_engine.reject(); audit_engine
+    itself never imports the review layer (the dependency runs review -> audit)."""
+    rec = get(audit_id)
+    if not rec:
+        return None
+    target = None
+    for f in rec.get("findings", []):
+        if f.get("finding_id") == finding_id:
+            target = f
+            break
+    if target is None:
+        return None
+    target["route"] = "rejected"
+    target["needs_review"] = False
+    target["rejected_by"] = by
+    target["rejected_at"] = _now()
+    if note:
+        target["review_note"] = note
+    rec["review_queue"] = [q for q in rec.get("review_queue", [])
+                           if q.get("finding_id") != finding_id]
+    if isinstance(rec.get("summary"), dict):
+        rec["summary"]["needs_review"] = len(rec["review_queue"])
+    rec["updated_at"] = _now()
+    save(rec)
+    return {"audit": rec, "finding": target}
 
 
 # ── persistence ───────────────────────────────────────────────────────────────
@@ -394,7 +440,8 @@ def register_audit(app) -> None:
     @app.post("/api/audit/{audit_id}/promote/{finding_id}")
     def audit_promote(audit_id: str, finding_id: str, body: dict = Body(default=None)):
         payload = body if isinstance(body, dict) else {}
-        out = promote_finding(audit_id, finding_id, by=payload.get("by", "owner"))
+        out = promote_finding(audit_id, finding_id, by=payload.get("by", "owner"),
+                              edits=payload.get("edits"))
         if out is None:
             return JSONResponse({"error": "audit or finding not found"}, status_code=404)
         return {"ok": True, **out}

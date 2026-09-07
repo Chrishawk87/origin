@@ -2112,6 +2112,20 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _reqs_exc:  # pragma: no cover
         print(f"[requirements] disabled — registration failed: {_reqs_exc}")
 
+    # ── Safety Intelligence Engine — Human-Review Queue (Stage 5) ──
+    # Makes review a first-class store: unmatched / low-confidence audit findings
+    # become ReviewItems with a logged reviewer decision, and every decision writes
+    # back to the audit -> CAPA chain (approve opens the CAPA, reject dismisses it).
+    # The pending side is derived from the audits (ingest_from_audits, idempotent);
+    # nothing model-derived reaches a customer as authoritative without a logged
+    # human decision available. Owner-only (not in the GC allowlist). Isolated +
+    # non-fatal, fully offline — the dependency runs review -> audit, never back.
+    try:
+        from . import review_engine as _review
+        _review.register_review(app)
+    except Exception as _review_exc:  # pragma: no cover
+        print(f"[review] disabled — registration failed: {_review_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal

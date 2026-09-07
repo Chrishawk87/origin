@@ -12,28 +12,36 @@ verification) becomes queryable across engines, without moving the source of
 truth into a database and without touching the offline no-LLM guarantee.
 
 Node types today (what the live data already supports):
-    company · finding · capa · citation · requirement · source (a cited standard)
+    company · finding · capa · citation · requirement · review · source (a cited standard)
 Edge types today (all directional, all traceable):
     company     --has_finding----->  finding
     company     --has_capa-------->  capa
     company     --has_citation---->  citation
     company     --has_requirement->  requirement
+    company     --has_review------>  review
     finding     --triggers------->  capa
     finding     --violates------->  source
     capa        --cited_by------->  source
     citation    --cited_by------->  source
     requirement --cited_by------->  source
+    review      --about---------->  finding
 
 The requirement layer is derived, on the fly, from the company profile by the
 Applicable Requirements Engine (requirements_engine.py); a requirement and the
 evidence that satisfies it meet at the shared source-standard node, which is what
 makes "which requirements have no evidence" answerable from this one index.
 
+The review layer (Stage 5) is likewise derived: the human-review queue store
+(review_engine.py) holds one item per audit finding that needs a human decision,
+and each becomes a review node hung off its company and pointed at the finding it
+is about — so "what is waiting on a reviewer, and for which finding" is answerable
+from this one index too.
+
 Materialized as nodes.jsonl + edges.jsonl + meta.json under
 ORIGIN_DATA_DIR/spine, rewritten atomically on rebuild (temp dir + rename).
-Training / ReviewItem / Evidence node types are reserved for later stages
-(human-review queue, evidence vault); they are added here only when the live
-data supports them, never speculatively.
+Training / Evidence node types are reserved for later stages (training matrix,
+evidence vault); they are added here only when the live data supports them, never
+speculatively.
 """
 
 from __future__ import annotations
@@ -63,9 +71,11 @@ REL_HAS_FINDING = "has_finding"
 REL_HAS_CAPA = "has_capa"
 REL_HAS_CITATION = "has_citation"
 REL_HAS_REQUIREMENT = "has_requirement"
+REL_HAS_REVIEW = "has_review"
 REL_TRIGGERS = "triggers"
 REL_VIOLATES = "violates"
 REL_CITED_BY = "cited_by"
+REL_ABOUT = "about"
 
 
 def _now() -> str:
@@ -260,6 +270,28 @@ def rebuild_spine() -> Dict[str, Any]:
                 _add_edge(edges, _nid("requirement", rid), REL_CITED_BY,
                           _nid("source", sid))
 
+    # 6. Review items — the human-review queue (Stage 5) made queryable. Each
+    #    pending/decided item hangs off its company and points at the finding it
+    #    is about, so the finding node it references is shared with the audit chain.
+    for rv in _reviews():
+        rid = (rv.get("item_id") or "").strip()
+        if not rid:
+            continue
+        cid = (rv.get("company_id") or "").strip()
+        _add_node(nodes, "review", rid, label=rv.get("title") or "Review item",
+                  status=rv.get("status", ""), reason=rv.get("reason", ""),
+                  severity=rv.get("severity", ""),
+                  reviewer=rv.get("reviewer", ""),
+                  decision=rv.get("decision", ""))
+        if cid:
+            _add_node(nodes, "company", cid, label=rv.get("company", cid))
+            _add_edge(edges, _nid("company", cid), REL_HAS_REVIEW,
+                      _nid("review", rid))
+        fid = (rv.get("ref_id") or "").strip()
+        if fid and rv.get("source_type") == "audit_finding":
+            _add_node(nodes, "finding", fid, label=rv.get("title") or "Finding")
+            _add_edge(edges, _nid("review", rid), REL_ABOUT, _nid("finding", fid))
+
     stats = _write_index(list(nodes.values()), list(edges.values()))
     return stats
 
@@ -347,6 +379,18 @@ def _requirements_for(company_rec: Dict[str, Any]) -> List[Dict[str, Any]]:
         return []
 
 
+def _reviews() -> List[Dict[str, Any]]:
+    """Read the human-review queue store. Isolated: if the review engine is
+    unavailable or errors, the spine still rebuilds without review nodes."""
+    try:
+        from . import review_engine as rv
+        if hasattr(rv, "_load_all"):
+            return rv._load_all()
+    except Exception:
+        pass
+    return []
+
+
 # ── read side ────────────────────────────────────────────────────────────────
 def _load_lines(path: Path) -> List[Dict[str, Any]]:
     if not path.exists():
@@ -423,6 +467,7 @@ def chain_for_company(company_id: str) -> Dict[str, Any]:
             "capas": sum(1 for n in sub_nodes if n["type"] == "capa"),
             "citations": sum(1 for n in sub_nodes if n["type"] == "citation"),
             "requirements": sum(1 for n in sub_nodes if n["type"] == "requirement"),
+            "reviews": sum(1 for n in sub_nodes if n["type"] == "review"),
             "sources": sum(1 for n in sub_nodes if n["type"] == "source"),
         },
         "nodes": sub_nodes,
