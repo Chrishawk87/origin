@@ -90,7 +90,11 @@ def validate(rec: Dict[str, Any]) -> Tuple[bool, List[str]]:
         problems.append("missing title")
     if not url:
         problems.append("missing source url")
-    if len(text) < 200:
+    # Floor is deliberately low: several CFR sections are legitimate one-line
+    # cross-references (e.g. 1926.33 → 1910.1020, 1926.59 → 1910.1200). Those are
+    # complete verbatim text, just short. The section-number check below is the
+    # real anti-fabrication gate; this only catches empty/truncated pulls.
+    if len(text) < 80:
         problems.append(f"text too short ({len(text)} chars) — not real verbatim")
     # The text must contain its own section number — the anti-fabrication check.
     if section and section not in text:

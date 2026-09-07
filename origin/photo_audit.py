@@ -175,6 +175,28 @@ def _meaningful_words(text: str) -> set:
     }
 
 
+# Glossary / boilerplate sections carry no imperative hazard — they are
+# definitions, scope statements, and cross-references, not citable field
+# hazards. Once the full Part 1926 verbatim corpus is loaded these sections
+# become keyword-matchable (e.g. the word "employee" appears all over
+# § 1926.32 Definitions), so a benign photo could otherwise be force-fit to a
+# glossary. A photo hazard must NEVER resolve to one of these; if that's all
+# that matched, we honestly report no-match. NOTE: this is an exact-title gate
+# so real hazard standards titled "General requirements" are untouched.
+_NON_HAZARD_TITLES = frozenset({
+    "definitions", "scope", "scope and application", "application",
+    "purpose", "purpose and scope", "purpose, scope and application",
+    "incorporation by reference", "general provisions", "reserved",
+})
+
+
+def _is_non_hazard_title(title: str) -> bool:
+    """True if a section's official title is a glossary/scope/boilerplate label
+    that can never be a citable field hazard."""
+    t = (title or "").strip().lower().rstrip(".").strip()
+    return t in _NON_HAZARD_TITLES
+
+
 def _fix_from_program(section: str) -> Tuple[Optional[str], List[str]]:
     """If the KB has a written-program record for this section, return its
     (title, required_elements) so the report can show what a compliant program
@@ -315,7 +337,7 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     #    and give us exact law text.
     if not section:
         vhits = kb.verbatim_search(query, limit=1)
-        if vhits:
+        if vhits and not _is_non_hazard_title(vhits[0].get("title")):
             verbatim = vhits[0]
             section = verbatim.get("section")
             method = "verbatim"
@@ -338,6 +360,8 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             cit = hit.get("citation", "")
             m = re.search(r"\b(\d{3,4}\.\d+[A-Za-z]?)", cit)
             if not m:
+                continue
+            if _is_non_hazard_title(hit.get("title", "")):
                 continue
             title_words = _meaningful_words(hit.get("title", ""))
             if len(q_words & title_words) >= 2:
