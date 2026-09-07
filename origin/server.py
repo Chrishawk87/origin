@@ -2170,6 +2170,17 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _training_exc:  # pragma: no cover
         print(f"[training] disabled — registration failed: {_training_exc}")
 
+    # Universal Regulatory Router — field layer. The text of a regulation in the
+    # file-based knowledge store generates dynamic mobile checklists + an AHA
+    # matrix, deterministically and offline. First reference brain: USACE EM
+    # 385-1-1 excavation. Owner-gated (not in the GC allowlist). Isolated + non-
+    # fatal; source-agnostic so eCFR/OSHA text flows through the same parser.
+    try:
+        from . import checklist_engine as _checklist
+        _checklist.register_checklists(app)
+    except Exception as _checklist_exc:  # pragma: no cover
+        print(f"[checklist] disabled — registration failed: {_checklist_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal

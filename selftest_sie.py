@@ -903,6 +903,73 @@ def check_gc_scope(client, token: str) -> None:
           "tenant's; owner still sees all; GCs still can't inject audits")
 
 
+def check_checklists(client, token: str) -> None:
+    """The Universal Regulatory Router's field layer, fully offline: the TEXT of a
+    regulation in the file-based knowledge store must generate the mobile checklist
+    and an AHA matrix — with no model and nothing fabricated.
+
+      1. Seeding EM 385-1-1 Section 25 (Excavation) into the versioned store and
+         resolving it back parses into >=5 structured field requirements.
+      2. The imperative parser is deterministic: "5 feet or more" becomes a >=5 ft
+         MEASUREMENT, "minimum of 2 feet" a 2 ft setback measurement, "before the
+         start of each shift" a per-shift INSPECTION, a plain "shall" an
+         ATTESTATION. Every field carries the source citation — never invented.
+      3. Selecting the activity "Excavation > 5 ft" derives an AHA matrix whose
+         controls ARE the parsed requirements, grouped by hazard.
+      4. An unverifiable citation returns ok=False with no fields — the never-
+         fabricate contract holds."""
+    from urllib.parse import quote
+    H = {"X-Origin-Token": token}
+
+    # 1. Seed (force) + status.
+    r = client.post("/api/checklist/seed", headers=H, json={"force": True})
+    assert r.status_code == 200 and r.json().get("ok"), r.text
+    r = client.get("/api/checklist/status", headers=H)
+    assert r.status_code == 200, r.text
+    st = r.json()
+    assert st.get("seeded") and st.get("field_count", 0) >= 5, st
+
+    # 2. Checklist generated from the regulation text.
+    r = client.get("/api/checklist/" + quote("EM 385-1-1 Section 25"), headers=H)
+    assert r.status_code == 200, r.text
+    spec = r.json()
+    assert spec.get("ok"), spec
+    fields = spec.get("fields") or []
+    types = {f["type"] for f in fields}
+    assert {"measurement", "inspection", "attestation"} <= types, \
+        f"parser must yield measurement + inspection + attestation fields: {types}"
+    has_5ft = any(f.get("threshold") and f["threshold"].get("value") == 5
+                  and f["threshold"].get("unit") == "ft"
+                  and f["threshold"].get("comparator") == "gte" for f in fields)
+    assert has_5ft, "expected a >=5 ft protective-system measurement"
+    has_2ft = any(f.get("threshold") and f["threshold"].get("value") == 2
+                  and f["threshold"].get("unit") == "ft" for f in fields)
+    assert has_2ft, "expected a 2 ft spoil-setback measurement"
+    has_shift = any(f.get("cadence") and f["cadence"].get("kind") == "per_shift"
+                    for f in fields)
+    assert has_shift, "expected a per-shift inspection cadence"
+    assert all(f.get("citation") for f in fields), "every field must carry a citation"
+
+    # 3. AHA matrix derived from the same parsed controls.
+    r = client.post("/api/checklist/aha", headers=H, json={"activity": "Excavation > 5 ft"})
+    assert r.status_code == 200, r.text
+    aha = r.json()
+    assert aha.get("ok") and aha.get("row_count", 0) >= 3, aha
+    hazards = {row["hazard"] for row in (aha.get("rows") or [])}
+    assert "Cave-in / soil collapse" in hazards, hazards
+    assert all(row.get("citation") and row.get("controls") for row in aha["rows"]), \
+        "every AHA row must carry its citation + controls"
+
+    # 4. Unverifiable citation → refused, not fabricated.
+    r = client.get("/api/checklist/" + quote("99 CFR 9999.9999"), headers=H)
+    assert r.status_code == 200 and not r.json().get("ok"), r.text
+
+    print("[pass] regulatory router: EM 385-1-1 excavation TEXT auto-generates a "
+          "dynamic checklist (>=5 ft protective-system + 2 ft setback measurements, "
+          "per-shift inspection, plain attestations) and an AHA matrix grouped by "
+          "hazard — every field cited, unverifiable citations refused, no model")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -925,6 +992,7 @@ def main() -> int:
         check_review(client, token)
         check_training(client, token)
         check_gc_scope(client, token)
+        check_checklists(client, token)
     finally:
         try:
             eng.shutdown()
