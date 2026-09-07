@@ -673,6 +673,106 @@ def check_review(client, token: str) -> None:
           "it — both log the reviewer decision; decisions survive re-ingest")
 
 
+def check_training(client, token: str) -> None:
+    """Stage 6 makes training a living matrix. The guarantees, all offline:
+
+      1. CATALOG is DERIVED + SOURCED — the courses a company needs come from the
+         requirements engine, kept ONLY where the OSHA 2254 KB confirms a real
+         training obligation. Nothing fabricated.
+      2. ROSTER + COMPLETIONS are the authoritative net-new data — adding an
+         employee and logging a completion is the only thing persisted.
+      3. EXPIRATION is DETERMINISTIC — a stale completion on a course with a curated
+         refresher cadence becomes 'expired'; a fresh one is 'current'; a course
+         with no cadence never expires.
+      4. Expiration DRIVES MONITORING — an expired required training surfaces as a
+         high-severity monitor alert in the sweep."""
+    from datetime import date, timedelta
+
+    H = {"X-Origin-Token": token}
+
+    # A company whose activities trigger two standards that BOTH carry a curated
+    # refresher cadence AND a KB training obligation: respirators -> 1910.134
+    # (annual) and forklifts -> 1910.178 (triennial re-evaluation).
+    r = client.post("/api/company/upsert", headers=H, json={
+        "company": "Training Matrix Co",
+        "industry": "Manufacturing",
+        "naics": "332710",
+        "state": "TX",
+        "headcount": 30,
+        "activities": {"respirators": True, "forklifts": True},
+    })
+    assert r.status_code == 200, r.text
+    cid = (r.json().get("profile") or {}).get("company_id")
+    assert cid, f"upsert must return a company_id: {r.json()}"
+
+    # 1. Catalog derives the two cadence-bearing courses, each fully sourced.
+    r = client.get(f"/api/training/{cid}/catalog", headers=H)
+    assert r.status_code == 200, r.text
+    courses = r.json().get("courses") or []
+    by_section = {c["section"]: c for c in courses}
+    assert "1910.134" in by_section and "1910.178" in by_section, \
+        f"catalog must derive the triggered training standards: {sorted(by_section)}"
+    assert by_section["1910.134"]["refresher_months"] == 12, by_section["1910.134"]
+    assert by_section["1910.178"]["refresher_months"] == 36, by_section["1910.178"]
+    resp_course = by_section["1910.134"]["course_id"]
+
+    # 2. Add an employee to the roster (authoritative net-new data).
+    r = client.post(f"/api/training/{cid}/employee", headers=H,
+                    json={"name": "Alex Rivera", "role": "Operator"})
+    assert r.status_code == 200, r.text
+    eid = (r.json().get("employee") or {}).get("employee_id")
+    assert eid, f"add employee must return an id: {r.json()}"
+
+    # Before any completion, every cell for this employee is 'missing'.
+    r = client.get(f"/api/training/{cid}/matrix", headers=H)
+    assert r.status_code == 200, r.text
+    m = r.json()
+    assert m.get("employee_count") == 1, m
+    cell = _cell(m, eid, "1910.134")
+    assert cell and cell["status"] == "missing", f"pre-completion must be missing: {cell}"
+
+    # 3a. Log a STALE completion (2 years ago) on an annual course -> expired.
+    stale = (date.today() - timedelta(days=730)).isoformat()
+    r = client.post(f"/api/training/employee/{eid}/complete", headers=H,
+                    json={"course_id": resp_course, "completed_on": stale})
+    assert r.status_code == 200, r.text
+    m = client.get(f"/api/training/{cid}/matrix", headers=H).json()
+    cell = _cell(m, eid, "1910.134")
+    assert cell and cell["status"] == "expired", \
+        f"a 2-year-old annual training must be expired: {cell}"
+
+    # 4. Expiration drives monitoring: the sweep raises a high training_expired alert.
+    r = client.post("/api/monitor/sweep", headers=H, json={})
+    assert r.status_code == 200 and not r.json().get("error"), r.text
+    r = client.get(f"/api/monitor/alerts?company_id={cid}", headers=H)
+    assert r.status_code == 200, r.text
+    rules = {(a.get("rule"), a.get("severity")) for a in (r.json().get("items") or [])}
+    assert ("training_expired", "high") in rules, \
+        f"expired required training must raise a high monitor alert: {rules}"
+
+    # 3b. Re-log the SAME course completed today -> current (deterministic recompute).
+    r = client.post(f"/api/training/employee/{eid}/complete", headers=H,
+                    json={"course_id": resp_course, "completed_on": date.today().isoformat()})
+    assert r.status_code == 200, r.text
+    m = client.get(f"/api/training/{cid}/matrix", headers=H).json()
+    cell = _cell(m, eid, "1910.134")
+    assert cell and cell["status"] == "current", \
+        f"a completion today must be current: {cell}"
+
+    print("[pass] training intelligence: catalog derives sourced courses from the "
+          "requirements engine + OSHA 2254 KB; roster/completions persist; a stale "
+          "completion expires and raises a monitor alert, a fresh one is current")
+
+
+def _cell(matrix: dict, eid: str, section: str):
+    for row in (matrix.get("rows") or []):
+        if row.get("employee_id") == eid:
+            for c in (row.get("cells") or []):
+                if c.get("section") == section:
+                    return c
+    return None
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -693,6 +793,7 @@ def main() -> int:
         check_tenancy(client, token, cid)
         check_perception(client, token)
         check_review(client, token)
+        check_training(client, token)
     finally:
         try:
             eng.shutdown()

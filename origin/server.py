@@ -2126,6 +2126,22 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _review_exc:  # pragma: no cover
         print(f"[review] disabled — registration failed: {_review_exc}")
 
+    # ── Safety Intelligence Engine — Training Intelligence (Stage 6) ──
+    # Turns training from KB-static into a living matrix: employee/role -> required
+    # training (derived from the requirements engine, kept only where the OSHA 2254
+    # KB confirms a real training obligation) -> completion -> expiration. The
+    # catalog is derived on every call; the only persisted, authoritative data is
+    # the roster + completion records. A curated refresher-cadence table drives
+    # deterministic expiration, which feeds monitor_engine's sweep (training_expired
+    # / training_due_soon). Owner-only (not in the GC allowlist). Isolated +
+    # non-fatal, fully offline — dependency runs training -> requirements/KB, never
+    # back.
+    try:
+        from . import training_engine as _training
+        _training.register_training(app)
+    except Exception as _training_exc:  # pragma: no cover
+        print(f"[training] disabled — registration failed: {_training_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal

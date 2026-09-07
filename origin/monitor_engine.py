@@ -195,6 +195,19 @@ def _monitor_company(prof: Dict[str, Any], *, due_soon_days: int) -> List[Dict[s
     except Exception:
         pass  # a scoping hiccup on one company must never abort the sweep
 
+    # 6) Expired / expiring required training (Stage 6). Deferred + isolated import
+    #    so a bug in the training layer can never abort the sweep. training_engine
+    #    aggregates per condition, so a large roster can't flood the feed.
+    try:
+        from . import training_engine
+        for t in training_engine.training_alerts_for(cid):
+            alerts.append(_mk(
+                cid, comp, t["rule"], t["part"], t["severity"],
+                t["title"], t["detail"],
+            ))
+    except Exception:
+        pass  # training is a derived overlay; never let it break monitoring
+
     return alerts
 
 

@@ -157,6 +157,7 @@
   <button class="tab" data-tab="prequal">Prequal</button>
   <button class="tab" data-tab="audits">Audits</button>
   <button class="tab" data-tab="review">Review <span class="cnt zero" id="cnt-review">0</span></button>
+  <button class="tab" data-tab="training">Training <span class="cnt zero" id="cnt-training">0</span></button>
   <button class="tab" data-tab="citation">Citation</button>
   <button class="tab" data-tab="photo">Photo Audit</button>
 </div>
@@ -294,6 +295,34 @@
     </div>
   </section>
 
+  <!-- ══ TRAINING ══ -->
+  <!-- Living training matrix. Courses are DERIVED from the company's applicable
+       requirements, kept only where the OSHA 2254 KB confirms a real training
+       obligation — never fabricated. The roster + completion dates are the only
+       persisted data; expiration is computed deterministically and feeds Monitor. -->
+  <section class="panel" id="p-training">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Training intelligence</h1><p class="lede">Who needs what training, when it was done, and when it expires — derived from each company's applicable OSHA requirements. Log a completion and the matrix (and Monitor) update.</p></div>
+        <button class="btn ghost sm" onclick="loadTraining()">Refresh</button>
+      </div>
+      <div class="row">
+        <div class="fld"><label>Company</label><select id="tr-co" onchange="loadTraining()"></select></div>
+      </div>
+      <div class="tiles" id="trainTiles"></div>
+      <details class="form" id="trEmpForm"><summary>+ Add an employee to the roster</summary>
+        <div class="grid2" style="margin-top:10px">
+          <div><label>Name *</label><input id="tr-emp-name" placeholder="Alex Rivera"></div>
+          <div><label>Role</label><input id="tr-emp-role" placeholder="Forklift operator"></div>
+        </div>
+        <button class="btn sm" style="margin-top:12px" onclick="addEmployee()">Add employee</button>
+        <span id="tr-emp-msg" class="muted"></span>
+      </details>
+    </div>
+    <div class="card" id="trCatalogCard"></div>
+    <div id="trMatrix"><div class="empty">Pick a company to see its training matrix.</div></div>
+  </section>
+
   <!-- ══ CITATION ══ -->
   <section class="panel" id="p-citation">
     <div class="card">
@@ -357,6 +386,7 @@ const INIT = {
   prequal: ()=>fillCompanySelect('pq-co'),
   audits: loadAudits,
   review: loadReview,
+  training: ()=>fillCompanySelect('tr-co', loadTraining),
   citation: ()=>{},
   photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
 };
@@ -826,6 +856,96 @@ async function approveItem(id){
 async function rejectItem(id){
   await api('/api/review/'+encodeURIComponent(id)+'/reject',{method:'POST',body:JSON.stringify({})});
   loadReview();
+}
+
+// ── TRAINING ───────────────────────────────────────────────────────────────
+const TR_STATUS = {
+  expired:  ['#b91c1c','#fee2e2','Expired'],
+  expiring: ['#b45309','#fef3c7','Expiring'],
+  missing:  ['#6b7280','#f3f4f6','Not on file'],
+  current:  ['#166534','#dcfce7','Current'],
+};
+function trStatusPill(st){
+  const v=TR_STATUS[st]||TR_STATUS.missing;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:${v[0]};background:${v[1]}">${v[2]}</span>`;
+}
+function trCurrentCid(){ const s=$('#tr-co'); return s?s.value:''; }
+
+async function loadTraining(){
+  const cid=trCurrentCid();
+  if(!cid){ $('#trCatalogCard').innerHTML=''; $('#trMatrix').innerHTML='<div class="empty">Pick a company to see its training matrix.</div>'; return; }
+  const {j}=await api('/api/training/'+encodeURIComponent(cid)+'/matrix');
+  if(!j||j.error){ $('#trMatrix').innerHTML=`<div class="err">${esc((j&&j.error)||'error')}</div>`; return; }
+  const exp=(j.expired||[]).length, dueSoon=(j.expiring||[]).length;
+  const badge=exp+dueSoon;
+  $('#cnt-training').textContent=badge;
+  $('#cnt-training').classList.toggle('zero',badge===0);
+  $('#trainTiles').innerHTML=tile(j.employee_count||0,'Employees')+tile(j.course_count||0,'Required courses')
+    +tile(dueSoon,'Expiring',dueSoon?'hi':'')+tile(exp,'Expired',exp?'hi':'');
+  renderCatalog(j.courses||[]);
+  renderMatrix(j);
+}
+function renderCatalog(courses){
+  const el=$('#trCatalogCard');
+  if(!courses.length){ el.innerHTML='<h2 class="sec" style="margin-top:0">Required training</h2><div class="empty">No OSHA-required training resolves for this company\u2019s scope. Add hazards/activities in the Companies tab.</div>'; return; }
+  el.innerHTML='<h2 class="sec" style="margin-top:0">Required training — derived &amp; sourced</h2>'
+    +courses.map(c=>`<div class="item info">
+        <div class="t">${esc(c.title)} ${classBadge(c.classification_label)}</div>
+        <div class="d">${esc(c.citation)} · <span class="chip">${esc(c.cadence)}</span></div>
+        ${c.why?`<div class="m">${esc(c.why)}</div>`:''}
+      </div>`).join('');
+}
+function renderMatrix(j){
+  const el=$('#trMatrix');
+  const rows=j.rows||[];
+  if(!rows.length){ el.innerHTML='<div class="card"><div class="empty">No employees yet. Add one above to build the matrix.</div></div>'; return; }
+  if(!(j.courses||[]).length){ el.innerHTML=''; return; }
+  el.innerHTML=rows.map(r=>{
+    const cells=(r.cells||[]).map(c=>{
+      const meta=c.completed_on
+        ? `done ${esc(c.completed_on)}${c.expires_on?` · expires ${esc(c.expires_on)}`:''}${(c.days_left!=null&&c.status!=='current')?` · ${c.days_left<0?Math.abs(c.days_left)+'d overdue':c.days_left+'d left'}`:''}`
+        : `${esc(c.cadence)}`;
+      return `<div class="item ${c.status==='expired'?'high':(c.status==='expiring'?'medium':'info')}">
+        <div class="t" style="font-size:14px">${esc(c.title)} ${trStatusPill(c.status)}</div>
+        <div class="d">${esc(c.citation)} · ${meta}</div>
+        <div class="row" style="margin-top:8px;gap:8px;align-items:flex-end">
+          <div class="fld sm" style="width:170px"><label>Completed on</label>
+            <input type="date" id="tr-date-${esc(r.employee_id)}-${esc(c.course_id)}"></div>
+          <button class="btn sm" onclick="recordCompletion('${esc(r.employee_id)}','${esc(c.course_id)}')">Record completion</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="t" style="font-size:16px">${esc(r.name)}${r.role?` <span class="muted" style="font-weight:400">· ${esc(r.role)}</span>`:''}</div>
+        <button class="btn ghost sm" onclick="deactivateEmployee('${esc(r.employee_id)}')">Remove</button>
+      </div>
+      ${cells}
+    </div>`;
+  }).join('');
+}
+async function addEmployee(){
+  const cid=trCurrentCid(); const name=$('#tr-emp-name').value.trim();
+  const msg=$('#tr-emp-msg');
+  if(!cid){ msg.textContent='Pick a company first.'; return; }
+  if(!name){ msg.textContent='Name is required.'; return; }
+  msg.textContent='Saving…';
+  const {j}=await api('/api/training/'+encodeURIComponent(cid)+'/employee',
+    {method:'POST',body:JSON.stringify({name, role:$('#tr-emp-role').value.trim()})});
+  if(!j||j.error){ msg.textContent=(j&&j.error)||'error'; return; }
+  msg.textContent=''; $('#tr-emp-name').value=''; $('#tr-emp-role').value='';
+  loadTraining();
+}
+async function recordCompletion(eid, courseId){
+  const inp=$('#tr-date-'+eid+'-'+courseId);
+  const on=inp&&inp.value?inp.value:'';
+  await api('/api/training/employee/'+encodeURIComponent(eid)+'/complete',
+    {method:'POST',body:JSON.stringify({course_id:courseId, completed_on:on})});
+  loadTraining();
+}
+async function deactivateEmployee(eid){
+  await api('/api/training/employee/'+encodeURIComponent(eid)+'/deactivate',{method:'POST',body:JSON.stringify({})});
+  loadTraining();
 }
 
 // ── CITATION ───────────────────────────────────────────────────────────────

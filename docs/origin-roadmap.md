@@ -98,7 +98,9 @@
 
 ---
 
-## Stage 6 — Training intelligence as live data
+## Stage 6 — Training intelligence as live data — ✅ DONE (2026-09-07)
+
+**Shipped:** `training_engine.py` — training becomes a living matrix without a new source of truth. The CATALOG is DERIVED: `catalog_from_profile()` walks the company's Stage-2 classified requirement set and keeps a course ONLY where `compliance_kb.training_requirement()` (OSHA 2254) confirms a real training obligation for the cited CFR section — an absent KB entry means no course, never a fabricated duty. Each course carries the citation, the requirement's applicability reason (`why`), its four-way classification, and a refresher cadence from a small curated `REFRESHER_MONTHS` table (only the well-documented periodic OSHA calendars: 1910.95/.120/.134/.157/.1030 = annual, 1910.178 = triennial; everything else has NO cadence, so a completion for it can never raise a false "expired"). The only PERSISTED, authoritative data is the net-new human fact: the roster (`add_employee` — employees + roles) and their completion records (`record_completion` — who, what, when). Status is DETERMINISTIC — `matrix_for()` crosses every active employee with every applicable course and computes `missing / current / expiring / expired` from `completed_on + refresher` vs today (`DUE_SOON_DAYS = 30`). Expiration DRIVES MONITORING: `monitor_engine._monitor_company` gained a deferred + isolated block (rule 6) that folds `training_engine.training_alerts_for(cid)` into the sweep — `training_expired` (high) and `training_due_soon` (medium), aggregated per company so a big roster can't flood the feed. Dependency runs training → requirements/KB/company only (never back). Owner-only routes (`/api/training/overview`, `/{cid}/catalog|matrix|summary`, `/{cid}/employee`, `/employee/{eid}/complete|deactivate`) registered in server.py in their own non-fatal try/except; NOT in the GC allowlist (safe-by-default). `/sie` console **Training tab SHIPPED** in `sie.html`: company picker, employees/courses/expiring/expired tiles + tab badge, derived-and-sourced course catalog, per-employee matrix with a status pill and a record-completion date field per cell, and an add-employee form. `selftest_sie.py check_training()` green offline (catalog derives the triggered cadence-bearing courses; a 2-yr-old annual completion → expired → high monitor alert; a fresh one → current); `selftest.py` green; all 8 LLM keys unset.
 
 **Goal:** grow training from KB-static into a living matrix.
 
@@ -106,6 +108,8 @@
 - Expiration drives `monitor_engine.py` alerts (reuse the existing deterministic monitor pattern).
 
 **Exit:** Origin can say, per company, who needs what training, what's expired, and why it's required.
+
+**Follow-ons (OPTIONAL / out-of-current-spec):** role→standard targeting (today every active employee needs every applicable company course; roles are stored but not yet used to narrow assignment — add a role→CFR map when one exists); GC-scoped training access (add `/api/training/*` to the GC allowlist with per-company ownership — Stage 3 tenancy territory); and a spine `training`/`completion` node type (low-risk derived overlay, deferred to keep the green self-test the gate).
 
 ---
 
