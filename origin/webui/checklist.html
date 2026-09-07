@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Checklist — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F; --blue:#1F5FA8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:760px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  .sectlbl{font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px;font-weight:800}
+  label.fld{display:block;font-size:12px;font-weight:700;color:#556;letter-spacing:.3px;margin-bottom:5px}
+  select,input[type=text]{width:100%;padding:11px 12px;border:1px solid #C9CED6;border-radius:10px;font-size:15px;background:#fff;color:var(--charcoal)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px}
+  .row .grow{flex:1 1 220px}
+  .btn{appearance:none;border:0;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff}
+  .btn:hover{background:var(--red)}
+  .btn:disabled{background:#C9CED6;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--orange);background:var(--cream)}
+  .hidden{display:none}
+  /* meta banner for the loaded regulation */
+  .regmeta{background:var(--charcoal);color:#fff;border-radius:11px;padding:16px 18px;margin:6px 0 4px}
+  .regmeta .rt{font-size:16px;font-weight:800}
+  .regmeta .rs{font-size:12.5px;color:#C9CED6;margin-top:5px}
+  .regmeta a{color:var(--orange2);font-size:12px;text-decoration:none;font-weight:700}
+  .regmeta a:hover{text-decoration:underline}
+  .counts{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+  .pill{font-size:12px;font-weight:800;border-radius:20px;padding:4px 12px}
+  .pill.meas{background:#DDE9F6;color:#1a4b86} .pill.insp{background:#FBEAD1;color:#8a5a09}
+  .pill.att{background:#E6E8EB;color:#4a4f57}
+  /* field cards */
+  .field{border:1px solid var(--line);border-left:6px solid var(--grey);border-radius:11px;padding:15px 17px;margin-bottom:14px;background:#fff}
+  .field.measurement{border-left-color:var(--blue)} .field.inspection{border-left-color:var(--amber)} .field.attestation{border-left-color:var(--grey)}
+  .field .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .field .fl{font-weight:800;color:var(--charcoal);font-size:15.5px}
+  .typ{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;border-radius:6px;padding:3px 9px;color:#fff;white-space:nowrap}
+  .typ.measurement{background:var(--blue)} .typ.inspection{background:var(--amber)} .typ.attestation{background:var(--grey)}
+  .field .req{font-size:13.5px;color:var(--ink);margin-top:9px}
+  .metaline{font-size:12px;color:var(--grey);margin-top:8px}
+  .metaline b{color:var(--charcoal)}
+  .citechip{display:inline-block;font-size:11.5px;font-weight:800;color:var(--red);background:#FBF4EF;border:1px solid #F0D9C9;border-radius:7px;padding:3px 9px;margin-top:10px}
+  /* response inputs */
+  .resp{margin-top:12px}
+  .numwrap{display:flex;align-items:center;gap:8px;max-width:260px}
+  .numwrap input{width:120px}
+  .unit{font-size:13px;color:var(--grey);font-weight:700}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{appearance:none;border:0;background:#fff;color:var(--ink);padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button.on.yes{background:var(--green);color:#fff} .seg button.on.no{background:var(--red);color:#fff}
+  .seg button.on.na{background:var(--grey);color:#fff}
+  .evla{font-size:12px;font-weight:800;border-radius:20px;padding:3px 11px;margin-left:8px}
+  .evla.ok{background:#DBEEE2;color:#155e35} .evla.flag{background:#F6DAD0;color:#8f2e10}
+  /* AHA matrix */
+  .aha{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:14px}
+  .aha .ah{background:#F7F7F8;padding:12px 15px;font-weight:800;color:var(--charcoal);font-size:14.5px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+  .aha .cc{font-size:11.5px;color:var(--grey);font-weight:700}
+  .aha ul{margin:0;padding:12px 15px 12px 32px;font-size:13px;color:var(--ink)}
+  .aha ul li{margin-bottom:6px}
+  .aha .ac{font-size:11.5px;color:var(--red);font-weight:800;padding:0 15px 12px}
+  .disc{font-size:11.5px;color:var(--grey);margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
+  .errbox{background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange);border-radius:10px;padding:14px 16px;font-size:14px;margin-top:16px}
+  .working{text-align:center;padding:34px 20px;color:var(--grey)}
+  .spin{width:32px;height:32px;border:4px solid var(--line);border-top-color:var(--orange);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+  @media print{
+    body{background:#fff}
+    header.brand,.rule,footer.foot,.controls,.btn,.seg button{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .controls{display:none}
+    .card{box-shadow:none}
+  }
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C1F24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}</script>
+<script defer src="/pwa-install.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a id="backLink" href="/sie" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Safety Intelligence</a><span class="tag">Field Checklist · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+
+      <div id="intro">
+        <h1>The law becomes your field checklist</h1>
+        <p class="lede">Pick a field activity and Origin turns the governing regulation's own text into a mobile checklist — measurements, shift inspections, and attestations — each tied to the exact citation it comes from. Nothing is hand-written: change the regulation in the knowledge base and this checklist changes with it. It also builds the Activity Hazard Analysis straight from those same requirements.</p>
+
+        <div class="controls">
+          <div class="row">
+            <div class="grow">
+              <label class="fld" for="actPick">Field activity</label>
+              <select id="actPick"><option value="">— Choose an activity —</option></select>
+            </div>
+            <div class="grow">
+              <label class="fld" for="citIn">…or load a citation directly</label>
+              <input type="text" id="citIn" placeholder="e.g. EM 385-1-1 Section 25">
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn" id="loadBtn" type="button">Build checklist</button>
+            <button class="btn ghost" id="printBtn" type="button" style="display:none">Print / save PDF</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="working" class="hidden">
+        <div class="working"><div class="spin"></div>
+          <div style="font-weight:800;color:var(--charcoal);font-size:15px">Reading the regulation…</div>
+          <div style="font-size:13px;margin-top:5px">Turning the law text into field requirements.</div>
+        </div>
+      </div>
+
+      <div id="result" class="hidden">
+        <div id="regmeta"></div>
+        <div id="counts" class="counts"></div>
+        <div class="sectlbl">Checklist</div>
+        <div id="fields"></div>
+        <div id="ahaWrap"></div>
+        <div class="disc" id="rdisc"></div>
+      </div>
+
+      <div id="err"></div>
+
+    </div>
+    <footer class="foot">Origin · regulation-grounded field checklist — not an official inspection or legal advice</footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var _params = new URLSearchParams(location.search);
+
+  // ?back= returns the user to their own dashboard; ?embed=1 strips the brand bar
+  // when this page is embedded as a tab inside another console.
+  try {
+    var _bk = _params.get('back');
+    var _allow = { '/admin':'Admin', '/gc':'Dashboard', '/portal':'Portal', '/sie':'Safety Intelligence' };
+    if (_bk && _allow.hasOwnProperty(_bk)) {
+      var _bl = $('backLink');
+      if (_bl){ _bl.setAttribute('href', _bk); _bl.textContent = '← ' + _allow[_bk]; }
+    }
+    if (_params.get('embed') === '1') {
+      var _hdr = document.querySelector('header.brand'); if (_hdr) _hdr.style.display = 'none';
+      var _rl = document.querySelector('.rule'); if (_rl) _rl.style.display = 'none';
+      var _wr = document.querySelector('.wrap'); if (_wr) _wr.style.padding = '0';
+      document.body.style.background = 'transparent';
+    }
+  } catch(e){}
+
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function showError(msg){
+    $('working').classList.add('hidden');
+    var box = document.createElement('div');
+    box.className = 'errbox'; box.textContent = msg;
+    $('err').innerHTML = ''; $('err').appendChild(box);
+    setTimeout(function(){ if(box.parentNode) box.parentNode.removeChild(box); }, 9000);
+  }
+
+  // Populate the activity picker from the engine's own status (its mapped set),
+  // so the UI never hardcodes what the backend supports.
+  fetch('/api/checklist/status', { headers:{'Accept':'application/json'} })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      var acts = (j && j.activities) || [];
+      var sel = $('actPick');
+      acts.forEach(function(a){
+        var o = document.createElement('option');
+        o.value = a; o.textContent = a.replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+        sel.appendChild(o);
+      });
+    })
+    .catch(function(){});
+
+  function cadenceText(c){
+    if(!c) return '';
+    if(c.kind === 'per_shift') return 'Before each shift';
+    if(c.kind === 'daily') return 'Daily';
+    if(c.kind === 'after_rain') return 'After every rainstorm';
+    if(c.kind === 'annual') return 'Annually';
+    if(c.kind === 'every_n') return 'Every ' + c.interval + ' ' + c.period + (c.interval>1?'s':'');
+    return c.kind;
+  }
+  function cmpText(t){
+    if(!t) return '';
+    var m = {gte:'at least', lte:'no more than', within:'within', eq:'exactly'};
+    return (m[t.comparator]||'') + ' ' + t.value + ' ' + t.unit;
+  }
+
+  // Live evaluation of a measurement entry against its threshold, so the field
+  // person gets an immediate compliant / flag read as they type.
+  function evalMeasure(inputEl, t, tagEl){
+    var v = parseFloat(inputEl.value);
+    if(isNaN(v)){ tagEl.className = 'evla'; tagEl.textContent = ''; return; }
+    var ok;
+    switch(t.comparator){
+      case 'gte': ok = v >= t.value; break;
+      case 'lte': ok = v <= t.value; break;
+      case 'within': ok = v <= t.value; break;   // "within X" = must not exceed
+      default: ok = v === t.value;
+    }
+    tagEl.className = 'evla ' + (ok ? 'ok' : 'flag');
+    tagEl.textContent = ok ? 'compliant' : 'flag';
+  }
+
+  function fieldCard(f){
+    var wrap = document.createElement('div');
+    wrap.className = 'field ' + esc(f.type);
+    var h = '<div class="top"><div class="fl">' + esc(f.label) + '</div>' +
+            '<span class="typ ' + esc(f.type) + '">' + esc(f.type) + '</span></div>';
+    if(f.requirement) h += '<div class="req">' + esc(f.requirement) + '</div>';
+    var meta = [];
+    if(f.threshold) meta.push('Threshold: <b>' + esc(cmpText(f.threshold)) + '</b>');
+    if(f.cadence) meta.push('Cadence: <b>' + esc(cadenceText(f.cadence)) + '</b>');
+    if(f.hazard && f.hazard !== 'General') meta.push('Hazard: <b>' + esc(f.hazard) + '</b>');
+    if(meta.length) h += '<div class="metaline">' + meta.join(' &nbsp;·&nbsp; ') + '</div>';
+    if(f.citation) h += '<div><span class="citechip">' + esc(f.citation) + '</span></div>';
+    wrap.innerHTML = h;
+
+    // response input by declared type
+    var resp = document.createElement('div'); resp.className = 'resp';
+    if(f.response === 'number'){
+      var nw = document.createElement('div'); nw.className = 'numwrap';
+      var inp = document.createElement('input'); inp.type = 'number'; inp.step = 'any';
+      inp.placeholder = 'measured';
+      var unit = document.createElement('span'); unit.className = 'unit';
+      unit.textContent = (f.threshold && f.threshold.unit) ? f.threshold.unit : '';
+      var tag = document.createElement('span'); tag.className = 'evla';
+      nw.appendChild(inp); if(unit.textContent) nw.appendChild(unit); nw.appendChild(tag);
+      if(f.threshold){ inp.addEventListener('input', function(){ evalMeasure(inp, f.threshold, tag); }); }
+      resp.appendChild(nw);
+    } else if(f.response === 'date'){
+      var d = document.createElement('input'); d.type = 'date';
+      d.style.cssText = 'max-width:200px;padding:10px 12px;border:1px solid #C9CED6;border-radius:9px;font-size:14px';
+      resp.appendChild(d);
+    } else {
+      var seg = document.createElement('div'); seg.className = 'seg';
+      [['yes','Yes'],['no','No'],['na','N/A']].forEach(function(pair){
+        var b = document.createElement('button'); b.type = 'button';
+        b.textContent = pair[1]; b.setAttribute('data-v', pair[0]);
+        b.addEventListener('click', function(){
+          Array.prototype.forEach.call(seg.children, function(c){ c.className = ''; });
+          b.className = 'on ' + pair[0];
+        });
+        seg.appendChild(b);
+      });
+      resp.appendChild(seg);
+    }
+    wrap.appendChild(resp);
+    return wrap;
+  }
+
+  function renderAha(aha){
+    if(!aha || !aha.ok || !(aha.rows||[]).length){ $('ahaWrap').innerHTML = ''; return; }
+    var h = '<div class="sectlbl">Activity Hazard Analysis — ' + esc(aha.activity) + '</div>';
+    (aha.rows||[]).forEach(function(row){
+      h += '<div class="aha"><div class="ah"><span>' + esc(row.hazard) +
+           '</span><span class="cc">' + (row.control_count||0) + ' control' +
+           ((row.control_count||0)===1?'':'s') + '</span></div><ul>';
+      (row.controls||[]).forEach(function(c){ h += '<li>' + esc(c) + '</li>'; });
+      h += '</ul><div class="ac">' + esc(row.citation) + '</div></div>';
+    });
+    $('ahaWrap').innerHTML = h;
+  }
+
+  function render(spec, aha){
+    if(!spec || !spec.ok){
+      showError((spec && spec.error) || 'That citation could not be verified from the knowledge base, so no checklist was generated.');
+      $('working').classList.add('hidden'); $('intro').classList.remove('hidden');
+      return;
+    }
+    var m = '<div class="regmeta"><div class="rt">' + esc(spec.title || spec.citation) + '</div>' +
+            '<div class="rs">' + esc(spec.citation) +
+            (spec.jurisdiction ? ' · ' + esc(spec.jurisdiction) : '') +
+            (spec.source ? ' · ' + esc(spec.source) : '') + '</div>';
+    if(spec.source_url) m += '<a href="' + esc(spec.source_url) + '" target="_blank" rel="noopener">View source ↗</a>';
+    m += '</div>';
+    $('regmeta').innerHTML = m;
+
+    var c = {measurement:0, inspection:0, attestation:0};
+    (spec.fields||[]).forEach(function(f){ if(c[f.type]!==undefined) c[f.type]++; });
+    var cH = '';
+    if(c.measurement) cH += '<span class="pill meas">' + c.measurement + ' measurement</span>';
+    if(c.inspection)  cH += '<span class="pill insp">' + c.inspection + ' inspection</span>';
+    if(c.attestation) cH += '<span class="pill att">' + c.attestation + ' attestation</span>';
+    $('counts').innerHTML = cH;
+
+    var host = $('fields'); host.innerHTML = '';
+    (spec.fields||[]).forEach(function(f){ host.appendChild(fieldCard(f)); });
+
+    renderAha(aha);
+    $('rdisc').textContent = 'This checklist is generated from the regulatory text on file for ' +
+      (spec.citation||'this citation') + '. Verify each requirement against the official source before acting; it is a field aid, not an official inspection or legal advice.';
+
+    $('working').classList.add('hidden');
+    $('intro').classList.add('hidden');
+    $('result').classList.remove('hidden');
+    $('printBtn').style.display = 'inline-block';
+    window.scrollTo(0,0);
+  }
+
+  function build(){
+    var activity = ($('actPick').value || '').trim();
+    var citation = ($('citIn').value || '').trim();
+    if(!activity && !citation){ showError('Pick an activity or type a citation first.'); return; }
+    $('err').innerHTML = '';
+    $('intro').classList.add('hidden');
+    $('working').classList.remove('hidden');
+    $('result').classList.add('hidden');
+
+    // Activity path: resolve the AHA (which carries the governing citation) and
+    // the checklist for that citation. Citation path: checklist only, plus an AHA
+    // attempt keyed by the activity if one was also chosen.
+    var ahaP = activity
+      ? fetch('/api/checklist/aha', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ activity: activity }) }).then(function(r){ return r.json(); })
+      : Promise.resolve(null);
+
+    ahaP.then(function(aha){
+      var cit = citation || (aha && aha.ok && aha.citation) || '';
+      if(!cit){
+        showError((aha && aha.error) || 'No governing citation found for that activity.');
+        $('working').classList.add('hidden'); $('intro').classList.remove('hidden');
+        return;
+      }
+      fetch('/api/checklist/' + encodeURIComponent(cit), { headers:{'Accept':'application/json'} })
+        .then(function(r){ return r.json(); })
+        .then(function(spec){ render(spec, aha); })
+        .catch(function(){ showError('Could not reach the checklist engine. Please try again.');
+          $('working').classList.add('hidden'); $('intro').classList.remove('hidden'); });
+    }).catch(function(){
+      showError('Could not reach the checklist engine. Please try again.');
+      $('working').classList.add('hidden'); $('intro').classList.remove('hidden');
+    });
+  }
+
+  $('loadBtn').addEventListener('click', build);
+  $('citIn').addEventListener('keydown', function(e){ if(e.key === 'Enter') build(); });
+  $('printBtn').addEventListener('click', function(){ window.print(); });
+
+  // Deep-link support: ?activity= or ?citation= builds immediately on open.
+  (function(){
+    var a = _params.get('activity'), c = _params.get('citation');
+    if(a){ $('actPick').value = a; }
+    if(c){ $('citIn').value = c; }
+    if(a || c){ build(); }
+  })();
+})();
+</script>
+</body>
+</html>

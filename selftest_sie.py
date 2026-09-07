@@ -970,6 +970,96 @@ def check_checklists(client, token: str) -> None:
           "hazard — every field cited, unverifiable citations refused, no model")
 
 
+# ── The eCFR ingest adapter (offline, fixture-injected — never touches network) ─
+# A representative slice of 29 CFR 1926.651 (Specific excavation requirements),
+# in the same GPO/eCFR XML shape the live versioner returns. It carries the four
+# imperative shapes the parser must recover: a >=5 ft measurement, a >=2 ft
+# spoil-setback measurement, a DAILY competent-person inspection, and plain
+# "shall" attestations. This is a TEST FIXTURE, not seeded regulatory content.
+_ECFR_1926_651_FIXTURE = """<?xml version="1.0" encoding="UTF-8"?>
+<DIV8 TYPE="SECTION" N="1926.651">
+  <HEAD>&#167; 1926.651 Specific excavation requirements.</HEAD>
+  <P>Each employee in an excavation shall be protected from cave-ins by an
+     adequate protective system designed in accordance with this section.</P>
+  <P>A competent person shall inspect excavations daily and as conditions
+     change to identify hazardous conditions before the start of work.</P>
+  <P>In excavations that are 5 feet or more in depth, a stairway, ladder, ramp,
+     or other safe means of egress shall be provided.</P>
+  <P>Employees shall be protected from excavated or other materials by keeping
+     such materials at least 2 feet from the edge of the excavation.</P>
+</DIV8>"""
+
+
+def check_ecfr(client, token: str) -> None:
+    """The eCFR ingest adapter, fully offline via an injected fixture fetcher.
+
+    The router's parser is source-agnostic: a CFR section's TEXT pulled from the
+    eCFR must flow through the very same machinery as the EM 385 seed. We inject a
+    cached 29 CFR 1926.651 payload so the test is 100% network-free.
+
+      1. ingest_section with the fixture fetcher fetches, cleans the XML to plain
+         text, writes it into the versioned knowledge store, and reports how many
+         field requirements the parser derives (>=3).
+      2. The section then RESOLVES like any other brain: checklist_from_regulation
+         yields a dynamic form with a >=5 ft measurement, a 2 ft setback
+         measurement, a daily inspection, and attestations — every field cited to
+         "29 CFR 1926.651", nothing invented.
+      3. A fetcher that raises (network down) returns ok=False with an error and
+         writes NOTHING — a failed pull is unverifiable, never fabricated."""
+    from origin import ecfr_adapter, checklist_engine
+
+    captured = {}
+
+    def _fixture_fetcher(url: str) -> str:
+        captured["url"] = url          # prove the URL was built, but serve cache
+        return _ECFR_1926_651_FIXTURE
+
+    # 1. Ingest the section from the (fixture) eCFR payload.
+    res = ecfr_adapter.ingest_section(
+        29, "1926", "1926.651",
+        industry_scope=["construction"],
+        hazard_category=["excavation"],
+        fetcher=_fixture_fetcher,
+    )
+    assert res.get("ok"), res
+    assert res.get("citation") == "29 CFR 1926.651", res
+    assert res.get("field_count", 0) >= 3, res
+    assert "ecfr.gov" in captured.get("url", ""), captured  # real URL was built
+
+    # 2. It now generates a cited checklist through the shared parser.
+    spec = checklist_engine.checklist_from_regulation("29 CFR 1926.651")
+    assert spec.get("ok"), spec
+    fields = spec.get("fields") or []
+    types = {f["type"] for f in fields}
+    assert {"measurement", "inspection", "attestation"} <= types, types
+    assert any(f.get("threshold") and f["threshold"].get("value") == 5
+               and f["threshold"].get("unit") == "ft"
+               and f["threshold"].get("comparator") == "gte" for f in fields), \
+        "expected a >=5 ft egress measurement from the eCFR text"
+    assert any(f.get("threshold") and f["threshold"].get("value") == 2
+               and f["threshold"].get("unit") == "ft" for f in fields), \
+        "expected a 2 ft spoil-setback measurement from the eCFR text"
+    assert any(f.get("cadence") and f["cadence"].get("kind") == "daily"
+               for f in fields), "expected a daily competent-person inspection"
+    assert all(f.get("citation") == "29 CFR 1926.651" for f in fields), \
+        "every field must be cited to its CFR section — never invented"
+
+    # 3. Network failure → refused, and nothing written.
+    def _dead_fetcher(url: str) -> str:
+        raise OSError("simulated network failure")
+
+    fail = ecfr_adapter.ingest_section(
+        49, "395", "395.8", fetcher=_dead_fetcher)
+    assert not fail.get("ok") and fail.get("error"), fail
+    assert not checklist_engine.checklist_from_regulation("49 CFR 395.8").get("ok"), \
+        "a failed fetch must not leave a resolvable (fabricated) section behind"
+
+    print("[pass] eCFR adapter: 29 CFR 1926.651 TEXT pulled from a (fixture) eCFR "
+          "payload ingests into the same store and auto-generates a cited checklist "
+          "(>=5 ft egress + 2 ft setback measurements, daily inspection, "
+          "attestations); a network failure is refused, never fabricated")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -993,6 +1083,7 @@ def main() -> int:
         check_training(client, token)
         check_gc_scope(client, token)
         check_checklists(client, token)
+        check_ecfr(client, token)
     finally:
         try:
             eng.shutdown()

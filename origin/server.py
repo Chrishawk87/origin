@@ -1537,6 +1537,18 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return sie_html.read_text(encoding="utf-8")
         return "<h1>Safety Intelligence Engine</h1><p>Console page missing.</p>"
 
+    # ── Field Checklist — the Universal Regulatory Router's field page ────────
+    # Renders the dynamic checklist + AHA matrix generated from regulatory text
+    # by checklist_engine. The page is a shell; /api/checklist/* endpoints are
+    # the deterministic engine, owner-gated like the rest.
+    checklist_html = Path(__file__).parent / "webui" / "checklist.html"
+
+    @app.get("/checklist", response_class=HTMLResponse)
+    def checklist_page():
+        if checklist_html.is_file():
+            return checklist_html.read_text(encoding="utf-8")
+        return "<h1>Field Checklist</h1><p>Tool page missing.</p>"
+
     # ── App launcher (the installed PWA opens here) ───────────────────────────
     # Routes each phone to whichever dashboard it is signed in to — owner/admin,
     # GC, or contractor — instead of dumping everyone on the internal AI console.
@@ -2180,6 +2192,18 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _checklist.register_checklists(app)
     except Exception as _checklist_exc:  # pragma: no cover
         print(f"[checklist] disabled — registration failed: {_checklist_exc}")
+
+    # eCFR ingest adapter — the live "the law updates, the app updates" pipeline.
+    # A deliberate owner action (POST /api/ecfr/ingest) pulls a CFR section's
+    # current text from the eCFR and writes it into the same knowledge store, so
+    # it generates a dynamic checklist through the parser above. Network is only
+    # touched on that explicit request, never at import/boot. Owner-gated,
+    # isolated + non-fatal.
+    try:
+        from . import ecfr_adapter as _ecfr
+        _ecfr.register_ecfr(app)
+    except Exception as _ecfr_exc:  # pragma: no cover
+        print(f"[ecfr] disabled — registration failed: {_ecfr_exc}")
 
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and

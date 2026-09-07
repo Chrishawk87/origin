@@ -159,6 +159,7 @@
   <button class="tab" data-tab="review">Review <span class="cnt zero" id="cnt-review">0</span></button>
   <button class="tab" data-tab="training">Training <span class="cnt zero" id="cnt-training">0</span></button>
   <button class="tab" data-tab="citation">Citation</button>
+  <button class="tab" data-tab="checklist">Checklist</button>
   <button class="tab" data-tab="photo">Photo Audit</button>
 </div>
 
@@ -341,6 +342,15 @@
     </div>
   </section>
 
+  <!-- ══ CHECKLIST ══ -->
+  <!-- The Universal Regulatory Router's field page, embedded so the console stays
+       one page / one nav. Regulatory text becomes a live checklist + AHA matrix;
+       change the law in the knowledge base and this changes with it. -->
+  <section class="panel" id="p-checklist">
+    <iframe id="clFrame" title="Field Checklist" data-src="/checklist?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
   <!-- ══ PHOTO AUDIT ══ -->
   <!-- The proven camera walk-through tool, embedded so the console is one page,
        one nav. Findings a user captures here are saved to the picked company and
@@ -388,6 +398,7 @@ const INIT = {
   review: loadReview,
   training: ()=>fillCompanySelect('tr-co', loadTraining),
   citation: ()=>{},
+  checklist: ()=>{ const f=$('#clFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
   photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
 };
 
