@@ -156,6 +156,7 @@
   <button class="tab" data-tab="programs">Programs</button>
   <button class="tab" data-tab="prequal">Prequal</button>
   <button class="tab" data-tab="audits">Audits</button>
+  <button class="tab" data-tab="review">Review <span class="cnt zero" id="cnt-review">0</span></button>
   <button class="tab" data-tab="citation">Citation</button>
   <button class="tab" data-tab="photo">Photo Audit</button>
 </div>
@@ -269,6 +270,30 @@
     <div class="card hidden" id="auditDetail"></div>
   </section>
 
+  <!-- ══ REVIEW ══ -->
+  <!-- Human-review inbox. Every unmatched or low-confidence finding lands here.
+       Nothing model-derived becomes authoritative until a person approves it —
+       the decision writes straight back to the audit → CAPA chain. -->
+  <section class="panel" id="p-review">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Human-review inbox</h1><p class="lede">Unmatched and low-confidence findings wait here. Approve to open a CAPA (correct the citation first if needed), or reject to dismiss. Every decision is logged and written back to the chain.</p></div>
+        <button class="btn ghost sm" onclick="loadReview()">Refresh</button>
+      </div>
+      <div class="tiles" id="reviewTiles"></div>
+      <div class="row" style="margin-top:6px">
+        <div class="fld sm"><label>Filter</label>
+          <select id="rv-status" onchange="loadReview()">
+            <option value="pending">Pending decisions</option>
+            <option value="">All items</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select></div>
+      </div>
+      <div id="reviewList"><div class="empty">Loading…</div></div>
+    </div>
+  </section>
+
   <!-- ══ CITATION ══ -->
   <section class="panel" id="p-citation">
     <div class="card">
@@ -331,6 +356,7 @@ const INIT = {
   programs: ()=>fillCompanySelect('pg-co', loadPackage),
   prequal: ()=>fillCompanySelect('pq-co'),
   audits: loadAudits,
+  review: loadReview,
   citation: ()=>{},
   photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
 };
@@ -745,6 +771,61 @@ async function auditDetail(id){
 async function promote(aid,fid){
   await api('/api/audit/'+encodeURIComponent(aid)+'/promote/'+encodeURIComponent(fid),{method:'POST',body:JSON.stringify({})});
   auditDetail(aid);
+}
+
+// ── REVIEW (human-review inbox) ─────────────────────────────────────────────
+const RV_REASON={unmatched:'Unmatched — no citation found',low_confidence:'Low-confidence detection'};
+async function loadReview(){
+  // overview drives the tiles + the tab badge; list auto-ingests server-side
+  const ov=await api('/api/review/overview'); const o=ov.j||{};
+  const pend=o.pending||0;
+  $('#cnt-review').textContent=pend;
+  $('#cnt-review').classList.toggle('zero',pend===0);
+  $('#reviewTiles').innerHTML=tile(pend,'Pending','hi')+tile(o.approved||0,'Approved')+tile(o.rejected||0,'Rejected')+tile(o.total||0,'Total');
+  const status=$('#rv-status')?$('#rv-status').value:'pending';
+  const {j}=await api('/api/review/list'+(status?('?status='+encodeURIComponent(status)):''));
+  renderReviewItems((j&&j.items)||[]);
+}
+function renderReviewItems(items){
+  const el=$('#reviewList');
+  if(!items.length){ el.innerHTML='<div class="empty">Nothing waiting. Unmatched or low-confidence findings will appear here.</div>'; return; }
+  el.innerHTML=items.map(reviewCard).join('');
+}
+function reviewCard(it){
+  const sev=(it.severity||'medium').toLowerCase();
+  const decided=it.status&&it.status!=='pending';
+  const conf=(it.confidence!=null)?`<span class="chip">confidence ${it.confidence}</span>`:'';
+  const reason=RV_REASON[it.reason]||it.reason||'';
+  const stdVal=esc(it.standard||'');
+  let foot;
+  if(decided){
+    const ra=it.resulting_action||{};
+    const tag=it.status==='approved'?`<span class="pill sev high">approved</span>`:`<span class="pill sev medium">rejected</span>`;
+    const cap=ra.capa_id?` · CAPA ${esc(ra.capa_id)}`:(ra.type==='dismissed'?' · dismissed':'');
+    foot=`<div class="m">${tag} by ${esc(it.reviewer||it.decided_by||'—')} · ${esc(fmt(it.decided_at||''))}${cap}${it.note?' · “'+esc(it.note)+'”':''}</div>`;
+  }else{
+    foot=`<div class="row" style="margin-top:10px;gap:8px;align-items:flex-end">
+      <div class="fld sm" style="flex:1;min-width:180px"><label>Citation to attach (optional)</label>
+        <input id="rv-std-${esc(it.id)}" placeholder="29 CFR 1926.xxx" value="${stdVal}"></div>
+      <button class="btn sm" onclick="approveItem('${esc(it.id)}')">Approve → open CAPA</button>
+      <button class="btn ghost sm" onclick="rejectItem('${esc(it.id)}')">Reject</button>
+    </div>`;
+  }
+  return `<div class="item ${sev}">
+    <div class="t">${esc(it.title||'Finding')} <span class="pill sev ${sev}">${esc(it.severity||'medium')}</span> ${conf}</div>
+    <div class="d">${esc(it.company||'')}${reason?' · '+esc(reason):''}</div>
+    ${it.standard&&decided?`<div class="m">${stdVal}</div>`:''}
+    ${foot}</div>`;
+}
+async function approveItem(id){
+  const inp=$('#rv-std-'+id); const std=inp?inp.value.trim():'';
+  const edits=std?{standard:std}:null;
+  await api('/api/review/'+encodeURIComponent(id)+'/approve',{method:'POST',body:JSON.stringify(edits?{edits}:{})});
+  loadReview();
+}
+async function rejectItem(id){
+  await api('/api/review/'+encodeURIComponent(id)+'/reject',{method:'POST',body:JSON.stringify({})});
+  loadReview();
 }
 
 // ── CITATION ───────────────────────────────────────────────────────────────

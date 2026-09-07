@@ -94,7 +94,7 @@
 
 **Exit:** nothing model-derived reaches a customer as authoritative without a logged human decision available.
 
-**Follow-on (not blocking the exit):** the `/sie` console *inbox tab* (the model layer is done; the UI surface is a deliberate next step, like the GC-facing SIE was after Stage 3), GC-scoped review access (add `/api/review/*` to the GC allowlist with per-company ownership once GCs work their own queues), and the generic `source_type` path for model-authored prose — the store already accepts it; it is wired only for `audit_finding` today because that is the sole live producer (spine rule: add a type only when live data supports it).
+**Follow-on status:** the `/sie` console **Review inbox tab is now SHIPPED (2026-09-07)** — a tab in `sie.html` with a pending/approved/rejected/total tile row, a status filter, and per-item cards that let a safety professional attach/correct a citation and approve (→ opens a CAPA via `/api/review/{id}/approve`) or reject (→ dismisses via `/api/review/{id}/reject`); the tab badge shows the pending count from `/api/review/overview`. Two follow-ons remain OPTIONAL / out-of-current-spec: GC-scoped review access (add `/api/review/*` to the GC allowlist with per-company ownership once GCs work their own queues — this is Stage 3 tenancy territory, not Stage 5) and the generic `source_type` path for model-authored prose (the store already accepts it; it is wired only for `audit_finding` today because that is the sole live producer — spine rule: add a type only when live data supports it, so building it now would be speculative).
 
 ---
 
