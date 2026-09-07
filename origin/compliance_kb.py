@@ -572,6 +572,107 @@ def state_plan_search(query: str, limit: int = 10) -> List[dict]:
     return [r for _, r in scored[:limit]]
 
 
+# ── Selectable states + deterministic jurisdiction resolver ──────────────────
+# Powers the Companies tab: a real dropdown of every U.S. jurisdiction, and a
+# deterministic answer to "is a private-sector contractor here under a State
+# Plan, Federal OSHA, or both?" — derived straight from state_plans.jsonl so
+# the answer is always traceable to a real record, never guessed.
+_US_STATES = [
+    ("AL", "Alabama"), ("AK", "Alaska"), ("AZ", "Arizona"), ("AR", "Arkansas"),
+    ("CA", "California"), ("CO", "Colorado"), ("CT", "Connecticut"),
+    ("DE", "Delaware"), ("DC", "District of Columbia"), ("FL", "Florida"),
+    ("GA", "Georgia"), ("HI", "Hawaii"), ("ID", "Idaho"), ("IL", "Illinois"),
+    ("IN", "Indiana"), ("IA", "Iowa"), ("KS", "Kansas"), ("KY", "Kentucky"),
+    ("LA", "Louisiana"), ("ME", "Maine"), ("MD", "Maryland"),
+    ("MA", "Massachusetts"), ("MI", "Michigan"), ("MN", "Minnesota"),
+    ("MS", "Mississippi"), ("MO", "Missouri"), ("MT", "Montana"),
+    ("NE", "Nebraska"), ("NV", "Nevada"), ("NH", "New Hampshire"),
+    ("NJ", "New Jersey"), ("NM", "New Mexico"), ("NY", "New York"),
+    ("NC", "North Carolina"), ("ND", "North Dakota"), ("OH", "Ohio"),
+    ("OK", "Oklahoma"), ("OR", "Oregon"), ("PA", "Pennsylvania"),
+    ("RI", "Rhode Island"), ("SC", "South Carolina"), ("SD", "South Dakota"),
+    ("TN", "Tennessee"), ("TX", "Texas"), ("UT", "Utah"), ("VT", "Vermont"),
+    ("VA", "Virginia"), ("WA", "Washington"), ("WV", "West Virginia"),
+    ("WI", "Wisconsin"), ("WY", "Wyoming"), ("PR", "Puerto Rico"),
+    ("VI", "U.S. Virgin Islands"), ("GU", "Guam"),
+]
+_CODE_TO_NAME = {c: n for c, n in _US_STATES}
+_NAME_TO_CODE = {n.lower(): c for c, n in _US_STATES}
+
+
+def us_states() -> List[dict]:
+    """Every selectable U.S. jurisdiction as [{code, name}], sorted by name.
+    Feeds the Companies tab state dropdown."""
+    return [{"code": c, "name": n}
+            for c, n in sorted(_US_STATES, key=lambda x: x[1])]
+
+
+def _state_name(state: str) -> str:
+    """Normalize a 2-letter code OR a full name to the canonical full name."""
+    s = (state or "").strip()
+    if not s:
+        return ""
+    if len(s) <= 3 and s.upper() in _CODE_TO_NAME:
+        return _CODE_TO_NAME[s.upper()]
+    # already a full name (case-insensitive) → canonical casing
+    if s.lower() in _NAME_TO_CODE:
+        return _CODE_TO_NAME[_NAME_TO_CODE[s.lower()]]
+    return s
+
+
+def jurisdiction_for(state: str) -> dict:
+    """Deterministic OSHA jurisdiction for a private-sector contractor in
+    <state> (2-letter code or full name). Traceable to state_plans.jsonl.
+
+    jurisdiction is one of:
+      • "state"   — an approved State Plan runs BOTH private and public sector
+                    (private-sector employers answer to the state agency).
+      • "both"    — a "Public sector only" State Plan: PRIVATE-sector work stays
+                    under Federal OSHA, while state/local government work is
+                    under the state plan. A contractor may touch both.
+      • "federal" — no State Plan: Federal OSHA has full authority.
+    """
+    name = _state_name(state)
+    code = _NAME_TO_CODE.get(name.lower(), (state or "").strip().upper())
+    rec = state_plan_for(name) if name else None
+    if not rec:
+        return {
+            "state": code, "state_name": name or (state or ""),
+            "jurisdiction": "federal",
+            "authority": "Federal OSHA",
+            "agency": "U.S. Department of Labor — OSHA",
+            "agency_url": "https://www.osha.gov",
+            "plan_type": None,
+            "note": ("No approved State Plan — Federal OSHA has full "
+                     "enforcement authority over private-sector employers."),
+        }
+    plan_type = rec.get("plan_type", "")
+    agency = rec.get("agency", "") or "State OSHA Plan"
+    agency_url = rec.get("agency_url", "") or "https://www.osha.gov"
+    if "public sector only" in plan_type.lower():
+        return {
+            "state": code, "state_name": name,
+            "jurisdiction": "both",
+            "authority": f"Federal OSHA (private) + {agency} (public sector)",
+            "agency": agency, "agency_url": agency_url,
+            "plan_type": plan_type,
+            "note": ("Public-sector-only State Plan: private-sector work is "
+                     "under Federal OSHA; state and local government work is "
+                     "under the state plan."),
+        }
+    return {
+        "state": code, "state_name": name,
+        "jurisdiction": "state",
+        "authority": agency,
+        "agency": agency, "agency_url": agency_url,
+        "plan_type": plan_type,
+        "note": ("Approved State Plan covering private and public sector — "
+                 "private-sector employers answer to the state agency (its "
+                 "standards are at least as effective as, and may exceed, "
+                 "Federal OSHA)."),
+    }
+
+
 # ── BLM federal-lands oil & gas (43 CFR 3160 et seq.) ────────────────────────
 # blm.jsonl — a deep, REFERENCE-only layer covering the Bureau of Land
 # Management's onshore oil & gas rulebook for FEDERAL and INDIAN leases: the

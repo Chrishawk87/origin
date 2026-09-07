@@ -129,6 +129,11 @@
   .rkline.keep{background:#FDECEA;color:#8A2A1B} .rkline.exempt{background:#EAF4EC;color:#2C6B3A}
   .src-tag{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px}
   .src-tag.baseline{background:#E7EEF6;color:#2C5F8A} .src-tag.triggered{background:var(--cream);color:#7A3413}
+  .jurisbadge{margin-top:12px;display:flex;gap:10px;align-items:flex-start;background:var(--light);border-radius:10px;padding:10px 13px}
+  .jurisbadge .jtxt{font-size:12px;line-height:1.45}
+  .jflag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:20px;padding:2px 9px;white-space:nowrap;text-transform:uppercase}
+  .jflag.state{background:#E7EEF6;color:#2C5F8A} .jflag.both{background:var(--cream);color:#7A3413} .jflag.federal{background:#EAECEF;color:#3A4048}
+  .scopeprev .rk.juris{margin-top:8px;background:#F1F4F8;color:#2A3540}
 </style>
 </head>
 <body>
@@ -191,12 +196,13 @@
       <details class="form" id="coForm"><summary>+ Add / update a company</summary>
         <div class="grid2" style="margin-top:10px">
           <div><label>Company name *</label><input id="co-name" placeholder="Acme Well Services"></div>
-          <div><label>Industry / trade</label><input id="co-industry" placeholder="oil and gas well servicing" autocomplete="off"><div id="co-naics-sug" class="naics-sug"></div></div>
-          <div><label>NAICS</label><input id="co-naics" placeholder="213112" autocomplete="off"></div>
-          <div><label>State</label><input id="co-state" placeholder="TX" maxlength="2"></div>
+          <div><label>Industry / trade</label><select id="co-industry"><option value="">Loading trades…</option></select></div>
+          <div><label>NAICS <span class="muted" style="font-size:11px">(auto from trade)</span></label><input id="co-naics" placeholder="213112" autocomplete="off"></div>
+          <div><label>State</label><select id="co-state"><option value="">Loading states…</option></select></div>
           <div><label>Headcount</label><input id="co-head" type="number" placeholder="45"></div>
           <div><label>Client platforms (comma-sep)</label><input id="co-plats" placeholder="ISNetworld, Veriforce"></div>
         </div>
+        <div id="co-juris" class="jurisbadge hidden"></div>
         <div class="scopewrap">
           <div class="row" style="justify-content:space-between;align-items:center">
             <label style="margin:0">Scope of work — hazards / activities on site</label>
@@ -426,13 +432,39 @@ const _debounce = (fn, ms=280) => { let t; return (...a)=>{ clearTimeout(t); t=s
 
 async function initCoForm(){
   if(CO_TRIGGERS) return;        // idempotent
-  const {j} = await api('/api/scoping/schema');
-  CO_TRIGGERS = (j&&j.triggers)||[];
+  const [sch, ind, sta] = await Promise.all([
+    api('/api/scoping/schema'),
+    api('/api/scoping/industries'),
+    api('/api/scoping/states'),
+  ]);
+  CO_TRIGGERS = (sch.j&&sch.j.triggers)||[];
   renderHazGrid(CO_TRIGGERS, new Set());
+
+  // Populate the industry dropdown (grouped), value = descriptive label so the
+  // keyword-matched hazard suggester still fires; data-naics auto-fills NAICS.
+  const inds=(ind.j&&ind.j.industries)||[];
+  const isel=$('#co-industry');
+  if(isel && inds.length){
+    const groups={}; inds.forEach(x=>{ (groups[x.group||'Other']||(groups[x.group||'Other']=[])).push(x); });
+    isel.innerHTML = '<option value="">Select a trade / industry…</option>' +
+      Object.keys(groups).map(g=>`<optgroup label="${esc(g)}">`+
+        groups[g].map(x=>`<option value="${esc(x.label)}" data-naics="${esc(x.naics)}" title="${esc(x.title||'')}">${esc(x.label)} — ${esc(x.naics)}</option>`).join('')
+        +`</optgroup>`).join('');
+    isel.addEventListener('change', coIndustryChanged);
+  }
+
+  // Populate the state dropdown.
+  const sts=(sta.j&&sta.j.states)||[];
+  const ssel=$('#co-state');
+  if(ssel && sts.length){
+    ssel.innerHTML = '<option value="">Select a state…</option>' +
+      sts.map(s=>`<option value="${esc(s.code)}">${esc(s.name)} (${esc(s.code)})</option>`).join('');
+    ssel.addEventListener('change', coStateChanged);
+  }
+
   const onScope = _debounce(coScopePreview, 320);
-  const ind = $('#co-industry');
-  if(ind){ ind.addEventListener('input', _debounce(coIndustryChanged, 320)); }
-  ['#co-naics','#co-state','#co-head'].forEach(sel=>{ const e=$(sel); if(e) e.addEventListener('input', onScope); });
+  const nx=$('#co-naics'); if(nx) nx.addEventListener('input', onScope);
+  const hd=$('#co-head'); if(hd) hd.addEventListener('input', onScope);
 }
 
 function renderHazGrid(triggers, preChecked){
@@ -450,31 +482,39 @@ function coSelectedHazards(){
 }
 
 async function coIndustryChanged(){
-  const text=$('#co-industry').value.trim();
-  if(!text){ $('#co-haz-hint').textContent=''; $('#co-naics-sug').innerHTML=''; coScopePreview(); return; }
-  // 1) pre-check likely hazards + 2) suggest NAICS codes, in parallel
-  const [sug, nx] = await Promise.all([
-    api('/api/scoping/suggest?industry='+encodeURIComponent(text)),
-    api('/api/scoping/naics?q='+encodeURIComponent(text)+'&limit=8'),
-  ]);
-  const sj=sug.j||{}, keys=new Set(sj.suggested||[]);
+  const sel=$('#co-industry');
+  const text=(sel.value||'').trim();
+  // Auto-fill the NAICS from the selected option.
+  const opt=sel.options[sel.selectedIndex];
+  const naics=opt?opt.getAttribute('data-naics'):'';
+  if(naics) $('#co-naics').value=naics;
+  if(!text){ $('#co-haz-hint').textContent=''; coScopePreview(); return; }
+  // Pre-check the likely hazards for this trade.
+  const {j:sj={}} = await api('/api/scoping/suggest?industry='+encodeURIComponent(text));
+  const keys=new Set(sj.suggested||[]);
   if(CO_TRIGGERS){
-    // merge auto-picks with anything the user already ticked
-    coSelectedHazards().forEach(k=>keys.add(k));
+    coSelectedHazards().forEach(k=>keys.add(k));   // keep anything already ticked
     renderHazGrid(CO_TRIGGERS, keys);
   }
   const matched=(sj.matched||[]);
   $('#co-haz-hint').textContent = matched.length ? ('Auto-checked from: '+matched.join(', ')) : '';
-  const results=(nx.j&&nx.j.results)||[];
-  $('#co-naics-sug').innerHTML = results.length
-    ? results.map(r=>`<span class="opt" onclick="coPickNaics('${esc(r.code)}')"><b>${esc(r.code)}</b> ${esc(r.title)}</span>`).join('')
-    : '';
   coScopePreview();
 }
 
-function coPickNaics(code){
-  $('#co-naics').value=code;
-  $('#co-naics-sug').innerHTML='';
+async function coStateChanged(){
+  const code=($('#co-state').value||'').trim();
+  const badge=$('#co-juris');
+  if(!code){ if(badge){ badge.classList.add('hidden'); badge.innerHTML=''; } coScopePreview(); return; }
+  const {j} = await api('/api/scoping/jurisdiction?state='+encodeURIComponent(code));
+  const ju=(j&&j.jurisdiction)||null;
+  if(badge && ju){
+    const kind=ju.jurisdiction; // federal | state | both
+    const label = kind==='state' ? 'State Plan' : kind==='both' ? 'State Plan + Federal OSHA' : 'Federal OSHA';
+    badge.classList.remove('hidden');
+    badge.innerHTML = `<span class="jflag ${esc(kind)}">${esc(label)}</span>
+      <span class="jtxt"><b>${esc(ju.authority||'')}</b> — ${esc(ju.note||'')}
+      ${ju.agency_url?` <a href="${esc(ju.agency_url)}" target="_blank" rel="noopener">${esc(ju.agency||'agency')}</a>`:''}</span>`;
+  }
   coScopePreview();
 }
 
@@ -493,10 +533,15 @@ async function coScopePreview(){
   const rkLine = rk.reason
     ? `<div class="rk ${rk.must_keep_300_log?'keep':'exempt'}"><b>${rk.must_keep_300_log?'300-Log required':'300-Log: partially exempt'}</b> — ${esc(rk.reason)}</div>`
     : '';
+  const ju=sc.jurisdiction||null;
+  const juLine = ju
+    ? `<div class="rk juris"><span class="jflag ${esc(ju.jurisdiction)}">${ju.jurisdiction==='state'?'State Plan':ju.jurisdiction==='both'?'State Plan + Federal':'Federal OSHA'}</span> <b>${esc(ju.authority||'')}</b> — ${esc(ju.note||'')}</div>`
+    : '';
   box.classList.remove('hidden');
   box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline">
       <b>${esc(sc.sector_label||sc.sector||'Scope')}</b>
       <span class="muted" style="font-size:12px">${sc.required_count||0} required · ${sc.baseline_count||0} baseline · ${sc.triggered_count||0} triggered</span></div>
+    ${juLine}
     ${rkLine}
     <div class="stdlist">${stds.map(s=>`<div class="std">
       <span class="src-tag ${s.source==='triggered'?'triggered':'baseline'}">${s.source==='triggered'?'triggered':'baseline'}</span>

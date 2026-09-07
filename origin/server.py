@@ -1299,6 +1299,33 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=400)
 
+    @app.get("/api/scoping/industries")
+    def scoping_industries():
+        # Curated selectable trade/industry catalog for the Companies tab.
+        # Selecting a label auto-fills its NAICS and arms hazard triggers.
+        try:
+            return {"ok": True, "industries": _scoping.industries()}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    @app.get("/api/scoping/states")
+    def scoping_states():
+        # Every selectable U.S. jurisdiction for the state dropdown.
+        from . import compliance_kb as _kb
+        try:
+            return {"ok": True, "states": _kb.us_states()}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    @app.get("/api/scoping/jurisdiction")
+    def scoping_jurisdiction(state: str = ""):
+        # Deterministic State Plan / Federal OSHA / both for the selected state.
+        from . import compliance_kb as _kb
+        try:
+            return {"ok": True, "jurisdiction": _kb.jurisdiction_for(state)}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     # ── HazCom chemical-inventory builder (29 CFR 1910.1200) — internal tool ──
     from . import hazcom as _hazcom
     hazcom_html = Path(__file__).parent / "webui" / "hazcom.html"

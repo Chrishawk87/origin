@@ -409,12 +409,17 @@ def scope_company(profile: Dict[str, Any]) -> Dict[str, Any]:
     # 3) Recordkeeping obligation.
     recordkeeping = _recordkeeping_obligation(naics, headcount)
 
+    # 4) OSHA jurisdiction — State Plan / Federal / both — from the selected
+    #    state, deterministic and traceable to state_plans.jsonl.
+    jurisdiction = kb.jurisdiction_for(state) if state else None
+
     standards = sorted(stubs.values(), key=lambda x: (x.get("source") != "baseline", x.get("category", ""), x.get("title", "")))
     return {
         "company": profile.get("company", ""),
         "industry": industry,
         "naics": naics,
         "state": state,
+        "jurisdiction": jurisdiction,
         "headcount": headcount,
         "sector": sector,
         "sector_label": base.get("sector_label"),
@@ -430,3 +435,127 @@ def scope_company(profile: Dict[str, Any]) -> Dict[str, Any]:
                       if isinstance(o, str) and o.strip()] if isinstance(profile.get("operators"), list)
                      else [o.strip() for o in str(profile.get("operators") or "").split(",") if o.strip()],
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Selectable industry / trade catalog for the Companies tab.
+#
+# Each label is written to CONTAIN the keyword stems suggest_activities() looks
+# for (roof, electric, plumb, concrete, mason, glaz, drywall, insulation, paint,
+# floor, carpentr, excavat, framing, sprinkler/fire protect, fabricat,
+# maintenance, warehouse, landscap, remediation/environmental, oil, gas, well,
+# pipeline, refinery), so picking a trade auto-arms the right hazard triggers.
+# `naics` is the authoritative code auto-filled when the trade is selected; the
+# title mirrors the Census NAICS description.
+# ─────────────────────────────────────────────────────────────────────────────
+_INDUSTRIES: List[Dict[str, str]] = [
+    # ── Specialty trade contractors (NAICS 238) ──────────────────────────────
+    {"label": "Roofing contractor", "naics": "238160",
+     "title": "Roofing Contractors", "group": "Specialty trade — construction"},
+    {"label": "Electrical contractor", "naics": "238210",
+     "title": "Electrical Contractors and Other Wiring Installation Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Plumbing, heating & HVAC contractor", "naics": "238220",
+     "title": "Plumbing, Heating, and Air-Conditioning Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Poured concrete foundation & structure contractor", "naics": "238110",
+     "title": "Poured Concrete Foundation and Structure Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Structural steel & precast concrete contractor", "naics": "238120",
+     "title": "Structural Steel and Precast Concrete Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Framing contractor (carpentry)", "naics": "238130",
+     "title": "Framing Contractors", "group": "Specialty trade — construction"},
+    {"label": "Masonry contractor", "naics": "238140",
+     "title": "Masonry Contractors", "group": "Specialty trade — construction"},
+    {"label": "Glass & glazing contractor", "naics": "238150",
+     "title": "Glass and Glazing Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Drywall & insulation contractor", "naics": "238310",
+     "title": "Drywall and Insulation Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Painting & wall covering contractor", "naics": "238320",
+     "title": "Painting and Wall Covering Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Flooring contractor", "naics": "238330",
+     "title": "Flooring Contractors", "group": "Specialty trade — construction"},
+    {"label": "Finish carpentry contractor", "naics": "238350",
+     "title": "Finish Carpentry Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Site preparation / excavation contractor", "naics": "238910",
+     "title": "Site Preparation Contractors",
+     "group": "Specialty trade — construction"},
+    {"label": "Fire sprinkler & fire protection contractor", "naics": "238220",
+     "title": "Plumbing, Heating, and Air-Conditioning Contractors (fire protection)",
+     "group": "Specialty trade — construction"},
+    {"label": "Other building equipment contractor", "naics": "238290",
+     "title": "Other Building Equipment Contractors",
+     "group": "Specialty trade — construction"},
+    # ── General construction (NAICS 236 / 237) ───────────────────────────────
+    {"label": "Single-family home building (construction)", "naics": "236115",
+     "title": "New Single-Family Housing Construction (except For-Sale Builders)",
+     "group": "General construction"},
+    {"label": "Commercial & institutional building construction", "naics": "236220",
+     "title": "Commercial and Institutional Building Construction",
+     "group": "General construction"},
+    {"label": "Water & sewer line construction", "naics": "237110",
+     "title": "Water and Sewer Line and Related Structures Construction",
+     "group": "Heavy & civil construction"},
+    {"label": "Oil & gas pipeline construction", "naics": "237120",
+     "title": "Oil and Gas Pipeline and Related Structures Construction",
+     "group": "Heavy & civil construction"},
+    {"label": "Power & communication line construction", "naics": "237130",
+     "title": "Power and Communication Line and Related Structures Construction",
+     "group": "Heavy & civil construction"},
+    {"label": "Highway, street & bridge construction", "naics": "237310",
+     "title": "Highway, Street, and Bridge Construction",
+     "group": "Heavy & civil construction"},
+    # ── Oil, gas & energy ────────────────────────────────────────────────────
+    {"label": "Crude petroleum & natural gas extraction (oil & gas operator)",
+     "naics": "211120",
+     "title": "Crude Petroleum Extraction", "group": "Oil, gas & energy"},
+    {"label": "Drilling oil & gas wells", "naics": "213111",
+     "title": "Drilling Oil and Gas Wells", "group": "Oil, gas & energy"},
+    {"label": "Support activities for oil & gas operations (well servicing)",
+     "naics": "213112",
+     "title": "Support Activities for Oil and Gas Operations",
+     "group": "Oil, gas & energy"},
+    {"label": "Petroleum refinery (refining)", "naics": "324110",
+     "title": "Petroleum Refineries", "group": "Oil, gas & energy"},
+    {"label": "Pipeline transportation of crude oil / natural gas", "naics": "486110",
+     "title": "Pipeline Transportation of Crude Oil",
+     "group": "Oil, gas & energy"},
+    # ── Industrial & other ───────────────────────────────────────────────────
+    {"label": "Machine shop / metal fabrication", "naics": "332710",
+     "title": "Machine Shops", "group": "Industrial & manufacturing"},
+    {"label": "Fabricated structural metal manufacturing", "naics": "332312",
+     "title": "Fabricated Structural Metal Manufacturing",
+     "group": "Industrial & manufacturing"},
+    {"label": "Commercial & industrial machinery repair / maintenance",
+     "naics": "811310",
+     "title": "Commercial and Industrial Machinery and Equipment (except "
+              "Automotive and Electronic) Repair and Maintenance",
+     "group": "Industrial & manufacturing"},
+    {"label": "General warehousing & storage", "naics": "493110",
+     "title": "General Warehousing and Storage", "group": "Industrial & other"},
+    {"label": "General freight trucking (long-distance)", "naics": "484121",
+     "title": "General Freight Trucking, Long-Distance, Truckload",
+     "group": "Transportation"},
+    {"label": "Landscaping services", "naics": "561730",
+     "title": "Landscaping Services", "group": "Industrial & other"},
+    {"label": "Remediation / environmental cleanup services", "naics": "562910",
+     "title": "Remediation Services", "group": "Environmental"},
+    {"label": "Hazardous waste treatment & disposal", "naics": "562211",
+     "title": "Hazardous Waste Treatment and Disposal", "group": "Environmental"},
+    {"label": "Facilities support / building maintenance services", "naics": "561210",
+     "title": "Facilities Support Services", "group": "Industrial & other"},
+    {"label": "Janitorial & building cleaning services", "naics": "561720",
+     "title": "Janitorial Services", "group": "Industrial & other"},
+]
+
+
+def industries() -> List[Dict[str, str]]:
+    """Curated selectable trade/industry catalog for the Companies tab.
+    Each entry: {label, naics, title, group}. Selecting a label auto-fills
+    naics and arms the matching hazard triggers via suggest_activities()."""
+    return list(_INDUSTRIES)
