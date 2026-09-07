@@ -616,7 +616,11 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         # The Photo Audit tool is used by GC/sub/owner dashboards whose users
         # authenticate by portal session, not the internal access token, so its
         # analyze endpoint must not be gated by the token.
-        _public_api = request.url.path.startswith("/api/photo-audit/")
+        # The cron-sweep endpoint has its OWN token gate (MONITOR_SWEEP_TOKEN)
+        # so an external scheduler can trigger it without the internal access
+        # token; it must therefore bypass this outer gate.
+        _public_api = (request.url.path.startswith("/api/photo-audit/")
+                       or request.url.path == "/api/monitor/cron-sweep")
         if token and request.url.path.startswith("/api") and not _public_api:
             supplied = request.headers.get("x-origin-token") or request.query_params.get("token")
             if supplied != token:
