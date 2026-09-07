@@ -1,0 +1,49 @@
+name: CI
+
+# The offline safety net. Every push and PR must prove two load-bearing
+# guarantees still hold before anything ships:
+#   1. OFFLINE DETERMINISM — with every external LLM API key UNSET, the Safety
+#      Intelligence Engine still runs the full chain end to end.
+#   2. BRIDGED AUTH — /api/* accepts the internal token OR a valid admin/owner
+#      session, and denies everything else.
+# If either regresses, this job goes red and the change is blocked.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+# Belt-and-suspenders: strip every model key at the job level so nothing in the
+# test can quietly "pass" on a live key. The self-tests also pop them in-process.
+env:
+  OPENAI_API_KEY: ""
+  ANTHROPIC_API_KEY: ""
+  GROK_API_KEY: ""
+  XAI_API_KEY: ""
+  GEMINI_API_KEY: ""
+  GOOGLE_API_KEY: ""
+  DEEPSEEK_API_KEY: ""
+  MISTRAL_API_KEY: ""
+
+jobs:
+  offline-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install server dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-server.txt
+
+      - name: Offline SIE + bridged-auth self-test (keys unset)
+        run: python selftest_sie.py
+
+      - name: Full engine self-test (keys unset)
+        run: python selftest.py
