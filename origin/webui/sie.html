@@ -304,7 +304,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(path, opts){
   try{
-    const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
+    const r = await fetch(path, Object.assign({credentials:'same-origin', headers:{'Content-Type':'application/json'}}, opts||{}));
     const j = await r.json().catch(()=>({}));
     return {ok:r.ok, status:r.status, j};
   }catch(e){ return {ok:false, status:0, j:{error:String(e)}}; }

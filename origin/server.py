@@ -611,6 +611,17 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         pass
 
     # ── access token (required when Origin is served over a network) ──
+    def _admin_session_ok(request) -> bool:
+        """True when the request carries a valid portal admin/owner session
+        cookie. Reused to let the SIE console's /api/* calls through the token
+        gate for a logged-in owner without a second credential."""
+        try:
+            from . import portal as _portal
+            p = _portal._unsign(request.cookies.get(_portal.ADMIN_COOKIE, ""))
+            return bool(p and p.get("role") == "admin")
+        except Exception:
+            return False
+
     @app.middleware("http")
     async def _auth(request, call_next):
         # The Photo Audit tool is used by GC/sub/owner dashboards whose users
@@ -624,8 +635,13 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         if token and request.url.path.startswith("/api") and not _public_api:
             supplied = request.headers.get("x-origin-token") or request.query_params.get("token")
             if supplied != token:
-                return JSONResponse({"error": "unauthorized — missing or wrong access token"},
-                                    status_code=401)
+                # The SIE console (/sie) is reached by an owner/admin who is
+                # authenticated by their portal admin SESSION cookie, not the
+                # internal access token. Honor that session so the app works
+                # under "one login" — no second credential prompt.
+                if not _admin_session_ok(request):
+                    return JSONResponse({"error": "unauthorized — missing or wrong access token"},
+                                        status_code=401)
         return await call_next(request)
 
     # Never return an HTML 500 — the UI expects JSON, so surface errors as JSON.
