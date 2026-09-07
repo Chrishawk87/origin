@@ -1982,6 +1982,19 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _p2_exc:  # pragma: no cover
         print(f"[sie-phase2] disabled — registration failed: {_p2_exc}")
 
+    # ── Safety Intelligence Engine — Evidence Spine (Stage 1) ──
+    # A derived, rebuildable index over the file-based JSON collections: the
+    # compliance chain (company → finding → CAPA → source standard, plus
+    # citations) made queryable across engines. The spine is NEVER authoritative
+    # — rebuild_spine() reconstructs it entirely from the source JSON, so the
+    # source of truth and the offline no-LLM guarantee are untouched. Isolated +
+    # non-fatal, same as every other SIE module.
+    try:
+        from . import spine as _spine
+        _spine.register_spine(app)
+    except Exception as _spine_exc:  # pragma: no cover
+        print(f"[spine] disabled — registration failed: {_spine_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal

@@ -207,6 +207,45 @@ def check_sie_chain(client, token: str) -> None:
     print("[pass] offline SIE chain: citation->company->audit->CAPA->risk->"
           "program->prequal->monitor (no model)")
 
+    return cid
+
+
+# ── The evidence spine (Stage 1) ─────────────────────────────────────────────
+def check_spine(client, token: str, cid: str) -> None:
+    """The derived spine must reconstruct the compliance chain from the source
+    JSON alone — no model, no second source of truth — and make it queryable.
+    We assert the audit->CAPA chain the SIE just wrote is walkable end to end:
+    company -> finding -> {triggers CAPA, violates source standard}."""
+    H = {"X-Origin-Token": token}
+
+    # 1. Rebuild the index purely from the file-based collections.
+    r = client.post("/api/spine/rebuild", headers=H, json={})
+    assert r.status_code == 200, r.text
+    meta = r.json().get("meta") or {}
+    assert not r.json().get("error"), f"spine rebuild errored: {r.json()}"
+    assert meta.get("nodes", 0) > 0 and meta.get("edges", 0) > 0, \
+        f"spine rebuilt empty: {meta}"
+    assert meta.get("derived") is True, "spine must declare itself derived, not authoritative"
+
+    # 2. The company chain is queryable and carries the finding + CAPA + source.
+    r = client.get(f"/api/spine/company/{cid}", headers=H)
+    assert r.status_code == 200, r.text
+    chain = r.json()
+    assert chain.get("found"), f"company not in spine: {chain}"
+    counts = chain.get("counts") or {}
+    assert counts.get("findings", 0) >= 1, f"finding missing from spine chain: {chain}"
+    assert counts.get("capas", 0) >= 1, f"CAPA missing from spine chain: {chain}"
+    assert counts.get("sources", 0) >= 1, f"source standard missing from spine chain: {chain}"
+
+    # 3. The load-bearing edges actually exist: finding->triggers->CAPA and
+    #    finding->violates->source. This is the "why does this CAPA exist" link.
+    rels = {e["rel"] for e in (chain.get("edges") or [])}
+    assert "triggers" in rels, f"no finding->triggers->CAPA edge: {sorted(rels)}"
+    assert "violates" in rels, f"no finding->violates->source edge: {sorted(rels)}"
+
+    print("[pass] evidence spine: rebuilt from JSON, company->finding->"
+          "{triggers CAPA, violates source} is queryable (derived, no model)")
+
 
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
@@ -222,7 +261,8 @@ def main() -> int:
     client, token, eng = _client()
     try:
         check_auth(client, token)
-        check_sie_chain(client, token)
+        cid = check_sie_chain(client, token)
+        check_spine(client, token, cid)
     finally:
         try:
             eng.shutdown()
