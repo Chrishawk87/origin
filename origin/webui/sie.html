@@ -104,6 +104,31 @@
   .disc{font-size:11px;color:var(--slate);margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
   details.form summary{cursor:pointer;font-weight:700;color:var(--orange);font-size:13px;margin-top:4px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px} @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  .naics-sug{position:relative}
+  .naics-sug .opt{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-top:0;padding:8px 11px;font-size:13px;cursor:pointer}
+  .naics-sug .opt:first-child{border-top:1px solid var(--line);border-radius:8px 8px 0 0;margin-top:4px}
+  .naics-sug .opt:last-child{border-radius:0 0 8px 8px}
+  .naics-sug .opt:hover{background:var(--light)}
+  .naics-sug .opt b{color:var(--orange)}
+  .scopewrap{margin-top:12px}
+  .hazgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:8px} @media(max-width:640px){.hazgrid{grid-template-columns:1fr}}
+  .hazgrid label.hz{display:flex;gap:8px;align-items:flex-start;font-size:13px;font-weight:400;color:var(--ink);cursor:pointer;padding:4px 0}
+  .hazgrid label.hz input{width:auto;margin-top:2px;flex:0 0 auto}
+  .hazgrid label.hz.on{color:var(--charcoal);font-weight:600}
+  .scopeprev{margin-top:14px;background:var(--light);border-radius:10px;padding:14px 16px}
+  .scopeprev h4{margin:0 0 6px;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--orange)}
+  .scopeprev .std{font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)}
+  .scopeprev .std:last-child{border-bottom:0}
+  .scopeprev .src-tag{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px;margin-right:6px;vertical-align:middle}
+  .scopeprev .src-tag.baseline{background:#E7EEF6;color:#2C5F8A} .scopeprev .src-tag.triggered{background:var(--cream);color:#7A3413}
+  .scopeprev .stdlist{margin-top:10px;max-height:260px;overflow:auto}
+  .scopeprev .std{display:flex;gap:8px;align-items:flex-start}
+  .scopeprev .rk{margin-top:8px;font-size:12px;border-radius:8px;padding:8px 11px;line-height:1.45}
+  .scopeprev .rk.keep{background:#FDECEA;color:#8A2A1B} .scopeprev .rk.exempt{background:#EAF4EC;color:#2C6B3A}
+  .rkline{font-size:12px;border-radius:8px;padding:8px 11px;line-height:1.45}
+  .rkline.keep{background:#FDECEA;color:#8A2A1B} .rkline.exempt{background:#EAF4EC;color:#2C6B3A}
+  .src-tag{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px}
+  .src-tag.baseline{background:#E7EEF6;color:#2C5F8A} .src-tag.triggered{background:var(--cream);color:#7A3413}
 </style>
 </head>
 <body>
@@ -162,16 +187,24 @@
         <div><h1>Companies</h1><p class="lede">Portfolio risk from open corrective actions. Click a company to drill in.</p></div>
         <button class="btn ghost sm" onclick="loadPortfolio()">Refresh</button>
       </div>
-      <details class="form"><summary>+ Add / update a company</summary>
+      <details class="form" id="coForm"><summary>+ Add / update a company</summary>
         <div class="grid2" style="margin-top:10px">
           <div><label>Company name *</label><input id="co-name" placeholder="Acme Well Services"></div>
-          <div><label>Industry</label><input id="co-industry" placeholder="oil and gas well servicing"></div>
-          <div><label>NAICS</label><input id="co-naics" placeholder="213112"></div>
+          <div><label>Industry / trade</label><input id="co-industry" placeholder="oil and gas well servicing" autocomplete="off"><div id="co-naics-sug" class="naics-sug"></div></div>
+          <div><label>NAICS</label><input id="co-naics" placeholder="213112" autocomplete="off"></div>
           <div><label>State</label><input id="co-state" placeholder="TX" maxlength="2"></div>
           <div><label>Headcount</label><input id="co-head" type="number" placeholder="45"></div>
           <div><label>Client platforms (comma-sep)</label><input id="co-plats" placeholder="ISNetworld, Veriforce"></div>
         </div>
-        <button class="btn sm" style="margin-top:10px" onclick="upsertCompany()">Save company</button>
+        <div class="scopewrap">
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <label style="margin:0">Scope of work — hazards / activities on site</label>
+            <span id="co-haz-hint" class="muted" style="font-size:12px"></span>
+          </div>
+          <div id="co-haz" class="hazgrid"><div class="muted" style="font-size:12px">Type the trade above and Origin will pre-check the likely hazards.</div></div>
+        </div>
+        <div id="co-scope-preview" class="scopeprev hidden"></div>
+        <button class="btn sm" style="margin-top:12px" onclick="upsertCompany()">Save company</button>
         <span id="co-save-msg" class="muted"></span>
       </details>
       <div id="portfolio"><div class="empty">Loading…</div></div>
@@ -278,7 +311,7 @@ function showTab(name){
 }
 const INIT = {
   monitor: loadDigest,
-  companies: loadPortfolio,
+  companies: ()=>{ initCoForm(); loadPortfolio(); },
   programs: ()=>fillCompanySelect('pg-co', loadPackage),
   prequal: ()=>fillCompanySelect('pq-co'),
   audits: loadAudits,
@@ -369,28 +402,128 @@ async function upsertCompany(){
   const name=$('#co-name').value.trim(); if(!name){ $('#co-save-msg').textContent=' Name required.'; return; }
   const plats=$('#co-plats').value.split(',').map(s=>s.trim()).filter(Boolean);
   const body={company:name, industry:$('#co-industry').value.trim(), naics:$('#co-naics').value.trim(),
-    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null, customer_platforms:plats};
+    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null,
+    customer_platforms:plats, activities:coSelectedHazards()};
   const {j}=await api('/api/company/upsert',{method:'POST',body:JSON.stringify(body)});
   $('#co-save-msg').textContent = j&&j.ok?' Saved.':(' '+((j&&j.error)||'Error'));
   COMPANIES=[]; loadPortfolio();
 }
+
+// ── COMPANIES: full-auto scope capture ───────────────────────────────────────
+let CO_TRIGGERS = null;          // schema triggers, loaded once
+const _debounce = (fn, ms=280) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+
+async function initCoForm(){
+  if(CO_TRIGGERS) return;        // idempotent
+  const {j} = await api('/api/scoping/schema');
+  CO_TRIGGERS = (j&&j.triggers)||[];
+  renderHazGrid(CO_TRIGGERS, new Set());
+  const onScope = _debounce(coScopePreview, 320);
+  const ind = $('#co-industry');
+  if(ind){ ind.addEventListener('input', _debounce(coIndustryChanged, 320)); }
+  ['#co-naics','#co-state','#co-head'].forEach(sel=>{ const e=$(sel); if(e) e.addEventListener('input', onScope); });
+}
+
+function renderHazGrid(triggers, preChecked){
+  const grid=$('#co-haz'); if(!grid) return;
+  if(!triggers.length){ grid.innerHTML='<div class="muted" style="font-size:12px">No hazard list available.</div>'; return; }
+  grid.innerHTML = triggers.map(t=>{
+    const on = preChecked.has(t.key) ? ' checked' : '';
+    return `<label class="hz"><input type="checkbox" value="${esc(t.key)}"${on} onchange="coScopePreview()">
+      <span>${esc(t.q)}<br><small class="muted">${esc(t.category)}</small></span></label>`;
+  }).join('');
+}
+
+function coSelectedHazards(){
+  return Array.from(document.querySelectorAll('#co-haz input[type=checkbox]:checked')).map(c=>c.value);
+}
+
+async function coIndustryChanged(){
+  const text=$('#co-industry').value.trim();
+  if(!text){ $('#co-haz-hint').textContent=''; $('#co-naics-sug').innerHTML=''; coScopePreview(); return; }
+  // 1) pre-check likely hazards + 2) suggest NAICS codes, in parallel
+  const [sug, nx] = await Promise.all([
+    api('/api/scoping/suggest?industry='+encodeURIComponent(text)),
+    api('/api/scoping/naics?q='+encodeURIComponent(text)+'&limit=8'),
+  ]);
+  const sj=sug.j||{}, keys=new Set(sj.suggested||[]);
+  if(CO_TRIGGERS){
+    // merge auto-picks with anything the user already ticked
+    coSelectedHazards().forEach(k=>keys.add(k));
+    renderHazGrid(CO_TRIGGERS, keys);
+  }
+  const matched=(sj.matched||[]);
+  $('#co-haz-hint').textContent = matched.length ? ('Auto-checked from: '+matched.join(', ')) : '';
+  const results=(nx.j&&nx.j.results)||[];
+  $('#co-naics-sug').innerHTML = results.length
+    ? results.map(r=>`<span class="opt" onclick="coPickNaics('${esc(r.code)}')"><b>${esc(r.code)}</b> ${esc(r.title)}</span>`).join('')
+    : '';
+  coScopePreview();
+}
+
+function coPickNaics(code){
+  $('#co-naics').value=code;
+  $('#co-naics-sug').innerHTML='';
+  coScopePreview();
+}
+
+async function coScopePreview(){
+  const industry=$('#co-industry').value.trim(), naics=$('#co-naics').value.trim();
+  const box=$('#co-scope-preview');
+  if(!industry && !naics){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const body={company:$('#co-name').value.trim()||'preview', industry, naics,
+    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null,
+    activities:coSelectedHazards()};
+  const {j}=await api('/api/scoping/resolve',{method:'POST',body:JSON.stringify(body)});
+  const sc=(j&&j.scope)||j||{};
+  if(!sc || sc.error || sc.required_count==null){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const stds=(sc.required_standards||[]);
+  const rk=sc.recordkeeping||{};
+  const rkLine = rk.reason
+    ? `<div class="rk ${rk.must_keep_300_log?'keep':'exempt'}"><b>${rk.must_keep_300_log?'300-Log required':'300-Log: partially exempt'}</b> — ${esc(rk.reason)}</div>`
+    : '';
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline">
+      <b>${esc(sc.sector_label||sc.sector||'Scope')}</b>
+      <span class="muted" style="font-size:12px">${sc.required_count||0} required · ${sc.baseline_count||0} baseline · ${sc.triggered_count||0} triggered</span></div>
+    ${rkLine}
+    <div class="stdlist">${stds.map(s=>`<div class="std">
+      <span class="src-tag ${s.source==='triggered'?'triggered':'baseline'}">${s.source==='triggered'?'triggered':'baseline'}</span>
+      <span><b>${esc(s.title||s.id)}</b> <span class="muted">${esc(s.citation||'')}</span></span></div>`).join('')}</div>`;
+}
 async function companyDetail(id){
-  const {j}=await api('/api/company/'+encodeURIComponent(id));
+  const [main, scoped] = await Promise.all([
+    api('/api/company/'+encodeURIComponent(id)),
+    api('/api/company/'+encodeURIComponent(id)+'/scope'),
+  ]);
+  const j=main.j;
   if(!j||j.error){ return; }
   const p=j.profile||{}, r=j.risk||{}, sc=j.scope||{}, capas=j.capas||[];
+  const full=(scoped.j&&scoped.j.scope)||{};
+  const stds=full.required_standards||[];
+  const rk=full.recordkeeping||{};
   $('#coListCard').classList.add('hidden');
   const el=$('#coDetail'); el.classList.remove('hidden');
+  const scopeBody = stds.length
+    ? `<div class="muted" style="margin-bottom:8px">${esc(full.sector_label||full.sector||sc.sector_label||'—')} · ${full.required_count||0} required · ${full.baseline_count||0} baseline · ${full.triggered_count||0} triggered</div>
+       ${rk.reason?`<div class="rkline ${rk.must_keep_300_log?'keep':'exempt'}"><b>${rk.must_keep_300_log?'300-Log required':'300-Log: partially exempt'}</b> — ${esc(rk.reason)} <span class="muted">(${esc(rk.citation||'')})</span></div>`:''}
+       <table style="margin-top:10px"><thead><tr><th>Standard</th><th>Citation</th><th class="c">Source</th></tr></thead><tbody>${
+         stds.map(s=>`<tr><td class="name">${esc(s.title||s.id)}<div class="sub">${esc(s.why||'')}</div></td>
+           <td class="sub">${esc(s.citation||'')}</td>
+           <td class="c"><span class="src-tag ${s.source==='triggered'?'triggered':'baseline'}">${s.source==='triggered'?'triggered':'baseline'}</span></td></tr>`).join('')}</tbody></table>`
+    : `<div class="muted">${esc(sc.sector_label||sc.sector||'—')} · ${sc.required_count||0} required standards · ${sc.triggered_count||0} triggered${sc.recordkeeping?' · recordkeeping applies':''}</div>`;
   el.innerHTML = `<span class="back" onclick="loadPortfolio()">← All companies</span>
     <div class="gradewrap"><div><div class="co">${esc(p.company||'')}</div>
       <div class="grade">${r.score!=null?r.score:'—'}</div>
       <div><span class="pill risk ${esc(r.band)}">${esc(r.band||'')}</span></div></div>
       <div style="flex:1;min-width:200px"><div class="co">Why</div>${(r.drivers||[]).map(d=>`<div style="font-size:13px;margin-top:3px">• ${esc(d)}</div>`).join('')}</div></div>
     <div class="row" style="margin-top:10px">
+      <button class="btn sm" onclick="runPhotoAudit('${esc(id)}')">📷 Run photo audit for this company</button>
       <button class="btn ghost sm" onclick="gotoProgramsFor('${esc(id)}')">View program package →</button>
       <button class="btn ghost sm" onclick="gotoPrequalFor('${esc(id)}')">Prequal readiness →</button>
     </div>
     <h2 class="sec">Scope</h2>
-    <div class="muted">${esc(sc.sector_label||sc.sector||'—')} · ${sc.required_count||0} required standards · ${sc.triggered_count||0} triggered${sc.recordkeeping?' · recordkeeping applies':''}</div>
+    ${scopeBody}
     <h2 class="sec">Corrective actions (${capas.length})</h2>
     ${capas.length?`<table><thead><tr><th>Title</th><th>Standard</th><th>Stage</th><th class="c">Due</th></tr></thead><tbody>${
       capas.map(c=>`<tr><td>${esc(c.title)} ${c.human_review_required?'<span class="badge req">review</span>':''}</td>
@@ -402,6 +535,7 @@ async function companyDetail(id){
 }
 function gotoProgramsFor(id){ showTab('programs'); fillCompanySelect('pg-co',()=>{ $('#pg-co').value=id; loadPackage(); }); }
 function gotoPrequalFor(id){ showTab('prequal'); fillCompanySelect('pq-co',()=>{ $('#pq-co').value=id; }); }
+function runPhotoAudit(id){ location.href = '/photo-audit?company='+encodeURIComponent(id)+'&back=/sie'; }
 
 // ── PROGRAMS ───────────────────────────────────────────────────────────────
 async function loadPackage(){

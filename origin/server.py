@@ -1286,6 +1286,19 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=400)
 
+    @app.get("/api/scoping/naics")
+    def scoping_naics(q: str = "", limit: int = 8):
+        # Plain-English trade/company description -> candidate 2022 NAICS codes.
+        # Lets the Companies tab auto-fill the NAICS number from what the user types.
+        from . import compliance_kb as _kb
+        try:
+            rows = _kb.naics_search(q, limit=limit) or []
+            results = [{"code": r.get("code"), "title": r.get("title"),
+                        "level_name": r.get("level_name", "")} for r in rows]
+            return {"ok": True, "results": results}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
     # ── HazCom chemical-inventory builder (29 CFR 1910.1200) — internal tool ──
     from . import hazcom as _hazcom
     hazcom_html = Path(__file__).parent / "webui" / "hazcom.html"

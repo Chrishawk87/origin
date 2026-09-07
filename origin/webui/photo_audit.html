@@ -118,6 +118,11 @@
         <h1>Inspect any workplace from a photo</h1>
         <p class="lede">Capture or upload photos from any workplace OSHA covers — a plant floor, warehouse, construction site, clinic or lab, kitchen or food plant, dock or shipyard, farm, shop, or a single machine. Origin's AI looks at each image the way an OSHA compliance officer would, names every visible hazard, and maps it to the exact OSHA standard — with the official osha.gov link and the verbatim law text — straight from Origin's compliance knowledge base. If a hazard matches no standard on file, it says so plainly rather than guessing.</p>
 
+        <div id="coPickWrap" style="margin:0 0 16px">
+          <label for="coPick" style="display:block;font-size:12px;font-weight:700;color:#556;letter-spacing:.3px;margin-bottom:5px">Company (findings are saved to this company)</label>
+          <select id="coPick" style="width:100%;padding:11px 12px;border:1px solid #C9CED6;border-radius:10px;font-size:15px;background:#fff;color:var(--charcoal)"><option value="">— No company (unassigned) —</option></select>
+        </div>
+
         <div class="drop" id="drop">
           <div class="cam">📸</div>
           <div class="big">Add site photos</div>
@@ -167,14 +172,33 @@
   var seq = 0;
   var $ = function(id){ return document.getElementById(id); };
   // Return the user to their own dashboard when opened via ?back=
+  var _params = new URLSearchParams(location.search);
   try {
-    var _bk = new URLSearchParams(location.search).get('back');
-    var _allow = { '/admin':'Admin', '/gc':'Dashboard', '/portal':'Portal' };
+    var _bk = _params.get('back');
+    var _allow = { '/admin':'Admin', '/gc':'Dashboard', '/portal':'Portal', '/sie':'Safety Intelligence' };
     if (_bk && _allow.hasOwnProperty(_bk)) {
       var _bl = $('backLink');
       if (_bl){ _bl.setAttribute('href', _bk); _bl.textContent = '← ' + _allow[_bk]; }
     }
   } catch(e){}
+
+  // Company binding: populate the picker; pre-select ?company= if supplied.
+  (function(){
+    var sel = $('coPick'); if(!sel) return;
+    var want = (_params.get('company') || '').trim();
+    fetch('/api/company/list', { headers:{'Accept':'application/json'} })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var items = (j && j.items) || [];
+        items.forEach(function(c){
+          var o = document.createElement('option');
+          o.value = c.company_id; o.textContent = c.company;
+          sel.appendChild(o);
+        });
+        if (want) { sel.value = want; }
+      })
+      .catch(function(){});
+  })();
 
   var drop = $('drop'), thumbs = $('thumbs'), go = $('go');
   var camInput = $('camInput'), fileInput = $('fileInput');
@@ -358,6 +382,8 @@
           var base = (files[i].file.name || 'photo').replace(/\.[^.]+$/, '');
           fd.append('files', b, base + '.jpg');
         });
+        var _co = $('coPick');
+        if (_co && _co.value) { fd.append('company', _co.value); }
         var ctrl = ('AbortController' in window) ? new AbortController() : null;
         var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 90000) : null;
         return fetch('/api/photo-audit/analyze',
