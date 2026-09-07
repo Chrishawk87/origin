@@ -38,6 +38,14 @@ from typing import Any, Dict, List, Optional
 from . import capa
 from . import scoping
 
+# Module-level so FastAPI can resolve the `request: Request` route annotations
+# under `from __future__ import annotations` (PEP 563 makes them strings that are
+# looked up in this module's globals). Falls back to Any if starlette is absent.
+try:
+    from starlette.requests import Request
+except Exception:  # pragma: no cover
+    Request = Any  # type: ignore
+
 try:
     from .paths import DATA_DIR
 except ImportError:  # bare import in ad-hoc scripts
@@ -69,13 +77,27 @@ def _ensure_dir() -> None:
 
 
 # ── profile CRUD ──────────────────────────────────────────────────────────────
-def upsert(profile: Dict[str, Any], *, by: str = "owner") -> Dict[str, Any]:
+def upsert(profile: Dict[str, Any], *, by: str = "owner",
+           gc_slug: Optional[str] = None) -> Dict[str, Any]:
     """Create or update a company profile. Keyed by a slug of the company name, so
-    re-analyzing citations for the same company updates the one profile."""
+    re-analyzing citations for the same company updates the one profile.
+
+    Tenant ownership (Stage 3): every company carries a ``gc_slug`` — the slug of
+    the GC that owns it. ``""`` means owner-only (no GC), which is what every
+    pre-Stage-3 company and every system-created company defaults to, so nothing
+    silently becomes visible to a GC. ``gc_slug=None`` here means "don't change
+    the current owner" (preserve on update, default ``""`` on create); pass an
+    explicit slug to stamp/reassign ownership. The value is derived from the
+    caller's session by the route layer — a GC can only ever stamp its own slug.
+    """
     _ensure_dir()
     company = (profile.get("company") or "").strip()
     cid = _slug(profile.get("company_id") or company)
     existing = get(cid) or {}
+    if gc_slug is None:
+        owner_slug = existing.get("gc_slug", "")  # preserve existing owner
+    else:
+        owner_slug = (gc_slug or "").strip()
     record = {
         "company_id": cid,
         "company": company or existing.get("company", ""),
@@ -87,6 +109,7 @@ def upsert(profile: Dict[str, Any], *, by: str = "owner") -> Dict[str, Any]:
         "operators": profile.get("operators", existing.get("operators")) or [],
         "customer_platforms": profile.get("customer_platforms",
                                           existing.get("customer_platforms")) or [],
+        "gc_slug": owner_slug,
         "created_at": existing.get("created_at") or _now(),
         "updated_at": _now(),
         "updated_by": by,
@@ -116,15 +139,23 @@ def ensure(company: str) -> Dict[str, Any]:
     return upsert({"company": company}, by="system")
 
 
-def list_all() -> List[Dict[str, Any]]:
+def list_all(gc_slug: Optional[str] = None) -> List[Dict[str, Any]]:
+    """List company profiles. ``gc_slug=None`` returns every company (the owner's
+    global superuser view). A non-None ``gc_slug`` returns only the companies that
+    GC owns — the tenant-scoped view. This is the single filter behind both the
+    owner and GC company lists; the route layer decides which slug (if any) to
+    pass based on the caller's session."""
     if not COMPANIES_DIR.exists():
         return []
     out: List[Dict[str, Any]] = []
     for p in COMPANIES_DIR.glob("*.json"):
         try:
-            out.append(json.loads(p.read_text(encoding="utf-8")))
+            rec = json.loads(p.read_text(encoding="utf-8"))
         except Exception:
             continue
+        if gc_slug is not None and (rec.get("gc_slug") or "") != gc_slug:
+            continue
+        out.append(rec)
     out.sort(key=lambda r: r.get("company", "").lower())
     return out
 
@@ -263,10 +294,12 @@ def company_view(company_id: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def portfolio() -> Dict[str, Any]:
-    """Risk rollup across every profiled company, worst first."""
+def portfolio(gc_slug: Optional[str] = None) -> Dict[str, Any]:
+    """Risk rollup across profiled companies, worst first. ``gc_slug`` scopes the
+    rollup the same way as ``list_all``: None = every company (owner view), a slug
+    = only that GC's companies (tenant view)."""
     rows: List[Dict[str, Any]] = []
-    for p in list_all():
+    for p in list_all(gc_slug=gc_slug):
         cid = p.get("company_id", "")
         r = compute_risk(cid)
         rows.append({
@@ -291,24 +324,48 @@ def register_company(app) -> None:
     from fastapi import Body
     from fastapi.responses import JSONResponse
 
+    def _scope(request):
+        """Read the tenant scope the auth middleware stashed on this request.
+        Returns (owner: bool, gc_slug: str|None). Defaults to the owner/global
+        view when no scope was set (e.g. local single-user runs with no token),
+        which is safe: the network path always sets scope explicitly."""
+        st = getattr(request, "state", None)
+        return (getattr(st, "sie_owner", True), getattr(st, "sie_gc_slug", None))
+
     @app.get("/api/company/portfolio")
-    def company_portfolio():
+    def company_portfolio(request: Request):
         try:
-            return {"ok": True, **portfolio()}
+            _owner, gc = _scope(request)
+            return {"ok": True, **portfolio(gc_slug=gc)}
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
     @app.get("/api/company/list")
-    def company_list():
-        return {"ok": True, "items": list_all()}
+    def company_list(request: Request):
+        _owner, gc = _scope(request)
+        return {"ok": True, "items": list_all(gc_slug=gc)}
 
     @app.post("/api/company/upsert")
-    def company_upsert(body: dict = Body(default=None)):
+    def company_upsert(request: Request, body: dict = Body(default=None)):
         payload = body if isinstance(body, dict) else {}
         if not payload.get("company"):
             return JSONResponse({"error": "company is required"}, status_code=400)
+        owner, gc = _scope(request)
+        cid = _slug(payload.get("company_id") or payload.get("company"))
+        existing = get(cid)
+        if not owner:
+            # A logged-in GC may only create or edit companies it owns; it can
+            # never claim another GC's (or an owner-only) company, and it can only
+            # ever stamp its OWN slug regardless of what the payload asks for.
+            if existing and (existing.get("gc_slug") or "") != (gc or ""):
+                return JSONResponse({"error": "forbidden"}, status_code=403)
+            stamp = gc
+        else:
+            # Owner: honor an explicit gc_slug in the body (assign to a GC) or the
+            # ?gc= scope; otherwise pass None to preserve the current owner.
+            stamp = payload.get("gc_slug", gc)
         try:
-            rec = upsert(payload, by=payload.get("by", "owner"))
+            rec = upsert(payload, by=payload.get("by", "owner"), gc_slug=stamp)
             return {"ok": True, "profile": rec}
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)

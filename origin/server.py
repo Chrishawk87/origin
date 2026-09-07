@@ -622,6 +622,85 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception:
             return False
 
+    import re as _re
+
+    def _gc_slug_ok(request):
+        """The slug of the GC whose session cookie this request carries, or None.
+        This is what turns the portfolio-wide SIE into a per-tenant product
+        (Stage 3): a logged-in GC reaches the SIE, but only its OWN slice.
+
+        Mirrors _admin_session_ok — reads the GC cookie via portal's module-level
+        _unsign (portal.gc_session itself is a nested route helper, not importable
+        here). A valid, role==gc session yields the GC's own slug."""
+        try:
+            from . import portal as _portal
+            p = _portal._unsign(request.cookies.get(_portal.GC_COOKIE, ""))
+            if p and p.get("role") == "gc":
+                return (p.get("slug") or "").strip() or None
+        except Exception:
+            pass
+        return None
+
+    # The tenant-scoped SIE surface a logged-in GC may reach. Everything else
+    # under /api stays owner-only. Safe-by-default: a path must match here to be
+    # reachable by a GC at all, and any company_id it names must be one the GC
+    # owns (enforced below). Owner/token access is unaffected by this list.
+    _GC_ALLOWED = [
+        _re.compile(r"^/api/company/(list|portfolio|upsert)$"),
+        _re.compile(r"^/api/company/[^/]+(/(risk|scope))?$"),
+        _re.compile(r"^/api/program/package/[^/]+$"),
+        _re.compile(r"^/api/program/[^/]+/[^/]+$"),
+        _re.compile(r"^/api/prequal/[^/]+$"),
+        _re.compile(r"^/api/requirements/[^/]+(/gaps)?$"),
+        _re.compile(r"^/api/spine/company/[^/]+$"),
+        _re.compile(r"^/api/monitor/company/[^/]+$"),
+        _re.compile(r"^/api/audit/list$"),                    # only with ?company_id
+        _re.compile(r"^/api/audit/[^/]+$"),                   # audit detail (owned)
+        _re.compile(r"^/api/audit/[^/]+/promote/[^/]+$"),
+        _re.compile(r"^/api/scoping/[^/]+$"),                 # stateless helpers
+    ]
+    # Paths a GC may hit that legitimately carry no company_id (they are either
+    # self-scoping or stateless). Every OTHER allowed path must resolve to a
+    # company the GC owns, or the request is refused.
+    _GC_NO_CID_OK = _re.compile(
+        r"^/api/(company/(list|portfolio|upsert)|scoping/[^/]+)$")
+
+    def _gc_company_id(request):
+        """Best-effort: the company_id a request targets, for GC ownership checks.
+        Covers the path shapes of the tenant-scoped SIE routes plus the
+        ?company_id= query used by the audit/CAPA list endpoints. Returns None
+        when the path names no company (self-scoping / stateless routes)."""
+        q = (request.query_params.get("company_id") or "").strip()
+        if q:
+            return q
+        parts = request.url.path.strip("/").split("/")   # ['api', <area>, ...]
+        if len(parts) < 3:
+            return None
+        area = parts[1]
+        if area == "company":
+            return None if parts[2] in ("list", "portfolio", "upsert") else parts[2]
+        if area in ("prequal", "requirements"):
+            return parts[2]
+        if area == "program":
+            return parts[3] if parts[2] == "package" and len(parts) >= 4 else parts[2]
+        if area in ("spine", "monitor") and parts[2] == "company" and len(parts) >= 4:
+            return parts[3]
+        if area == "audit" and parts[2] not in ("list", "overview", "from-report"):
+            try:                                              # audit id → its company
+                from . import audit_engine as _ae
+                return (_ae.get(parts[2]) or {}).get("company_id")
+            except Exception:
+                return None
+        return None
+
+    def _gc_owns(gc_slug, company_id):
+        try:
+            from . import company_profile as _cp
+            rec = _cp.get(company_id)
+            return bool(rec) and (rec.get("gc_slug") or "") == gc_slug
+        except Exception:
+            return False
+
     @app.middleware("http")
     async def _auth(request, call_next):
         # The Photo Audit tool is used by GC/sub/owner dashboards whose users
@@ -630,18 +709,44 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         # The cron-sweep endpoint has its OWN token gate (MONITOR_SWEEP_TOKEN)
         # so an external scheduler can trigger it without the internal access
         # token; it must therefore bypass this outer gate.
-        _public_api = (request.url.path.startswith("/api/photo-audit/")
-                       or request.url.path == "/api/monitor/cron-sweep")
-        if token and request.url.path.startswith("/api") and not _public_api:
+        path = request.url.path
+        _public_api = (path.startswith("/api/photo-audit/")
+                       or path == "/api/monitor/cron-sweep")
+        is_api = path.startswith("/api") and not _public_api
+        if token and is_api:
             supplied = request.headers.get("x-origin-token") or request.query_params.get("token")
-            if supplied != token:
-                # The SIE console (/sie) is reached by an owner/admin who is
-                # authenticated by their portal admin SESSION cookie, not the
-                # internal access token. Honor that session so the app works
-                # under "one login" — no second credential prompt.
-                if not _admin_session_ok(request):
+            if supplied == token or _admin_session_ok(request):
+                # Owner/admin: the global superuser lens. May act for a specific
+                # GC by passing ?gc=<slug> (used by the owner's tenant preview).
+                request.state.sie_owner = True
+                request.state.sie_gc_slug = (request.query_params.get("gc") or "").strip() or None
+            else:
+                # Not the owner. A logged-in GC gets a tenant-scoped slice of the
+                # SIE; anyone else is refused. The SIE console (/sie) is reached
+                # by an owner/admin via their portal admin SESSION cookie — honored
+                # above — so no second credential prompt for the owner.
+                gc_slug = _gc_slug_ok(request)
+                if not gc_slug:
                     return JSONResponse({"error": "unauthorized — missing or wrong access token"},
                                         status_code=401)
+                if not any(rx.match(path) for rx in _GC_ALLOWED):
+                    return JSONResponse({"error": "forbidden"}, status_code=403)
+                cid = _gc_company_id(request)
+                if cid:
+                    if not _gc_owns(gc_slug, cid):
+                        return JSONResponse({"error": "forbidden"}, status_code=403)
+                elif not _GC_NO_CID_OK.match(path):
+                    # An allowed path that needs a company but named none (e.g.
+                    # /api/audit/list with no ?company_id) would spill across
+                    # tenants — refuse it for a GC.
+                    return JSONResponse({"error": "forbidden"}, status_code=403)
+                request.state.sie_owner = False
+                request.state.sie_gc_slug = gc_slug
+        elif is_api:
+            # No access token configured (local single-user run): everything is
+            # the owner. Still expose the scope so routes read a consistent shape.
+            request.state.sie_owner = True
+            request.state.sie_gc_slug = (request.query_params.get("gc") or "").strip() or None
         return await call_next(request)
 
     # Never return an HTML 500 — the UI expects JSON, so surface errors as JSON.

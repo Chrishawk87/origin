@@ -85,6 +85,17 @@ def _client_cookie() -> str:
     return f"{portal.CLIENT_COOKIE}={tok}"
 
 
+def _gc_cookie(slug: str) -> str:
+    """A genuine portal GC session cookie for tenant `slug`, signed exactly as a
+    logged-in GC would carry it. This is what Stage 3 gives a scoped slice of the
+    SIE to."""
+    import time
+    from origin import portal
+    tok = portal._sign({"role": "gc", "slug": slug, "member": "owner",
+                        "exp": time.time() + 3600})
+    return f"{portal.GC_COOKIE}={tok}"
+
+
 # ── The auth regression ──────────────────────────────────────────────────────
 def check_auth(client, token: str) -> None:
     probe = "/api/company/portfolio"          # a representative gated SIE route
@@ -310,6 +321,103 @@ def check_requirements(client, token: str, cid: str) -> None:
           "carries the requirement layer (derived, no model)")
 
 
+# ── tenant scoping (Stage 3) ─────────────────────────────────────────────────
+def check_tenancy(client, token: str, owner_cid: str) -> None:
+    """SIE was portfolio-wide; Stage 3 scopes it per-GC. The boundary must hold:
+    a GC self-creates and sees ONLY its own companies; the owner still sees every
+    company (the superuser lens); and one GC can never read, list, or overwrite
+    another GC's — or an owner-only — company. All offline, no model.
+
+    `owner_cid` is the owner-created company from the SIE chain (gc_slug=""), which
+    must stay invisible to every GC and visible to the owner."""
+    H = {"X-Origin-Token": token}
+    ALPHA = {"Cookie": _gc_cookie("gc-alpha")}
+    BETA = {"Cookie": _gc_cookie("gc-beta")}
+
+    # 1. Two GCs self-create their own companies (self-serve from the start).
+    r = client.post("/api/company/upsert", headers=ALPHA, json={
+        "company": "Alpha Roofing", "industry": "Roofing", "state": "TX"})
+    assert r.status_code == 200, r.text
+    a_prof = r.json().get("profile") or {}
+    a_cid = a_prof.get("company_id")
+    assert a_cid, f"GC-alpha upsert must return a company_id: {r.json()}"
+    assert a_prof.get("gc_slug") == "gc-alpha", \
+        f"GC-created company must be stamped with the GC's slug: {a_prof}"
+
+    r = client.post("/api/company/upsert", headers=BETA, json={
+        "company": "Beta Electric", "industry": "Electrical", "state": "TX"})
+    assert r.status_code == 200, r.text
+    b_cid = (r.json().get("profile") or {}).get("company_id")
+    assert b_cid, f"GC-beta upsert must return a company_id: {r.json()}"
+
+    # 2. Each GC's list shows ONLY its own company — not the other GC's, not the
+    #    owner-only company from the SIE chain.
+    r = client.get("/api/company/list", headers=ALPHA)
+    assert r.status_code == 200, r.text
+    alpha_ids = {c.get("company_id") for c in (r.json().get("items") or [])}
+    assert alpha_ids == {a_cid}, \
+        f"GC-alpha must see only its own company, saw: {sorted(alpha_ids)}"
+
+    r = client.get("/api/company/list", headers=BETA)
+    beta_ids = {c.get("company_id") for c in (r.json().get("items") or [])}
+    assert beta_ids == {b_cid}, \
+        f"GC-beta must see only its own company, saw: {sorted(beta_ids)}"
+
+    # 3. The owner (token) still sees EVERYTHING — both GCs' plus the owner-only
+    #    company. The global superuser lens is preserved.
+    r = client.get("/api/company/list", headers=H)
+    owner_ids = {c.get("company_id") for c in (r.json().get("items") or [])}
+    assert {a_cid, b_cid, owner_cid} <= owner_ids, \
+        f"owner must see all companies, saw: {sorted(owner_ids)}"
+
+    # 3b. The owner can preview a single GC's slice with ?gc=<slug>.
+    r = client.get("/api/company/list?gc=gc-alpha", headers=H)
+    scoped_ids = {c.get("company_id") for c in (r.json().get("items") or [])}
+    assert scoped_ids == {a_cid}, \
+        f"owner ?gc=gc-alpha should scope to that GC, saw: {sorted(scoped_ids)}"
+
+    # 4. A GC can reach its OWN company's intelligence.
+    r = client.get(f"/api/company/{a_cid}", headers=ALPHA)
+    assert r.status_code == 200, r.text
+    assert (r.json().get("profile") or {}).get("company_id") == a_cid, r.text
+    r = client.get(f"/api/requirements/{a_cid}", headers=ALPHA)
+    assert r.status_code == 200 and not r.json().get("error"), r.text
+
+    # 5. Cross-tenant reads are refused: GC-alpha cannot touch GC-beta's company
+    #    nor the owner-only company, by any per-company route.
+    for path in (f"/api/company/{b_cid}", f"/api/company/{b_cid}/risk",
+                 f"/api/requirements/{b_cid}", f"/api/program/package/{b_cid}",
+                 f"/api/company/{owner_cid}", f"/api/audit/list?company_id={b_cid}"):
+        r = client.get(path, headers=ALPHA)
+        assert r.status_code == 403, \
+            f"GC-alpha must be refused {path}, got {r.status_code}"
+
+    # 6. A GC cannot overwrite another GC's company via upsert.
+    r = client.post("/api/company/upsert", headers=ALPHA, json={
+        "company": "Beta Electric", "industry": "HIJACKED"})
+    assert r.status_code == 403, \
+        f"GC-alpha must not overwrite GC-beta's company, got {r.status_code}"
+    # ...and the hijack didn't land.
+    r = client.get(f"/api/company/{b_cid}", headers=BETA)
+    assert (r.json().get("profile") or {}).get("industry") != "HIJACKED", \
+        "cross-tenant upsert must not have mutated the target company"
+
+    # 7. Portfolio-wide/owner-only endpoints are not reachable by a GC session.
+    #    (company/list is allowed but self-scoped — already asserted 200 above.)
+    #    global aggregates (audit/list with no company_id) and non-SIE/owner
+    #    routes must all be forbidden for a GC.
+    assert client.get("/api/spine/rebuild", headers=ALPHA).status_code in (403, 405) \
+        or client.post("/api/spine/rebuild", headers=ALPHA, json={}).status_code == 403, \
+        "GC must not reach /api/spine/rebuild"
+    for path in ("/api/audit/list", "/api/citation/list", "/api/monitor/digest"):
+        r = client.get(path, headers=ALPHA)
+        assert r.status_code == 403, \
+            f"GC must not reach cross-tenant/owner route {path}, got {r.status_code}"
+
+    print("[pass] tenant scoping: GC self-creates + sees only its own; owner sees "
+          "all (and can ?gc= scope); cross-tenant read/list/overwrite refused")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -327,6 +435,7 @@ def main() -> int:
         cid = check_sie_chain(client, token)
         check_spine(client, token, cid)
         check_requirements(client, token, cid)
+        check_tenancy(client, token, cid)
     finally:
         try:
             eng.shutdown()
