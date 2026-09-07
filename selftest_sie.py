@@ -418,6 +418,121 @@ def check_tenancy(client, token: str, owner_cid: str) -> None:
           "all (and can ?gc= scope); cross-tenant read/list/overwrite refused")
 
 
+# ── the perception layer (Stage 4) ──────────────────────────────────────────
+def check_perception(client, token: str) -> None:
+    """Stage 4 widens the photo walk-through's hazard battery and makes it route
+    on honest confidence. Two guarantees, both offline (the only AI is the vision
+    description upstream, which this test does not exercise — it drives the
+    deterministic resolver + audit routing directly):
+
+      1. BATTERY + CONFIDENCE — common real-site hazards named in plain language
+         resolve deterministically to the EXACT OSHA section, KB-verified, at high
+         confidence. No fabrication: an unresolvable hazard returns nothing.
+
+      2. REVIEW ROUTING — when an audit is recorded, a matched + confident + severe
+         finding auto-opens a CAPA, while an unmatched OR low-confidence finding is
+         routed to the review queue and NEVER auto-opens a corrective action."""
+    from origin import photo_audit as pa
+
+    H = {"X-Origin-Token": token}
+
+    # 1. The widened, deterministic battery: a spread of hazards across
+    #    construction (1926) and general industry (1910) each resolve to the
+    #    right section, KB-verified, at a trustworthy (high-band) confidence.
+    battery = [
+        ("unguarded rotating pulley on the pump motor", "1910.212"),
+        ("worker at an unprotected roof edge with no guardrail", "1926.501"),
+        ("open trench with no shoring or trench box", "1926.652"),
+        ("forklift being driven with no seatbelt", "1910.178"),
+        ("no lockout tagout applied to the press", "1910.147"),
+        ("employee cutting concrete producing silica dust", "1926.1153"),
+    ]
+    for desc, want in battery:
+        std = pa._resolve_citation(
+            {"hazard_category": desc, "title": "", "description": desc})
+        assert std is not None, f"battery hazard did not resolve: {desc}"
+        assert std["section"] == want, \
+            f"hazard '{desc}' → {std['section']}, expected {want}"
+        assert std["confidence_band"] == "high", \
+            f"deterministic map hit should be high-confidence: {std}"
+        assert std["match_method"] in ("hazard_map", "verbatim"), std
+        # KB-verified, never fabricated: the resolved citation carries a title.
+        assert std.get("standard_title"), f"resolved standard missing title: {std}"
+
+    # A hazard that maps to nothing is reported honestly as no-match (not guessed).
+    assert pa._resolve_citation(
+        {"hazard_category": "employee seems unusually cheerful today",
+         "title": "", "description": "morale"}) is None, \
+        "a non-hazard must resolve to nothing, never a forced citation"
+
+    # 2. Confidence-based review routing through a recorded audit. Three findings,
+    #    all HIGH severity, differing only in match/confidence:
+    #      a) matched + confident  → auto-CAPA
+    #      b) unmatched            → review queue, NO CAPA
+    #      c) low-confidence match → review queue, NO CAPA
+    report = {
+        "scene": "Mixed-hazard walk-through",
+        "image_count": 1,
+        "findings": [
+            {   # a) actionable
+                "severity": "high",
+                "title": "Unprotected roof edge",
+                "description": "Fall from elevation",
+                "confidence": 0.9,
+                "standard": {
+                    "citation": "29 CFR 1926.501",
+                    "standard_title": "Duty to have fall protection",
+                    "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.501",
+                    "has_verbatim": True,
+                },
+            },
+            {   # b) unmatched → review
+                "severity": "high",
+                "title": "Something ambiguous in the corner",
+                "description": "Inspector unsure what this is",
+                "standard": None,
+            },
+            {   # c) low-confidence candidate → review
+                "severity": "high",
+                "title": "Possible machine hazard",
+                "description": "Loose brain-search style match",
+                "confidence": 0.5,
+                "standard": {
+                    "citation": "29 CFR 1910.212",
+                    "standard_title": "General requirements for all machines",
+                    "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.212",
+                    "has_verbatim": False,
+                },
+            },
+        ],
+    }
+    r = client.post("/api/audit/from-report", headers=H, json={
+        "company": "Perception Test Co", "report": report})
+    assert r.status_code == 200, r.text
+    audit = r.json().get("audit") or {}
+    capa_ids = audit.get("capa_ids") or []
+    review = audit.get("review_queue") or []
+
+    # Exactly ONE CAPA — the confident, matched, severe finding. The other two
+    # are candidates and must NOT have auto-generated a corrective action.
+    assert len(capa_ids) == 1, \
+        f"only the confident matched finding may auto-CAPA, got {len(capa_ids)}: {audit}"
+    assert len(review) == 2, f"unmatched + low-confidence must both queue for review: {review}"
+    reasons = {q.get("reason") for q in review}
+    assert reasons == {"unmatched", "low_confidence"}, \
+        f"review queue must record why each finding needs review: {reasons}"
+    assert audit.get("summary", {}).get("needs_review") == 2, \
+        f"audit summary must surface the review count: {audit.get('summary')}"
+
+    # The routed finding carries an actionable route; the candidates carry review.
+    routes = sorted(f.get("route", "") for f in audit.get("findings", []))
+    assert routes == ["capa", "review", "review"], f"unexpected finding routes: {routes}"
+
+    print("[pass] perception layer: widened deterministic hazard battery resolves "
+          "KB-cited at high confidence; matched+confident auto-CAPAs while "
+          "unmatched/low-confidence route to review, never to a CAPA")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -436,6 +551,7 @@ def main() -> int:
         check_spine(client, token, cid)
         check_requirements(client, token, cid)
         check_tenancy(client, token, cid)
+        check_perception(client, token)
     finally:
         try:
             eng.shutdown()

@@ -68,7 +68,9 @@
 
 ---
 
-## Stage 4 — Broaden the perception layer (AI Safety Inspector)
+## Stage 4 — Broaden the perception layer (AI Safety Inspector) — ✅ DONE (2026-09-07)
+
+**Shipped:** `photo_audit.py` gained a deterministic hazard-category→OSHA-section battery (`_HAZARD_MAP`, 39 categories spanning 1926 construction + 1910 general industry) as the high-confidence first resolver, ahead of the curated-verbatim and strict brain-search paths. Every resolution is KB-verified (`osha_section`/verbatim) — no fabrication. Each finding now carries `confidence` + `confidence_band` + `match_method` + `route`: a deterministic table hit or curated verbatim = high confidence (actionable); a loose brain-search overlap = low-confidence candidate. Routing (`CONFIDENCE_REVIEW_BELOW = 0.6`): in `audit_engine.record_audit`, only a matched + confident finding clearing the severity bar auto-opens a CAPA; every unmatched OR low-confidence finding goes to a `review_queue` on the audit record (reason: unmatched / low_confidence) and NEVER auto-generates a corrective action. `promote_finding` is the manual reviewer counterpart (clears the queue entry, opens the CAPA). `selftest_sie.py check_perception()` proves both the widened battery and the review routing offline; full engine suite green.
 
 **Goal:** widen `photo_audit.py` from its current narrower battery toward the 40+ hazard-category vision, keeping every detection KB-cited.
 

@@ -52,6 +52,29 @@ AUDIT_DIR = DATA_DIR / "audits"
 # clear the auto-CAPA threshold. Mirrors photo_audit's low/medium/high scale.
 SEVERITY_RANK: Dict[str, int] = {"high": 0, "medium": 1, "low": 2}
 
+# Stage 4 routing line. A finding's confidence (set by photo_audit from HOW its
+# citation resolved: deterministic table / curated verbatim = trustworthy; loose
+# brain-search overlap = candidate) decides whether it may auto-open a CAPA.
+# Below this line a detection is a candidate only and goes to human review, never
+# straight to a corrective action. Kept in lockstep with
+# photo_audit.CONFIDENCE_REVIEW_BELOW (duplicated here to keep the modules
+# decoupled — audit_engine must never depend on importing the vision layer).
+REVIEW_BELOW = 0.6
+
+
+def _finding_confidence(f: Dict[str, Any]) -> float:
+    """Confidence for ONE finding. Uses the value photo_audit attached; for a
+    finding that arrived without one (e.g. a report posted straight to the API),
+    infer conservatively: a KB-sourced finding is trusted, an unsourced one is
+    treated as no-confidence so it routes to review rather than a CAPA."""
+    v = f.get("confidence")
+    if v is not None:
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            pass
+    return 0.8 if f.get("standard") else 0.0
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -120,6 +143,7 @@ def record_audit(report: Dict[str, Any], *, company: str, company_id: str = "",
     audit_id = "audit-" + uuid.uuid4().hex[:10]
     annotated: List[Dict[str, Any]] = []
     capa_ids: List[str] = []
+    review_queue: List[Dict[str, Any]] = []
 
     for f in findings:
         if not isinstance(f, dict):
@@ -129,7 +153,32 @@ def record_audit(report: Dict[str, Any], *, company: str, company_id: str = "",
         entry["finding_id"] = "f-" + uuid.uuid4().hex[:6]
         entry["severity_weight"] = capa.audit_severity_weight(sev)
         entry["capa_id"] = ""
-        if _meets_threshold(sev, auto_capa_severity):
+        matched = bool(f.get("standard"))
+        conf = _finding_confidence(f)
+        entry["confidence"] = round(conf, 2)
+
+        # Stage 4 routing. Only a sourced, confident finding that also clears the
+        # severity bar auto-opens a CAPA — that is an ACTIONABLE finding. Anything
+        # unmatched or low-confidence is a CANDIDATE: it goes to the human-review
+        # queue and never auto-generates a corrective action (Stage 5 makes that
+        # queue a first-class store; here it rides on the audit record). A matched,
+        # confident finding that simply sits below the severity threshold is left
+        # for manual promotion exactly as before — neither CAPA'd nor "review".
+        if not matched or conf < REVIEW_BELOW:
+            reason = "unmatched" if not matched else "low_confidence"
+            entry["route"] = "review"
+            entry["needs_review"] = True
+            entry["review_reason"] = reason
+            review_queue.append({
+                "finding_id": entry["finding_id"],
+                "title": (f.get("title") or "").strip() or "Unspecified hazard",
+                "severity": sev,
+                "confidence": round(conf, 2),
+                "reason": reason,
+                "standard": (f.get("standard") or {}).get("citation", ""),
+            })
+        elif _meets_threshold(sev, auto_capa_severity):
+            entry["route"] = "capa"
             try:
                 c = capa.open_from_audit_finding(
                     f, company=company, company_id=cid, audit_id=audit_id, by=by)
@@ -137,7 +186,14 @@ def record_audit(report: Dict[str, Any], *, company: str, company_id: str = "",
                 capa_ids.append(c["id"])
             except Exception as exc:  # one bad finding never sinks the audit
                 entry["capa_error"] = str(exc)
+        else:
+            # Confident + sourced but below the auto-CAPA severity line: recorded
+            # and promotable on demand (promote_finding), no queue entry.
+            entry["route"] = "eligible"
         annotated.append(entry)
+
+    summary = summarize(findings)
+    summary["needs_review"] = len(review_queue)
 
     record = {
         "id": audit_id,
@@ -151,9 +207,10 @@ def record_audit(report: Dict[str, Any], *, company: str, company_id: str = "",
         "image_count": report.get("image_count", 0),
         "model": report.get("model", ""),
         "auto_capa_severity": auto_capa_severity,
-        "summary": summarize(findings),
+        "summary": summary,
         "findings": annotated,
         "capa_ids": capa_ids,
+        "review_queue": review_queue,
         "disclaimer": report.get("disclaimer", ""),
     }
     save(record)
@@ -181,6 +238,15 @@ def promote_finding(audit_id: str, finding_id: str, *,
         target, company=rec.get("company", ""), company_id=rec.get("company_id", ""),
         audit_id=audit_id, by=by)
     target["capa_id"] = c["id"]
+    # A human decided this candidate is real: it leaves the review queue and
+    # becomes an actionable finding. This is the manual counterpart to the
+    # automatic confident-match path (Stage 5 will log the reviewer decision).
+    target["route"] = "capa"
+    target["needs_review"] = False
+    rec["review_queue"] = [q for q in rec.get("review_queue", [])
+                           if q.get("finding_id") != finding_id]
+    if isinstance(rec.get("summary"), dict):
+        rec["summary"]["needs_review"] = len(rec["review_queue"])
     rec.setdefault("capa_ids", []).append(c["id"])
     rec["updated_at"] = _now()
     save(rec)
@@ -227,6 +293,7 @@ def _view(rec: Dict[str, Any]) -> Dict[str, Any]:
         "image_count": rec.get("image_count", 0),
         "summary": rec.get("summary", {}),
         "capa_count": len(rec.get("capa_ids", [])),
+        "review_count": len(rec.get("review_queue", [])),
         "created_at": rec.get("created_at"),
     }
 
@@ -252,22 +319,25 @@ def overview() -> Dict[str, Any]:
     high = sum(r.get("summary", {}).get("high", 0) for r in rows)
     unmatched = sum(r.get("summary", {}).get("unmatched", 0) for r in rows)
     capas = sum(len(r.get("capa_ids", [])) for r in rows)
+    review = sum(len(r.get("review_queue", [])) for r in rows)
     per_company: Dict[str, Dict[str, Any]] = {}
     for r in rows:
         cid = r.get("company_id", "")
         pc = per_company.setdefault(cid, {
             "company_id": cid, "company": r.get("company", ""),
-            "audits": 0, "findings": 0, "high": 0, "capas": 0})
+            "audits": 0, "findings": 0, "high": 0, "capas": 0, "review": 0})
         pc["audits"] += 1
         pc["findings"] += len(r.get("findings", []))
         pc["high"] += r.get("summary", {}).get("high", 0)
         pc["capas"] += len(r.get("capa_ids", []))
+        pc["review"] += len(r.get("review_queue", []))
     return {
         "audits": audits,
         "findings": findings,
         "high_severity": high,
         "unmatched": unmatched,
         "capas_opened": capas,
+        "needs_review": review,
         "companies": sorted(per_company.values(),
                             key=lambda x: (-x["high"], -x["findings"])),
     }
