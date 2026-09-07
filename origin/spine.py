@@ -12,21 +12,28 @@ verification) becomes queryable across engines, without moving the source of
 truth into a database and without touching the offline no-LLM guarantee.
 
 Node types today (what the live data already supports):
-    company · finding · capa · citation · source (a cited standard)
+    company · finding · capa · citation · requirement · source (a cited standard)
 Edge types today (all directional, all traceable):
-    company  --has_finding-->  finding
-    company  --has_capa----->  capa
-    company  --has_citation->  citation
-    finding  --triggers----->  capa
-    finding  --violates----->  source
-    capa     --cited_by----->  source
-    citation --cited_by----->  source
+    company     --has_finding----->  finding
+    company     --has_capa-------->  capa
+    company     --has_citation---->  citation
+    company     --has_requirement->  requirement
+    finding     --triggers------->  capa
+    finding     --violates------->  source
+    capa        --cited_by------->  source
+    citation    --cited_by------->  source
+    requirement --cited_by------->  source
+
+The requirement layer is derived, on the fly, from the company profile by the
+Applicable Requirements Engine (requirements_engine.py); a requirement and the
+evidence that satisfies it meet at the shared source-standard node, which is what
+makes "which requirements have no evidence" answerable from this one index.
 
 Materialized as nodes.jsonl + edges.jsonl + meta.json under
 ORIGIN_DATA_DIR/spine, rewritten atomically on rebuild (temp dir + rename).
-Requirement / Training / ReviewItem / Evidence node types are reserved for
-later stages (Applicable Requirements Engine, human-review queue); they are
-added here only when the live data supports them, never speculatively.
+Training / ReviewItem / Evidence node types are reserved for later stages
+(human-review queue, evidence vault); they are added here only when the live
+data supports them, never speculatively.
 """
 
 from __future__ import annotations
@@ -55,6 +62,7 @@ META_FILE = SPINE_DIR / "meta.json"
 REL_HAS_FINDING = "has_finding"
 REL_HAS_CAPA = "has_capa"
 REL_HAS_CITATION = "has_citation"
+REL_HAS_REQUIREMENT = "has_requirement"
 REL_TRIGGERS = "triggers"
 REL_VIOLATES = "violates"
 REL_CITED_BY = "cited_by"
@@ -73,6 +81,28 @@ def _norm_std(citation: str) -> str:
     """Normalize a standard citation string into a stable source-node id, so
     '29 CFR 1926.501' and '29 cfr 1926.501 ' collapse to the same source."""
     return re.sub(r"\s+", " ", (citation or "").strip()).upper()
+
+
+def _split_std_refs(citation: str) -> List[str]:
+    """Split a compound requirement citation into individual standard references
+    that match how findings/CAPAs store their source citation, so a requirement
+    and its evidence resolve to the SAME source node.
+
+    '29 CFR 1910.1053 / 1926.1153' -> ['29 CFR 1910.1053', '29 CFR 1926.1153']
+    '29 CFR 1910.331-335 / NFPA 70E' -> ['29 CFR 1910.331-335', 'NFPA 70E']
+
+    Bare part numbers after a slash ('1926.1153') get the '29 CFR' prefix
+    re-attached so they normalize identically to the way a finding cites them.
+    """
+    out: List[str] = []
+    for part in re.split(r"\s*[/;]\s*", citation or ""):
+        p = part.strip()
+        if not p:
+            continue
+        if re.match(r"^\d{3,4}[.\-]", p):        # e.g. '1926.1153' or '1926-501'
+            p = "29 CFR " + p
+        out.append(p)
+    return out
 
 
 # ── node / edge accumulation ─────────────────────────────────────────────────
@@ -201,6 +231,35 @@ def rebuild_spine() -> Dict[str, Any]:
             _add_edge(edges, _nid("citation", ctid), REL_CITED_BY,
                       _nid("source", sid))
 
+    # 5. Requirements — the Applicable Requirements Engine derives, from each
+    #    company profile, the classified set of standards that apply and WHY.
+    #    Each becomes a requirement node cited back to its source standard(s), so
+    #    a requirement meets the evidence that satisfies it at the shared source.
+    for c in _companies():
+        cid = (c.get("company_id") or _slug(c.get("company", ""))).strip()
+        if not cid:
+            continue
+        for req in _requirements_for(c):
+            rid = (req.get("requirement_id") or "").strip()
+            if not rid:
+                continue
+            _add_node(nodes, "requirement", rid,
+                      label=req.get("title") or "Requirement",
+                      classification=req.get("classification", ""),
+                      basis=req.get("basis", ""),
+                      category=req.get("category", ""),
+                      citation=req.get("citation", ""),
+                      why=req.get("why", ""))
+            _add_edge(edges, _nid("company", cid), REL_HAS_REQUIREMENT,
+                      _nid("requirement", rid))
+            for ref in _split_std_refs(req.get("citation", "")):
+                sid = _norm_std(ref)
+                if not sid:
+                    continue
+                _add_node(nodes, "source", sid, label=ref)
+                _add_edge(edges, _nid("requirement", rid), REL_CITED_BY,
+                          _nid("source", sid))
+
     stats = _write_index(list(nodes.values()), list(edges.values()))
     return stats
 
@@ -273,6 +332,17 @@ def _citations() -> List[Dict[str, Any]]:
     try:
         from . import citation_engine as ce
         return ce.list_recent(limit=1000000)
+    except Exception:
+        return []
+
+
+def _requirements_for(company_rec: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Derive the classified requirement set for one company profile via the
+    Applicable Requirements Engine. Isolated: if that engine is unavailable or
+    errors, the spine still rebuilds without requirement nodes."""
+    try:
+        from . import requirements_engine as re_eng
+        return re_eng.requirements_from_profile(company_rec).get("requirements", [])
     except Exception:
         return []
 
@@ -352,6 +422,7 @@ def chain_for_company(company_id: str) -> Dict[str, Any]:
             "findings": sum(1 for n in sub_nodes if n["type"] == "finding"),
             "capas": sum(1 for n in sub_nodes if n["type"] == "capa"),
             "citations": sum(1 for n in sub_nodes if n["type"] == "citation"),
+            "requirements": sum(1 for n in sub_nodes if n["type"] == "requirement"),
             "sources": sum(1 for n in sub_nodes if n["type"] == "source"),
         },
         "nodes": sub_nodes,

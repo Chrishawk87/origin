@@ -121,7 +121,13 @@ def check_sie_chain(client, token: str) -> None:
         "naics": "238160",
         "state": "TX",
         "headcount": 25,
-        "activities": ["roofing", "fall protection"],
+        # Real activity trigger KEYS (scoping keys, not free text) so the
+        # Applicable Requirements Engine has a triggered standard to resolve;
+        # fall_exposure pulls in 1926.501, matching the HIGH finding below so
+        # Stage 2's "covered vs. gap" split has a genuinely-covered line.
+        "activities": {"fall_exposure": True, "hot_work": True},
+        # A hiring client so a Customer-requirement line is produced too.
+        "operators": ["ISN"],
     })
     assert r.status_code == 200, r.text
     prof = r.json().get("profile") or {}
@@ -247,6 +253,63 @@ def check_spine(client, token: str, cid: str) -> None:
           "{triggers CAPA, violates source} is queryable (derived, no model)")
 
 
+# ── the Applicable Requirements Engine (Stage 2) ─────────────────────────────
+def check_requirements(client, token: str, cid: str) -> None:
+    """Given a company profile, Origin must produce its tailored requirement set
+    with a citation and an applicability reason for EVERY line, each tagged with
+    exactly one of the four classifications (never blended). Then the gap view
+    must split those requirements into covered (evidence on file) vs. gaps,
+    reading the derived spine — all offline, no model."""
+    H = {"X-Origin-Token": token}
+
+    # 1. The classified requirement set resolves for the company.
+    r = client.get(f"/api/requirements/{cid}", headers=H)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert not body.get("error"), f"requirements errored: {body}"
+    reqs = body.get("requirements") or []
+    assert reqs, f"no requirements resolved for company: {body}"
+
+    # 2. EVERY line carries a citation-or-basis, an applicability reason, and
+    #    exactly one of the four classifications.
+    allowed = {"osha_required", "origin_recommendation", "best_practice",
+               "customer_requirement"}
+    for req in reqs:
+        assert req.get("classification") in allowed, \
+            f"bad/blended classification: {req.get('classification')} in {req}"
+        assert req.get("why"), f"requirement missing applicability reason: {req}"
+    classes = {req["classification"] for req in reqs}
+    assert "osha_required" in classes, f"expected an OSHA-required line: {sorted(classes)}"
+    # The seeded 'ISN' operator must surface as a Customer requirement.
+    assert "customer_requirement" in classes, \
+        f"expected a Customer requirement from the operator: {sorted(classes)}"
+
+    # 3. The gap view splits requirements into covered vs. gaps using the spine.
+    #    fall_exposure pulled in 1926.501, and the HIGH finding violated
+    #    1926.501 — so that requirement must read as covered (evidence on file).
+    r = client.get(f"/api/requirements/{cid}/gaps", headers=H)
+    assert r.status_code == 200, r.text
+    gap = r.json()
+    assert not gap.get("error"), f"gaps errored: {gap}"
+    assert gap.get("covered_count", 0) >= 1, \
+        f"fall-protection requirement should be covered by the finding: {gap}"
+    covered_cites = " ".join(c.get("citation", "") for c in gap.get("covered") or [])
+    assert "1926.501" in covered_cites, \
+        f"expected 1926.501 among covered requirements: {covered_cites}"
+
+    # 4. The spine now materializes the requirement layer too: the company chain
+    #    carries requirement nodes reachable from the company anchor.
+    r = client.get(f"/api/spine/company/{cid}", headers=H)
+    assert r.status_code == 200, r.text
+    counts = (r.json().get("counts") or {})
+    assert counts.get("requirements", 0) >= 1, \
+        f"spine chain missing requirement nodes: {r.json()}"
+
+    print("[pass] applicable requirements: tailored set with citation + reason + "
+          "one-of-four classification per line; gap view covers 1926.501, spine "
+          "carries the requirement layer (derived, no model)")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -263,6 +326,7 @@ def main() -> int:
         check_auth(client, token)
         cid = check_sie_chain(client, token)
         check_spine(client, token, cid)
+        check_requirements(client, token, cid)
     finally:
         try:
             eng.shutdown()

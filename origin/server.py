@@ -1995,6 +1995,18 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _spine_exc:  # pragma: no cover
         print(f"[spine] disabled — registration failed: {_spine_exc}")
 
+    # ── Safety Intelligence Engine — Applicable Requirements (Stage 2) ──
+    # Given a company profile, resolve the tailored set of standards that apply
+    # and WHY, each tagged with exactly one of the four classifications
+    # (OSHA-required / Origin recommendation / Best practice / Customer
+    # requirement) — never blended. Derived on demand from the profile via
+    # scoping; no new source of truth. Isolated + non-fatal.
+    try:
+        from . import requirements_engine as _reqs
+        _reqs.register_requirements(app)
+    except Exception as _reqs_exc:  # pragma: no cover
+        print(f"[requirements] disabled — registration failed: {_reqs_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal
