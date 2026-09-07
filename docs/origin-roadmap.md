@@ -113,7 +113,7 @@
 
 ---
 
-## Stage 7 — Reconcile persistence (only when justified by scale)
+## Stage 7 — Reconcile persistence (only when justified by scale) ✅ DECIDED (2026-09-07)
 
 **Goal:** decide the long-term home once tenancy + spine + review exist.
 
@@ -122,12 +122,24 @@
 
 **Exit:** one deliberate, documented persistence decision — reached with data, not by default.
 
+**Decided: keep file-based JSON + derived indexes; no migration now.** Reached with
+data, not by default — `bench_persistence.py` (a standalone, offline harness that
+synthesizes 100 / 1,000 / 10,000 tenant companies in a throwaway data dir and times
+the hot paths). The interactive path users actually hit — the per-company
+requirement/evidence query — is O(1) in tenant count and stays ~0.19 ms flat from
+100 to 10,000 companies. Source-of-truth JSON is only 4.8 MB at 10k. The one O(n)
+cost is the full spine rebuild (~23 s at 10k), which runs periodically, not per
+request. Full decision + the measured trigger thresholds that would flip it (move
+only the derived index into `platform_db` behind a flag, JSON still source of truth,
+offline test still green) are in `docs/origin-persistence-decision.md`. Re-run the
+benchmark near ~1,000 and ~5,000 live tenants to confirm the curve.
+
 ---
 
 ## Sequencing summary
 
 Stage 0 (stabilize) → Stage 1 (spine) → Stage 2 (requirements-as-data) → Stage 3 (tenant scope) → Stage 4 (perception) → Stage 5 (review queue) → Stage 6 (training) → Stage 7 (persistence reconciliation).
 
-Stages 1–3 are the critical path to the all-industry vision and the highest-leverage customer value. Stages 4–6 deepen the moat. Stage 7 is deferred on purpose.
+Stages 1–3 are the critical path to the all-industry vision and the highest-leverage customer value. Stages 4–6 deepen the moat. Stage 7 was deferred on purpose and is now decided (2026-09-07): keep file-based, revisit only on a measured trigger.
 
 Every stage: register through `create_app` in isolation, keep the four-way classification intact, and finish green on the offline no-LLM CI gate.
