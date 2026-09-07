@@ -52,11 +52,12 @@
 (function(){
   // The installed app IS the converged Safety Intelligence Engine + Photo Audit
   // console. A signed-in owner/admin opens straight into /sie (the whole tool in
-  // one page, one nav — Photo Audit is a tab there). GC and contractor logins
-  // still land on their own scoped dashboards for now: /sie is portfolio-wide
-  // and not yet tenant-scoped, so pointing a GC there would expose every
-  // company. That scoping is a deliberate decision to make before the app
-  // becomes SIE-only for GCs too.
+  // one page, one nav — Photo Audit is a tab there). GC logins land on their own
+  // /gc monitoring board, which now carries a "Safety Intelligence" button into
+  // /sie: as of the Stage 3/5/6 tenant-scoping, /sie is filtered to the GC's own
+  // companies (its review inbox and training matrix included), so a GC there
+  // sees only its own slice — never the whole portfolio. Contractors stay on
+  // /portal.
   // Checked most-privileged first. Each endpoint returns 200 when signed in,
   // 401 when not.
   var checks = [

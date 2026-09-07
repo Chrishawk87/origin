@@ -658,12 +658,24 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _re.compile(r"^/api/audit/[^/]+$"),                   # audit detail (owned)
         _re.compile(r"^/api/audit/[^/]+/promote/[^/]+$"),
         _re.compile(r"^/api/scoping/[^/]+$"),                 # stateless helpers
+        # Review inbox (Stage 5): rollups are gc_slug-filtered in the handler;
+        # per-item routes resolve to the item's company below and are owned-gated.
+        _re.compile(r"^/api/review/(overview|list)$"),
+        _re.compile(r"^/api/review/[^/]+(/(approve|reject))?$"),
+        # Training matrix (Stage 6): overview gc_slug-filtered in the handler;
+        # per-company + per-employee routes resolve to their company below.
+        _re.compile(r"^/api/training/overview$"),
+        _re.compile(r"^/api/training/[^/]+/(catalog|matrix|summary|employee)$"),
+        _re.compile(r"^/api/training/employee/[^/]+/(complete|deactivate)$"),
     ]
     # Paths a GC may hit that legitimately carry no company_id (they are either
-    # self-scoping or stateless). Every OTHER allowed path must resolve to a
-    # company the GC owns, or the request is refused.
+    # self-scoping, stateless, or a tenant-filtered portfolio rollup). Every
+    # OTHER allowed path must resolve to a company the GC owns, or the request is
+    # refused. The review/training rollups below are safe with no company_id
+    # because their handlers filter to request.state.sie_gc_slug.
     _GC_NO_CID_OK = _re.compile(
-        r"^/api/(company/(list|portfolio|upsert)|scoping/[^/]+)$")
+        r"^/api/(company/(list|portfolio|upsert)|scoping/[^/]+"
+        r"|review/(overview|list)|training/overview)$")
 
     def _gc_company_id(request):
         """Best-effort: the company_id a request targets, for GC ownership checks.
@@ -691,6 +703,22 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                 return (_ae.get(parts[2]) or {}).get("company_id")
             except Exception:
                 return None
+        if area == "review" and parts[2] not in ("overview", "list", "ingest"):
+            try:                                        # review item id → its company
+                from . import review_engine as _rv
+                return (_rv.get(parts[2]) or {}).get("company_id")
+            except Exception:
+                return None
+        if area == "training":
+            if parts[2] == "overview":
+                return None                             # tenant-filtered in handler
+            if parts[2] == "employee" and len(parts) >= 4:
+                try:                                    # employee id → its company
+                    from . import training_engine as _tr
+                    return (_tr.get_employee(parts[3]) or {}).get("company_id")
+                except Exception:
+                    return None
+            return parts[2]                             # /api/training/{company_id}/...
         return None
 
     def _gc_owns(gc_slug, company_id):

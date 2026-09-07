@@ -773,6 +773,136 @@ def _cell(matrix: dict, eid: str, section: str):
     return None
 
 
+def check_gc_scope(client, token: str) -> None:
+    """Surfacing Stage 5 (review) + Stage 6 (training) to GCs must not spill one
+    tenant's data into another's. The boundary, all offline:
+
+      1. The review inbox rollup + list a GC sees are scoped to ITS OWN companies
+         only — never another GC's items — while the owner still sees all.
+      2. A GC can self-serve on its OWN review items (approve/reject) but is
+         refused (403) on another GC's item, by every per-item route.
+      3. The training matrix overview a GC sees is scoped to its own companies;
+         another GC's per-company + per-employee training routes are refused (403).
+      4. GCs still can't inject audits (from-report stays owner-only).
+
+    Setup uses the owner (token) to create the audits — a GC can't — then assigns
+    each company to a GC so the scoped views have something tenant-owned to show."""
+    H = {"X-Origin-Token": token}
+    ALPHA = {"Cookie": _gc_cookie("scope-alpha")}
+    BETA = {"Cookie": _gc_cookie("scope-beta")}
+
+    def _one_finding_report(title):
+        return {"scene": title, "image_count": 1, "findings": [
+            {"severity": "high", "title": title,
+             "description": "unsure", "standard": None}]}  # unmatched → review
+
+    # Owner creates one audited company per GC, each with a single review-bound
+    # (unmatched) finding, then assigns it to that GC and gives it a training
+    # trigger (respirators → 1910.134, which carries a KB training obligation).
+    made = {}
+    for label, slug in (("Scope Alpha Co", "scope-alpha"),
+                        ("Scope Beta Co", "scope-beta")):
+        r = client.post("/api/audit/from-report", headers=H, json={
+            "company": label, "report": _one_finding_report(f"{label} hazard")})
+        assert r.status_code == 200, r.text
+        cid = (r.json().get("audit") or {}).get("company_id")
+        assert cid, f"audit for {label} did not persist: {r.json()}"
+        # Assign the company to the GC and add the training trigger (owner upsert).
+        r = client.post("/api/company/upsert", headers=H, json={
+            "company_id": cid, "company": label, "gc_slug": slug,
+            "industry": "Manufacturing", "naics": "332710", "state": "TX",
+            "headcount": 20, "activities": {"respirators": True}})
+        assert r.status_code == 200, r.text
+        assert (r.json().get("profile") or {}).get("gc_slug") == slug, r.text
+        made[slug] = cid
+    a_cid, b_cid = made["scope-alpha"], made["scope-beta"]
+
+    # Ingest reconstructs the pending review items from the audits.
+    r = client.post("/api/review/ingest", headers=H, json={})
+    assert r.status_code == 200 and not r.json().get("error"), r.text
+
+    # 1. GC-alpha's review rollup + list are scoped to alpha's company only.
+    r = client.get("/api/review/overview", headers=ALPHA)
+    assert r.status_code == 200, r.text
+    seen = {c.get("company_id") for c in (r.json().get("companies") or [])}
+    assert a_cid in seen and b_cid not in seen, \
+        f"GC-alpha review overview must show only its own company: {sorted(seen)}"
+
+    r = client.get("/api/review/list", headers=ALPHA)
+    assert r.status_code == 200, r.text
+    a_items = r.json().get("items") or []
+    assert a_items and all(i.get("company_id") == a_cid for i in a_items), \
+        f"GC-alpha review list must contain only its own items: {a_items}"
+    a_item_id = a_items[0]["item_id"]
+
+    # The owner still sees BOTH tenants' companies in the rollup.
+    r = client.get("/api/review/overview", headers=H)
+    owner_seen = {c.get("company_id") for c in (r.json().get("companies") or [])}
+    assert {a_cid, b_cid} <= owner_seen, \
+        f"owner review overview must see all tenants: {sorted(owner_seen)}"
+
+    # Owner grabs GC-beta's item id, to prove alpha can't touch it.
+    r = client.get(f"/api/review/list?company_id={b_cid}", headers=H)
+    b_items = r.json().get("items") or []
+    assert b_items, f"beta must have a pending review item: {b_items}"
+    b_item_id = b_items[0]["item_id"]
+
+    # 2. Cross-tenant per-item routes are refused for GC-alpha.
+    assert client.get(f"/api/review/{b_item_id}", headers=ALPHA).status_code == 403, \
+        "GC-alpha must not read GC-beta's review item"
+    assert client.post(f"/api/review/{b_item_id}/approve", headers=ALPHA,
+                       json={}).status_code == 403, \
+        "GC-alpha must not approve GC-beta's review item"
+    assert client.post(f"/api/review/{b_item_id}/reject", headers=ALPHA,
+                       json={}).status_code == 403, \
+        "GC-alpha must not reject GC-beta's review item"
+
+    # ...but GC-alpha CAN self-serve on its OWN item (approve writes the chain and
+    # stamps the GC as reviewer).
+    r = client.post(f"/api/review/{a_item_id}/reject", headers=ALPHA,
+                    json={"note": "not a hazard"})
+    assert r.status_code == 200, r.text
+    item = (r.json() or {}).get("item") or {}
+    assert item.get("status") == "rejected", f"GC self-serve reject failed: {item}"
+    assert item.get("reviewer") == "scope-alpha", \
+        f"a GC decision must be stamped to the GC, got: {item.get('reviewer')}"
+
+    # 3. Training overview is scoped; another GC's training routes are refused.
+    r = client.get("/api/training/overview", headers=ALPHA)
+    assert r.status_code == 200, r.text
+    t_seen = {c.get("company_id") for c in (r.json().get("companies") or [])}
+    assert a_cid in t_seen and b_cid not in t_seen, \
+        f"GC-alpha training overview must show only its own company: {sorted(t_seen)}"
+
+    for path in (f"/api/training/{b_cid}/matrix", f"/api/training/{b_cid}/catalog",
+                 f"/api/training/{b_cid}/summary"):
+        assert client.get(path, headers=ALPHA).status_code == 403, \
+            f"GC-alpha must be refused GC-beta's training route {path}"
+    # GC-alpha may add an employee to its OWN company but not to GC-beta's.
+    assert client.post(f"/api/training/{b_cid}/employee", headers=ALPHA,
+                      json={"name": "Mallory"}).status_code == 403, \
+        "GC-alpha must not add an employee to GC-beta's roster"
+    r = client.post(f"/api/training/{a_cid}/employee", headers=ALPHA,
+                    json={"name": "Dana", "role": "Operator"})
+    assert r.status_code == 200, r.text
+    a_eid = (r.json().get("employee") or {}).get("employee_id")
+    assert a_eid, f"GC-alpha add-own-employee must succeed: {r.json()}"
+    # And GC-beta can't act on GC-alpha's employee (per-employee route ownership).
+    assert client.post(f"/api/training/employee/{a_eid}/deactivate", headers=BETA,
+                      json={}).status_code == 403, \
+        "GC-beta must not deactivate GC-alpha's employee"
+
+    # 4. GCs still cannot inject audits — from-report stays owner-only.
+    assert client.post("/api/audit/from-report", headers=ALPHA, json={
+        "company": "Sneaky Co",
+        "report": _one_finding_report("x")}).status_code == 403, \
+        "a GC must not be able to create audits"
+
+    print("[pass] GC surfacing: review inbox + training matrix are tenant-scoped — "
+          "a GC self-serves on its OWN items/roster and is refused (403) on another "
+          "tenant's; owner still sees all; GCs still can't inject audits")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -794,6 +924,7 @@ def main() -> int:
         check_perception(client, token)
         check_review(client, token)
         check_training(client, token)
+        check_gc_scope(client, token)
     finally:
         try:
             eng.shutdown()

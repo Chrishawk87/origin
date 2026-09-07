@@ -43,6 +43,13 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+# Module-level so FastAPI can resolve the `request: Request` annotation under
+# `from __future__ import annotations` (see review_engine.py for the full note).
+try:  # pragma: no cover - trivial import guard
+    from fastapi import Request
+except Exception:  # pragma: no cover
+    Request = None  # type: ignore
+
 from . import requirements_engine
 from . import compliance_kb
 
@@ -407,10 +414,12 @@ def company_training_summary(company_id: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def portfolio_training() -> Dict[str, Any]:
-    """Portfolio-wide training rollup across every profiled company."""
+def portfolio_training(gc_slug: str = "") -> Dict[str, Any]:
+    """Portfolio-wide training rollup across profiled companies. When ``gc_slug``
+    is set, the rollup covers only that GC's own companies (Stage 3 tenant
+    scoping) so a GC console never sees another tenant's roster."""
     from . import company_profile as cp
-    companies = cp.list_all()
+    companies = cp.list_all(gc_slug=gc_slug or None)
     out: List[Dict[str, Any]] = []
     tot_expired = tot_expiring = 0
     for rec in companies:
@@ -468,18 +477,21 @@ def training_alerts_for(company_id: str) -> List[Dict[str, Any]]:
 
 # ── routes (gated by _auth under /api/*, isolated + non-fatal, owner-only) ────
 def register_training(app) -> None:
-    """Attach training-intelligence routes. Owner-only for now — not in the GC
-    allowlist, so a GC session can't reach them (safe-by-default); a GC-scoped
-    training view is a deliberate follow-on, exactly as /sie was for Stage 3.
-    Isolated + non-fatal, fully offline. The catalog is derived on every call; only
-    the roster + completions are persisted."""
-    from fastapi import Body
+    """Attach training-intelligence routes. Tenant-aware (Stage 3): an owner/admin
+    session sees the whole portfolio; a logged-in GC sees only its own companies'
+    training. The overview rollup filters by ``request.state.sie_gc_slug`` here,
+    and the per-company / per-employee routes are ownership-gated in server.py's
+    _auth (a GC can only reach a company or employee it owns). Isolated +
+    non-fatal, fully offline. The catalog is derived on every call; only the
+    roster + completions are persisted."""
+    from fastapi import Body, Request
     from fastapi.responses import JSONResponse
 
     @app.get("/api/training/overview")
-    def training_overview():
+    def training_overview(request: Request):
+        gc = (getattr(request.state, "sie_gc_slug", None) or "")
         try:
-            return {"ok": True, **portfolio_training()}
+            return {"ok": True, **portfolio_training(gc_slug=gc)}
         except Exception as exc:  # never 500 the tool
             return JSONResponse({"error": str(exc)}, status_code=200)
 

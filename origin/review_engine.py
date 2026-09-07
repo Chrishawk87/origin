@@ -38,6 +38,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# Imported at module level so FastAPI can resolve the `request: Request`
+# annotations on the routes below — with `from __future__ import annotations`
+# active, annotations are strings resolved against module globals, so a
+# function-local import would leave `Request` unresolved (FastAPI would then
+# mistake `request` for a query param). Guarded: the engine must still import
+# even if FastAPI is absent (offline/self-test contexts).
+try:  # pragma: no cover - trivial import guard
+    from fastapi import Request
+except Exception:  # pragma: no cover
+    Request = None  # type: ignore
+
 try:
     from .paths import DATA_DIR
 except ImportError:  # bare import in ad-hoc scripts
@@ -275,11 +286,30 @@ def _view(rec: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def list_items(company_id: str = "", status: str = "") -> List[Dict[str, Any]]:
+def _gc_company_ids(gc_slug: str) -> set:
+    """The set of company_ids owned by one GC (Stage 3 tenant boundary). Used to
+    scope portfolio-wide review rollups to a single tenant's slice — a GC must
+    never see another GC's items. Returns an empty set on any failure, which
+    means a scoped view shows nothing rather than everything (fail-closed)."""
+    try:
+        from . import company_profile as cp
+        return {_slug(r.get("company_id", ""))
+                for r in cp.list_all(gc_slug=gc_slug)}
+    except Exception:
+        return set()
+
+
+def list_items(company_id: str = "", status: str = "",
+               gc_slug: str = "") -> List[Dict[str, Any]]:
     """List review items, newest first. Filter by company and/or status. A
-    high-severity, still-pending item sorts to the top of an inbox."""
+    high-severity, still-pending item sorts to the top of an inbox. When
+    ``gc_slug`` is set, the list is scoped to that GC's own companies (Stage 3):
+    every other tenant's items are excluded before any other filter."""
     cid = _slug(company_id) if company_id else ""
     rows = _load_all()
+    if gc_slug:
+        owned = _gc_company_ids(gc_slug)
+        rows = [r for r in rows if _slug(r.get("company_id", "")) in owned]
     if cid:
         rows = [r for r in rows if _slug(r.get("company_id", "")) == cid]
     if status:
@@ -292,10 +322,15 @@ def list_items(company_id: str = "", status: str = "") -> List[Dict[str, Any]]:
     return [_view(r) for r in rows]
 
 
-def overview() -> Dict[str, Any]:
+def overview(gc_slug: str = "") -> Dict[str, Any]:
     """Portfolio-wide review rollup: how many items are pending / approved /
-    rejected, plus a per-company breakdown for a console inbox."""
+    rejected, plus a per-company breakdown for a console inbox. When ``gc_slug``
+    is set, the rollup covers only that GC's own companies (Stage 3 tenant
+    scoping) so a GC console never counts another tenant's items."""
     rows = _load_all()
+    if gc_slug:
+        owned = _gc_company_ids(gc_slug)
+        rows = [r for r in rows if _slug(r.get("company_id", "")) in owned]
     pending = sum(1 for r in rows if r.get("status") == STATUS_PENDING)
     approved = sum(1 for r in rows if r.get("status") == STATUS_APPROVED)
     rejected = sum(1 for r in rows if r.get("status") == STATUS_REJECTED)
@@ -323,12 +358,18 @@ def overview() -> Dict[str, Any]:
 
 # ── routes (gated by _auth under /api/*, isolated + non-fatal, owner-only) ────
 def register_review(app) -> None:
-    """Attach human-review-queue routes. Owner-only for now — these are not in the
-    GC allowlist, so a GC session can't reach them (safe-by-default); pointing GCs
-    at their own review inbox is a deliberate follow-on, exactly as /sie was for
-    Stage 3. Isolated + non-fatal, fully offline."""
-    from fastapi import Body
+    """Attach human-review-queue routes. Tenant-aware (Stage 3): an owner/admin
+    session sees the whole portfolio; a logged-in GC sees only its own companies'
+    items. Scoping is enforced two ways — the portfolio rollups (overview/list)
+    filter by ``request.state.sie_gc_slug`` here, and the per-item routes are
+    ownership-gated in server.py's _auth (a GC can only touch an item whose
+    company it owns). Isolated + non-fatal, fully offline."""
+    from fastapi import Body, Request
     from fastapi.responses import JSONResponse
+
+    def _gc(request) -> str:
+        # Owner/admin → "" (whole portfolio); GC → its own slug (its slice only).
+        return (getattr(request.state, "sie_gc_slug", None) or "")
 
     @app.post("/api/review/ingest")
     def review_ingest(body: dict = Body(default=None)):
@@ -338,24 +379,25 @@ def register_review(app) -> None:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
     @app.get("/api/review/overview")
-    def review_overview():
+    def review_overview(request: Request):
         try:
             ingest_from_audits()  # self-healing inbox: sync before reporting
         except Exception:
             pass
         try:
-            return {"ok": True, **overview()}
+            return {"ok": True, **overview(gc_slug=_gc(request))}
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
     @app.get("/api/review/list")
-    def review_list(company_id: str = "", status: str = ""):
+    def review_list(request: Request, company_id: str = "", status: str = ""):
         try:
             ingest_from_audits()  # self-healing inbox
         except Exception:
             pass
         try:
-            return {"ok": True, "items": list_items(company_id, status)}
+            return {"ok": True,
+                    "items": list_items(company_id, status, gc_slug=_gc(request))}
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
@@ -367,19 +409,22 @@ def register_review(app) -> None:
         return rec
 
     @app.post("/api/review/{item_id}/approve")
-    def review_approve(item_id: str, body: dict = Body(default=None)):
+    def review_approve(item_id: str, request: Request, body: dict = Body(default=None)):
+        # A GC reaches this only for an item it owns (enforced in _auth). Stamp
+        # the reviewer as the GC when it's a GC session, else the owner.
         payload = body if isinstance(body, dict) else {}
-        out = approve(item_id, by=payload.get("by", "owner"),
+        by = payload.get("by") or _gc(request) or "owner"
+        out = approve(item_id, by=by,
                       edits=payload.get("edits"), note=payload.get("note", ""))
         if out is None:
             return JSONResponse({"error": "review item not found"}, status_code=404)
         return out
 
     @app.post("/api/review/{item_id}/reject")
-    def review_reject(item_id: str, body: dict = Body(default=None)):
+    def review_reject(item_id: str, request: Request, body: dict = Body(default=None)):
         payload = body if isinstance(body, dict) else {}
-        out = reject(item_id, by=payload.get("by", "owner"),
-                     note=payload.get("note", ""))
+        by = payload.get("by") or _gc(request) or "owner"
+        out = reject(item_id, by=by, note=payload.get("note", ""))
         if out is None:
             return JSONResponse({"error": "review item not found"}, status_code=404)
         return out
