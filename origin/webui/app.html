@@ -50,10 +50,17 @@
 
 <script>
 (function(){
-  // Route to whichever dashboard this phone is signed in to. Checked most-
-  // privileged first. Each endpoint returns 200 when signed in, 401 when not.
+  // The installed app IS the converged Safety Intelligence Engine + Photo Audit
+  // console. A signed-in owner/admin opens straight into /sie (the whole tool in
+  // one page, one nav — Photo Audit is a tab there). GC and contractor logins
+  // still land on their own scoped dashboards for now: /sie is portfolio-wide
+  // and not yet tenant-scoped, so pointing a GC there would expose every
+  // company. That scoping is a deliberate decision to make before the app
+  // becomes SIE-only for GCs too.
+  // Checked most-privileged first. Each endpoint returns 200 when signed in,
+  // 401 when not.
   var checks = [
-    { url:'/portal/api/admin/me', go:'/admin' },
+    { url:'/portal/api/admin/me', go:'/sie' },
     { url:'/portal/api/gc/home',  go:'/gc' },
     { url:'/portal/api/me',       go:'/portal' }
   ];
@@ -66,7 +73,7 @@
     //  • If this device has previously signed in somewhere, reopen that login.
     //  • Otherwise default to the owner/admin master-password screen (that's Chris).
     var home = lastHome();
-    if(home==='/admin' || home==='/gc' || home==='/portal'){ location.replace(home); return; }
+    if(home==='/sie' || home==='/gc' || home==='/portal'){ location.replace(home); return; }
     location.replace('/admin');
   }
   function step(i){

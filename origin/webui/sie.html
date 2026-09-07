@@ -152,6 +152,7 @@
   <button class="tab" data-tab="prequal">Prequal</button>
   <button class="tab" data-tab="audits">Audits</button>
   <button class="tab" data-tab="citation">Citation</button>
+  <button class="tab" data-tab="photo">Photo Audit</button>
 </div>
 
 <div class="wrap">
@@ -280,6 +281,15 @@
     </div>
   </section>
 
+  <!-- ══ PHOTO AUDIT ══ -->
+  <!-- The proven camera walk-through tool, embedded so the console is one page,
+       one nav. Findings a user captures here are saved to the picked company and
+       surface back in the Audits tab on their workstation. -->
+  <section class="panel" id="p-photo">
+    <iframe id="paFrame" title="Photo Audit" data-src="/photo-audit?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
 </div>
 
 <script>
@@ -316,6 +326,7 @@ const INIT = {
   prequal: ()=>fillCompanySelect('pq-co'),
   audits: loadAudits,
   citation: ()=>{},
+  photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
 };
 
 // company select fill (shared) ------------------------------------------------

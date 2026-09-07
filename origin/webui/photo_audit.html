@@ -180,6 +180,18 @@
       var _bl = $('backLink');
       if (_bl){ _bl.setAttribute('href', _bk); _bl.textContent = '← ' + _allow[_bk]; }
     }
+    // When embedded as a tab inside the SIE console (?embed=1), the console
+    // already supplies the ORIGIN header + nav, so hide this page's own brand bar
+    // and trim its top padding — it should read as a native section, not a page.
+    if (_params.get('embed') === '1') {
+      var _hdr = document.querySelector('header.brand');
+      if (_hdr) { _hdr.style.display = 'none'; }
+      var _rl = document.querySelector('.rule');
+      if (_rl) { _rl.style.display = 'none'; }
+      var _wr = document.querySelector('.wrap');
+      if (_wr) { _wr.style.padding = '0'; }
+      document.body.style.background = 'transparent';
+    }
   } catch(e){}
 
   // Company binding: populate the picker; pre-select ?company= if supplied.
