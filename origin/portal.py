@@ -1178,6 +1178,8 @@ def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
             "logo": rec.get("logo", ""),
             "client_type": rec.get("client_type", "prequal"),
             "has_login": bool(rec.get("pin_hash")),
+            "invited_at": rec.get("invited_at", ""),
+            "last_login": rec.get("last_login", ""),
             "open_requests": sum(1 for r in rec.get("requests", []) if r.get("status") == "new"),
             "unread": sum(1 for m in rec.get("messages", [])
                           if m.get("sender") == "sub" and not m.get("read_gc")),
@@ -1555,6 +1557,8 @@ def register_portal(app) -> None:
             _login_note_fail(key)
             return JSONResponse({"error": "Wrong email or PIN."}, status_code=401)
         _login_clear(key)
+        rec["last_login"] = _now()
+        save_client(rec)
         resp = JSONResponse({"ok": True, "company": rec.get("company")})
         resp.set_cookie(CLIENT_COOKIE, _session("client", rec["slug"]),
                         httponly=True, samesite="lax", max_age=SESSION_TTL,
@@ -2308,6 +2312,7 @@ def register_portal(app) -> None:
                 incoming_slug = existing["slug"]
         sub_slug = incoming_slug or slugify(company)
         rec = load_client(sub_slug)
+        is_new = rec is None
         if rec is None:
             rec = _blank_client(company, email, body.get("client_type", "prequal"))
         elif (rec.get("gc_slug", "") or "") not in ("", slug):
@@ -2327,8 +2332,53 @@ def register_portal(app) -> None:
         if pin:
             rec["pin_hash"] = hash_pin(sub_slug, pin)
         _ensure_project(rec)
+        # New subs with an email get a portal login automatically: use the PIN the
+        # GC typed, or mint a temporary one, then email them their login link + PIN
+        # so they can sign in under this GC without the GC reading it out by hand.
+        invite = None
+        sub_email = (rec.get("email") or "").strip()
+        if is_new and "@" in sub_email:
+            temp_pin = pin or f"{random.randint(0, 999999):06d}"
+            if not rec.get("pin_hash"):
+                rec["pin_hash"] = hash_pin(sub_slug, temp_pin)
+            sent, err = _send_sub_login_email(request, rec, temp_pin)
+            rec["invited_at"] = _now()
+            invite = {"sent": bool(sent), "error": err or ""}
         save_client(rec)
-        return {"ok": True, "slug": sub_slug}
+        out = {"ok": True, "slug": sub_slug}
+        if invite is not None:
+            out["invite"] = invite
+        return out
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/invite")
+    def gc_invite_sub(sub_slug: str, request: Request):
+        """Resend (or send for the first time) a subcontractor's portal login:
+        mint a fresh temporary PIN, save it, and email the sub their login link.
+        GC-scoped — a GC may only invite its own subs."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sub_slug)
+        if not rec or (rec.get("gc_slug", "") or "") != slug:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        if not _member_can_see(request, sub_slug):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        if "@" not in (rec.get("email") or ""):
+            return JSONResponse(
+                {"error": "Add a contact email for this sub first, then send the invite."},
+                status_code=400)
+        temp_pin = f"{random.randint(0, 999999):06d}"
+        rec["pin_hash"] = hash_pin(sub_slug, temp_pin)
+        rec["invited_at"] = _now()
+        save_client(rec)
+        sent, err = _send_sub_login_email(request, rec, temp_pin)
+        if not sent:
+            return JSONResponse(
+                {"ok": False,
+                 "error": err or "Couldn't send the email. The PIN was reset — "
+                                 "share the login link and PIN with them directly."},
+                status_code=502)
+        return {"ok": True, "sent": True, "email": rec.get("email")}
 
     @app.post("/portal/api/gc/sub/{sub_slug}/request-doc")
     def gc_request_doc(sub_slug: str, request: Request, body: dict = Body(...)):

@@ -70,8 +70,12 @@
   .subrow .nm{font-weight:700;font-size:13.5px;color:#fff}
   .subrow .st{font-size:11.5px;margin-top:2px}
   .subrow .st.bad{color:#f0a58a}.subrow .st.ok{color:#8fd6ab}.subrow .st.warn{color:#e8c98c}
-  .subrow .rdot{margin-left:auto;width:8px;height:8px;border-radius:999px;background:var(--red);flex-shrink:0}
+  .subrow .rdot{width:8px;height:8px;border-radius:999px;background:var(--red);flex-shrink:0}
   .subrow .rdot.ok{background:var(--green)}.subrow .rdot.warn{background:var(--amber)}
+  .lchip{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap;background:#31363d;color:#c7ced5;flex-shrink:0}
+  .lchip.ok{background:rgba(143,214,171,.16);color:#8fd6ab}
+  .lchip.warn{background:rgba(232,201,140,.16);color:#e8c98c}
+  .lchip.bad{background:rgba(240,165,138,.16);color:#f0a58a}
   .detail{padding:22px 26px 60px;overflow-y:auto}
   .dhead{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:6px}
   .dhead h2{margin:0;font-size:22px}
@@ -440,13 +444,21 @@ function subState(s){
   if(s.coi_status==='expiring')return{cls:'warn',dot:'warn',txt:'COI expiring soon'};
   return{cls:'ok',dot:'ok',txt:'All current'};
 }
+function loginState(s){
+  if(s.last_login)return{cls:'ok',txt:'Active'};
+  if(s.has_login&&s.invited_at)return{cls:'warn',txt:'Invited · no login yet'};
+  if(s.has_login)return{cls:'warn',txt:'Has login'};
+  return{cls:'bad',txt:'No login yet'};
+}
 function renderList(){
   const el=$('subList');
   if(!SUBS.length){el.innerHTML='<div class="empty">No subcontractors yet.<br>Click <b>+ Add</b> to start monitoring one.</div>';$('detail').innerHTML='<div class="empty">Add a subcontractor to see their monitoring board.</div>';return}
   el.innerHTML=SUBS.map(s=>{
-    const st=subState(s);const av=s.logo?`<img class="av" src="${q('/portal/api/client/'+s.slug+'/logo')}">`:`<div class="av">${esc(initials(s.company))}</div>`;
+    const st=subState(s);const ls=loginState(s);
+    const av=s.logo?`<img class="av" src="${q('/portal/api/client/'+s.slug+'/logo')}">`:`<div class="av">${esc(initials(s.company))}</div>`;
     return `<div class="subrow ${s.slug===SEL?'sel':''}" onclick='pick(${JSON.stringify(s.slug)})'>${av}
-      <div><div class="nm">${esc(s.company)}</div><div class="st ${st.cls}">${esc(st.txt)}</div></div>
+      <div style="flex:1"><div class="nm">${esc(s.company)}</div><div class="st ${st.cls}">${esc(st.txt)}</div></div>
+      <span class="lchip ${ls.cls}">${esc(ls.txt)}</span>
       <span class="rdot ${st.dot}"></span></div>`}).join('');
 }
 function pick(slug){SEL=slug;renderList();renderDetail()}
@@ -459,7 +471,8 @@ function platPill(status){const s=(status||'').toLowerCase();
   if(s.includes('pend')||s.includes('review'))return'warn';return''}
 function renderDetail(){
   const s=SUBS.find(x=>x.slug===SEL);const el=$('detail');if(!s){el.innerHTML='';return}
-  const st=subState(s);
+  const st=subState(s);const ls=loginState(s);
+  const inviteLabel=s.has_login?'Resend login':'Send login';
   const scope=(s.trade||s.scope||'').trim();
   // prequal cards
   const plats=s.platforms||{};
@@ -511,10 +524,12 @@ function renderDetail(){
       <div><h2>${esc(s.company)}</h2>
         <div class="scope">Scope: ${esc(scope||'not set')} · last synced ${ago(s.updated)}</div></div>
       <div class="sp"></div>
+      <span class="lchip ${ls.cls}" title="Portal access">${esc(ls.txt)}</span>
       <span class="abadge ${st.cls==='ok'?'ok':''}">${st.cls==='ok'?'All clear':(st.cls==='warn'?'Review soon':'Action required')}</span>
     </div>
     <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
       <button class="btn ghost sm" onclick='editSub(${JSON.stringify(s.slug)})'>Edit sub</button>
+      <button class="btn ghost sm" onclick='inviteSub(${JSON.stringify(s.slug)},${JSON.stringify(s.email||"")})' title="Email this sub a portal login link + a fresh PIN">${inviteLabel}</button>
       <button class="btn ghost sm" onclick='openMsg(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Message ${s.unread?('· '+s.unread):''}</button>
       <button class="btn sm" onclick='openGap(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Run gap finder</button>
       <button class="btn green sm" onclick='openLib(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Asset library</button>
@@ -687,7 +702,17 @@ async function saveSub(){
   const r=await api('/portal/api/gc/sub',{method:'POST',body:JSON.stringify(body)});
   if(!r.ok){alert(r.data.error||'Could not save');return}
   const sv=$('subSaved');sv.classList.add('show');setTimeout(()=>sv.classList.remove('show'),1500);
+  const inv=r.data.invite;
+  if(inv){ if(inv.sent){alert('Saved. We emailed '+body.email+' their portal login link and PIN.')}
+    else{alert('Saved. Couldn\u2019t email the login ('+(inv.error||'email not set up')+'). Use "Send login" on their card once email is configured, or share the login link and PIN yourself.')} }
   SEL=r.data.slug||SEL;hideAdd();await boot();
+}
+async function inviteSub(slug,email){
+  if(!email){alert('Add a contact email for this sub first (Edit sub), then send the login.');return}
+  if(!confirm('Email '+email+' a portal login link and a fresh PIN? Any previous PIN for this sub will stop working.'))return;
+  const r=await api('/portal/api/gc/sub/'+slug+'/invite',{method:'POST'});
+  if(r.ok&&r.data.sent){alert('Sent. '+email+' now has a login link and a new PIN.');await boot()}
+  else{alert((r.data&&r.data.error)||'Could not send the login email.')}
 }
 
 /* ── shared messaging helpers ── */
