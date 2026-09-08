@@ -29,7 +29,7 @@ from __future__ import annotations
 import base64
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from . import compliance_kb as kb
 
@@ -448,12 +448,20 @@ def _map_nonosha_section(query: str) -> Optional[str]:
     return None
 
 
-def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _resolve_citation(hazard: Dict[str, Any],
+                      active_authorities: Optional[Iterable[str]] = None,
+                      ) -> Optional[Dict[str, Any]]:
     """Deterministically map ONE plain-language hazard to an OSHA standard using
     the KB. Returns a fully-populated citation block (now carrying how it matched
     and how confident that match is), or None if nothing in the KB matched
     (reported honestly rather than guessed). The model never sees or supplies the
-    citation — it is resolved here from Origin's own knowledge."""
+    citation — it is resolved here from Origin's own knowledge.
+
+    `active_authorities` is the Brain Router scope: when supplied (a set of
+    authority codes like {"OSHA","MSHA"}), a resolved standard is dropped unless
+    its authority is enabled — so a tenant that hasn't turned on mining can never
+    be shown a 30 CFR mine citation, and every authority stays in its own lane.
+    None means "unset" → no scoping, exactly as the tool behaved before."""
     query = " ".join([
         hazard.get("hazard_category", ""),
         hazard.get("title", ""),
@@ -562,6 +570,12 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     citation = _citation_for(verbatim or idx_rec, section)
     authority = _authority_for(verbatim or idx_rec, citation)
 
+    # Brain Router scope: if the tenant has enabled a specific set of agencies,
+    # a standard outside those authorities is not theirs to be shown — report it
+    # as no-match rather than surfacing a citation for an agency they don't run.
+    if active_authorities is not None and authority not in set(active_authorities):
+        return None
+
     prog_title, required_elements = _fix_from_program(section)
 
     return {
@@ -610,7 +624,8 @@ def _vision_with_fallback(images, providers) -> Tuple[str, str]:
     )
 
 
-def analyze(images: List[Tuple[bytes, str]], provider=None, fallbacks=None) -> Dict[str, Any]:
+def analyze(images: List[Tuple[bytes, str]], provider=None, fallbacks=None,
+            active_authorities: Optional[Iterable[str]] = None) -> Dict[str, Any]:
     """Run the full photo walk-through audit.
 
     `images`    : list of (raw_bytes, media_type) — the uploaded photos.
@@ -618,6 +633,10 @@ def analyze(images: List[Tuple[bytes, str]], provider=None, fallbacks=None) -> D
     `fallbacks` : optional ordered list of additional providers to try if the
                   preferred one fails, so a retired model or dead key never hard-
                   fails the tool for a customer.
+    `active_authorities` : the Brain Router scope (set of authority codes). When
+                  supplied, only citations for enabled agencies surface; a hazard
+                  outside the tenant's agencies resolves to no-match. None (the
+                  default) means no scoping — identical to prior behavior.
 
     Returns a report dict:
       {
@@ -654,7 +673,7 @@ def analyze(images: List[Tuple[bytes, str]], provider=None, fallbacks=None) -> D
                   "hazard_category"):
             if isinstance(h.get(k), str):
                 h[k] = _strip_reg_numbers(h[k])
-        standard = _resolve_citation(h)
+        standard = _resolve_citation(h, active_authorities)
         if standard is None:
             unmatched += 1
             confidence = _CONF_NONE

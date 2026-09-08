@@ -1128,6 +1128,113 @@ def check_ecfr(client, token: str) -> None:
           "attestations); a network failure is refused, never fabricated")
 
 
+def check_brain_router(client, token: str) -> None:
+    """The Brain Router is the agency-mode engine behind the "Unified App": an
+    admin toggles which regulatory brains a tenant runs, and that one choice must
+    (1) reshape the nav, (2) SCOPE photo-audit citations to only the enabled
+    authorities, and (3) never regress an account that has set no profile. All
+    offline — the router is pure deterministic file-state, no LLM.
+
+      1. UNSET = NO SCOPING. A tenant with no saved profile scopes to None, so the
+         photo resolver behaves exactly as it did pre-router (a mine/EPA/DOT
+         finding still surfaces). This is the backwards-compat guarantee.
+      2. TOGGLE RESHAPES NAV + SCOPES CITATIONS. Enable OSHA only, and (a) the nav
+         carries the OSHA tabs but not the MSHA/EPA tabs, (b) the citation scope is
+         exactly {OSHA}, and (c) the photo resolver, handed that scope, returns an
+         OSHA fall-hazard citation but DROPS a mine-berm (MSHA) finding to no-match
+         — a disabled agency's standard can never be shown.
+      3. ENABLING THE AGENCY ADMITS ITS LANE. Add MSHA back and the same mine-berm
+         scene resolves again, tagged MSHA — nothing blends across lanes.
+      4. PERSISTENCE + ROUTES. The saved profile round-trips through the API
+         (GET/POST /api/brain-router/profile) and is tenant-isolated by gc_slug.
+      5. VALIDATION. A POST without an 'agencies' list is a clean 400, and unknown
+         codes are dropped rather than persisted."""
+    from origin import brain_router as br
+    from origin import photo_audit as pa
+
+    H = {"X-Origin-Token": token}
+    OSHA_SCENE = ("worker at an unprotected roof edge with no guardrail", "1926.501", "OSHA")
+    MINE_SCENE = ("haul road dump point with no berm at the edge", "56.9300", "MSHA")
+
+    def _resolve(desc, scope):
+        return pa._resolve_citation(
+            {"hazard_category": desc, "title": "", "description": desc},
+            active_authorities=scope)
+
+    # Use a throwaway tenant slug so this test never disturbs the owner profile.
+    slug = "br-selftest"
+
+    # 1. UNSET = NO SCOPING. No profile saved → citation_authorities is None →
+    #    the resolver is unrestricted (a mine finding still surfaces).
+    assert br.get_active(slug) is None, "a fresh tenant must have no saved profile"
+    assert br.citation_authorities(slug) is None, \
+        "unset profile must scope to None (no restriction) — the no-regression guarantee"
+    unscoped = _resolve(MINE_SCENE[0], br.citation_authorities(slug))
+    assert unscoped is not None and unscoped["authority"] == "MSHA", \
+        f"unset tenant must still resolve a mine finding (MSHA): {unscoped}"
+
+    # 2. Enable OSHA only. Nav reshapes, scope narrows to {OSHA}.
+    prof = br.set_active(["OSHA"], gc_slug=slug)
+    assert prof["configured"] is True and prof["active_agencies"] == ["OSHA"], prof
+    scope = br.citation_authorities(slug)
+    assert scope == {"OSHA"}, f"OSHA-only scope must be exactly OSHA: {scope}"
+    nav_ids = {t["id"] for t in br.nav_for(slug)}
+    assert "osha_300" in nav_ids, "OSHA tabs must appear when OSHA is enabled"
+    assert "msha_preshift" not in nav_ids and "epa_spcc" not in nav_ids, \
+        "disabled agencies' tabs must NOT appear in the nav"
+
+    # 2b. The OSHA finding still resolves; the mine finding is DROPPED (not this
+    #     tenant's to show) — a disabled agency's standard never surfaces.
+    osha = _resolve(OSHA_SCENE[0], scope)
+    assert osha is not None and osha["section"] == OSHA_SCENE[1] \
+        and osha["authority"] == "OSHA" and osha["confidence_band"] == "high", \
+        f"OSHA-enabled tenant must still cite the fall hazard at high band: {osha}"
+    assert _resolve(MINE_SCENE[0], scope) is None, \
+        "an OSHA-only tenant must NEVER be shown an MSHA (mine) citation"
+
+    # 3. Enable MSHA too → the mine lane opens back up, tagged MSHA.
+    br.set_active(["OSHA", "MSHA"], gc_slug=slug)
+    scope2 = br.citation_authorities(slug)
+    assert scope2 == {"OSHA", "MSHA"}, scope2
+    mine = _resolve(MINE_SCENE[0], scope2)
+    assert mine is not None and mine["section"] == MINE_SCENE[1] \
+        and mine["authority"] == "MSHA", \
+        f"re-enabling MSHA must admit the mine citation in its own lane: {mine}"
+    # OSHA still resolves alongside it — lanes coexist, never blend.
+    assert (_resolve(OSHA_SCENE[0], scope2) or {}).get("authority") == "OSHA", \
+        "OSHA lane must remain intact when MSHA is also enabled"
+
+    # 4. PERSISTENCE + ROUTES round-trip through the API, tenant-isolated.
+    r = client.get("/api/brain-router/profile", headers=H)
+    assert r.status_code == 200, r.text
+    owner_prof = r.json()
+    # The owner profile is a DIFFERENT tenant than our throwaway slug; setting the
+    # slug's profile above must not have configured the owner's.
+    assert isinstance(owner_prof.get("agencies"), list), owner_prof
+    r = client.post("/api/brain-router/profile", headers=H, json={"agencies": ["EPA"]})
+    assert r.status_code == 200 and not r.json().get("error"), r.text
+    assert r.json().get("active_agencies") == ["EPA"], r.json()
+    r = client.get("/api/brain-router/profile", headers=H)
+    assert r.json().get("authorities") == ["EPA"], r.json()
+    # Isolation: the owner's EPA choice did not touch our throwaway slug's set.
+    assert br.get_active(slug) == ["OSHA", "MSHA"], \
+        "setting the owner profile must not bleed into another tenant's profile"
+
+    # 5. VALIDATION — missing list is a clean 400; unknown codes are dropped.
+    r = client.post("/api/brain-router/profile", headers=H, json={})
+    assert r.status_code == 400, f"a POST with no 'agencies' list must 400: {r.status_code}"
+    saved = br.set_active(["OSHA", "NOPE", "MSHA"], gc_slug=slug)
+    assert saved["active_agencies"] == ["OSHA", "MSHA"], \
+        f"unknown agency codes must be dropped, not persisted: {saved['active_agencies']}"
+
+    print("[pass] Brain Router: unset tenant scopes to None (no regression — mine "
+          "finding still surfaces); enabling OSHA-only reshapes the nav (OSHA tabs "
+          "in, MSHA/EPA tabs out) and scopes citations to {OSHA} so an MSHA berm is "
+          "dropped while the 1926.501 fall stays high; re-enabling MSHA reopens the "
+          "mine lane tagged MSHA without blending; profile persists + round-trips "
+          "through the API tenant-isolated; bad payloads 400 and unknown codes drop")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -1152,6 +1259,7 @@ def main() -> int:
         check_gc_scope(client, token)
         check_checklists(client, token)
         check_ecfr(client, token)
+        check_brain_router(client, token)
     finally:
         try:
             eng.shutdown()

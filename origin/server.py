@@ -667,6 +667,9 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _re.compile(r"^/api/training/overview$"),
         _re.compile(r"^/api/training/[^/]+/(catalog|matrix|summary|employee)$"),
         _re.compile(r"^/api/training/employee/[^/]+/(complete|deactivate)$"),
+        # Brain Router (agency-mode): self-scoping to the tenant's sie_gc_slug;
+        # catalog/profile carry no company_id and are tenant-filtered in-handler.
+        _re.compile(r"^/api/brain-router/(catalog|profile)$"),
     ]
     # Paths a GC may hit that legitimately carry no company_id (they are either
     # self-scoping, stateless, or a tenant-filtered portfolio rollup). Every
@@ -675,7 +678,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     # because their handlers filter to request.state.sie_gc_slug.
     _GC_NO_CID_OK = _re.compile(
         r"^/api/(company/(list|portfolio|upsert)|scoping/[^/]+"
-        r"|review/(overview|list)|training/overview)$")
+        r"|review/(overview|list)|training/overview"
+        r"|brain-router/(catalog|profile))$")
 
     def _gc_company_id(request):
         """Best-effort: the company_id a request targets, for GC ownership checks.
@@ -1600,10 +1604,21 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         # unexplainable failure for a customer.
         chain = eng.vision_chain() or [eng.agent.llm]
         primary, fallbacks = chain[0], chain[1:]
+        # Brain Router scope: if this tenant has toggled a specific set of agency
+        # brains, restrict the citations to only those authorities. An unset
+        # profile yields None → no scoping (identical to prior behavior).
+        active_authorities = None
+        try:
+            if _brain is not None:
+                active_authorities = _brain.citation_authorities(
+                    getattr(request.state, "sie_gc_slug", None))
+        except Exception:
+            active_authorities = None
         try:
             report = await asyncio.wait_for(
                 run_in_threadpool(_photo_audit.analyze, images,
-                                  provider=primary, fallbacks=fallbacks),
+                                  provider=primary, fallbacks=fallbacks,
+                                  active_authorities=active_authorities),
                 timeout=110,
             )
             # Phase 4: if a company was named, remember the walk-through and fold
@@ -2204,6 +2219,19 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _ecfr.register_ecfr(app)
     except Exception as _ecfr_exc:  # pragma: no cover
         print(f"[ecfr] disabled — registration failed: {_ecfr_exc}")
+
+    # Brain Router — agency-mode profile. An admin toggles which regulatory
+    # brains (OSHA/MSHA/EPA/BLM/DOT/USACE…) a tenant runs; that profile then
+    # (1) reshapes the mobile nav, (2) scopes photo-audit citations to only the
+    # enabled authorities, and (3) drives Form Vault template selection. Tenant-
+    # scoped to request.state.sie_gc_slug; an unset profile means no scoping
+    # (identical to prior behavior). Isolated + non-fatal.
+    try:
+        from . import brain_router as _brain
+        _brain.register_brain_router(app)
+    except Exception as _brain_exc:  # pragma: no cover
+        _brain = None
+        print(f"[brain_router] disabled — registration failed: {_brain_exc}")
 
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
