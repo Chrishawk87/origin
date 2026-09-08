@@ -256,6 +256,78 @@
     .libgrid{grid-template-columns:1fr}
     .libframe{height:70vh}
   }
+  /* ===== LIGHT SKIN — flips colors to a light palette, keeps the sidebar ===== */
+  /* Layout stays from premium-dark; only colors change. body.light wins because
+     it comes later and is more specific than the base premium-dark rules. */
+  body.light{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#E8551F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#5B6472; --line:#E3E6EA; --ink:#1F2430; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F; --slate:#9AA1AB; --bg:#EDEEF0;
+    background:
+      radial-gradient(1100px 600px at 12% -8%, rgba(30,122,70,.06), transparent 60%),
+      radial-gradient(900px 520px at 100% 0%, rgba(232,85,31,.05), transparent 55%),
+      #EDEEF0;
+    color:var(--ink);
+  }
+  body.light a{color:var(--orange)}
+  body.light .rule{background:linear-gradient(90deg,var(--orange),transparent)}
+  /* sidebar */
+  body.light .tabs{background:linear-gradient(180deg,#f7f8fa,#eef0f3);border-right:1px solid var(--line)}
+  body.light .side-brand{color:#6B7280}
+  body.light .tab{color:#5b6472}
+  body.light .tab:hover{background:rgba(15,23,42,.05);color:#1C1F24}
+  body.light .tab.on{background:#fff;color:#1C1F24;border:1px solid #dfe3e8;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  body.light .tab .cnt{background:var(--orange);color:#fff}
+  body.light .tab .cnt.zero{background:#cbd5e1;color:#64748b}
+  /* surfaces */
+  body.light .card{background:#fff;border:1px solid var(--line);box-shadow:0 2px 14px rgba(15,23,42,.06)}
+  body.light h1{color:#1C1F24}
+  body.light h2.sec{color:var(--orange);border-bottom-color:var(--line)}
+  body.light .tile{background:#f6f8fa;border:1px solid var(--line)}
+  body.light .tile .n,body.light .name{color:#1C1F24}
+  body.light .gradewrap{background:linear-gradient(145deg,#fbfcfd,#f1f4f7);border:1px solid var(--line)}
+  body.light .grade,body.light .gradewrap .grade{color:#1C1F24}
+  body.light th,body.light td{border-bottom-color:var(--line)}
+  body.light th{color:#374151}
+  body.light td{color:#1F2430}
+  body.light tr.clk:hover{background:rgba(30,122,70,.06)}
+  /* inputs */
+  body.light input,body.light select,body.light textarea{background:#fff;color:#1F2430;border-color:#C9CED6}
+  body.light input::placeholder,body.light textarea::placeholder{color:#9AA1AB}
+  body.light .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line)}
+  body.light .btn.ghost:hover{background:#f2f4f6}
+  body.light .naics-sug .opt{background:#fff;color:#1F2430;border-color:var(--line)}
+  body.light .naics-sug .opt:hover{background:#f2f4f6}
+  /* badges */
+  body.light .badge.req{background:#FBE3E3;color:#9A2A16}
+  body.light .badge.rec{background:#E1ECFB;color:#1F5FA8}
+  body.light .badge.best{background:#DBEEE2;color:#155e35}
+  body.light .badge.cust{background:#EFE1FB;color:#6B21A8}
+  /* banners */
+  body.light .banner.warn{background:#FDF3E2;border-left-color:var(--amber);color:#7A5209}
+  body.light .banner.ok{background:#E6F4EC;border-left-color:var(--green);color:#155e35}
+  body.light .banner.info{background:#EEF1F5;border-left-color:var(--slate);color:#334155}
+  /* items / chips / previews */
+  body.light .item{background:#f7f8fa;border-color:var(--line)}
+  body.light .item .t{color:#1C1F24}
+  body.light .item .d{color:#2B2F36}
+  body.light .item .m{color:#6B7280}
+  body.light .chip{background:#eef0f3;color:#4b5563}
+  body.light .scopeprev,body.light .jurisbadge{background:#f6f8fa;border:1px solid var(--line)}
+  body.light .scopeprev h4{color:var(--orange)}
+  body.light .hazgrid label.hz{color:#4b5563}
+  body.light .hazgrid label.hz.on{color:#1C1F24}
+  body.light .muted,body.light .disc,body.light .sub,body.light .src{color:#6B7280}
+  body.light p.lede,body.light .lede{color:#5B6472}
+  body.light label{color:#2B2F36}
+  body.light .err{color:#C8461A}
+  /* home hero + library */
+  body.light .hero{background:linear-gradient(135deg,rgba(30,122,70,.10),rgba(232,85,31,.06));border:1px solid rgba(30,122,70,.20)}
+  body.light .hero p{color:#5B6472}
+  body.light .lib-agency{background:#E7F5EC;color:#155e35}
+  body.light .libcard{background:#f7f8fa;border:1px solid var(--line)}
+  body.light .libcard:hover{border-color:rgba(30,122,70,.5);background:rgba(30,122,70,.06)}
+  body.light .libcard-t{color:#1C1F24}
 </style>
 </head>
 <body>
@@ -269,6 +341,7 @@
     <a href="#" onclick="openPhotoAudit();return false;">Photo Audit</a>
     <a href="/app">App</a>
     <a href="#" id="navShare" title="Create a time-limited access link to text or email someone">Share access</a>
+    <a href="#" id="navTheme" title="Switch between light and dark mode">Light mode</a>
     <a href="#" id="navSignout">Sign out</a>
   </nav>
 </header>
@@ -596,10 +669,10 @@ const INIT = {
   review: loadReview,
   training: ()=>fillCompanySelect('tr-co', loadTraining),
   citation: ()=>{},
-  brain: ()=>{ const f=$('#brFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
-  forms: ()=>{ const f=$('#fvFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
-  checklist: ()=>{ const f=$('#clFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
-  photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  brain: ()=>{ const f=$('#brFrame'); if(f && !f.src){ f.src=f.dataset.src+themeQS(); } },
+  forms: ()=>{ const f=$('#fvFrame'); if(f && !f.src){ f.src=f.dataset.src+themeQS(); } },
+  checklist: ()=>{ const f=$('#clFrame'); if(f && !f.src){ f.src=f.dataset.src+themeQS(); } },
+  photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src+themeQS(); } },
 };
 
 // company select fill (shared) ------------------------------------------------
@@ -920,7 +993,7 @@ function gotoPrequalFor(id){ showTab('prequal'); fillCompanySelect('pq-co',()=>{
 // jump out to /photo-audit, which used to strand you at a separate login).
 function openPhotoAudit(company){
   const f = document.getElementById('paFrame');
-  if(f){ f.src = '/photo-audit?embed=1' + (company ? '&company='+encodeURIComponent(company) : ''); }
+  if(f){ f.src = '/photo-audit?embed=1' + (company ? '&company='+encodeURIComponent(company) : '') + themeQS(); }
   showTab('photo');
 }
 function runPhotoAudit(id){ openPhotoAudit(id); }
@@ -1103,6 +1176,12 @@ async function loadTraining(){
   renderCatalog(j.courses||[]);
   renderMatrix(j);
 }
+function trMaterials(list){
+  if(!list||!list.length) return '';
+  return `<div class="m" style="margin-top:6px">Training materials: `
+    +list.map(m=>`<a href="${esc(m.url)}" target="_blank" rel="noopener" class="chip" style="text-decoration:none;margin-right:6px">${esc(m.label)} ↗</a>`).join('')
+    +`</div>`;
+}
 function renderCatalog(courses){
   const el=$('#trCatalogCard');
   if(!courses.length){ el.innerHTML='<h2 class="sec" style="margin-top:0">Required training</h2><div class="empty">No OSHA-required training resolves for this company\u2019s scope. Add hazards/activities in the Companies tab.</div>'; return; }
@@ -1111,6 +1190,7 @@ function renderCatalog(courses){
         <div class="t">${esc(c.title)} ${classBadge(c.classification_label)}</div>
         <div class="d">${esc(c.citation)} · <span class="chip">${esc(c.cadence)}</span></div>
         ${c.why?`<div class="m">${esc(c.why)}</div>`:''}
+        ${trMaterials(c.materials)}
       </div>`).join('');
 }
 function renderMatrix(j){
@@ -1123,13 +1203,24 @@ function renderMatrix(j){
       const meta=c.completed_on
         ? `done ${esc(c.completed_on)}${c.expires_on?` · expires ${esc(c.expires_on)}`:''}${(c.days_left!=null&&c.status!=='current')?` · ${c.days_left<0?Math.abs(c.days_left)+'d overdue':c.days_left+'d left'}`:''}`
         : `${esc(c.cadence)}`;
-      return `<div class="item ${c.status==='expired'?'high':(c.status==='expiring'?'medium':'info')}">
+      const eidAttr=esc(r.employee_id), cidAttr=esc(c.course_id);
+      const proofLink=c.has_proof
+        ? `<a class="chip" style="text-decoration:none" target="_blank" rel="noopener" href="/api/training/employee/${encodeURIComponent(r.employee_id)}/proof/${encodeURIComponent(c.course_id)}">View proof${c.proof_name?` · ${esc(c.proof_name)}`:''} ↗</a>`
+        : '';
+      return `<div class="item ${c.status==='expired'?'high':(c.status==='expiring'?'medium':'info')}" data-eid="${eidAttr}" data-course="${cidAttr}">
         <div class="t" style="font-size:14px">${esc(c.title)} ${trStatusPill(c.status)}</div>
         <div class="d">${esc(c.citation)} · ${meta}</div>
-        <div class="row" style="margin-top:8px;gap:8px;align-items:flex-end">
+        ${trMaterials(c.materials)}
+        <div class="row" style="margin-top:8px;gap:8px;align-items:flex-end;flex-wrap:wrap">
           <div class="fld sm" style="width:170px"><label>Completed on</label>
-            <input type="date" id="tr-date-${esc(r.employee_id)}-${esc(c.course_id)}"></div>
-          <button class="btn sm" onclick="recordCompletion('${esc(r.employee_id)}','${esc(c.course_id)}')">Record completion</button>
+            <input type="date" class="tr-date"></div>
+          <button class="btn sm" onclick="recordCompletion(this)">Record completion</button>
+        </div>
+        <div class="row" style="margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="file" class="tr-proof" style="font-size:12px;max-width:220px">
+          <button class="btn ghost sm" onclick="uploadProof(this)">Upload completion proof</button>
+          ${proofLink}
+          <span class="tr-proof-msg muted" style="font-size:12px"></span>
         </div>
       </div>`;
     }).join('');
@@ -1154,11 +1245,29 @@ async function addEmployee(){
   msg.textContent=''; $('#tr-emp-name').value=''; $('#tr-emp-role').value='';
   loadTraining();
 }
-async function recordCompletion(eid, courseId){
-  const inp=$('#tr-date-'+eid+'-'+courseId);
+async function recordCompletion(btn){
+  const item=btn.closest('.item'); if(!item) return;
+  const eid=item.getAttribute('data-eid'), courseId=item.getAttribute('data-course');
+  const inp=item.querySelector('input.tr-date');
   const on=inp&&inp.value?inp.value:'';
   await api('/api/training/employee/'+encodeURIComponent(eid)+'/complete',
     {method:'POST',body:JSON.stringify({course_id:courseId, completed_on:on})});
+  loadTraining();
+}
+async function uploadProof(btn){
+  const item=btn.closest('.item'); if(!item) return;
+  const eid=item.getAttribute('data-eid'), courseId=item.getAttribute('data-course');
+  const fileInp=item.querySelector('input.tr-proof');
+  const msg=item.querySelector('.tr-proof-msg');
+  if(!fileInp||!fileInp.files||!fileInp.files.length){ if(msg) msg.textContent='Choose a file first.'; return; }
+  if(msg) msg.textContent='Uploading…';
+  const fd=new FormData();
+  fd.append('course_id', courseId);
+  fd.append('file', fileInp.files[0]);
+  const r=await fetch('/api/training/employee/'+encodeURIComponent(eid)+'/proof',{method:'POST',body:fd});
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok||!j||j.error){ if(msg) msg.textContent=(j&&j.error)||'Upload failed.'; return; }
+  if(msg) msg.textContent='Uploaded ✓';
   loadTraining();
 }
 async function deactivateEmployee(eid){
@@ -1304,8 +1413,47 @@ renderHome();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
 </script>
 <script>
-/* Front-door controls: sign out + create a temporary access link. Both call
-   the /sie/api gate. "Share access" is owner-only (the endpoint enforces it). */
+/* ══ Theme controller: light / dark mode ══════════════════════════════════════
+   Base CSS is light (:root). #premium-dark supplies the dark skin + sidebar
+   layout. body.light re-skins to light while keeping the sidebar layout.
+   Persisted in localStorage; default dark. themeQS() is appended to every
+   embedded-tool iframe src so the tool pages match the shell. */
+(function(){
+  var KEY = "origin_theme";
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){ saved = null; }
+  window.ORIGIN_THEME = (saved === "light") ? "light" : "dark";
+  window.themeQS = function(){ return "&theme=" + window.ORIGIN_THEME; };
+
+  function apply(theme, persist){
+    window.ORIGIN_THEME = (theme === "light") ? "light" : "dark";
+    document.body.classList.toggle("light", window.ORIGIN_THEME === "light");
+    var meta = document.querySelector('meta[name=theme-color]');
+    if(meta) meta.setAttribute("content", window.ORIGIN_THEME === "light" ? "#EDEEF0" : "#020617");
+    var link = document.getElementById("navTheme");
+    if(link) link.textContent = window.ORIGIN_THEME === "light" ? "Dark mode" : "Light mode";
+    if(persist){ try { localStorage.setItem(KEY, window.ORIGIN_THEME); } catch(e){} }
+    // Re-point any already-loaded tool iframe at the matching theme.
+    ["#brFrame","#fvFrame","#clFrame","#paFrame"].forEach(function(sel){
+      var f = document.querySelector(sel);
+      if(f && f.src){
+        var base = f.src.replace(/([?&])theme=(light|dark)/,"$1theme="+window.ORIGIN_THEME);
+        if(base === f.src){ base = f.src + (f.src.indexOf("?")<0?"?":"&") + "theme=" + window.ORIGIN_THEME; }
+        f.src = base;
+      }
+    });
+  }
+  // Apply saved theme on load (default dark = no class).
+  apply(window.ORIGIN_THEME, false);
+
+  var themeLink = document.getElementById("navTheme");
+  if(themeLink) themeLink.addEventListener("click", function(e){
+    e.preventDefault();
+    apply(window.ORIGIN_THEME === "light" ? "dark" : "light", true);
+  });
+})();
+
+/* ══ Front-door controls: sign out + copyable temporary access link ══════════ */
 (function(){
   var signout = document.getElementById("navSignout");
   if(signout) signout.addEventListener("click", function(e){
@@ -1316,42 +1464,99 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').cat
       .catch(function(){ window.location.href = "/sie/login"; });
   });
 
+  /* Build the share modal once. */
+  var modal = document.createElement("div");
+  modal.id = "shareModal";
+  modal.style.cssText = "display:none;position:fixed;inset:0;z-index:9999;"
+    + "background:rgba(2,6,23,.62);align-items:center;justify-content:center;padding:20px";
+  modal.innerHTML =
+    '<div id="shareCard" style="max-width:460px;width:100%;background:#0b1524;color:#eef3fb;'
+    + 'border:1px solid #24354e;border-radius:16px;padding:22px 22px 18px;'
+    + 'box-shadow:0 24px 60px rgba(0,0,0,.5);font-family:inherit">'
+    + '<div style="font-size:17px;font-weight:700;margin-bottom:4px">Share temporary access</div>'
+    + '<div id="shareSub" style="font-size:13px;color:#9fb0c6;margin-bottom:14px">'
+    + 'Create a sign-in link you can text or email to a client. It expires automatically.</div>'
+    + '<label style="font-size:12px;color:#9fb0c6;display:block;margin-bottom:6px">Link works for</label>'
+    + '<select id="shareHours" style="width:100%;padding:10px;border-radius:9px;border:1px solid #2c3c56;'
+    + 'background:#14202f;color:#f4f7fb;font-size:14px;margin-bottom:14px">'
+    + '<option value="1">1 hour</option><option value="8">8 hours</option>'
+    + '<option value="24" selected>24 hours</option><option value="72">3 days</option>'
+    + '<option value="168">7 days</option></select>'
+    + '<div id="shareLinkRow" style="display:none">'
+    + '<label style="font-size:12px;color:#9fb0c6;display:block;margin-bottom:6px">Access link '
+    + '<span id="shareExp"></span></label>'
+    + '<input id="shareLink" readonly style="width:100%;padding:10px;border-radius:9px;'
+    + 'border:1px solid #2c3c56;background:#0f1a2b;color:#f4f7fb;font-size:13px;margin-bottom:12px" />'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button id="shareCopy" style="flex:1;min-width:120px;padding:10px;border-radius:9px;border:0;'
+    + 'background:#10b981;color:#03251a;font-weight:700;font-size:14px;cursor:pointer">Copy link</button>'
+    + '<a id="shareEmail" style="flex:1;min-width:90px;text-align:center;padding:10px;border-radius:9px;'
+    + 'border:1px solid #2c3c56;color:#eef3fb;text-decoration:none;font-size:14px;cursor:pointer">Email</a>'
+    + '<a id="shareText" style="flex:1;min-width:90px;text-align:center;padding:10px;border-radius:9px;'
+    + 'border:1px solid #2c3c56;color:#eef3fb;text-decoration:none;font-size:14px;cursor:pointer">Text</a>'
+    + '</div></div>'
+    + '<div style="display:flex;gap:8px;margin-top:16px">'
+    + '<button id="shareCreate" style="flex:1;padding:11px;border-radius:9px;border:0;'
+    + 'background:#E8551F;color:#fff;font-weight:700;font-size:14px;cursor:pointer">Create link</button>'
+    + '<button id="shareClose" style="padding:11px 16px;border-radius:9px;border:1px solid #2c3c56;'
+    + 'background:transparent;color:#9fb0c6;font-size:14px;cursor:pointer">Close</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+
+  var linkRow = modal.querySelector("#shareLinkRow");
+  var linkIn  = modal.querySelector("#shareLink");
+  var expSpan = modal.querySelector("#shareExp");
+  var copyBtn = modal.querySelector("#shareCopy");
+
+  function open(){ modal.style.display="flex"; }
+  function close(){ modal.style.display="none"; linkRow.style.display="none"; linkIn.value=""; }
+  modal.addEventListener("click", function(e){ if(e.target===modal) close(); });
+  modal.querySelector("#shareClose").addEventListener("click", close);
+
   var share = document.getElementById("navShare");
-  if(share) share.addEventListener("click", function(e){
-    e.preventDefault();
-    var ans = prompt(
-      "Temporary access — how long should the link work?\n\n" +
-      "Type a number of HOURS (e.g. 1, 8, 24).\n" +
-      "The person who opens the link is signed in until it expires.", "24");
-    if(ans === null) return;
-    var hours = parseFloat(ans);
-    if(!(hours > 0)){ alert("Please enter a number of hours, like 8 or 24."); return; }
+  if(share) share.addEventListener("click", function(e){ e.preventDefault(); open(); });
+
+  modal.querySelector("#shareCreate").addEventListener("click", function(){
+    var hours = parseFloat(modal.querySelector("#shareHours").value) || 24;
+    var btn = this; btn.disabled = true; btn.textContent = "Creating…";
     fetch("/sie/api/magic", {
       method:"POST", credentials:"same-origin",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({hours: hours})
     }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
+        btn.disabled = false; btn.textContent = "Create link";
         if(!res.ok || !res.j || !res.j.url){
           alert((res.j && res.j.error) || "Couldn't create the link."); return;
         }
         var url = res.j.url;
         var mins = Math.round((res.j.expires_in||0)/60);
         var human = mins >= 60 ? (Math.round(mins/60)+" hour(s)") : (mins+" minutes");
-        if(navigator.share){
-          navigator.share({title:"Origin — temporary access", text:"Access link (expires in "+human+"):", url:url})
-            .catch(function(){ _copy(url, human); });
-        } else { _copy(url, human); }
-      }).catch(function(){ alert("Network error creating the link."); });
+        linkIn.value = url;
+        expSpan.textContent = "(expires in " + human + ")";
+        var body = "Here is your temporary access link (expires in "+human+"):\n\n"+url;
+        modal.querySelector("#shareEmail").href = "mailto:?subject=" +
+          encodeURIComponent("Origin — temporary access") + "&body=" + encodeURIComponent(body);
+        modal.querySelector("#shareText").href = "sms:?&body=" + encodeURIComponent(body);
+        linkRow.style.display = "block";
+        linkIn.focus(); linkIn.select();
+      }).catch(function(){
+        btn.disabled = false; btn.textContent = "Create link";
+        alert("Network error creating the link.");
+      });
   });
 
-  function _copy(url, human){
+  copyBtn.addEventListener("click", function(){
+    linkIn.focus(); linkIn.select(); linkIn.setSelectionRange(0, linkIn.value.length);
+    function done(){ copyBtn.textContent = "Copied ✓"; setTimeout(function(){ copyBtn.textContent="Copy link"; }, 1800); }
     if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(url).then(function(){
-        alert("Access link copied (expires in "+human+"):\n\n"+url+"\n\nPaste it into a text or email.");
-      }).catch(function(){ prompt("Access link (expires in "+human+") — copy it:", url); });
-    } else { prompt("Access link (expires in "+human+") — copy it:", url); }
-  }
+      navigator.clipboard.writeText(linkIn.value).then(done).catch(function(){
+        try { document.execCommand("copy"); done(); } catch(e){}
+      });
+    } else {
+      try { document.execCommand("copy"); done(); } catch(e){}
+    }
+  });
 })();
 </script>
 </body>

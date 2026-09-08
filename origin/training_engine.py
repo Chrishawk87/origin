@@ -173,6 +173,8 @@ def catalog_from_profile(rec: Dict[str, Any]) -> Dict[str, Any]:
                 "cadence": _cadence_label(months),
                 "part_name": tr.get("part_name", ""),
                 "source": tr.get("source", ""),
+                "materials": _training_materials(
+                    sec, r.get("citation") or tr.get("citation") or f"29 CFR {sec}"),
             }
 
     courses = sorted(seen.values(), key=lambda c: c["section"])
@@ -183,6 +185,30 @@ def catalog_from_profile(rec: Dict[str, Any]) -> Dict[str, Any]:
         "course_count": len(courses),
         "jurisdiction": data.get("jurisdiction"),
     }
+
+
+def _training_materials(section: str, citation: str) -> List[Dict[str, str]]:
+    """Deterministic, real links to the authoritative training material for a
+    course: the official OSHA standard page (the text of the requirement itself)
+    and OSHA's public training resources. Derived purely from the CFR section —
+    never fabricated. Part is the token before the dot (1910, 1926, 1904 ...)."""
+    out: List[Dict[str, str]] = []
+    part = section.split(".")[0] if section else ""
+    if part and section:
+        out.append({
+            "label": f"OSHA standard {section} (full text)",
+            "url": f"https://www.osha.gov/laws-regs/regulations/standardnumber/{part}/{section}",
+        })
+        out.append({
+            "label": "eCFR — regulation text",
+            "url": f"https://www.ecfr.gov/current/title-29/section-{section}",
+        })
+    # OSHA's training landing page is the safe general resource for any course.
+    out.append({
+        "label": "OSHA training resources",
+        "url": "https://www.osha.gov/training",
+    })
+    return out
 
 
 def _cadence_label(months: Optional[int]) -> str:
@@ -309,6 +335,53 @@ def record_completion(eid: str, course_id: str, *, completed_on: str = "",
     return rec
 
 
+def _proof_dir(eid: str) -> Path:
+    return TRAINING_DIR / "proofs" / (eid or "").strip()
+
+
+def save_proof(eid: str, course_id: str, filename: str, data: bytes,
+               *, by: str = "owner") -> Optional[Dict[str, Any]]:
+    """Attach an uploaded completion certificate to an employee's course record.
+    If the course was not yet marked complete, recording proof also records the
+    completion (today) so the two never drift apart. Returns the employee rec."""
+    rec = get_employee(eid)
+    if not rec or not course_id:
+        return None
+    ext = ""
+    if filename and "." in filename:
+        ext = "." + re.sub(r"[^A-Za-z0-9]+", "", filename.rsplit(".", 1)[-1])[:8]
+    d = _proof_dir(eid)
+    d.mkdir(parents=True, exist_ok=True)
+    stored = f"{_slug(course_id)}{ext}"
+    (d / stored).write_bytes(data)
+    comps = rec.setdefault("completions", {})
+    comp = comps.get(course_id)
+    if not isinstance(comp, dict):
+        comp = {"completed_on": _today().isoformat(),
+                "recorded_by": by, "recorded_at": _now(), "note": ""}
+    comp["proof_file"] = stored
+    comp["proof_name"] = (filename or stored)[:200]
+    comp["proof_uploaded_at"] = _now()
+    comps[course_id] = comp
+    rec["updated_at"] = _now()
+    save_employee(rec)
+    return rec
+
+
+def proof_path(eid: str, course_id: str) -> Optional[Tuple[Path, str]]:
+    """(stored file path, original name) for an employee-course proof, or None."""
+    rec = get_employee(eid)
+    if not rec:
+        return None
+    comp = (rec.get("completions", {}) or {}).get(course_id)
+    if not isinstance(comp, dict) or not comp.get("proof_file"):
+        return None
+    p = _proof_dir(eid) / comp["proof_file"]
+    if not p.exists():
+        return None
+    return p, comp.get("proof_name", comp["proof_file"])
+
+
 # ── deterministic status computation ──────────────────────────────────────────
 def _status_for(completion: Optional[Dict[str, Any]],
                 refresher_months: Optional[int]) -> Tuple[str, str, Optional[int]]:
@@ -369,6 +442,9 @@ def matrix_for(company_id: str) -> Optional[Dict[str, Any]]:
                 "completed_on": (comp or {}).get("completed_on", ""),
                 "expires_on": exp_on,
                 "days_left": days_left,
+                "materials": c.get("materials", []),
+                "proof_name": (comp or {}).get("proof_name", ""),
+                "has_proof": bool((comp or {}).get("proof_file")),
             }
             cells.append(cell)
             if st == STATUS_EXPIRED:
@@ -484,8 +560,8 @@ def register_training(app) -> None:
     _auth (a GC can only reach a company or employee it owns). Isolated +
     non-fatal, fully offline. The catalog is derived on every call; only the
     roster + completions are persisted."""
-    from fastapi import Body, Request
-    from fastapi.responses import JSONResponse
+    from fastapi import Body, File, Form, Request, UploadFile
+    from fastapi.responses import FileResponse, JSONResponse
 
     @app.get("/api/training/overview")
     def training_overview(request: Request):
@@ -552,3 +628,29 @@ def register_training(app) -> None:
         if rec is None:
             return JSONResponse({"error": "employee not found"}, status_code=404)
         return {"ok": True, "employee": rec}
+
+    @app.post("/api/training/employee/{eid}/proof")
+    async def training_proof_upload(eid: str,
+                                    course_id: str = Form(...),
+                                    by: str = Form("owner"),
+                                    file: UploadFile = File(...)):
+        try:
+            data = await file.read()
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        if not data:
+            return JSONResponse({"error": "empty file"}, status_code=400)
+        rec = save_proof(eid, course_id, file.filename or "", data, by=by)
+        if rec is None:
+            return JSONResponse({"error": "employee not found or missing course"},
+                                status_code=404)
+        return {"ok": True, "employee": rec}
+
+    @app.get("/api/training/employee/{eid}/proof/{course_id:path}")
+    def training_proof_view(eid: str, course_id: str):
+        pp = proof_path(eid, course_id)
+        if pp is None:
+            return JSONResponse({"error": "no proof on file"}, status_code=404)
+        path, name = pp
+        return FileResponse(str(path), content_disposition_type="inline",
+                            filename=name)

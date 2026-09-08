@@ -677,7 +677,7 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         # per-company + per-employee routes resolve to their company below.
         _re.compile(r"^/api/training/overview$"),
         _re.compile(r"^/api/training/[^/]+/(catalog|matrix|summary|employee)$"),
-        _re.compile(r"^/api/training/employee/[^/]+/(complete|deactivate)$"),
+        _re.compile(r"^/api/training/employee/[^/]+/(complete|deactivate|proof)(/[^/]+)?$"),
         # Brain Router (agency-mode): self-scoping to the tenant's sie_gc_slug;
         # catalog/profile carry no company_id and are tenant-filtered in-handler.
         _re.compile(r"^/api/brain-router/(catalog|profile)$"),
