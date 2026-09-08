@@ -1049,9 +1049,9 @@ def check_ecfr(client, token: str) -> None:
         raise OSError("simulated network failure")
 
     fail = ecfr_adapter.ingest_section(
-        49, "395", "395.8", fetcher=_dead_fetcher)
+        29, "9999", "9999.99", fetcher=_dead_fetcher)
     assert not fail.get("ok") and fail.get("error"), fail
-    assert not checklist_engine.checklist_from_regulation("49 CFR 395.8").get("ok"), \
+    assert not checklist_engine.checklist_from_regulation("29 CFR 9999.99").get("ok"), \
         "a failed fetch must not leave a resolvable (fabricated) section behind"
 
     print("[pass] eCFR adapter: 29 CFR 1926.651 TEXT pulled from a (fixture) eCFR "
