@@ -1548,6 +1548,17 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return sie_html.read_text(encoding="utf-8")
         return "<h1>Safety Intelligence Engine</h1><p>Console page missing.</p>"
 
+    # The prior multi-tab console is preserved verbatim at /sie-classic so no
+    # existing workflow (companies / programs / prequal / audits / review /
+    # training) is lost when the new Command Center dashboard takes over /sie.
+    sie_classic_html = Path(__file__).parent / "webui" / "sie_classic.html"
+
+    @app.get("/sie-classic", response_class=HTMLResponse)
+    def sie_console_classic():
+        if sie_classic_html.is_file():
+            return sie_classic_html.read_text(encoding="utf-8")
+        return "<h1>Safety Intelligence Engine</h1><p>Console page missing.</p>"
+
     # ── Field Checklist — the Universal Regulatory Router's field page ────────
     # Renders the dynamic checklist + AHA matrix generated from regulatory text
     # by checklist_engine. The page is a shell; /api/checklist/* endpoints are

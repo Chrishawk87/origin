@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safety Intelligence Engine — Origin</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F; --slate:#9AA1AB; --bg:#EDEEF0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.5;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 14px 70px;}
+  a{color:var(--orange);text-decoration:none}
+  /* header */
+  header.brand{background:var(--charcoal);padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  header.brand nav a{color:#C9CED6;font-size:12px;margin-left:16px}
+  header.brand nav a:hover{color:#fff}
+  .rule{height:5px;background:var(--orange)}
+  /* tabs */
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;max-width:1120px;margin:0 auto;padding:14px 14px 0}
+  .tab{appearance:none;border:0;background:transparent;color:var(--grey);font-size:14px;font-weight:700;
+       padding:11px 16px;border-radius:9px 9px 0 0;cursor:pointer}
+  .tab:hover{color:var(--charcoal);background:#E4E6E9}
+  .tab.on{background:var(--white);color:var(--charcoal);box-shadow:0 -2px 10px rgba(0,0,0,.05)}
+  .tab .cnt{display:inline-block;min-width:18px;font-size:11px;background:var(--orange);color:#fff;border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+  .tab .cnt.zero{background:var(--slate);opacity:.5}
+  /* panels */
+  .panel{display:none}
+  .panel.on{display:block}
+  .card{background:var(--white);border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,.07);padding:22px 24px;margin-top:14px}
+  .card.tight{padding:16px 18px}
+  h1{font-size:21px;color:var(--charcoal);margin:0 0 3px}
+  h2.sec{font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  p.lede{color:var(--grey);margin:0 0 8px;font-size:14px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .btn{display:inline-flex;align-items:center;gap:7px;appearance:none;border:0;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff}
+  .btn:hover{background:var(--red)}
+  .btn.ghost{background:var(--light);color:var(--charcoal)}
+  .btn.ghost:hover{background:var(--line)}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  .btn:disabled{opacity:.5;cursor:default}
+  label{font-size:12px;font-weight:700;color:var(--charcoal);display:block;margin-bottom:4px}
+  input,select,textarea{font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+  textarea{min-height:78px;resize:vertical}
+  .fld{flex:1;min-width:150px}
+  .fld.sm{max-width:150px}
+  /* stat tiles */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:12px}
+  .tile{background:var(--light);border-radius:10px;padding:14px 16px}
+  .tile .n{font-size:28px;font-weight:800;color:var(--charcoal);line-height:1}
+  .tile .l{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--grey);margin-top:5px}
+  .tile.hi .n{color:var(--red)} .tile.md .n{color:var(--amber)}
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+  th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--grey)}
+  th.c,td.c{text-align:center} th.r,td.r{text-align:right}
+  tr.clk{cursor:pointer} tr.clk:hover{background:var(--cream)}
+  .name{font-weight:700;color:var(--charcoal)}
+  .sub{font-size:12px;color:var(--grey)}
+  /* pills / badges */
+  .pill{font-weight:800;font-size:11px;padding:4px 10px;border-radius:20px;color:#fff;display:inline-block;white-space:nowrap}
+  .risk.Low,.sev.info{background:var(--green)} .risk.Moderate,.sev.medium{background:var(--amber)}
+  .risk.High{background:var(--orange)} .risk.Critical,.sev.high{background:var(--red)}
+  .risk.Medium{background:var(--amber)}
+  .badge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:2px 8px;border-radius:5px;display:inline-block}
+  .badge.req{background:#FBE3D8;color:var(--red)}        /* OSHA-required */
+  .badge.rec{background:#E4EEF6;color:#2C5C86}           /* Origin recommendation */
+  .badge.best{background:#E7F1E9;color:var(--green)}     /* Best practice */
+  .badge.cust{background:#F3E8F7;color:#7A3E92}          /* Customer requirement */
+  .yes{color:var(--green);font-weight:800} .no{color:var(--red);font-weight:800}
+  .light{font-weight:800;font-size:12px}
+  .light.GREEN{color:var(--green)} .light.AMBER{color:var(--amber)} .light.RED{color:var(--red)}
+  .grade{font-size:44px;font-weight:800;line-height:1;color:var(--charcoal)}
+  .gradewrap{background:var(--charcoal);color:#fff;border-radius:12px;padding:20px 22px;display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .gradewrap .grade{color:#fff}
+  .gradewrap .co{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#C9CED6}
+  .banner{border-radius:9px;padding:11px 15px;font-size:14px;font-weight:600;margin-top:12px}
+  .banner.warn{background:#FBEEE7;border-left:4px solid var(--orange);color:#7A3413}
+  .banner.ok{background:#E7F1E9;border-left:4px solid var(--green);color:#245B38}
+  .banner.info{background:#EDF1F5;border-left:4px solid var(--slate);color:#3A4450}
+  /* gap / output items */
+  .item{border:1px solid var(--line);border-left:5px solid var(--slate);border-radius:9px;padding:12px 15px;margin-bottom:9px}
+  .item.high{border-left-color:var(--red)} .item.medium{border-left-color:var(--amber)} .item.info{border-left-color:var(--green)}
+  .item .t{font-weight:700;color:var(--charcoal);font-size:14px}
+  .item .d{font-size:13px;color:var(--ink);margin-top:4px}
+  .item .m{font-size:12px;color:var(--grey);margin-top:6px}
+  .chip{display:inline-block;font-size:11px;font-weight:700;background:var(--light);color:var(--grey);border-radius:20px;padding:2px 9px;margin:2px 4px 2px 0}
+  .src{font-size:12px;color:var(--grey);margin-top:5px}
+  .src a{font-size:12px}
+  .muted{color:var(--grey);font-size:13px}
+  .empty{text-align:center;color:var(--grey);padding:34px 10px;font-size:14px}
+  .err{color:var(--red);font-weight:600;font-size:14px;margin-top:10px}
+  .back{color:var(--grey);font-size:13px;cursor:pointer;display:inline-block;margin-bottom:6px}
+  .hidden{display:none}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .disc{font-size:11px;color:var(--slate);margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  details.form summary{cursor:pointer;font-weight:700;color:var(--orange);font-size:13px;margin-top:4px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px} @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  .naics-sug{position:relative}
+  .naics-sug .opt{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-top:0;padding:8px 11px;font-size:13px;cursor:pointer}
+  .naics-sug .opt:first-child{border-top:1px solid var(--line);border-radius:8px 8px 0 0;margin-top:4px}
+  .naics-sug .opt:last-child{border-radius:0 0 8px 8px}
+  .naics-sug .opt:hover{background:var(--light)}
+  .naics-sug .opt b{color:var(--orange)}
+  .scopewrap{margin-top:12px}
+  .hazgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:8px} @media(max-width:640px){.hazgrid{grid-template-columns:1fr}}
+  .hazgrid label.hz{display:flex;gap:8px;align-items:flex-start;font-size:13px;font-weight:400;color:var(--ink);cursor:pointer;padding:4px 0}
+  .hazgrid label.hz input{width:auto;margin-top:2px;flex:0 0 auto}
+  .hazgrid label.hz.on{color:var(--charcoal);font-weight:600}
+  .scopeprev{margin-top:14px;background:var(--light);border-radius:10px;padding:14px 16px}
+  .scopeprev h4{margin:0 0 6px;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--orange)}
+  .scopeprev .std{font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)}
+  .scopeprev .std:last-child{border-bottom:0}
+  .scopeprev .src-tag{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px;margin-right:6px;vertical-align:middle}
+  .scopeprev .src-tag.baseline{background:#E7EEF6;color:#2C5F8A} .scopeprev .src-tag.triggered{background:var(--cream);color:#7A3413}
+  .scopeprev .stdlist{margin-top:10px;max-height:260px;overflow:auto}
+  .scopeprev .std{display:flex;gap:8px;align-items:flex-start}
+  .scopeprev .rk{margin-top:8px;font-size:12px;border-radius:8px;padding:8px 11px;line-height:1.45}
+  .scopeprev .rk.keep{background:#FDECEA;color:#8A2A1B} .scopeprev .rk.exempt{background:#EAF4EC;color:#2C6B3A}
+  .rkline{font-size:12px;border-radius:8px;padding:8px 11px;line-height:1.45}
+  .rkline.keep{background:#FDECEA;color:#8A2A1B} .rkline.exempt{background:#EAF4EC;color:#2C6B3A}
+  .src-tag{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px}
+  .src-tag.baseline{background:#E7EEF6;color:#2C5F8A} .src-tag.triggered{background:var(--cream);color:#7A3413}
+  .jurisbadge{margin-top:12px;display:flex;gap:10px;align-items:flex-start;background:var(--light);border-radius:10px;padding:10px 13px}
+  .jurisbadge .jtxt{font-size:12px;line-height:1.45}
+  .jflag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:20px;padding:2px 9px;white-space:nowrap;text-transform:uppercase}
+  .jflag.state{background:#E7EEF6;color:#2C5F8A} .jflag.both{background:var(--cream);color:#7A3413} .jflag.federal{background:#EAECEF;color:#3A4048}
+  .scopeprev .rk.juris{margin-top:8px;background:#F1F4F8;color:#2A3540}
+</style>
+</head>
+<body>
+<header class="brand">
+  <div>
+    <div class="word">ORIGIN<span>.</span></div>
+    <div class="tag" style="margin-top:6px">Safety Intelligence Engine</div>
+  </div>
+  <nav>
+    <a href="/admin">Admin</a>
+    <a href="/photo-audit">Photo Audit</a>
+    <a href="/app">App</a>
+  </nav>
+</header>
+<div class="rule"></div>
+
+<div class="tabs" id="tabs">
+  <button class="tab on" data-tab="monitor">Monitor <span class="cnt zero" id="cnt-monitor">0</span></button>
+  <button class="tab" data-tab="companies">Companies</button>
+  <button class="tab" data-tab="programs">Programs</button>
+  <button class="tab" data-tab="prequal">Prequal</button>
+  <button class="tab" data-tab="audits">Audits</button>
+  <button class="tab" data-tab="review">Review <span class="cnt zero" id="cnt-review">0</span></button>
+  <button class="tab" data-tab="training">Training <span class="cnt zero" id="cnt-training">0</span></button>
+  <button class="tab" data-tab="citation">Citation</button>
+  <button class="tab" data-tab="brain">Brain Router</button>
+  <button class="tab" data-tab="forms">Form Vault</button>
+  <button class="tab" data-tab="checklist">Checklist</button>
+  <button class="tab" data-tab="photo">Photo Audit</button>
+</div>
+
+<div class="wrap">
+
+  <!-- ══ MONITOR ══ -->
+  <section class="panel on" id="p-monitor">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <h1>Autonomous monitoring</h1>
+          <p class="lede">One deterministic sweep across every company — overdue actions, deadlines, human-review items, elevated risk, missing programs. Alerts dedupe and auto-resolve.</p>
+        </div>
+        <button class="btn" id="btnSweep" onclick="runSweep()">Run sweep now</button>
+      </div>
+      <div id="sweepMeta" class="muted" style="margin-top:6px"></div>
+      <div class="tiles" id="digestTiles"></div>
+      <div id="ruleChips" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <h2 class="sec" style="margin-top:0">Companies needing attention</h2>
+      <div id="riskCompanies"><div class="empty">Run a sweep to populate the feed.</div></div>
+    </div>
+    <div class="card">
+      <h2 class="sec" style="margin-top:0">Open alerts</h2>
+      <div id="alertFeed"><div class="empty">No alerts loaded yet.</div></div>
+    </div>
+  </section>
+
+  <!-- ══ COMPANIES ══ -->
+  <section class="panel" id="p-companies">
+    <div class="card" id="coListCard">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Companies</h1><p class="lede">Portfolio risk from open corrective actions. Click a company to drill in.</p></div>
+        <button class="btn ghost sm" onclick="loadPortfolio()">Refresh</button>
+      </div>
+      <details class="form" id="coForm"><summary>+ Add / update a company</summary>
+        <div class="grid2" style="margin-top:10px">
+          <div><label>Company name *</label><input id="co-name" placeholder="Acme Well Services"></div>
+          <div><label>Industry / trade</label><select id="co-industry"><option value="">Loading trades…</option></select></div>
+          <div><label>NAICS <span class="muted" style="font-size:11px">(auto from trade)</span></label><input id="co-naics" placeholder="213112" autocomplete="off"></div>
+          <div><label>State</label><select id="co-state"><option value="">Loading states…</option></select></div>
+          <div><label>Headcount</label><input id="co-head" type="number" placeholder="45"></div>
+          <div><label>Client platforms (comma-sep)</label><input id="co-plats" placeholder="ISNetworld, Veriforce"></div>
+        </div>
+        <div id="co-juris" class="jurisbadge hidden"></div>
+        <div class="scopewrap">
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <label style="margin:0">Scope of work — hazards / activities on site</label>
+            <span id="co-haz-hint" class="muted" style="font-size:12px"></span>
+          </div>
+          <div id="co-haz" class="hazgrid"><div class="muted" style="font-size:12px">Type the trade above and Origin will pre-check the likely hazards.</div></div>
+        </div>
+        <div id="co-scope-preview" class="scopeprev hidden"></div>
+        <button class="btn sm" style="margin-top:12px" onclick="upsertCompany()">Save company</button>
+        <span id="co-save-msg" class="muted"></span>
+      </details>
+      <div id="portfolio"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="card hidden" id="coDetail"></div>
+  </section>
+
+  <!-- ══ PROGRAMS ══ -->
+  <section class="panel" id="p-programs">
+    <div class="card">
+      <h1>Program package</h1>
+      <p class="lede">Every required standard for a company with its written program, training, and JHA/JSA — classified and sourced. Never fabricated.</p>
+      <div class="row">
+        <div class="fld"><label>Company</label><select id="pg-co" onchange="loadPackage()"></select></div>
+      </div>
+      <div id="pgSummary"></div>
+      <div id="pgEntries"></div>
+    </div>
+    <div class="card hidden" id="pgDoc"></div>
+  </section>
+
+  <!-- ══ PREQUAL ══ -->
+  <section class="panel" id="p-prequal">
+    <div class="card">
+      <h1>Prequal readiness</h1>
+      <p class="lede">Estimate a company's ISN / Avetta / Veriforce grade from its real posture, with a sourced gap list. Safety stats are yours to supply — never guessed.</p>
+      <div class="row">
+        <div class="fld"><label>Company</label><select id="pq-co"></select></div>
+        <div class="fld sm"><label>Platform</label>
+          <select id="pq-plat"><option value="">All client platforms</option><option>ISN</option><option>Avetta</option><option>Veriforce</option></select></div>
+      </div>
+      <h2 class="sec">Safety metrics (optional — supply what you have)</h2>
+      <div class="grid2">
+        <div><label>EMR</label><input id="pq-emr" type="number" step="0.01" placeholder="0.85"></div>
+        <div><label>TRIR</label><input id="pq-trir" type="number" step="0.01" placeholder="0.7"></div>
+        <div><label>DART</label><input id="pq-dart" type="number" step="0.01" placeholder="0.4"></div>
+        <div><label>Training complete (0–1)</label><input id="pq-train" type="number" step="0.01" min="0" max="1" placeholder="1.0"></div>
+        <div><label>Insurance fully met?</label><select id="pq-ins"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+      </div>
+      <button class="btn" style="margin-top:12px" onclick="runPrequal()">Assess readiness</button>
+      <div id="pqResult"></div>
+    </div>
+  </section>
+
+  <!-- ══ AUDITS ══ -->
+  <section class="panel" id="p-audits">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Photo walk-through audits</h1><p class="lede">Persisted visual audits that auto-open CAPAs for high-severity findings and feed company risk.</p></div>
+        <a class="btn" href="/photo-audit">+ New photo audit</a>
+      </div>
+      <div class="tiles" id="auditTiles"></div>
+      <div id="auditList"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="card hidden" id="auditDetail"></div>
+  </section>
+
+  <!-- ══ REVIEW ══ -->
+  <!-- Human-review inbox. Every unmatched or low-confidence finding lands here.
+       Nothing model-derived becomes authoritative until a person approves it —
+       the decision writes straight back to the audit → CAPA chain. -->
+  <section class="panel" id="p-review">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Human-review inbox</h1><p class="lede">Unmatched and low-confidence findings wait here. Approve to open a CAPA (correct the citation first if needed), or reject to dismiss. Every decision is logged and written back to the chain.</p></div>
+        <button class="btn ghost sm" onclick="loadReview()">Refresh</button>
+      </div>
+      <div class="tiles" id="reviewTiles"></div>
+      <div class="row" style="margin-top:6px">
+        <div class="fld sm"><label>Filter</label>
+          <select id="rv-status" onchange="loadReview()">
+            <option value="pending">Pending decisions</option>
+            <option value="">All items</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select></div>
+      </div>
+      <div id="reviewList"><div class="empty">Loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ══ TRAINING ══ -->
+  <!-- Living training matrix. Courses are DERIVED from the company's applicable
+       requirements, kept only where the OSHA 2254 KB confirms a real training
+       obligation — never fabricated. The roster + completion dates are the only
+       persisted data; expiration is computed deterministically and feeds Monitor. -->
+  <section class="panel" id="p-training">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Training intelligence</h1><p class="lede">Who needs what training, when it was done, and when it expires — derived from each company's applicable OSHA requirements. Log a completion and the matrix (and Monitor) update.</p></div>
+        <button class="btn ghost sm" onclick="loadTraining()">Refresh</button>
+      </div>
+      <div class="row">
+        <div class="fld"><label>Company</label><select id="tr-co" onchange="loadTraining()"></select></div>
+      </div>
+      <div class="tiles" id="trainTiles"></div>
+      <details class="form" id="trEmpForm"><summary>+ Add an employee to the roster</summary>
+        <div class="grid2" style="margin-top:10px">
+          <div><label>Name *</label><input id="tr-emp-name" placeholder="Alex Rivera"></div>
+          <div><label>Role</label><input id="tr-emp-role" placeholder="Forklift operator"></div>
+        </div>
+        <button class="btn sm" style="margin-top:12px" onclick="addEmployee()">Add employee</button>
+        <span id="tr-emp-msg" class="muted"></span>
+      </details>
+    </div>
+    <div class="card" id="trCatalogCard"></div>
+    <div id="trMatrix"><div class="empty">Pick a company to see its training matrix.</div></div>
+  </section>
+
+  <!-- ══ CITATION ══ -->
+  <section class="panel" id="p-citation">
+    <div class="card">
+      <h1>Citation analyzer</h1>
+      <p class="lede">Paste an OSHA citation. Origin returns a 12-part sourced analysis, deterministically — every legal answer traceable to a CFR record.</p>
+      <div class="grid2">
+        <div><label>Standard *</label><input id="ci-std" placeholder="29 CFR 1926.501"></div>
+        <div><label>Company (optional)</label><input id="ci-co" placeholder="Acme Well Services"></div>
+        <div><label>Classification</label>
+          <select id="ci-class"><option value="">—</option><option>serious</option><option>repeat</option><option>willful</option><option>failure to abate</option><option>other than serious</option></select></div>
+        <div><label>Proposed penalty</label><input id="ci-pen" placeholder="$12,000"></div>
+      </div>
+      <div style="margin-top:10px"><label>Citation text / description (optional)</label><textarea id="ci-text" placeholder="Paste the citation narrative if you have it…"></textarea></div>
+      <button class="btn" style="margin-top:12px" onclick="runCitation()">Analyze citation</button>
+      <div id="ciResult"></div>
+    </div>
+  </section>
+
+  <!-- ══ BRAIN ROUTER ══ -->
+  <!-- Screen 1 "Smart Profile": toggle the agencies that govern this account. The
+       choice drives the nav + the citation lane scope for the photo audit,
+       resolved deterministically from Origin's own knowledge (no LLM). -->
+  <section class="panel" id="p-brain">
+    <iframe id="brFrame" title="Brain Router" data-src="/brain-router?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
+  <!-- ══ FORM VAULT ══ -->
+  <!-- Screen 3: a worker's 60-second entry auto-fills the official government
+       form (MSHA 5000-23, OSHA 300A, USACE AHA) and stamps it "Audit Ready".
+       Which forms appear is scoped by the Brain Router's enabled agencies. -->
+  <section class="panel" id="p-forms">
+    <iframe id="fvFrame" title="Form Vault" data-src="/form-vault?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
+  <!-- ══ CHECKLIST ══ -->
+  <!-- The Universal Regulatory Router's field page, embedded so the console stays
+       one page / one nav. Regulatory text becomes a live checklist + AHA matrix;
+       change the law in the knowledge base and this changes with it. -->
+  <section class="panel" id="p-checklist">
+    <iframe id="clFrame" title="Field Checklist" data-src="/checklist?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
+  <!-- ══ PHOTO AUDIT ══ -->
+  <!-- The proven camera walk-through tool, embedded so the console is one page,
+       one nav. Findings a user captures here are saved to the picked company and
+       surface back in the Audits tab on their workstation. -->
+  <section class="panel" id="p-photo">
+    <iframe id="paFrame" title="Photo Audit" data-src="/photo-audit?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
+</div>
+
+<script>
+// ── tiny helpers ──────────────────────────────────────────────────────────
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(path, opts){
+  try{
+    const r = await fetch(path, Object.assign({credentials:'same-origin', headers:{'Content-Type':'application/json'}}, opts||{}));
+    const j = await r.json().catch(()=>({}));
+    return {ok:r.ok, status:r.status, j};
+  }catch(e){ return {ok:false, status:0, j:{error:String(e)}}; }
+}
+const classBadge = c => {
+  const m={'OSHA-required':['req','OSHA-required'],'Origin recommendation':['rec','Origin rec'],
+           'Best practice':['best','Best practice'],'Customer requirement':['cust','Customer req']};
+  const v=m[c]; return v?`<span class="badge ${v[0]}">${v[1]}</span>`:(c?`<span class="badge rec">${esc(c)}</span>`:'');
+};
+const srcHtml = refs => (refs&&refs.length)
+  ? `<div class="src">Source: ${refs.map(r=>r.url?`<a href="${esc(r.url)}" target="_blank">${esc(r.citation||r.title||'ref')}</a>`:esc(r.citation||r.title||'ref')).join(' · ')}</div>` : '';
+
+// ── tab router ────────────────────────────────────────────────────────────
+const loaded = {};
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-'+name));
+  if(!loaded[name]){ loaded[name]=true; (INIT[name]||(()=>{}))(); }
+}
+const INIT = {
+  monitor: loadDigest,
+  companies: ()=>{ initCoForm(); loadPortfolio(); },
+  programs: ()=>fillCompanySelect('pg-co', loadPackage),
+  prequal: ()=>fillCompanySelect('pq-co'),
+  audits: loadAudits,
+  review: loadReview,
+  training: ()=>fillCompanySelect('tr-co', loadTraining),
+  citation: ()=>{},
+  brain: ()=>{ const f=$('#brFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  forms: ()=>{ const f=$('#fvFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  checklist: ()=>{ const f=$('#clFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+};
+
+// company select fill (shared) ------------------------------------------------
+let COMPANIES = [];
+async function fetchCompanies(){
+  if(COMPANIES.length) return COMPANIES;
+  const {j} = await api('/api/company/list');
+  COMPANIES = (j.items||[]).map(c=>({id:c.company_id, name:c.company}));
+  return COMPANIES;
+}
+async function fillCompanySelect(id, cb){
+  const list = await fetchCompanies();
+  const sel = $('#'+id); if(!sel) return;
+  sel.innerHTML = list.length ? list.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')
+                              : '<option value="">No companies yet — add one in the Companies tab</option>';
+  if(cb) cb();
+}
+
+// ── MONITOR ────────────────────────────────────────────────────────────────
+async function runSweep(){
+  const b=$('#btnSweep'); b.disabled=true; b.innerHTML='<span class="spin"></span> Sweeping…';
+  const {j} = await api('/api/monitor/sweep',{method:'POST',body:JSON.stringify({})});
+  b.disabled=false; b.textContent='Run sweep now';
+  if(j&&j.counts){
+    $('#sweepMeta').textContent = `Swept ${j.companies_scanned} companies · ${j.counts.new} new · ${j.counts.continuing} continuing · ${j.counts.resolved_this_run} resolved.`;
+  }
+  loadDigest();
+}
+async function loadDigest(){
+  const {j} = await api('/api/monitor/digest');
+  const bs = (j&&j.by_severity)||{high:0,medium:0,info:0};
+  const total = (j&&j.open_total)||0;
+  $('#cnt-monitor').textContent = total;
+  $('#cnt-monitor').classList.toggle('zero', total===0);
+  $('#digestTiles').innerHTML =
+     tile(total,'Open alerts')+tile(bs.high||0,'High','hi')+tile(bs.medium||0,'Medium','md')+tile(bs.info||0,'Info');
+  if(j&&j.last_run) $('#sweepMeta').textContent = $('#sweepMeta').textContent || ('Last run '+fmt(j.last_run));
+  const rules=(j&&j.by_rule)||{};
+  $('#ruleChips').innerHTML = Object.keys(rules).length
+     ? Object.entries(rules).map(([k,v])=>`<span class="chip">${esc(ruleLabel(k))}: ${v}</span>`).join('') : '';
+  // companies at risk
+  const cs=(j&&j.companies)||[];
+  $('#riskCompanies').innerHTML = cs.length ? `<table><thead><tr><th>Company</th><th class="c">High</th><th class="c">Total open</th></tr></thead><tbody>${
+     cs.map(c=>`<tr class="clk" onclick="monCompany('${esc(c.company_id)}')"><td class="name">${esc(c.company)}</td><td class="c">${c.high}</td><td class="c">${c.total}</td></tr>`).join('')}</tbody></table>`
+     : `<div class="empty">No companies flagged. ${total?'':'Run a sweep to check.'}</div>`;
+  loadAlerts();
+}
+async function loadAlerts(){
+  const {j} = await api('/api/monitor/alerts?status=open');
+  renderAlerts($('#alertFeed'), (j&&j.items)||[]);
+}
+async function monCompany(id){
+  const {j} = await api('/api/monitor/company/'+encodeURIComponent(id));
+  renderAlerts($('#alertFeed'), (j&&j.alerts)||[], j&&j.company_id);
+  $('#p-monitor').scrollIntoView({behavior:'smooth'});
+}
+function renderAlerts(el, items, scope){
+  if(!items.length){ el.innerHTML = `<div class="empty">${scope?'No open alerts for this company.':'No open alerts.'}</div>`; return; }
+  el.innerHTML = `<table><thead><tr><th>Sev</th><th>Company</th><th>Alert</th><th>Rule</th></tr></thead><tbody>${
+    items.map(a=>`<tr><td><span class="pill sev ${esc(a.severity)}">${esc(a.severity)}</span></td>
+      <td class="name">${esc(a.company)}</td>
+      <td>${esc(a.title)}<div class="sub">${esc(a.detail||'')}</div></td>
+      <td class="sub">${esc(ruleLabel(a.rule))}${a.standard?'<br>'+esc(a.standard):''}</td></tr>`).join('')}</tbody></table>`;
+}
+const RULES={capa_overdue:'Overdue action',capa_due_soon:'Due soon',capa_human_review:'Human review',risk_elevated:'Elevated risk',programs_missing:'Missing program'};
+const ruleLabel = r => RULES[r]||r;
+const tile=(n,l,c)=>`<div class="tile ${c||''}"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+const fmt = s => { try{return new Date(s).toLocaleString();}catch(e){return s;} };
+
+// ── COMPANIES ──────────────────────────────────────────────────────────────
+async function loadPortfolio(){
+  $('#coDetail').classList.add('hidden'); $('#coListCard').classList.remove('hidden');
+  const {j} = await api('/api/company/portfolio');
+  const rows=(j&&j.companies)||[];
+  $('#portfolio').innerHTML = rows.length ? `<table><thead><tr><th>Company</th><th>Industry</th><th class="c">State</th><th class="c">Risk</th><th class="c">Open</th><th class="c">Overdue</th></tr></thead><tbody>${
+    rows.map(c=>`<tr class="clk" onclick="companyDetail('${esc(c.company_id)}')">
+      <td class="name">${esc(c.company)}</td><td class="sub">${esc(c.industry||'—')}</td>
+      <td class="c sub">${esc(c.state||'')}</td>
+      <td class="c"><span class="pill risk ${esc(c.band)}">${esc(c.band)} ${c.score}</span></td>
+      <td class="c">${c.open_capas}</td><td class="c">${c.overdue_capas?'<b class="no">'+c.overdue_capas+'</b>':0}</td></tr>`).join('')}</tbody></table>`
+    : `<div class="empty">No companies yet. Add one above.</div>`;
+}
+async function upsertCompany(){
+  const name=$('#co-name').value.trim(); if(!name){ $('#co-save-msg').textContent=' Name required.'; return; }
+  const plats=$('#co-plats').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body={company:name, industry:$('#co-industry').value.trim(), naics:$('#co-naics').value.trim(),
+    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null,
+    customer_platforms:plats, activities:coSelectedHazards()};
+  const {j}=await api('/api/company/upsert',{method:'POST',body:JSON.stringify(body)});
+  $('#co-save-msg').textContent = j&&j.ok?' Saved.':(' '+((j&&j.error)||'Error'));
+  COMPANIES=[]; loadPortfolio();
+}
+
+// ── COMPANIES: full-auto scope capture ───────────────────────────────────────
+let CO_TRIGGERS = null;          // schema triggers, loaded once
+const _debounce = (fn, ms=280) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+
+// Built-in fallbacks so the dropdowns ALWAYS populate, even if the backend
+// scoping routes aren't reachable yet. The live routes are still preferred
+// (they're the source of truth); these only fill in if a route is missing.
+const CO_STATES_FALLBACK = [
+  ["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],
+  ["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],["DC","District of Columbia"],
+  ["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],
+  ["IN","Indiana"],["IA","Iowa"],["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],
+  ["ME","Maine"],["MD","Maryland"],["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],
+  ["MS","Mississippi"],["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],
+  ["NH","New Hampshire"],["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],
+  ["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],["OR","Oregon"],
+  ["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],["SD","South Dakota"],
+  ["TN","Tennessee"],["TX","Texas"],["UT","Utah"],["VT","Vermont"],["VA","Virginia"],
+  ["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"],
+  ["PR","Puerto Rico"],["VI","U.S. Virgin Islands"],["GU","Guam"]
+].map(([code,name])=>({code,name})).sort((a,b)=>a.name.localeCompare(b.name));
+const CO_INDUSTRIES_FALLBACK = [
+  {label:"Roofing contractor",naics:"238160",group:"Specialty trade — construction"},
+  {label:"Electrical contractor",naics:"238210",group:"Specialty trade — construction"},
+  {label:"Plumbing, heating & HVAC contractor",naics:"238220",group:"Specialty trade — construction"},
+  {label:"Poured concrete foundation & structure contractor",naics:"238110",group:"Specialty trade — construction"},
+  {label:"Structural steel & precast concrete contractor",naics:"238120",group:"Specialty trade — construction"},
+  {label:"Framing contractor (carpentry)",naics:"238130",group:"Specialty trade — construction"},
+  {label:"Masonry contractor",naics:"238140",group:"Specialty trade — construction"},
+  {label:"Glass & glazing contractor",naics:"238150",group:"Specialty trade — construction"},
+  {label:"Drywall & insulation contractor",naics:"238310",group:"Specialty trade — construction"},
+  {label:"Painting & wall covering contractor",naics:"238320",group:"Specialty trade — construction"},
+  {label:"Flooring contractor",naics:"238330",group:"Specialty trade — construction"},
+  {label:"Finish carpentry contractor",naics:"238350",group:"Specialty trade — construction"},
+  {label:"Site preparation / excavation contractor",naics:"238910",group:"Specialty trade — construction"},
+  {label:"Fire sprinkler & fire protection contractor",naics:"238220",group:"Specialty trade — construction"},
+  {label:"Other building equipment contractor",naics:"238290",group:"Specialty trade — construction"},
+  {label:"Single-family home building (construction)",naics:"236115",group:"General construction"},
+  {label:"Commercial & institutional building construction",naics:"236220",group:"General construction"},
+  {label:"Water & sewer line construction",naics:"237110",group:"Heavy & civil construction"},
+  {label:"Oil & gas pipeline construction",naics:"237120",group:"Heavy & civil construction"},
+  {label:"Power & communication line construction",naics:"237130",group:"Heavy & civil construction"},
+  {label:"Highway, street & bridge construction",naics:"237310",group:"Heavy & civil construction"},
+  {label:"Crude petroleum & natural gas extraction (oil & gas operator)",naics:"211120",group:"Oil, gas & energy"},
+  {label:"Drilling oil & gas wells",naics:"213111",group:"Oil, gas & energy"},
+  {label:"Support activities for oil & gas operations (well servicing)",naics:"213112",group:"Oil, gas & energy"},
+  {label:"Petroleum refinery (refining)",naics:"324110",group:"Oil, gas & energy"},
+  {label:"Pipeline transportation of crude oil / natural gas",naics:"486110",group:"Oil, gas & energy"},
+  {label:"Machine shop / metal fabrication",naics:"332710",group:"Industrial & manufacturing"},
+  {label:"Fabricated structural metal manufacturing",naics:"332312",group:"Industrial & manufacturing"},
+  {label:"Commercial & industrial machinery repair / maintenance",naics:"811310",group:"Industrial & manufacturing"},
+  {label:"General warehousing & storage",naics:"493110",group:"Industrial & other"},
+  {label:"General freight trucking (long-distance)",naics:"484121",group:"Transportation"},
+  {label:"Landscaping services",naics:"561730",group:"Industrial & other"},
+  {label:"Remediation / environmental cleanup services",naics:"562910",group:"Environmental"},
+  {label:"Hazardous waste treatment & disposal",naics:"562211",group:"Environmental"},
+  {label:"Facilities support / building maintenance services",naics:"561210",group:"Industrial & other"},
+  {label:"Janitorial & building cleaning services",naics:"561720",group:"Industrial & other"}
+];
+
+function fillIndustrySelect(inds){
+  const isel=$('#co-industry'); if(!isel) return;
+  const groups={}; inds.forEach(x=>{ (groups[x.group||'Other']||(groups[x.group||'Other']=[])).push(x); });
+  isel.innerHTML = '<option value="">Select a trade / industry…</option>' +
+    Object.keys(groups).map(g=>`<optgroup label="${esc(g)}">`+
+      groups[g].map(x=>`<option value="${esc(x.label)}" data-naics="${esc(x.naics)}" title="${esc(x.title||'')}">${esc(x.label)} — ${esc(x.naics)}</option>`).join('')
+      +`</optgroup>`).join('');
+  isel.addEventListener('change', coIndustryChanged);
+}
+function fillStateSelect(sts){
+  const ssel=$('#co-state'); if(!ssel) return;
+  ssel.innerHTML = '<option value="">Select a state…</option>' +
+    sts.map(s=>`<option value="${esc(s.code)}">${esc(s.name)} (${esc(s.code)})</option>`).join('');
+  ssel.addEventListener('change', coStateChanged);
+}
+
+async function initCoForm(){
+  if(CO_TRIGGERS) return;        // idempotent
+  // Load each piece independently so one missing route never stalls the others.
+  api('/api/scoping/schema').then(r=>{
+    CO_TRIGGERS = (r.j&&r.j.triggers)||[];
+    renderHazGrid(CO_TRIGGERS, new Set());
+  }).catch(()=>{ CO_TRIGGERS=[]; renderHazGrid([], new Set()); });
+
+  api('/api/scoping/industries').then(r=>{
+    const inds=(r.j&&r.j.industries)||[];
+    fillIndustrySelect(inds.length ? inds : CO_INDUSTRIES_FALLBACK);
+  }).catch(()=>fillIndustrySelect(CO_INDUSTRIES_FALLBACK));
+
+  api('/api/scoping/states').then(r=>{
+    const sts=(r.j&&r.j.states)||[];
+    fillStateSelect(sts.length ? sts : CO_STATES_FALLBACK);
+  }).catch(()=>fillStateSelect(CO_STATES_FALLBACK));
+
+  const onScope = _debounce(coScopePreview, 320);
+  const nx=$('#co-naics'); if(nx) nx.addEventListener('input', onScope);
+  const hd=$('#co-head'); if(hd) hd.addEventListener('input', onScope);
+}
+
+function renderHazGrid(triggers, preChecked){
+  const grid=$('#co-haz'); if(!grid) return;
+  if(!triggers.length){ grid.innerHTML='<div class="muted" style="font-size:12px">No hazard list available.</div>'; return; }
+  grid.innerHTML = triggers.map(t=>{
+    const on = preChecked.has(t.key) ? ' checked' : '';
+    return `<label class="hz"><input type="checkbox" value="${esc(t.key)}"${on} onchange="coScopePreview()">
+      <span>${esc(t.q)}<br><small class="muted">${esc(t.category)}</small></span></label>`;
+  }).join('');
+}
+
+function coSelectedHazards(){
+  return Array.from(document.querySelectorAll('#co-haz input[type=checkbox]:checked')).map(c=>c.value);
+}
+
+async function coIndustryChanged(){
+  const sel=$('#co-industry');
+  const text=(sel.value||'').trim();
+  // Auto-fill the NAICS from the selected option.
+  const opt=sel.options[sel.selectedIndex];
+  const naics=opt?opt.getAttribute('data-naics'):'';
+  if(naics) $('#co-naics').value=naics;
+  if(!text){ $('#co-haz-hint').textContent=''; coScopePreview(); return; }
+  // Pre-check the likely hazards for this trade.
+  const {j:sj={}} = await api('/api/scoping/suggest?industry='+encodeURIComponent(text));
+  const keys=new Set(sj.suggested||[]);
+  if(CO_TRIGGERS){
+    coSelectedHazards().forEach(k=>keys.add(k));   // keep anything already ticked
+    renderHazGrid(CO_TRIGGERS, keys);
+  }
+  const matched=(sj.matched||[]);
+  $('#co-haz-hint').textContent = matched.length ? ('Auto-checked from: '+matched.join(', ')) : '';
+  coScopePreview();
+}
+
+async function coStateChanged(){
+  const code=($('#co-state').value||'').trim();
+  const badge=$('#co-juris');
+  if(!code){ if(badge){ badge.classList.add('hidden'); badge.innerHTML=''; } coScopePreview(); return; }
+  const {j} = await api('/api/scoping/jurisdiction?state='+encodeURIComponent(code));
+  const ju=(j&&j.jurisdiction)||null;
+  if(badge && ju){
+    const kind=ju.jurisdiction; // federal | state | both
+    const label = kind==='state' ? 'State Plan' : kind==='both' ? 'State Plan + Federal OSHA' : 'Federal OSHA';
+    badge.classList.remove('hidden');
+    badge.innerHTML = `<span class="jflag ${esc(kind)}">${esc(label)}</span>
+      <span class="jtxt"><b>${esc(ju.authority||'')}</b> — ${esc(ju.note||'')}
+      ${ju.agency_url?` <a href="${esc(ju.agency_url)}" target="_blank" rel="noopener">${esc(ju.agency||'agency')}</a>`:''}</span>`;
+  }
+  coScopePreview();
+}
+
+async function coScopePreview(){
+  const industry=$('#co-industry').value.trim(), naics=$('#co-naics').value.trim();
+  const box=$('#co-scope-preview');
+  if(!industry && !naics){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const body={company:$('#co-name').value.trim()||'preview', industry, naics,
+    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null,
+    activities:coSelectedHazards()};
+  const {j}=await api('/api/scoping/resolve',{method:'POST',body:JSON.stringify(body)});
+  const sc=(j&&j.scope)||j||{};
+  if(!sc || sc.error || sc.required_count==null){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const stds=(sc.required_standards||[]);
+  const rk=sc.recordkeeping||{};
+  const rkLine = rk.reason
+    ? `<div class="rk ${rk.must_keep_300_log?'keep':'exempt'}"><b>${rk.must_keep_300_log?'300-Log required':'300-Log: partially exempt'}</b> — ${esc(rk.reason)}</div>`
+    : '';
+  const ju=sc.jurisdiction||null;
+  const juLine = ju
+    ? `<div class="rk juris"><span class="jflag ${esc(ju.jurisdiction)}">${ju.jurisdiction==='state'?'State Plan':ju.jurisdiction==='both'?'State Plan + Federal':'Federal OSHA'}</span> <b>${esc(ju.authority||'')}</b> — ${esc(ju.note||'')}</div>`
+    : '';
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline">
+      <b>${esc(sc.sector_label||sc.sector||'Scope')}</b>
+      <span class="muted" style="font-size:12px">${sc.required_count||0} required · ${sc.baseline_count||0} baseline · ${sc.triggered_count||0} triggered</span></div>
+    ${juLine}
+    ${rkLine}
+    <div class="stdlist">${stds.map(s=>`<div class="std">
+      <span class="src-tag ${s.source==='triggered'?'triggered':'baseline'}">${s.source==='triggered'?'triggered':'baseline'}</span>
+      <span><b>${esc(s.title||s.id)}</b> <span class="muted">${esc(s.citation||'')}</span></span></div>`).join('')}</div>`;
+}
+async function companyDetail(id){
+  const [main, scoped] = await Promise.all([
+    api('/api/company/'+encodeURIComponent(id)),
+    api('/api/company/'+encodeURIComponent(id)+'/scope'),
+  ]);
+  const j=main.j;
+  if(!j||j.error){ return; }
+  const p=j.profile||{}, r=j.risk||{}, sc=j.scope||{}, capas=j.capas||[];
+  const full=(scoped.j&&scoped.j.scope)||{};
+  const stds=full.required_standards||[];
+  const rk=full.recordkeeping||{};
+  $('#coListCard').classList.add('hidden');
+  const el=$('#coDetail'); el.classList.remove('hidden');
+  const scopeBody = stds.length
+    ? `<div class="muted" style="margin-bottom:8px">${esc(full.sector_label||full.sector||sc.sector_label||'—')} · ${full.required_count||0} required · ${full.baseline_count||0} baseline · ${full.triggered_count||0} triggered</div>
+       ${rk.reason?`<div class="rkline ${rk.must_keep_300_log?'keep':'exempt'}"><b>${rk.must_keep_300_log?'300-Log required':'300-Log: partially exempt'}</b> — ${esc(rk.reason)} <span class="muted">(${esc(rk.citation||'')})</span></div>`:''}
+       <table style="margin-top:10px"><thead><tr><th>Standard</th><th>Citation</th><th class="c">Source</th></tr></thead><tbody>${
+         stds.map(s=>`<tr><td class="name">${esc(s.title||s.id)}<div class="sub">${esc(s.why||'')}</div></td>
+           <td class="sub">${esc(s.citation||'')}</td>
+           <td class="c"><span class="src-tag ${s.source==='triggered'?'triggered':'baseline'}">${s.source==='triggered'?'triggered':'baseline'}</span></td></tr>`).join('')}</tbody></table>`
+    : `<div class="muted">${esc(sc.sector_label||sc.sector||'—')} · ${sc.required_count||0} required standards · ${sc.triggered_count||0} triggered${sc.recordkeeping?' · recordkeeping applies':''}</div>`;
+  el.innerHTML = `<span class="back" onclick="loadPortfolio()">← All companies</span>
+    <div class="gradewrap"><div><div class="co">${esc(p.company||'')}</div>
+      <div class="grade">${r.score!=null?r.score:'—'}</div>
+      <div><span class="pill risk ${esc(r.band)}">${esc(r.band||'')}</span></div></div>
+      <div style="flex:1;min-width:200px"><div class="co">Why</div>${(r.drivers||[]).map(d=>`<div style="font-size:13px;margin-top:3px">• ${esc(d)}</div>`).join('')}</div></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm" onclick="runPhotoAudit('${esc(id)}')">📷 Run photo audit for this company</button>
+      <button class="btn ghost sm" onclick="gotoProgramsFor('${esc(id)}')">View program package →</button>
+      <button class="btn ghost sm" onclick="gotoPrequalFor('${esc(id)}')">Prequal readiness →</button>
+    </div>
+    <h2 class="sec">Scope</h2>
+    ${scopeBody}
+    <h2 class="sec">Corrective actions (${capas.length})</h2>
+    ${capas.length?`<table><thead><tr><th>Title</th><th>Standard</th><th>Stage</th><th class="c">Due</th></tr></thead><tbody>${
+      capas.map(c=>`<tr><td>${esc(c.title)} ${c.human_review_required?'<span class="badge req">review</span>':''}</td>
+        <td class="sub">${esc(c.standard||'—')}</td>
+        <td>${esc(c.stage_label||c.stage||'')}</td>
+        <td class="c ${c.overdue?'no':''}">${esc(c.abatement_date||'—')}${c.overdue?' ⚠':''}</td></tr>`).join('')}</tbody></table>`
+      :'<div class="empty">No corrective actions on file.</div>'}`;
+  el.scrollIntoView({behavior:'smooth'});
+}
+function gotoProgramsFor(id){ showTab('programs'); fillCompanySelect('pg-co',()=>{ $('#pg-co').value=id; loadPackage(); }); }
+function gotoPrequalFor(id){ showTab('prequal'); fillCompanySelect('pq-co',()=>{ $('#pq-co').value=id; }); }
+function runPhotoAudit(id){ location.href = '/photo-audit?company='+encodeURIComponent(id)+'&back=/sie'; }
+
+// ── PROGRAMS ───────────────────────────────────────────────────────────────
+async function loadPackage(){
+  const id=$('#pg-co').value; if(!id){ $('#pgSummary').innerHTML=''; $('#pgEntries').innerHTML=''; return; }
+  $('#pgDoc').classList.add('hidden');
+  const {j}=await api('/api/program/package/'+encodeURIComponent(id));
+  if(!j||j.error){ $('#pgEntries').innerHTML=`<div class="err">${esc((j&&j.error)||'not found')}</div>`; return; }
+  const s=j.summary||{};
+  $('#pgSummary').innerHTML = `<div class="tiles">
+    ${tile(j.required_count||0,'Required standards')}${tile(s.programs_mandated||0,'Mandated programs')}
+    ${tile(s.programs_mandated_missing||0,'Missing', s.programs_mandated_missing?'hi':'')}
+    ${tile(s.programs_available||0,'Available')}${tile(s.training_mandates||0,'Training mandates')}${tile(s.jsas_available||0,'JSAs')}</div>`;
+  const es=j.entries||[];
+  $('#pgEntries').innerHTML = `<h2 class="sec">Standards (${es.length})</h2>
+    <table><thead><tr><th>Standard</th><th>Program</th><th>Training</th><th>JSA</th></tr></thead><tbody>${
+    es.map(e=>`<tr class="clk" onclick="renderDoc('${esc(id)}','${esc(e.id)}')">
+      <td><span class="name">${esc(e.title||e.id)}</span><div class="sub">${esc(e.citation||'')}</div></td>
+      <td>${classBadge(e.program.classification)} ${e.program.available?'<span class="yes">✓</span>':'<span class="no">missing</span>'}</td>
+      <td>${classBadge(e.training.classification)} ${e.training.verbatim_mandate?'<span class="sub">verbatim</span>':''}</td>
+      <td>${e.jsa.available?'<span class="yes">✓</span>':'<span class="sub">—</span>'}</td></tr>`).join('')}</tbody></table>`;
+}
+async function renderDoc(cid,sid){
+  const {j}=await api('/api/program/'+encodeURIComponent(cid)+'/'+encodeURIComponent(sid));
+  if(!j||j.error){ return; }
+  const el=$('#pgDoc'); el.classList.remove('hidden');
+  el.innerHTML=`<span class="back" onclick="document.getElementById('pgDoc').classList.add('hidden')">← Close</span>
+    <h1>${esc(j.standard.title||sid)}</h1><p class="lede">${esc(j.standard.citation||'')}</p>
+    <h2 class="sec">Written program ${classBadge(j.program.classification)}</h2>
+    ${j.program.available?`<pre style="white-space:pre-wrap;font:inherit;font-size:13px;background:var(--light);border-radius:8px;padding:14px">${esc(j.program.markdown)}</pre>`:`<div class="muted">${esc(j.program.note||'Not in library.')}</div>`}
+    <h2 class="sec">Training ${classBadge(j.training.classification)}</h2>
+    <div style="font-size:13px;white-space:pre-wrap">${esc(j.training.text||'')}</div>${srcHtml(j.training.source_refs)}
+    <h2 class="sec">Job hazard analysis</h2>
+    ${j.jsa.available?j.jsa.html:`<div class="muted">${esc(j.jsa.note||'No JSA in library.')}</div>`}`;
+  el.scrollIntoView({behavior:'smooth'});
+}
+
+// ── PREQUAL ────────────────────────────────────────────────────────────────
+async function runPrequal(){
+  const id=$('#pq-co').value; if(!id){ $('#pqResult').innerHTML='<div class="err">Pick a company.</div>'; return; }
+  const metrics={};
+  const num=(k,el)=>{const v=parseFloat($(el).value); if(!isNaN(v)) metrics[k]=v;};
+  num('emr','#pq-emr'); num('trir','#pq-trir'); num('dart','#pq-dart'); num('training_complete','#pq-train');
+  const ins=$('#pq-ins').value; if(ins==='true') metrics.insurance_ok=true; if(ins==='false') metrics.insurance_ok=false;
+  const body={metrics}; const plat=$('#pq-plat').value; if(plat) body.platform=plat;
+  $('#pqResult').innerHTML='<div class="muted" style="margin-top:12px"><span class="spin" style="border-color:var(--orange);border-top-color:transparent"></span> Assessing…</div>';
+  const {j}=await api('/api/prequal/'+encodeURIComponent(id),{method:'POST',body:JSON.stringify(body)});
+  if(!j||j.error){ $('#pqResult').innerHTML=`<div class="err">${esc((j&&j.error)||'error')}</div>`; return; }
+  $('#pqResult').innerHTML = j.assessments ? j.assessments.map(prequalCard).join('') : prequalCard(j);
+}
+function prequalCard(a){
+  const g=a.estimated_grade||{}; const light=(g.traffic_light||'').split(' ')[0];
+  const gaps=a.gaps||[]; const det=gaps.filter(x=>x.status==='detected'); const chk=gaps.filter(x=>x.status==='checklist');
+  const rb = /Not ready/.test(a.readiness)?'warn':(/On track/.test(a.readiness)?'ok':'info');
+  const gapItem=x=>`<div class="item ${esc(x.severity)}"><div class="t">${esc(x.title)} <span class="chip">${esc(x.status)}</span></div>
+     <div class="d">${esc(x.detail)}</div>${x.source&&x.source.reason?`<div class="m">Rejection reason: “${esc(x.source.reason)}” <span class="sub">(${esc(x.source.record_id||'')})</span></div>`:''}</div>`;
+  return `<div class="card tight" style="margin-top:14px">
+    <div class="gradewrap"><div><div class="co">${esc(a.company)} · ${esc(a.platform)}</div>
+      <div class="grade">${esc(g.grade||'?')}</div><div class="co">score ${g.score!=null?g.score:'—'}</div></div>
+      <div style="flex:1;min-width:180px"><div class="light ${esc(light)}">${esc(g.traffic_light||'')}</div>
+      <div class="co" style="margin-top:6px">Posture</div>
+      <div style="font-size:13px">${a.posture.programs_available}/${a.posture.programs_mandated} programs · ${a.posture.open_capas} open CAPA · ${a.posture.overdue_capas} overdue · risk ${esc(a.posture.risk_band||'')}</div></div></div>
+    <div class="banner ${rb}">${esc(a.readiness)}</div>
+    ${det.length?`<h2 class="sec">Detected by Origin (${det.length})</h2>${det.map(gapItem).join('')}`:''}
+    ${chk.length?`<h2 class="sec">You must supply (${chk.length})</h2>${chk.map(gapItem).join('')}`:''}
+    <div class="disc">${esc(a.caveat||'')}</div></div>`;
+}
+
+// ── AUDITS ─────────────────────────────────────────────────────────────────
+async function loadAudits(){
+  const ov=await api('/api/audit/overview'); const o=ov.j||{};
+  $('#auditTiles').innerHTML = tile(o.total||0,'Audits')+tile(o.high||0,'High findings','hi')+tile(o.open_capas!=null?o.open_capas:(o.capas_opened||0),'CAPAs opened');
+  const {j}=await api('/api/audit/list');
+  const rows=(j&&j.items)||[];
+  $('#auditList').innerHTML = rows.length?`<table><thead><tr><th>Company</th><th class="c">Findings</th><th class="c">High</th><th>When</th></tr></thead><tbody>${
+    rows.map(a=>`<tr class="clk" onclick="auditDetail('${esc(a.id)}')"><td class="name">${esc(a.company||'—')}</td>
+      <td class="c">${a.total_findings!=null?a.total_findings:(a.summary&&a.summary.total)||'—'}</td>
+      <td class="c">${(a.summary&&a.summary.high)!=null?a.summary.high:(a.high||'—')}</td>
+      <td class="sub">${esc(fmt(a.created_at||a.recorded_at||''))}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No audits yet. Capture one from the Photo Audit tool.</div>';
+}
+async function auditDetail(id){
+  const {j}=await api('/api/audit/'+encodeURIComponent(id));
+  if(!j||j.error) return;
+  const fs=j.findings||[]; const el=$('#auditDetail'); el.classList.remove('hidden');
+  el.innerHTML=`<span class="back" onclick="document.getElementById('auditDetail').classList.add('hidden')">← Close</span>
+    <h1>${esc(j.company||'Audit')}</h1><p class="lede">${esc(fmt(j.created_at||''))} · ${fs.length} findings</p>
+    ${fs.map(f=>`<div class="item ${esc((f.severity||'').toLowerCase())}"><div class="t">${esc(f.title||'Finding')} <span class="pill sev ${esc((f.severity||'medium').toLowerCase())}">${esc(f.severity||'')}</span></div>
+      <div class="d">${esc(f.description||'')}</div>
+      ${f.standard?`<div class="m">${esc(f.standard.citation||f.standard)}</div>`:'<div class="m">Unmatched — human review</div>'}
+      ${f.capa_id?`<div class="src">CAPA ${esc(f.capa_id)}</div>`:`<button class="btn sm" style="margin-top:8px" onclick="promote('${esc(id)}','${esc(f.finding_id||f.id)}')">Open CAPA</button>`}</div>`).join('')}`;
+  el.scrollIntoView({behavior:'smooth'});
+}
+async function promote(aid,fid){
+  await api('/api/audit/'+encodeURIComponent(aid)+'/promote/'+encodeURIComponent(fid),{method:'POST',body:JSON.stringify({})});
+  auditDetail(aid);
+}
+
+// ── REVIEW (human-review inbox) ─────────────────────────────────────────────
+const RV_REASON={unmatched:'Unmatched — no citation found',low_confidence:'Low-confidence detection'};
+async function loadReview(){
+  // overview drives the tiles + the tab badge; list auto-ingests server-side
+  const ov=await api('/api/review/overview'); const o=ov.j||{};
+  const pend=o.pending||0;
+  $('#cnt-review').textContent=pend;
+  $('#cnt-review').classList.toggle('zero',pend===0);
+  $('#reviewTiles').innerHTML=tile(pend,'Pending','hi')+tile(o.approved||0,'Approved')+tile(o.rejected||0,'Rejected')+tile(o.total||0,'Total');
+  const status=$('#rv-status')?$('#rv-status').value:'pending';
+  const {j}=await api('/api/review/list'+(status?('?status='+encodeURIComponent(status)):''));
+  renderReviewItems((j&&j.items)||[]);
+}
+function renderReviewItems(items){
+  const el=$('#reviewList');
+  if(!items.length){ el.innerHTML='<div class="empty">Nothing waiting. Unmatched or low-confidence findings will appear here.</div>'; return; }
+  el.innerHTML=items.map(reviewCard).join('');
+}
+function reviewCard(it){
+  const sev=(it.severity||'medium').toLowerCase();
+  const decided=it.status&&it.status!=='pending';
+  const conf=(it.confidence!=null)?`<span class="chip">confidence ${it.confidence}</span>`:'';
+  const reason=RV_REASON[it.reason]||it.reason||'';
+  const stdVal=esc(it.standard||'');
+  let foot;
+  if(decided){
+    const ra=it.resulting_action||{};
+    const tag=it.status==='approved'?`<span class="pill sev high">approved</span>`:`<span class="pill sev medium">rejected</span>`;
+    const cap=ra.capa_id?` · CAPA ${esc(ra.capa_id)}`:(ra.type==='dismissed'?' · dismissed':'');
+    foot=`<div class="m">${tag} by ${esc(it.reviewer||it.decided_by||'—')} · ${esc(fmt(it.decided_at||''))}${cap}${it.note?' · “'+esc(it.note)+'”':''}</div>`;
+  }else{
+    foot=`<div class="row" style="margin-top:10px;gap:8px;align-items:flex-end">
+      <div class="fld sm" style="flex:1;min-width:180px"><label>Citation to attach (optional)</label>
+        <input id="rv-std-${esc(it.id)}" placeholder="29 CFR 1926.xxx" value="${stdVal}"></div>
+      <button class="btn sm" onclick="approveItem('${esc(it.id)}')">Approve → open CAPA</button>
+      <button class="btn ghost sm" onclick="rejectItem('${esc(it.id)}')">Reject</button>
+    </div>`;
+  }
+  return `<div class="item ${sev}">
+    <div class="t">${esc(it.title||'Finding')} <span class="pill sev ${sev}">${esc(it.severity||'medium')}</span> ${conf}</div>
+    <div class="d">${esc(it.company||'')}${reason?' · '+esc(reason):''}</div>
+    ${it.standard&&decided?`<div class="m">${stdVal}</div>`:''}
+    ${foot}</div>`;
+}
+async function approveItem(id){
+  const inp=$('#rv-std-'+id); const std=inp?inp.value.trim():'';
+  const edits=std?{standard:std}:null;
+  await api('/api/review/'+encodeURIComponent(id)+'/approve',{method:'POST',body:JSON.stringify(edits?{edits}:{})});
+  loadReview();
+}
+async function rejectItem(id){
+  await api('/api/review/'+encodeURIComponent(id)+'/reject',{method:'POST',body:JSON.stringify({})});
+  loadReview();
+}
+
+// ── TRAINING ───────────────────────────────────────────────────────────────
+const TR_STATUS = {
+  expired:  ['#b91c1c','#fee2e2','Expired'],
+  expiring: ['#b45309','#fef3c7','Expiring'],
+  missing:  ['#6b7280','#f3f4f6','Not on file'],
+  current:  ['#166534','#dcfce7','Current'],
+};
+function trStatusPill(st){
+  const v=TR_STATUS[st]||TR_STATUS.missing;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:${v[0]};background:${v[1]}">${v[2]}</span>`;
+}
+function trCurrentCid(){ const s=$('#tr-co'); return s?s.value:''; }
+
+async function loadTraining(){
+  const cid=trCurrentCid();
+  if(!cid){ $('#trCatalogCard').innerHTML=''; $('#trMatrix').innerHTML='<div class="empty">Pick a company to see its training matrix.</div>'; return; }
+  const {j}=await api('/api/training/'+encodeURIComponent(cid)+'/matrix');
+  if(!j||j.error){ $('#trMatrix').innerHTML=`<div class="err">${esc((j&&j.error)||'error')}</div>`; return; }
+  const exp=(j.expired||[]).length, dueSoon=(j.expiring||[]).length;
+  const badge=exp+dueSoon;
+  $('#cnt-training').textContent=badge;
+  $('#cnt-training').classList.toggle('zero',badge===0);
+  $('#trainTiles').innerHTML=tile(j.employee_count||0,'Employees')+tile(j.course_count||0,'Required courses')
+    +tile(dueSoon,'Expiring',dueSoon?'hi':'')+tile(exp,'Expired',exp?'hi':'');
+  renderCatalog(j.courses||[]);
+  renderMatrix(j);
+}
+function renderCatalog(courses){
+  const el=$('#trCatalogCard');
+  if(!courses.length){ el.innerHTML='<h2 class="sec" style="margin-top:0">Required training</h2><div class="empty">No OSHA-required training resolves for this company\u2019s scope. Add hazards/activities in the Companies tab.</div>'; return; }
+  el.innerHTML='<h2 class="sec" style="margin-top:0">Required training — derived &amp; sourced</h2>'
+    +courses.map(c=>`<div class="item info">
+        <div class="t">${esc(c.title)} ${classBadge(c.classification_label)}</div>
+        <div class="d">${esc(c.citation)} · <span class="chip">${esc(c.cadence)}</span></div>
+        ${c.why?`<div class="m">${esc(c.why)}</div>`:''}
+      </div>`).join('');
+}
+function renderMatrix(j){
+  const el=$('#trMatrix');
+  const rows=j.rows||[];
+  if(!rows.length){ el.innerHTML='<div class="card"><div class="empty">No employees yet. Add one above to build the matrix.</div></div>'; return; }
+  if(!(j.courses||[]).length){ el.innerHTML=''; return; }
+  el.innerHTML=rows.map(r=>{
+    const cells=(r.cells||[]).map(c=>{
+      const meta=c.completed_on
+        ? `done ${esc(c.completed_on)}${c.expires_on?` · expires ${esc(c.expires_on)}`:''}${(c.days_left!=null&&c.status!=='current')?` · ${c.days_left<0?Math.abs(c.days_left)+'d overdue':c.days_left+'d left'}`:''}`
+        : `${esc(c.cadence)}`;
+      return `<div class="item ${c.status==='expired'?'high':(c.status==='expiring'?'medium':'info')}">
+        <div class="t" style="font-size:14px">${esc(c.title)} ${trStatusPill(c.status)}</div>
+        <div class="d">${esc(c.citation)} · ${meta}</div>
+        <div class="row" style="margin-top:8px;gap:8px;align-items:flex-end">
+          <div class="fld sm" style="width:170px"><label>Completed on</label>
+            <input type="date" id="tr-date-${esc(r.employee_id)}-${esc(c.course_id)}"></div>
+          <button class="btn sm" onclick="recordCompletion('${esc(r.employee_id)}','${esc(c.course_id)}')">Record completion</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="t" style="font-size:16px">${esc(r.name)}${r.role?` <span class="muted" style="font-weight:400">· ${esc(r.role)}</span>`:''}</div>
+        <button class="btn ghost sm" onclick="deactivateEmployee('${esc(r.employee_id)}')">Remove</button>
+      </div>
+      ${cells}
+    </div>`;
+  }).join('');
+}
+async function addEmployee(){
+  const cid=trCurrentCid(); const name=$('#tr-emp-name').value.trim();
+  const msg=$('#tr-emp-msg');
+  if(!cid){ msg.textContent='Pick a company first.'; return; }
+  if(!name){ msg.textContent='Name is required.'; return; }
+  msg.textContent='Saving…';
+  const {j}=await api('/api/training/'+encodeURIComponent(cid)+'/employee',
+    {method:'POST',body:JSON.stringify({name, role:$('#tr-emp-role').value.trim()})});
+  if(!j||j.error){ msg.textContent=(j&&j.error)||'error'; return; }
+  msg.textContent=''; $('#tr-emp-name').value=''; $('#tr-emp-role').value='';
+  loadTraining();
+}
+async function recordCompletion(eid, courseId){
+  const inp=$('#tr-date-'+eid+'-'+courseId);
+  const on=inp&&inp.value?inp.value:'';
+  await api('/api/training/employee/'+encodeURIComponent(eid)+'/complete',
+    {method:'POST',body:JSON.stringify({course_id:courseId, completed_on:on})});
+  loadTraining();
+}
+async function deactivateEmployee(eid){
+  await api('/api/training/employee/'+encodeURIComponent(eid)+'/deactivate',{method:'POST',body:JSON.stringify({})});
+  loadTraining();
+}
+
+// ── CITATION ───────────────────────────────────────────────────────────────
+async function runCitation(){
+  const std=$('#ci-std').value.trim(), text=$('#ci-text').value.trim();
+  if(!std && !text){ $('#ciResult').innerHTML='<div class="err">Enter a standard or citation text.</div>'; return; }
+  const body={standard:std, text:text, company:$('#ci-co').value.trim(),
+              classification:$('#ci-class').value, penalty:$('#ci-pen').value.trim()};
+  $('#ciResult').innerHTML='<div class="muted" style="margin-top:12px"><span class="spin" style="border-color:var(--orange);border-top-color:transparent"></span> Analyzing…</div>';
+  const {j}=await api('/api/citation/analyze',{method:'POST',body:JSON.stringify(body)});
+  if(!j||j.error){ $('#ciResult').innerHTML=`<div class="err">${esc((j&&j.error)||'error')}</div>`; return; }
+  const outs=j.outputs||{}; const order=['summary','source','hazard_explanation','immediate_corrective_action','recommended_corrective_action','root_cause','training','documentation','evidence_checklist','followup_checklist','recurrence_prevention','abatement_tracking'];
+  const keys=order.filter(k=>outs[k]).concat(Object.keys(outs).filter(k=>!order.includes(k)));
+  $('#ciResult').innerHTML = `${j.human_review_required?'<div class="banner warn">⚠ Flagged for human review — at least one part could not be deterministically sourced.</div>':''}
+    ${j.standard_resolved?'<div class="banner ok">Standard resolved to a current CFR record.</div>':'<div class="banner info">Standard not resolved in the knowledge store — treated cautiously.</div>'}
+    ${keys.map(k=>{const it=outs[k];return `<div class="item ${it.human_review_required?'high':'info'}">
+      <div class="t">${esc(it.title||k)} ${classBadge(it.classification)}</div>
+      <div class="d" style="white-space:pre-wrap">${esc(it.body||'')}</div>
+      ${srcHtml(it.source_refs)}${it.confidence!=null?`<div class="m">confidence ${it.confidence}</div>`:''}</div>`;}).join('')}
+    <div class="disc">${esc(j.disclaimer||'')}</div>`;
+}
+
+// boot
+loadDigest();
+</script>
+</body>
+</html>
