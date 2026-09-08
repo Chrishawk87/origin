@@ -1,1031 +1,1265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Origin — Safety Command Center</title>
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#020617">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<title>Safety Intelligence Engine — Origin</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F; --slate:#9AA1AB; --bg:#EDEEF0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.5;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 14px 70px;}
+  a{color:var(--orange);text-decoration:none}
+  /* header */
+  header.brand{background:var(--charcoal);padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  header.brand nav a{color:#C9CED6;font-size:12px;margin-left:16px}
+  header.brand nav a:hover{color:#fff}
+  .rule{height:5px;background:var(--orange)}
+  /* tabs */
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;max-width:1120px;margin:0 auto;padding:14px 14px 0}
+  .tab{appearance:none;border:0;background:transparent;color:var(--grey);font-size:14px;font-weight:700;
+       padding:11px 16px;border-radius:9px 9px 0 0;cursor:pointer}
+  .tab:hover{color:var(--charcoal);background:#E4E6E9}
+  .tab.on{background:var(--white);color:var(--charcoal);box-shadow:0 -2px 10px rgba(0,0,0,.05)}
+  .tab .cnt{display:inline-block;min-width:18px;font-size:11px;background:var(--orange);color:#fff;border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+  .tab .cnt.zero{background:var(--slate);opacity:.5}
+  /* panels */
+  .panel{display:none}
+  .panel.on{display:block}
+  .card{background:var(--white);border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,.07);padding:22px 24px;margin-top:14px}
+  .card.tight{padding:16px 18px}
+  h1{font-size:21px;color:var(--charcoal);margin:0 0 3px}
+  h2.sec{font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  p.lede{color:var(--grey);margin:0 0 8px;font-size:14px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .btn{display:inline-flex;align-items:center;gap:7px;appearance:none;border:0;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff}
+  .btn:hover{background:var(--red)}
+  .btn.ghost{background:var(--light);color:var(--charcoal)}
+  .btn.ghost:hover{background:var(--line)}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  .btn:disabled{opacity:.5;cursor:default}
+  label{font-size:12px;font-weight:700;color:var(--charcoal);display:block;margin-bottom:4px}
+  input,select,textarea{font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+  textarea{min-height:78px;resize:vertical}
+  .fld{flex:1;min-width:150px}
+  .fld.sm{max-width:150px}
+  /* stat tiles */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:12px}
+  .tile{background:var(--light);border-radius:10px;padding:14px 16px}
+  .tile .n{font-size:28px;font-weight:800;color:var(--charcoal);line-height:1}
+  .tile .l{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--grey);margin-top:5px}
+  .tile.hi .n{color:var(--red)} .tile.md .n{color:var(--amber)}
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+  th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--grey)}
+  th.c,td.c{text-align:center} th.r,td.r{text-align:right}
+  tr.clk{cursor:pointer} tr.clk:hover{background:var(--cream)}
+  .name{font-weight:700;color:var(--charcoal)}
+  .sub{font-size:12px;color:var(--grey)}
+  /* pills / badges */
+  .pill{font-weight:800;font-size:11px;padding:4px 10px;border-radius:20px;color:#fff;display:inline-block;white-space:nowrap}
+  .risk.Low,.sev.info{background:var(--green)} .risk.Moderate,.sev.medium{background:var(--amber)}
+  .risk.High{background:var(--orange)} .risk.Critical,.sev.high{background:var(--red)}
+  .risk.Medium{background:var(--amber)}
+  .badge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:2px 8px;border-radius:5px;display:inline-block}
+  .badge.req{background:#FBE3D8;color:var(--red)}        /* OSHA-required */
+  .badge.rec{background:#E4EEF6;color:#2C5C86}           /* Origin recommendation */
+  .badge.best{background:#E7F1E9;color:var(--green)}     /* Best practice */
+  .badge.cust{background:#F3E8F7;color:#7A3E92}          /* Customer requirement */
+  .yes{color:var(--green);font-weight:800} .no{color:var(--red);font-weight:800}
+  .light{font-weight:800;font-size:12px}
+  .light.GREEN{color:var(--green)} .light.AMBER{color:var(--amber)} .light.RED{color:var(--red)}
+  .grade{font-size:44px;font-weight:800;line-height:1;color:var(--charcoal)}
+  .gradewrap{background:var(--charcoal);color:#fff;border-radius:12px;padding:20px 22px;display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .gradewrap .grade{color:#fff}
+  .gradewrap .co{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#C9CED6}
+  .banner{border-radius:9px;padding:11px 15px;font-size:14px;font-weight:600;margin-top:12px}
+  .banner.warn{background:#FBEEE7;border-left:4px solid var(--orange);color:#7A3413}
+  .banner.ok{background:#E7F1E9;border-left:4px solid var(--green);color:#245B38}
+  .banner.info{background:#EDF1F5;border-left:4px solid var(--slate);color:#3A4450}
+  /* gap / output items */
+  .item{border:1px solid var(--line);border-left:5px solid var(--slate);border-radius:9px;padding:12px 15px;margin-bottom:9px}
+  .item.high{border-left-color:var(--red)} .item.medium{border-left-color:var(--amber)} .item.info{border-left-color:var(--green)}
+  .item .t{font-weight:700;color:var(--charcoal);font-size:14px}
+  .item .d{font-size:13px;color:var(--ink);margin-top:4px}
+  .item .m{font-size:12px;color:var(--grey);margin-top:6px}
+  .chip{display:inline-block;font-size:11px;font-weight:700;background:var(--light);color:var(--grey);border-radius:20px;padding:2px 9px;margin:2px 4px 2px 0}
+  .src{font-size:12px;color:var(--grey);margin-top:5px}
+  .src a{font-size:12px}
+  .muted{color:var(--grey);font-size:13px}
+  .empty{text-align:center;color:var(--grey);padding:34px 10px;font-size:14px}
+  .err{color:var(--red);font-weight:600;font-size:14px;margin-top:10px}
+  .back{color:var(--grey);font-size:13px;cursor:pointer;display:inline-block;margin-bottom:6px}
+  .hidden{display:none}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .disc{font-size:11px;color:var(--slate);margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  details.form summary{cursor:pointer;font-weight:700;color:var(--orange);font-size:13px;margin-top:4px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px} @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  .naics-sug{position:relative}
+  .naics-sug .opt{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-top:0;padding:8px 11px;font-size:13px;cursor:pointer}
+  .naics-sug .opt:first-child{border-top:1px solid var(--line);border-radius:8px 8px 0 0;margin-top:4px}
+  .naics-sug .opt:last-child{border-radius:0 0 8px 8px}
+  .naics-sug .opt:hover{background:var(--light)}
+  .naics-sug .opt b{color:var(--orange)}
+  .scopewrap{margin-top:12px}
+  .hazgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:8px} @media(max-width:640px){.hazgrid{grid-template-columns:1fr}}
+  .hazgrid label.hz{display:flex;gap:8px;align-items:flex-start;font-size:13px;font-weight:400;color:var(--ink);cursor:pointer;padding:4px 0}
+  .hazgrid label.hz input{width:auto;margin-top:2px;flex:0 0 auto}
+  .hazgrid label.hz.on{color:var(--charcoal);font-weight:600}
+  .scopeprev{margin-top:14px;background:var(--light);border-radius:10px;padding:14px 16px}
+  .scopeprev h4{margin:0 0 6px;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--orange)}
+  .scopeprev .std{font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)}
+  .scopeprev .std:last-child{border-bottom:0}
+  .scopeprev .src-tag{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px;margin-right:6px;vertical-align:middle}
+  .scopeprev .src-tag.baseline{background:#E7EEF6;color:#2C5F8A} .scopeprev .src-tag.triggered{background:var(--cream);color:#7A3413}
+  .scopeprev .stdlist{margin-top:10px;max-height:260px;overflow:auto}
+  .scopeprev .std{display:flex;gap:8px;align-items:flex-start}
+  .scopeprev .rk{margin-top:8px;font-size:12px;border-radius:8px;padding:8px 11px;line-height:1.45}
+  .scopeprev .rk.keep{background:#FDECEA;color:#8A2A1B} .scopeprev .rk.exempt{background:#EAF4EC;color:#2C6B3A}
+  .rkline{font-size:12px;border-radius:8px;padding:8px 11px;line-height:1.45}
+  .rkline.keep{background:#FDECEA;color:#8A2A1B} .rkline.exempt{background:#EAF4EC;color:#2C6B3A}
+  .src-tag{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px}
+  .src-tag.baseline{background:#E7EEF6;color:#2C5F8A} .src-tag.triggered{background:var(--cream);color:#7A3413}
+  .jurisbadge{margin-top:12px;display:flex;gap:10px;align-items:flex-start;background:var(--light);border-radius:10px;padding:10px 13px}
+  .jurisbadge .jtxt{font-size:12px;line-height:1.45}
+  .jflag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:20px;padding:2px 9px;white-space:nowrap;text-transform:uppercase}
+  .jflag.state{background:#E7EEF6;color:#2C5F8A} .jflag.both{background:var(--cream);color:#7A3413} .jflag.federal{background:#EAECEF;color:#3A4048}
+  .scopeprev .rk.juris{margin-top:8px;background:#F1F4F8;color:#2A3540}
 
-  <!-- Tailwind CSS Play CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            origin: { green: "#10b981", amber: "#f59e0b", rose: "#f43f5e" }
-          },
-          boxShadow: {
-            glow: "0 0 35px rgba(16,185,129,.18)",
-            "glow-strong": "0 0 45px rgba(16,185,129,.35)"
-          }
-        }
-      }
-    }
-  </script>
-
-  <style>
-    * { scrollbar-width: thin; scrollbar-color: #334155 #020617; }
-    html { scroll-behavior: smooth; }
-    body {
-      background:
-        radial-gradient(circle at 75% 5%, rgba(16,185,129,.055), transparent 28%),
-        radial-gradient(circle at 10% 80%, rgba(59,130,246,.035), transparent 25%),
-        #020617;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    .glass { background: rgba(15, 23, 42, .72); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
-    .border-soft { border-color: rgba(148, 163, 184, .11); }
-    .premium-card {
-      background: linear-gradient(145deg, rgba(30, 41, 59, .72), rgba(15, 23, 42, .78));
-      border: 1px solid rgba(148,163,184,.11);
-      box-shadow: 0 20px 70px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.025);
-    }
-    .nav-item { transition: background .25s ease, color .25s ease, transform .25s ease, border-color .25s ease; }
-    .nav-item:hover { transform: translateX(2px); }
-    .nav-item.active {
-      background: linear-gradient(90deg, rgba(16,185,129,.14), rgba(16,185,129,.025));
-      border-color: rgba(16,185,129,.22); color: #d1fae5; box-shadow: inset 3px 0 0 #10b981;
-    }
-    .industry-pill { transition: all .25s ease; }
-    .industry-pill.active {
-      background: rgba(16,185,129,.11); border-color: rgba(16,185,129,.4); color: #d1fae5;
-      box-shadow: 0 0 25px rgba(16,185,129,.08), inset 0 1px 0 rgba(255,255,255,.035);
-    }
-    .industry-pill.planned { opacity: .55; }
-    .metric-number { transition: opacity .2s ease, transform .2s ease; }
-    .fade-update { animation: fadeUpdate .38s ease; }
-    @keyframes fadeUpdate { 0% { opacity: .15; transform: translateY(5px); } 100% { opacity: 1; transform: translateY(0); } }
-    .scanner-frame { position: relative; overflow: hidden; }
-    .scanner-line {
-      position: absolute; left: 0; right: 0; top: -5%; height: 3px; opacity: 0;
-      background: linear-gradient(90deg, transparent, #10b981 12%, #d1fae5 50%, #10b981 88%, transparent);
-      box-shadow: 0 0 12px #10b981, 0 0 30px rgba(16,185,129,.8), 0 0 60px rgba(16,185,129,.35); z-index: 20;
-    }
-    .scanner-line.scanning { opacity: 1; animation: scanDown 2s cubic-bezier(.35,.1,.2,1); }
-    @keyframes scanDown { 0% { top: -3%; } 100% { top: 103%; } }
-    .scan-grid {
-      position: absolute; inset: 0; opacity: .18;
-      background-image: linear-gradient(rgba(16,185,129,.25) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,.25) 1px, transparent 1px);
-      background-size: 28px 28px; mask-image: linear-gradient(to bottom, transparent, black, transparent); pointer-events: none;
-    }
-    .radar-ring { border: 1px solid rgba(16,185,129,.16); border-radius: 999px; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); pointer-events: none; }
-    .audit-badge { opacity: 0; transform: translateY(12px) scale(.96); transition: all .45s cubic-bezier(.2,.8,.2,1); }
-    .audit-badge.show { opacity: 1; transform: translateY(0) scale(1); }
-    .photo-placeholder { background: linear-gradient(135deg, rgba(51,65,85,.92), rgba(15,23,42,.98)); }
-    .photo-placeholder::before {
-      content: ""; position: absolute; inset: 0;
-      background:
-        linear-gradient(165deg, transparent 0 34%, rgba(100,116,139,.25) 34.2% 34.8%, transparent 35%),
-        linear-gradient(15deg, transparent 0 46%, rgba(71,85,105,.34) 46.2% 46.8%, transparent 47%),
-        linear-gradient(160deg, transparent 0 62%, rgba(71,85,105,.32) 62.2% 63%, transparent 63.2%);
-      opacity: .75;
-    }
-    .form-paper { background: linear-gradient(180deg, #f8fafc, #e2e8f0); color: #0f172a; box-shadow: 0 25px 60px rgba(0,0,0,.35), inset 0 0 0 1px rgba(15,23,42,.1); }
-    .paper-line { border-bottom: 1px solid #94a3b8; }
-    .typed { opacity: 0; transform: translateY(4px); transition: opacity .4s ease, transform .4s ease; }
-    .typed.visible { opacity: 1; transform: translateY(0); }
-    .audit-stamp { opacity: 0; transform: rotate(-5deg) scale(.75); transition: all .6s cubic-bezier(.2,.8,.2,1); }
-    .audit-stamp.show { opacity: 1; transform: rotate(-5deg) scale(1); }
-    .pulse-dot { animation: pulseDot 2s infinite; }
-    @keyframes pulseDot { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,.4); } 50% { box-shadow: 0 0 0 7px rgba(16,185,129,0); } }
-    .slide-in { animation: slideIn .4s cubic-bezier(.2,.8,.2,1); }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-    .toast { transform: translateY(120px); opacity: 0; transition: all .4s cubic-bezier(.2,.8,.2,1); }
-    .toast.show { transform: translateY(0); opacity: 1; }
-    .button-shine { position: relative; overflow: hidden; }
-    .button-shine::after { content: ""; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent); transform: skewX(-20deg); transition: left .65s ease; }
-    .button-shine:hover::after { left: 140%; }
-    .select-arrow { pointer-events: none; }
-    @media (max-width: 1100px) { .desktop-sidebar { width: 230px; } }
-    @media (max-width: 900px) { .desktop-sidebar { display: none; } .mobile-nav { display: flex; } }
-    @media (min-width: 901px) { .mobile-nav { display: none; } }
-  </style>
+<style id="premium-dark">
+  /* ===== PREMIUM DARK OVERRIDE — re-skins the classic console ===== */
+  :root{
+    --charcoal:#0f172a; --orange:#10b981; --orange2:#34d399; --cream:#132e26;
+    --light:#1e293b; --grey:#94a3b8; --line:#26344a; --ink:#e2e8f0; --white:#111a2e;
+    --red:#f43f5e; --green:#10b981; --amber:#f59e0b; --slate:#64748b; --bg:#020617;
+  }
+  body{
+    background:
+      radial-gradient(1100px 600px at 12% -8%, rgba(16,185,129,.10), transparent 60%),
+      radial-gradient(900px 520px at 100% 0%, rgba(52,211,153,.07), transparent 55%),
+      #020617;
+    color:var(--ink); min-height:100vh;
+  }
+  a{color:var(--orange2)}
+  /* header */
+  header.brand{background:linear-gradient(90deg,#0b1220,#0f172a);border-bottom:1px solid var(--line);
+    padding:15px 26px;position:sticky;top:0;z-index:40}
+  .word{color:#f1f5f9} .word span{color:var(--orange2)}
+  .tag{background:rgba(16,185,129,.12);color:#6ee7b7;border:1px solid rgba(16,185,129,.25)}
+  header.brand nav a{color:#93a3b8} header.brand nav a:hover{color:#fff}
+  .rule{height:2px;background:linear-gradient(90deg,var(--orange),transparent)}
+  /* layout: fixed sidebar + main */
+  .layout{display:flex;align-items:flex-start;gap:0}
+  .tabs{flex:0 0 234px;width:234px;flex-direction:column;gap:3px;position:sticky;top:60px;
+    align-self:flex-start;height:calc(100vh - 60px);overflow:auto;padding:16px 12px;margin:0;
+    max-width:none;background:linear-gradient(180deg,rgba(15,23,42,.6),rgba(2,6,23,.25));
+    border-right:1px solid var(--line)}
+  .side-brand{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6b82;
+    padding:12px 13px 5px}
+  .tab{width:100%;text-align:left;border-radius:10px;color:#94a3b8;padding:10px 13px;
+    font-weight:600;font-size:13.5px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .tab:hover{background:rgba(148,163,184,.08);color:#e2e8f0}
+  .tab.on{background:linear-gradient(90deg,rgba(16,185,129,.16),rgba(16,185,129,.04));
+    color:#fff;box-shadow:none;border:1px solid rgba(16,185,129,.28)}
+  .tab .cnt{background:var(--orange);color:#04241a}
+  .tab .cnt.zero{background:#334155;color:#94a3b8;opacity:1}
+  .wrap{flex:1;max-width:1180px;margin:0;padding:24px 28px 80px;min-width:0}
+  @media(max-width:820px){
+    .layout{flex-direction:column}
+    .tabs{position:static;flex-direction:row;flex-wrap:wrap;width:auto;height:auto;
+      border-right:0;border-bottom:1px solid var(--line);gap:6px}
+    .tab{width:auto}
+    .side-brand{display:none}
+    .wrap{padding:16px 14px 70px}
+  }
+  /* surfaces */
+  .card{background:linear-gradient(160deg,#0f1a30,#0b1424);border:1px solid var(--line);
+    box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  h1{color:#f1f5f9} h2.sec{color:var(--orange2);border-bottom-color:var(--line)}
+  .tile{background:rgba(148,163,184,.06);border:1px solid var(--line)}
+  .tile .n{color:#f1f5f9}
+  .name{color:#f1f5f9}
+  .grade,.gradewrap .grade{color:#fff}
+  .gradewrap{background:linear-gradient(145deg,#132339,#0b1424);border:1px solid var(--line)}
+  th,td{border-bottom-color:var(--line)}
+  tr.clk:hover{background:rgba(16,185,129,.07)}
+  /* inputs */
+  input,select,textarea{background:#0b1424;color:#e2e8f0;border-color:var(--line)}
+  input::placeholder,textarea::placeholder{color:#5b6b82}
+  .btn.ghost{background:rgba(148,163,184,.1);color:#e2e8f0}
+  .btn.ghost:hover{background:rgba(148,163,184,.18)}
+  .naics-sug .opt{background:#0b1424;color:#e2e8f0;border-color:var(--line)}
+  .naics-sug .opt:hover{background:#132339}
+  /* badges */
+  .badge.req{background:rgba(244,63,94,.16);color:#fda4af}
+  .badge.rec{background:rgba(59,130,246,.18);color:#93c5fd}
+  .badge.best{background:rgba(16,185,129,.16);color:#6ee7b7}
+  .badge.cust{background:rgba(168,85,247,.18);color:#d8b4fe}
+  /* banners */
+  .banner.warn{background:rgba(245,158,11,.12);border-left-color:var(--amber);color:#fcd9a8}
+  .banner.ok{background:rgba(16,185,129,.12);border-left-color:var(--green);color:#a7f3d0}
+  .banner.info{background:rgba(100,116,139,.14);border-left-color:var(--slate);color:#cbd5e1}
+  /* items / chips / previews */
+  .item{background:rgba(15,23,42,.5);border-color:var(--line)}
+  .item .t{color:#f1f5f9}
+  .chip{background:rgba(148,163,184,.1);color:#cbd5e1}
+  .scopeprev,.jurisbadge{background:rgba(148,163,184,.06);border:1px solid var(--line)}
+  .scopeprev h4{color:var(--orange2)}
+  .scopeprev .std{border-bottom-color:var(--line)}
+  .hazgrid label.hz.on{color:#f1f5f9}
+  .muted,.disc,.sub,.src{color:#94a3b8}
+  .err{color:#fda4af}
+  #formSelect{width:auto}
+  /* home hero + library helpers */
+  .hero{background:linear-gradient(135deg,rgba(16,185,129,.14),rgba(15,23,42,.25));
+    border:1px solid rgba(16,185,129,.25);border-radius:16px;padding:26px 28px;margin-bottom:18px}
+  .hero h1{font-size:25px;margin:0 0 6px}
+  .hero p{color:#94a3b8;margin:0;font-size:14px;max-width:660px;line-height:1.55}
+  .qa{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .lib-agency{font-size:11px;font-weight:800;letter-spacing:.4px;padding:3px 11px;border-radius:20px;
+    background:rgba(16,185,129,.14);color:#6ee7b7;text-transform:uppercase;white-space:nowrap}
+</style>
 </head>
-
-<body class="min-h-screen text-slate-100 antialiased">
-  <div class="min-h-screen flex">
-
-    <!-- SIDEBAR -->
-    <aside class="desktop-sidebar w-[270px] shrink-0 border-r border-soft bg-slate-950/90 flex flex-col sticky top-0 h-screen">
-      <div class="h-[76px] px-5 border-b border-soft flex items-center">
-        <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-400/25 flex items-center justify-center shadow-glow">
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="text-emerald-400">
-              <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M8 12l2.5 2.5L16 9"/>
-            </svg>
-          </div>
-          <div>
-            <div class="text-[16px] font-semibold tracking-tight">ORIGIN</div>
-            <div class="text-[10px] uppercase tracking-[.18em] text-slate-500">Safety Intelligence</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Industry Router -->
-      <div class="p-4 border-b border-soft">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] uppercase tracking-[.16em] font-semibold text-slate-500">Active Agency Module</span>
-          <span class="flex items-center gap-1.5 text-[10px] text-emerald-400">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 pulse-dot"></span> LIVE
-          </span>
-        </div>
-        <div class="relative">
-          <select id="industrySelect" class="w-full appearance-none rounded-xl border border-slate-700/80 bg-slate-900 px-3 py-3 pr-9 text-[12px] font-medium text-slate-200 outline-none transition focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 cursor-pointer"></select>
-          <svg class="select-arrow absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-        <div id="industryPills" class="grid grid-cols-3 gap-1.5 mt-3"></div>
-      </div>
-
-      <!-- Navigation -->
-      <nav class="flex-1 p-3 overflow-y-auto">
-        <div class="px-3 pt-2 pb-2 text-[9px] uppercase tracking-[.18em] text-slate-600">Command Center</div>
-        <div class="space-y-1" id="primaryNav"></div>
-        <div class="px-3 pt-6 pb-2 text-[9px] uppercase tracking-[.18em] text-slate-600">Intelligence</div>
-        <div class="space-y-1">
-          <a href="/photo-audit" class="nav-item w-full flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-[12px] text-slate-400">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8l3-3h12l3 3v10H3V8z"/><circle cx="12" cy="13" r="3"/></svg>
-            AI Field Inspector
-          </a>
-          <a href="/brain-router" class="nav-item w-full flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-[12px] text-slate-400">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg>
-            Regulatory Brain
-          </a>
-          <a href="/sie-classic" class="nav-item w-full flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-[12px] text-slate-400">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="8"/></svg>
-            Full Console
-          </a>
-        </div>
-      </nav>
-
-      <div class="p-3 border-t border-soft">
-        <div class="rounded-xl bg-slate-900/80 border border-slate-800 p-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="h-2 w-2 rounded-full bg-emerald-400 pulse-dot"></span>
-              <span class="text-[11px] font-medium">Origin Core</span>
-            </div>
-            <span class="text-[9px] uppercase tracking-wider text-emerald-400">Operational</span>
-          </div>
-          <div class="mt-3 h-1 rounded-full bg-slate-800 overflow-hidden">
-            <div id="coreBar" class="h-full w-[100%] bg-emerald-500 rounded-full"></div>
-          </div>
-          <div class="flex justify-between mt-2 text-[9px] text-slate-600">
-            <span>Brains ready</span><span id="coreReady">—</span>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- MAIN -->
-    <main class="flex-1 min-w-0">
-      <header class="h-[76px] border-b border-soft glass sticky top-0 z-40">
-        <div class="h-full px-5 lg:px-7 flex items-center justify-between gap-5">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 text-[10px] uppercase tracking-[.17em] text-slate-500">
-              <span>Organization</span><span>/</span><span id="topIndustry">—</span><span>/</span>
-              <span class="text-emerald-400">Live Environment</span>
-            </div>
-            <div class="flex items-center gap-3 mt-1">
-              <h1 class="text-lg lg:text-xl font-semibold tracking-tight">Safety Command Center</h1>
-              <span class="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-[9px] font-medium text-emerald-400">
-                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> LIVE eCFR SYNC
-              </span>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <a href="/sie-classic" class="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[10px] text-slate-300 hover:border-slate-700 transition">Full Console</a>
-            <button id="profileBtn" class="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 hover:border-slate-700 transition">
-              <div class="h-7 w-7 rounded-md bg-gradient-to-br from-emerald-500/30 to-cyan-500/10 border border-emerald-500/20 flex items-center justify-center text-[10px] font-bold text-emerald-300">OW</div>
-              <div class="hidden md:block text-left">
-                <div class="text-[10px] font-medium">Owner</div>
-                <div class="text-[8px] text-slate-600">Administrator</div>
-              </div>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div class="p-4 lg:p-6 xl:p-7 max-w-[1800px] mx-auto">
-
-        <!-- METRICS (real) -->
-        <section class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
-          <div class="premium-card rounded-2xl p-4">
-            <div class="flex justify-between items-start">
-              <div>
-                <div class="text-[10px] uppercase tracking-[.13em] text-slate-500">Active Brains</div>
-                <div id="mBrains" class="metric-number mt-2 text-2xl font-semibold tracking-tight">—</div>
-              </div>
-              <div class="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l4 4L19 6"/></svg>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 mt-3 text-[9px] text-emerald-400"><span id="mBrainsSub">of 8 agency modules</span></div>
-          </div>
-
-          <div class="premium-card rounded-2xl p-4">
-            <div class="flex justify-between items-start">
-              <div>
-                <div class="text-[10px] uppercase tracking-[.13em] text-slate-500">Open Findings</div>
-                <div id="mFindings" class="metric-number mt-2 text-2xl font-semibold tracking-tight">—</div>
-              </div>
-              <div class="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.4L2.9 17.2A2 2 0 004.6 20h14.8a2 2 0 001.7-2.8L13.7 4.4a2 2 0 00-3.4 0z"/></svg>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 mt-3 text-[9px] text-amber-400"><span id="mFindingsSub">in the review queue</span></div>
-          </div>
-
-          <div class="premium-card rounded-2xl p-4">
-            <div class="flex justify-between items-start">
-              <div>
-                <div class="text-[10px] uppercase tracking-[.13em] text-slate-500">Evidence Links</div>
-                <div id="mEvidence" class="metric-number mt-2 text-2xl font-semibold tracking-tight">—</div>
-              </div>
-              <div class="h-8 w-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8.1 8.1 0 00-15.5-2M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0015.5 2M20 19v-4h-4"/></svg>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 mt-3 text-[9px] text-cyan-400"><span id="mEvidenceSub">graph relationships</span></div>
-          </div>
-
-          <div class="premium-card rounded-2xl p-4">
-            <div class="flex justify-between items-start">
-              <div>
-                <div class="text-[10px] uppercase tracking-[.13em] text-slate-500">Official Forms</div>
-                <div id="mForms" class="metric-number mt-2 text-2xl font-semibold tracking-tight">—</div>
-              </div>
-              <div class="h-8 w-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 mt-3 text-[9px] text-violet-400"><span id="mFormsSub">for active agencies</span></div>
-          </div>
-        </section>
-
-        <!-- MAIN GRID -->
-        <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(440px,.85fr)] gap-5">
-
-          <!-- AI FIELD INSPECTOR -->
-          <div class="premium-card rounded-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-soft flex items-center justify-between gap-4">
-              <div class="flex items-center gap-3">
-                <div class="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="text-emerald-400"><path d="M3 8l3-3h12l3 3v10H3V8z"/><circle cx="12" cy="13" r="3"/><path d="M8 5l1-2h6l1 2"/></svg>
-                </div>
-                <div>
-                  <div class="flex items-center gap-2">
-                    <h2 class="text-sm font-semibold tracking-tight">AI Field Inspector™</h2>
-                    <span class="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 text-[8px] text-emerald-400">COMPUTER VISION</span>
-                  </div>
-                  <p class="text-[10px] text-slate-500 mt-0.5">Upload a site photo → regulatory requirement → corrective action</p>
-                </div>
-              </div>
-              <div class="hidden sm:flex items-center gap-2">
-                <span class="text-[9px] text-slate-600">Camera</span>
-                <span class="h-2 w-2 rounded-full bg-emerald-400 pulse-dot"></span>
-                <span class="text-[9px] text-emerald-400">READY</span>
-              </div>
-            </div>
-
-            <div class="p-5">
-              <div id="scannerFrame" class="scanner-frame rounded-2xl border border-slate-700/60 overflow-hidden h-[380px] sm:h-[430px] bg-slate-950">
-                <img id="scanPhoto" alt="" class="absolute inset-0 w-full h-full object-cover hidden" />
-                <div id="scanPlaceholder" class="absolute inset-0 photo-placeholder">
-                  <div class="scan-grid"></div>
-                  <div class="radar-ring w-[310px] h-[310px]"></div>
-                  <div class="radar-ring w-[210px] h-[210px]"></div>
-                  <div class="radar-ring w-[100px] h-[100px]"></div>
-                  <div class="absolute top-4 left-4 right-4 flex justify-between items-start">
-                    <div class="rounded-lg border border-white/10 bg-slate-950/65 backdrop-blur px-3 py-2">
-                      <div class="flex items-center gap-2 text-[9px] text-emerald-400"><span class="h-1.5 w-1.5 bg-emerald-400 rounded-full"></span> FIELD INSPECTOR</div>
-                      <div class="text-[11px] font-medium mt-1">Tap “Run AI Inspection Scan”</div>
-                      <div id="cameraMeta" class="text-[8px] text-slate-500 mt-1">Choose a jobsite photo to analyze</div>
-                    </div>
-                    <div class="rounded-lg border border-white/10 bg-slate-950/65 backdrop-blur px-3 py-2 text-right">
-                      <div class="text-[8px] uppercase tracking-widest text-slate-500">Engine</div>
-                      <div id="engineLabel" class="text-[10px] text-emerald-300 font-medium mt-1">—</div>
-                    </div>
-                  </div>
-                  <div class="absolute right-4 bottom-4 text-[8px] text-slate-600 font-mono">VIS-ENGINE</div>
-                </div>
-
-                <div id="scannerLine" class="scanner-line"></div>
-
-                <div id="scanStatus" class="absolute left-1/2 -translate-x-1/2 bottom-5 z-30 hidden">
-                  <div class="rounded-full border border-emerald-500/30 bg-slate-950/85 backdrop-blur px-4 py-2 flex items-center gap-2 shadow-glow">
-                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span id="scanStatusText" class="text-[10px] text-emerald-300">Analyzing visual evidence…</span>
-                  </div>
-                </div>
-
-                <div id="auditBadge" class="audit-badge absolute z-40 left-5 right-5 bottom-5">
-                  <div id="auditBadgeInner" class="rounded-xl border border-rose-500/30 bg-slate-950/92 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,.5)] overflow-hidden">
-                    <div class="px-4 py-3 border-b border-rose-500/15 flex items-center justify-between">
-                      <div class="flex items-center gap-2">
-                        <span id="auditDot" class="h-2 w-2 rounded-full bg-rose-400"></span>
-                        <span id="auditKicker" class="text-[10px] uppercase tracking-[.13em] text-rose-300 font-semibold">Regulatory Finding</span>
-                      </div>
-                      <span id="auditEvidence" class="text-[9px] text-slate-500">Evidence captured</span>
-                    </div>
-                    <div class="p-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
-                      <div>
-                        <div class="text-[8px] uppercase tracking-widest text-slate-600">Live Engine Result</div>
-                        <div id="auditResult" class="mt-1 text-sm font-semibold text-slate-100">—</div>
-                        <div id="auditTags" class="flex flex-wrap gap-2 mt-3"></div>
-                      </div>
-                      <div class="flex md:flex-col items-center md:items-end justify-between gap-2">
-                        <div class="text-right">
-                          <div class="text-[8px] uppercase tracking-widest text-slate-600">Confidence</div>
-                          <div id="auditConf" class="text-2xl font-semibold text-emerald-400">—</div>
-                        </div>
-                        <div class="text-right">
-                          <div class="text-[8px] uppercase tracking-widest text-slate-600">Action</div>
-                          <div id="auditAction" class="text-[9px] text-amber-300 mt-1">—</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="flex -space-x-2">
-                    <div class="h-7 w-7 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[8px] text-slate-400">AI</div>
-                    <div class="h-7 w-7 rounded-full bg-emerald-900/70 border-2 border-slate-900 flex items-center justify-center text-[8px] text-emerald-300">OS</div>
-                  </div>
-                  <div>
-                    <div class="text-[10px] font-medium">Evidence chain enabled</div>
-                    <div class="text-[8px] text-slate-600">Photo → Hazard → Requirement → Risk → Corrective Action</div>
-                  </div>
-                </div>
-                <input id="photoInput" type="file" accept="image/*" class="hidden" />
-                <button id="scanButton" class="button-shine h-11 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[11px] font-bold tracking-wide transition-all shadow-[0_0_35px_rgba(16,185,129,.18)] hover:shadow-[0_0_45px_rgba(16,185,129,.3)] active:scale-[.98]">
-                  <span class="flex items-center justify-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6M4 4v6M20 4h-6M20 4v6M4 20h6M4 20v-6M20 20h-6M20 20v-6"/></svg>
-                    <span id="scanButtonText">Run AI Inspection Scan</span>
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- RIGHT COLUMN -->
-          <div class="space-y-5">
-            <!-- REGULATORY BRAIN -->
-            <div class="premium-card rounded-2xl p-5">
-              <div class="flex items-start justify-between">
-                <div>
-                  <div class="flex items-center gap-2">
-                    <h2 class="text-sm font-semibold">Regulatory Brain</h2>
-                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                  </div>
-                  <p class="text-[10px] text-slate-500 mt-1">Context-aware regulatory intelligence</p>
-                </div>
-                <button id="syncButton" class="text-[9px] text-slate-500 hover:text-emerald-400 transition">Sync now</button>
-              </div>
-              <div class="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-                <div class="flex justify-between items-center">
-                  <div class="flex items-center gap-2">
-                    <div class="h-7 w-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="text-cyan-400"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h6"/></svg>
-                    </div>
-                    <div>
-                      <div class="text-[10px] font-medium">Live eCFR Database</div>
-                      <div id="brainSource" class="text-[8px] text-slate-600 mt-0.5">—</div>
-                    </div>
-                  </div>
-                  <span id="brainStatus" class="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[8px] text-emerald-400">VERIFIED</span>
-                </div>
-                <div class="mt-3 h-1 rounded-full bg-slate-800 overflow-hidden">
-                  <div id="syncProgress" class="h-full w-full bg-emerald-500 rounded-full"></div>
-                </div>
-              </div>
-              <div class="grid grid-cols-3 gap-2 mt-3">
-                <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2.5">
-                  <div class="text-[8px] text-slate-600">Requirements</div>
-                  <div id="brainRequirements" class="mt-1 text-sm font-semibold">—</div>
-                </div>
-                <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2.5">
-                  <div class="text-[8px] text-slate-600">Citations</div>
-                  <div id="brainRules" class="mt-1 text-sm font-semibold">—</div>
-                </div>
-                <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-2.5">
-                  <div class="text-[8px] text-slate-600">Sources</div>
-                  <div id="brainUpdates" class="mt-1 text-sm font-semibold">—</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- LIVE FINDINGS (from review queue) -->
-            <div class="premium-card rounded-2xl overflow-hidden">
-              <div class="px-5 py-4 border-b border-soft flex items-center justify-between">
-                <div>
-                  <h2 class="text-sm font-semibold">Live Safety Findings</h2>
-                  <p class="text-[9px] text-slate-600 mt-1">From the review queue, prioritized</p>
-                </div>
-                <span class="text-[9px] text-emerald-400">Live</span>
-              </div>
-              <div id="findingList" class="divide-y divide-slate-800/70">
-                <div class="p-4 text-[10px] text-slate-500">Loading findings…</div>
-              </div>
-              <a href="/sie-classic" class="block w-full py-3 border-t border-slate-800 text-center text-[9px] text-slate-500 hover:text-slate-200 transition">Open review queue →</a>
-            </div>
-          </div>
-        </section>
-
-        <!-- FORM REPLICATOR (real form_vault) -->
-        <section class="mt-5 premium-card rounded-2xl overflow-hidden">
-          <div class="px-5 py-4 border-b border-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <div class="h-10 w-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="text-violet-400"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
-              </div>
-              <div>
-                <h2 class="text-sm font-semibold">Government Form Replicator</h2>
-                <p class="text-[10px] text-slate-500 mt-1">Worker input → structured evidence → audit-ready federal form</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="relative">
-                <select id="formSelect" class="appearance-none rounded-lg border border-slate-700 bg-slate-950 pl-3 pr-8 py-2 text-[10px] text-slate-200 outline-none focus:border-emerald-500/40 cursor-pointer"></select>
-                <svg class="select-arrow absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-              </div>
-              <span id="formEngineStatus" class="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-[8px] text-slate-500">FORM ENGINE READY</span>
-              <button id="generateButton" class="button-shine rounded-lg bg-slate-100 hover:bg-white text-slate-950 px-4 py-2 text-[9px] font-bold transition">Generate Audit-Ready Form</button>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-[330px_minmax(0,1fr)] min-h-[390px]">
-            <!-- LEFT: dynamic worker inputs -->
-            <div class="p-5 border-b lg:border-b-0 lg:border-r border-soft">
-              <div class="text-[9px] uppercase tracking-[.15em] text-slate-500 mb-4">Worker Input</div>
-              <div id="workerInputs" class="space-y-4"></div>
-              <div class="rounded-lg border border-emerald-500/10 bg-emerald-500/5 p-3 mt-4">
-                <div class="flex gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="text-emerald-400 shrink-0 mt-0.5"><path d="M12 3v18M3 12h18"/></svg>
-                  <div>
-                    <div class="text-[9px] text-emerald-300 font-medium">Deterministic auto-fill</div>
-                    <div class="text-[8px] text-slate-500 mt-1 leading-relaxed">Origin projects your answers onto the official field layout. Every required field must resolve before the form is marked audit-ready — nothing is guessed.</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- RIGHT: official paper -->
-            <div class="p-5 lg:p-7 bg-slate-950/30 overflow-hidden">
-              <div class="h-full flex items-center justify-center">
-                <div id="formPaper" class="form-paper relative w-full max-w-[760px] min-h-[320px] rounded-sm p-5 sm:p-7 overflow-hidden">
-                  <div class="flex justify-between items-start border-b-2 border-slate-700 pb-4">
-                    <div>
-                      <div class="text-[9px] font-bold uppercase tracking-[.15em]">United States — Official Record</div>
-                      <div id="paperAgency" class="text-xl sm:text-2xl font-black mt-1 tracking-tight">—</div>
-                      <div id="paperSub" class="text-[9px] text-slate-600 mt-1">Select a form to begin</div>
-                    </div>
-                    <div class="text-right">
-                      <div id="paperTitle" class="text-[8px] text-slate-500 max-w-[200px]">—</div>
-                      <a id="paperGov" href="#" target="_blank" class="text-[8px] text-blue-700 underline mt-1 inline-block">Official source</a>
-                    </div>
-                  </div>
-                  <div id="paperBody" class="mt-5 grid grid-cols-2 gap-5"></div>
-                  <div id="auditStamp" class="audit-stamp absolute top-5 right-5">
-                    <div class="border-[3px] border-emerald-600 text-emerald-700 px-3 py-2 rounded-sm font-black text-[10px] tracking-[.08em] bg-emerald-50/90 text-center">
-                      AUDIT READY<div class="text-[6px] tracking-wider mt-0.5">LIVE eCFR VERIFIED</div>
-                    </div>
-                  </div>
-                  <div class="absolute bottom-2 left-0 right-0 text-center text-[6px] text-slate-400">Field aid — the authoritative blank form always lives at the linked government source.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- BOTTOM STATUS (real) -->
-        <section class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div class="premium-card rounded-xl p-4 flex items-center gap-3">
-            <div class="h-9 w-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="text-emerald-400"><path d="M5 12l4 4L19 6"/></svg>
-            </div>
-            <div>
-              <div class="text-[10px] font-medium">Evidence Graph</div>
-              <div id="statEvidence" class="text-[8px] text-slate-600 mt-1">— relationships indexed</div>
-            </div>
-          </div>
-          <div class="premium-card rounded-xl p-4 flex items-center gap-3">
-            <div class="h-9 w-9 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="text-cyan-400"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg>
-            </div>
-            <div>
-              <div class="text-[10px] font-medium">Regulatory Intelligence</div>
-              <div id="statAgencies" class="text-[8px] text-slate-600 mt-1">— agencies enabled</div>
-            </div>
-          </div>
-          <div class="premium-card rounded-xl p-4 flex items-center gap-3">
-            <div class="h-9 w-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="text-violet-400"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="8"/></svg>
-            </div>
-            <div>
-              <div class="text-[10px] font-medium">Review Queue</div>
-              <div id="statReview" class="text-[8px] text-slate-600 mt-1">— items pending</div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </main>
+<body>
+<header class="brand">
+  <div>
+    <div class="word">ORIGIN<span>.</span></div>
+    <div class="tag" style="margin-top:6px">Safety Intelligence Engine</div>
   </div>
+  <nav>
+    <a href="/admin">Admin</a>
+    <a href="/photo-audit">Photo Audit</a>
+    <a href="/app">App</a>
+  </nav>
+</header>
+<div class="rule"></div>
 
-  <!-- MOBILE NAV -->
-  <div class="mobile-nav fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 px-3 py-2 gap-2">
-    <a href="/sie" class="flex-1 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-[9px] text-center">Dashboard</a>
-    <a href="/photo-audit" class="flex-1 py-2 rounded-lg text-slate-500 text-[9px] text-center">Inspector</a>
-    <a href="/brain-router" class="flex-1 py-2 rounded-lg text-slate-500 text-[9px] text-center">Brain</a>
-    <a href="/sie-classic" class="flex-1 py-2 rounded-lg text-slate-500 text-[9px] text-center">Console</a>
-  </div>
-
-  <!-- TOAST -->
-  <div id="toast" class="toast fixed bottom-5 right-5 z-[100] max-w-sm">
-    <div class="rounded-xl border border-emerald-500/25 bg-slate-900/95 backdrop-blur-xl shadow-2xl px-4 py-3 flex items-start gap-3">
-      <div class="h-7 w-7 shrink-0 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-emerald-400"><path d="M5 12l4 4L19 6"/></svg>
-      </div>
-      <div>
-        <div id="toastTitle" class="text-[10px] font-semibold">Action completed</div>
-        <div id="toastMessage" class="text-[8px] text-slate-500 mt-1">Origin updated successfully.</div>
+<div class="layout"><aside class="tabs" id="tabs">
+  <div class="side-brand">Command</div>
+  <button class="tab on" data-tab="home">Dashboard</button>
+  <button class="tab" data-tab="monitor">Monitor <span class="cnt zero" id="cnt-monitor">0</span></button>
+  <div class="side-brand">Contractors</div>
+  <button class="tab" data-tab="companies">Companies</button>
+  <button class="tab" data-tab="programs">Programs</button>
+  <button class="tab" data-tab="prequal">Prequal</button>
+  <button class="tab" data-tab="audits">Audits</button>
+  <button class="tab" data-tab="review">Review <span class="cnt zero" id="cnt-review">0</span></button>
+  <button class="tab" data-tab="training">Training <span class="cnt zero" id="cnt-training">0</span></button>
+  <div class="side-brand">Regulatory intelligence</div>
+  <button class="tab" data-tab="library">Asset Library</button>
+  <button class="tab" data-tab="citation">Citation</button>
+  <button class="tab" data-tab="brain">Brain Router</button>
+  <button class="tab" data-tab="forms">Form Vault</button>
+  <button class="tab" data-tab="checklist">Checklist</button>
+  <button class="tab" data-tab="photo">Photo Audit</button>
+</aside>
+<main class="wrap">
+  <!-- ══ HOME / COMMAND CENTER ══ -->
+  <section class="panel on" id="p-home">
+    <div class="hero">
+      <h1>Safety Command Center</h1>
+      <p>Every agency brain, written program, audit and government form for your operation — in one console. Pick a company, walk a site, generate an audit-ready form, or open the full multi-agency asset library.</p>
+      <div class="qa">
+        <button class="btn" onclick="showTab('photo')">Walk a site</button>
+        <button class="btn ghost" onclick="showTab('companies')">Companies</button>
+        <button class="btn ghost" onclick="showTab('library')">Asset Library</button>
+        <button class="btn ghost" onclick="showTab('forms')">Form Vault</button>
       </div>
     </div>
-  </div>
+    <div class="tiles" id="homeTiles">
+      <div class="tile"><div class="n" id="hm-brains">—</div><div class="l">Agency brains on</div></div>
+      <div class="tile"><div class="n" id="hm-standards">—</div><div class="l">Standards in library</div></div>
+      <div class="tile"><div class="n" id="hm-evidence">—</div><div class="l">Evidence nodes</div></div>
+      <div class="tile"><div class="n" id="hm-forms">—</div><div class="l">Gov forms</div></div>
+      <div class="tile hi"><div class="n" id="hm-review">—</div><div class="l">Findings to review</div></div>
+    </div>
+    <div class="card">
+      <h2 class="sec">Jump in</h2>
+      <div class="grid2">
+        <div class="item"><div class="t">Monitor portfolio</div><div class="d">Sweep every company for open compliance risk.</div><div style="margin-top:8px"><button class="btn sm" onclick="showTab('monitor')">Open Monitor</button></div></div>
+        <div class="item"><div class="t">Regulatory brains</div><div class="d">Toggle OSHA, MSHA, FMCSA, EPA, BLM, USACE, PHMSA, FRA.</div><div style="margin-top:8px"><button class="btn sm" onclick="showTab('brain')">Brain Router</button></div></div>
+        <div class="item"><div class="t">Field checklist</div><div class="d">Turn any standard into a live field checklist + AHA.</div><div style="margin-top:8px"><button class="btn sm" onclick="showTab('checklist')">Open Checklist</button></div></div>
+        <div class="item"><div class="t">Citation analyzer</div><div class="d">Classify a citation and pull the governing text.</div><div style="margin-top:8px"><button class="btn sm" onclick="showTab('citation')">Open Analyzer</button></div></div>
+      </div>
+    </div>
+  </section>
 
-  <script>
-    /* ORIGIN — Command Center, wired to the live SIE engines. */
-    const $ = id => document.getElementById(id);
-    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  <!-- ══ ASSET LIBRARY (8-agency) ══ -->
+  <section class="panel" id="p-library">
+    <div class="card">
+      <h1>Asset Library</h1>
+      <p class="lede">Every written program, standard and requirement in the Origin knowledge base, grouped by regulator — OSHA, MSHA, FMCSA, EPA, BLM, USACE, PHMSA, FRA.</p>
+      <div class="row" style="margin-top:12px">
+        <div class="fld"><label>Search</label><input id="libSearch" placeholder="Search title or citation…" oninput="renderLibrary()"></div>
+        <div class="fld sm"><label>Agency</label><select id="libAgency" onchange="renderLibrary()"><option value="">All agencies</option></select></div>
+        <div style="align-self:flex-end"><button class="btn ghost sm" onclick="loadLibrary(true)">Refresh</button></div>
+      </div>
+      <div class="tiles" id="libTiles"></div>
+    </div>
+    <div id="libBody"><div class="empty">Loading library…</div></div>
+    <div id="libDoc"></div>
+  </section>
 
-    async function api(path, opts) {
-      try {
-        const r = await fetch(path, Object.assign({ credentials: "same-origin", headers: { "Content-Type": "application/json" } }, opts || {}));
-        const j = await r.json().catch(() => ({}));
-        return { ok: r.ok, status: r.status, j };
-      } catch (e) { return { ok: false, status: 0, j: { error: String(e) } }; }
-    }
 
-    function showToast(title, message) {
-      $("toastTitle").textContent = title;
-      $("toastMessage").textContent = message;
-      $("toast").classList.add("show");
-      clearTimeout(window.toastTimer);
-      window.toastTimer = setTimeout(() => $("toast").classList.remove("show"), 3200);
-    }
-    function animateText(el, value) {
-      if (!el) return;
-      el.classList.remove("fade-update"); void el.offsetWidth;
-      el.textContent = value; el.classList.add("fade-update");
-    }
+  <!-- ══ MONITOR ══ -->
+  <section class="panel" id="p-monitor">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <h1>Autonomous monitoring</h1>
+          <p class="lede">One deterministic sweep across every company — overdue actions, deadlines, human-review items, elevated risk, missing programs. Alerts dedupe and auto-resolve.</p>
+        </div>
+        <button class="btn" id="btnSweep" onclick="runSweep()">Run sweep now</button>
+      </div>
+      <div id="sweepMeta" class="muted" style="margin-top:6px"></div>
+      <div class="tiles" id="digestTiles"></div>
+      <div id="ruleChips" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <h2 class="sec" style="margin-top:0">Companies needing attention</h2>
+      <div id="riskCompanies"><div class="empty">Run a sweep to populate the feed.</div></div>
+    </div>
+    <div class="card">
+      <h2 class="sec" style="margin-top:0">Open alerts</h2>
+      <div id="alertFeed"><div class="empty">No alerts loaded yet.</div></div>
+    </div>
+  </section>
 
-    // ── State ────────────────────────────────────────────────────────────────
-    const state = {
-      agencies: [],        // brain-router catalog (8)
-      byCode: {},
-      forms: [],           // form-vault catalog
-      formsByAgency: {},
-      focus: null,         // agency code in focus
-      formSchema: null,    // schema of the selected form
-      scanning: false,
-      spine: null,
-      review: null,
-    };
-
-    const AUTH_LABEL = { OSHA: "29 CFR", MSHA: "30 CFR", FMCSA: "49 CFR", EPA: "40 CFR", BLM: "43 CFR", USACE: "EM 385-1-1", PHMSA: "49 CFR", FRA: "49 CFR" };
-
-    function brainSourceText(a) {
-      const t = (a.titles && a.titles.length) ? a.titles.map(x => x + " CFR").join(" / ") : (AUTH_LABEL[a.code] || "Regulatory manual");
-      const auth = a.authority || (a.code === "USACE" ? "Army Corps" : "");
-      return auth ? `${t} · ${auth}` : t;
-    }
-
-    // ── Boot: pull everything real, in parallel ────────────────────────────────
-    async function boot() {
-      const [cat, prof, fv, spine, rev] = await Promise.all([
-        api("/api/brain-router/catalog"),
-        api("/api/brain-router/profile"),
-        api("/api/form-vault/catalog"),
-        api("/api/spine/stats"),
-        api("/api/review/overview"),
-      ]);
-
-      if (cat.status === 401 || prof.status === 401) {
-        showToast("Not signed in", "Open /admin and sign in, then reload.");
-      }
-
-      state.agencies = (cat.j && cat.j.agencies) || [];
-      state.byCode = {};
-      state.agencies.forEach(a => state.byCode[a.code] = a);
-
-      state.forms = (fv.j && fv.j.forms) || [];
-      state.formsByAgency = {};
-      state.forms.forEach(f => { (state.formsByAgency[f.agency] = state.formsByAgency[f.agency] || []).push(f); });
-
-      // /api/spine/stats nests the counts under .meta; unwrap so node/edge reads work.
-      state.spine = (spine.j && spine.j.meta) || spine.j || {};
-      state.review = rev.j || {};
-
-      renderMetrics();
-      renderBottom();
-      renderIndustry();
-      renderFindings();
-
-      // focus = first enabled, ready agency (fallback: first agency)
-      const enabled = state.agencies.filter(a => a.enabled);
-      const ready = enabled.find(a => a.brain === "ready") || enabled[0] || state.agencies[0];
-      if (ready) focusAgency(ready.code, false);
-    }
-
-    function renderMetrics() {
-      const enabled = state.agencies.filter(a => a.enabled);
-      const readyEnabled = enabled.filter(a => a.brain === "ready").length;
-      animateText($("mBrains"), String(readyEnabled));
-      $("mBrainsSub").textContent = `ready · ${state.agencies.length} agencies in catalog`;
-
-      const pending = (state.review && state.review.pending) != null ? state.review.pending : 0;
-      animateText($("mFindings"), String(pending));
-      const total = (state.review && state.review.total) || 0;
-      $("mFindingsSub").textContent = total ? `of ${total} tracked` : "in the review queue";
-
-      const edges = (state.spine && state.spine.edges) || 0;
-      animateText($("mEvidence"), edges.toLocaleString());
-      const nodes = (state.spine && state.spine.nodes) || 0;
-      $("mEvidenceSub").textContent = `${nodes.toLocaleString()} nodes linked`;
-
-      animateText($("mForms"), String(state.forms.length));
-      $("mFormsSub").textContent = "audit-ready templates";
-
-      const totalA = state.agencies.length || 8;
-      $("coreReady").textContent = `${readyEnabled}/${totalA}`;
-      $("coreBar").style.width = totalA ? Math.round(readyEnabled / totalA * 100) + "%" : "0%";
-    }
-
-    function renderBottom() {
-      const edges = (state.spine && state.spine.edges) || 0;
-      $("statEvidence").textContent = `${edges.toLocaleString()} relationships indexed`;
-      const enabled = state.agencies.filter(a => a.enabled).length;
-      $("statAgencies").textContent = `${enabled} agencies enabled`;
-      const pending = (state.review && state.review.pending) || 0;
-      $("statReview").textContent = `${pending} items pending`;
-    }
-
-    function renderIndustry() {
-      // Select
-      const sel = $("industrySelect");
-      sel.innerHTML = state.agencies.map(a =>
-        `<option value="${a.code}"${a.enabled ? "" : ""}>${esc(a.label)}${a.brain === "planned" ? " — brain planned" : ""}</option>`
-      ).join("");
-      sel.onchange = () => focusAgency(sel.value);
-
-      // Pills
-      const pills = $("industryPills");
-      pills.className = "grid grid-cols-4 gap-1.5 mt-3";
-      pills.innerHTML = state.agencies.map(a =>
-        `<button data-agency="${a.code}" title="${esc(a.label)}"
-           class="industry-pill rounded-lg border border-slate-800 px-2 py-2 text-[9px] font-medium text-slate-400 ${a.brain === "planned" ? "planned" : ""}">${esc(a.code)}</button>`
-      ).join("");
-      pills.querySelectorAll("[data-agency]").forEach(p =>
-        p.addEventListener("click", () => focusAgency(p.dataset.agency)));
-    }
-
-    function renderFindings() {
-      const list = $("findingList");
-      const cos = (state.review && state.review.companies) || [];
-      // Build a compact prioritized list from the per-company review rollup.
-      const rows = cos.filter(c => (c.pending || 0) > 0).slice(0, 4);
-      if (!rows.length) {
-        list.innerHTML = `<div class="p-4 flex items-start gap-3">
-          <div class="h-8 w-8 shrink-0 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12l4 4L19 6"/></svg>
+  <!-- ══ COMPANIES ══ -->
+  <section class="panel" id="p-companies">
+    <div class="card" id="coListCard">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Companies</h1><p class="lede">Portfolio risk from open corrective actions. Click a company to drill in.</p></div>
+        <button class="btn ghost sm" onclick="loadPortfolio()">Refresh</button>
+      </div>
+      <details class="form" id="coForm"><summary>+ Add / update a company</summary>
+        <div class="grid2" style="margin-top:10px">
+          <div><label>Company name *</label><input id="co-name" placeholder="Acme Well Services"></div>
+          <div><label>Industry / trade</label><select id="co-industry"><option value="">Loading trades…</option></select></div>
+          <div><label>NAICS <span class="muted" style="font-size:11px">(auto from trade)</span></label><input id="co-naics" placeholder="213112" autocomplete="off"></div>
+          <div><label>State</label><select id="co-state"><option value="">Loading states…</option></select></div>
+          <div><label>Headcount</label><input id="co-head" type="number" placeholder="45"></div>
+          <div><label>Client platforms (comma-sep)</label><input id="co-plats" placeholder="ISNetworld, Veriforce"></div>
+        </div>
+        <div id="co-juris" class="jurisbadge hidden"></div>
+        <div class="scopewrap">
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <label style="margin:0">Scope of work — hazards / activities on site</label>
+            <span id="co-haz-hint" class="muted" style="font-size:12px"></span>
           </div>
-          <div class="min-w-0 flex-1"><div class="text-[10px] font-medium">No items awaiting review</div>
-          <div class="text-[8px] text-slate-600 mt-1">Run a photo inspection to generate findings</div></div></div>`;
-        return;
-      }
-      list.innerHTML = rows.map(c => `
-        <div class="p-4 flex items-start gap-3">
-          <div class="h-8 w-8 shrink-0 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.4L2.9 17.2A2 2 0 004.6 20h14.8a2 2 0 001.7-2.8L13.7 4.4a2 2 0 00-3.4 0z"/></svg>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="flex justify-between gap-2">
-              <div class="text-[10px] font-medium truncate">${esc(c.company || c.company_id || "Company")}</div>
-              <span class="text-[8px] text-amber-400">${c.pending} PENDING</span>
-            </div>
-            <div class="text-[8px] text-slate-600 mt-1">${c.approved || 0} approved · ${c.rejected || 0} rejected</div>
-          </div>
-        </div>`).join("");
-    }
+          <div id="co-haz" class="hazgrid"><div class="muted" style="font-size:12px">Type the trade above and Origin will pre-check the likely hazards.</div></div>
+        </div>
+        <div id="co-scope-preview" class="scopeprev hidden"></div>
+        <button class="btn sm" style="margin-top:12px" onclick="upsertCompany()">Save company</button>
+        <span id="co-save-msg" class="muted"></span>
+      </details>
+      <div id="portfolio"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="card hidden" id="coDetail"></div>
+  </section>
 
-    // ── Focus an agency: drives brain panel, engine label, nav, form ───────────
-    function focusAgency(code, notify = true) {
-      const a = state.byCode[code];
-      if (!a) return;
-      state.focus = code;
-      $("industrySelect").value = code;
-      document.querySelectorAll("[data-agency]").forEach(p =>
-        p.classList.toggle("active", p.dataset.agency === code));
+  <!-- ══ PROGRAMS ══ -->
+  <section class="panel" id="p-programs">
+    <div class="card">
+      <h1>Program package</h1>
+      <p class="lede">Every required standard for a company with its written program, training, and JHA/JSA — classified and sourced. Never fabricated.</p>
+      <div class="row">
+        <div class="fld"><label>Company</label><select id="pg-co" onchange="loadPackage()"></select></div>
+      </div>
+      <div id="pgSummary"></div>
+      <div id="pgEntries"></div>
+    </div>
+    <div class="card hidden" id="pgDoc"></div>
+  </section>
 
-      $("topIndustry").textContent = (a.label.split("—")[1] || a.label).trim();
-      $("engineLabel").textContent = `${a.code} Brain`;
-      $("brainSource").textContent = brainSourceText(a);
+  <!-- ══ PREQUAL ══ -->
+  <section class="panel" id="p-prequal">
+    <div class="card">
+      <h1>Prequal readiness</h1>
+      <p class="lede">Estimate a company's ISN / Avetta / Veriforce grade from its real posture, with a sourced gap list. Safety stats are yours to supply — never guessed.</p>
+      <div class="row">
+        <div class="fld"><label>Company</label><select id="pq-co"></select></div>
+        <div class="fld sm"><label>Platform</label>
+          <select id="pq-plat"><option value="">All client platforms</option><option>ISN</option><option>Avetta</option><option>Veriforce</option></select></div>
+      </div>
+      <h2 class="sec">Safety metrics (optional — supply what you have)</h2>
+      <div class="grid2">
+        <div><label>EMR</label><input id="pq-emr" type="number" step="0.01" placeholder="0.85"></div>
+        <div><label>TRIR</label><input id="pq-trir" type="number" step="0.01" placeholder="0.7"></div>
+        <div><label>DART</label><input id="pq-dart" type="number" step="0.01" placeholder="0.4"></div>
+        <div><label>Training complete (0–1)</label><input id="pq-train" type="number" step="0.01" min="0" max="1" placeholder="1.0"></div>
+        <div><label>Insurance fully met?</label><select id="pq-ins"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+      </div>
+      <button class="btn" style="margin-top:12px" onclick="runPrequal()">Assess readiness</button>
+      <div id="pqResult"></div>
+    </div>
+  </section>
 
-      const ready = a.brain === "ready";
-      const bs = $("brainStatus");
-      if (ready) {
-        bs.textContent = "VERIFIED";
-        bs.className = "rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[8px] text-emerald-400";
-      } else {
-        bs.textContent = "PLANNED";
-        bs.className = "rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-[8px] text-amber-400";
-      }
+  <!-- ══ AUDITS ══ -->
+  <section class="panel" id="p-audits">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Photo walk-through audits</h1><p class="lede">Persisted visual audits that auto-open CAPAs for high-severity findings and feed company risk.</p></div>
+        <a class="btn" href="/photo-audit">+ New photo audit</a>
+      </div>
+      <div class="tiles" id="auditTiles"></div>
+      <div id="auditList"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="card hidden" id="auditDetail"></div>
+  </section>
 
-      // Brain stats from the live evidence spine (global graph counts).
-      const nt = (state.spine && state.spine.node_types) || {};
-      animateText($("brainRequirements"), (nt.requirement || 0).toLocaleString());
-      animateText($("brainRules"), (nt.citation || 0).toLocaleString());
-      animateText($("brainUpdates"), (nt.source || 0).toLocaleString());
+  <!-- ══ REVIEW ══ -->
+  <!-- Human-review inbox. Every unmatched or low-confidence finding lands here.
+       Nothing model-derived becomes authoritative until a person approves it —
+       the decision writes straight back to the audit → CAPA chain. -->
+  <section class="panel" id="p-review">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Human-review inbox</h1><p class="lede">Unmatched and low-confidence findings wait here. Approve to open a CAPA (correct the citation first if needed), or reject to dismiss. Every decision is logged and written back to the chain.</p></div>
+        <button class="btn ghost sm" onclick="loadReview()">Refresh</button>
+      </div>
+      <div class="tiles" id="reviewTiles"></div>
+      <div class="row" style="margin-top:6px">
+        <div class="fld sm"><label>Filter</label>
+          <select id="rv-status" onchange="loadReview()">
+            <option value="pending">Pending decisions</option>
+            <option value="">All items</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select></div>
+      </div>
+      <div id="reviewList"><div class="empty">Loading…</div></div>
+    </div>
+  </section>
 
-      renderNav(a);
-      populateForms(code);
+  <!-- ══ TRAINING ══ -->
+  <!-- Living training matrix. Courses are DERIVED from the company's applicable
+       requirements, kept only where the OSHA 2254 KB confirms a real training
+       obligation — never fabricated. The roster + completion dates are the only
+       persisted data; expiration is computed deterministically and feeds Monitor. -->
+  <section class="panel" id="p-training">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h1>Training intelligence</h1><p class="lede">Who needs what training, when it was done, and when it expires — derived from each company's applicable OSHA requirements. Log a completion and the matrix (and Monitor) update.</p></div>
+        <button class="btn ghost sm" onclick="loadTraining()">Refresh</button>
+      </div>
+      <div class="row">
+        <div class="fld"><label>Company</label><select id="tr-co" onchange="loadTraining()"></select></div>
+      </div>
+      <div class="tiles" id="trainTiles"></div>
+      <details class="form" id="trEmpForm"><summary>+ Add an employee to the roster</summary>
+        <div class="grid2" style="margin-top:10px">
+          <div><label>Name *</label><input id="tr-emp-name" placeholder="Alex Rivera"></div>
+          <div><label>Role</label><input id="tr-emp-role" placeholder="Forklift operator"></div>
+        </div>
+        <button class="btn sm" style="margin-top:12px" onclick="addEmployee()">Add employee</button>
+        <span id="tr-emp-msg" class="muted"></span>
+      </details>
+    </div>
+    <div class="card" id="trCatalogCard"></div>
+    <div id="trMatrix"><div class="empty">Pick a company to see its training matrix.</div></div>
+  </section>
 
-      if (notify) showToast("Agency brain focused", `${a.label} is now the active intelligence module.`);
-    }
+  <!-- ══ CITATION ══ -->
+  <section class="panel" id="p-citation">
+    <div class="card">
+      <h1>Citation analyzer</h1>
+      <p class="lede">Paste an OSHA citation. Origin returns a 12-part sourced analysis, deterministically — every legal answer traceable to a CFR record.</p>
+      <div class="grid2">
+        <div><label>Standard *</label><input id="ci-std" placeholder="29 CFR 1926.501"></div>
+        <div><label>Company (optional)</label><input id="ci-co" placeholder="Acme Well Services"></div>
+        <div><label>Classification</label>
+          <select id="ci-class"><option value="">—</option><option>serious</option><option>repeat</option><option>willful</option><option>failure to abate</option><option>other than serious</option></select></div>
+        <div><label>Proposed penalty</label><input id="ci-pen" placeholder="$12,000"></div>
+      </div>
+      <div style="margin-top:10px"><label>Citation text / description (optional)</label><textarea id="ci-text" placeholder="Paste the citation narrative if you have it…"></textarea></div>
+      <button class="btn" style="margin-top:12px" onclick="runCitation()">Analyze citation</button>
+      <div id="ciResult"></div>
+    </div>
+  </section>
 
-    function renderNav(a) {
-      const nav = $("primaryNav");
-      const tabs = (a.tabs || []);
-      const base = [{ label: "Companies", href: "/sie-classic" }, { label: "Review Queue", href: "/sie-classic" }];
-      const items = tabs.map(t => ({ label: t.label, href: "/sie-classic" })).concat(base);
-      nav.innerHTML = items.map((item, i) => `
-        <button data-nav="${esc(item.label)}" data-href="${esc(item.href)}"
-          class="nav-item ${i === 0 ? "active" : ""} slide-in w-full flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-[12px] text-slate-400"
-          style="animation-delay:${i * 45}ms">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 9h6M9 13h6M9 17h3"/></svg>
-          <span>${esc(item.label)}</span>
-        </button>`).join("");
-      nav.querySelectorAll(".nav-item").forEach(btn => btn.addEventListener("click", () => {
-        nav.querySelectorAll(".nav-item").forEach(x => x.classList.remove("active"));
-        btn.classList.add("active");
-        showToast("Opening module", `${btn.dataset.nav} opens in the full console.`);
-        setTimeout(() => { location.href = btn.dataset.href; }, 500);
-      }));
-    }
+  <!-- ══ BRAIN ROUTER ══ -->
+  <!-- Screen 1 "Smart Profile": toggle the agencies that govern this account. The
+       choice drives the nav + the citation lane scope for the photo audit,
+       resolved deterministically from Origin's own knowledge (no LLM). -->
+  <section class="panel" id="p-brain">
+    <iframe id="brFrame" title="Brain Router" data-src="/brain-router?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
 
-    // ── Form Replicator ────────────────────────────────────────────────────────
-    function populateForms(code) {
-      const forms = state.formsByAgency[code] || [];
-      const sel = $("formSelect");
-      if (!forms.length) {
-        sel.innerHTML = `<option value="">No official form for ${esc(code)} yet</option>`;
-        state.formSchema = null;
-        renderWorkerInputs(null);
-        renderPaperShell(null);
-        $("formEngineStatus").textContent = `NO ${code} FORM WIRED`;
-        return;
-      }
-      sel.innerHTML = forms.map(f => `<option value="${f.id}">${esc(f.title)}</option>`).join("");
-      sel.onchange = () => loadForm(sel.value);
-      loadForm(forms[0].id);
-    }
+  <!-- ══ FORM VAULT ══ -->
+  <!-- Screen 3: a worker's 60-second entry auto-fills the official government
+       form (MSHA 5000-23, OSHA 300A, USACE AHA) and stamps it "Audit Ready".
+       Which forms appear is scoped by the Brain Router's enabled agencies. -->
+  <section class="panel" id="p-forms">
+    <iframe id="fvFrame" title="Form Vault" data-src="/form-vault?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
 
-    async function loadForm(formId) {
-      if (!formId) return;
-      const r = await api("/api/form-vault/form/" + encodeURIComponent(formId));
-      if (!r.j || r.j.ok === false) {
-        $("formEngineStatus").textContent = "FORM UNAVAILABLE";
-        renderWorkerInputs(null); renderPaperShell(null);
-        return;
-      }
-      state.formSchema = r.j;
-      $("formEngineStatus").textContent = "FORM ENGINE READY";
-      $("formEngineStatus").className = "rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-[8px] text-slate-500";
-      renderWorkerInputs(r.j);
-      renderPaperShell(r.j);
-    }
+  <!-- ══ CHECKLIST ══ -->
+  <!-- The Universal Regulatory Router's field page, embedded so the console stays
+       one page / one nav. Regulatory text becomes a live checklist + AHA matrix;
+       change the law in the knowledge base and this changes with it. -->
+  <section class="panel" id="p-checklist">
+    <iframe id="clFrame" title="Field Checklist" data-src="/checklist?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
 
-    function renderWorkerInputs(schema) {
-      const wrap = $("workerInputs");
-      if (!schema) { wrap.innerHTML = `<div class="text-[10px] text-slate-500">No worker form for this agency yet.</div>`; return; }
-      wrap.innerHTML = (schema.worker_inputs || []).map(inp => {
-        const req = inp.required ? `<span class="text-rose-400">*</span>` : "";
-        const base = `class="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 text-[11px] text-slate-200 outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10"`;
-        let field;
-        if (inp.type === "select") {
-          field = `<select id="wi_${inp.id}" ${base} style="height:40px">${(inp.options || []).map(o => `<option>${esc(o)}</option>`).join("")}</select>`;
-        } else if (inp.type === "number") {
-          field = `<input id="wi_${inp.id}" type="number" placeholder="${esc(inp.placeholder || "")}" ${base} style="height:40px" />`;
-        } else if (inp.type === "date") {
-          field = `<input id="wi_${inp.id}" type="date" ${base} style="height:40px" />`;
-        } else {
-          field = `<input id="wi_${inp.id}" type="text" placeholder="${esc(inp.placeholder || "")}" ${base} style="height:40px" />`;
-        }
-        return `<label class="block"><span class="text-[9px] text-slate-500">${esc(inp.label)} ${req}</span><div class="mt-1.5">${field}</div></label>`;
-      }).join("");
-    }
+  <!-- ══ PHOTO AUDIT ══ -->
+  <!-- The proven camera walk-through tool, embedded so the console is one page,
+       one nav. Findings a user captures here are saved to the picked company and
+       surface back in the Audits tab on their workstation. -->
+  <section class="panel" id="p-photo">
+    <iframe id="paFrame" title="Photo Audit" data-src="/photo-audit?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
 
-    function renderPaperShell(schema) {
-      $("auditStamp").classList.remove("show");
-      if (!schema) {
-        $("paperAgency").textContent = "—";
-        $("paperSub").textContent = "No form selected";
-        $("paperTitle").textContent = "—";
-        $("paperGov").style.display = "none";
-        $("paperBody").innerHTML = "";
-        return;
-      }
-      $("paperAgency").textContent = schema.agency;
-      $("paperSub").textContent = schema.summary || "";
-      $("paperTitle").textContent = schema.title || "";
-      const gov = $("paperGov");
-      if (schema.gov_url) { gov.href = schema.gov_url; gov.style.display = "inline-block"; } else { gov.style.display = "none"; }
-      // Empty official layout preview
-      const secs = schema.sections || [];
-      $("paperBody").innerHTML = secs.map(sec => `
-        <div class="col-span-2">
-          <div class="text-[7px] uppercase tracking-widest text-slate-500 mb-2">${esc(sec.section)}</div>
-          <div class="grid grid-cols-2 gap-4">
-            ${(sec.fields || []).map(f => `
-              <div>
-                <div class="text-[7px] uppercase tracking-widest text-slate-500">${esc(f.label)}${f.required ? " *" : ""}</div>
-                <div class="paper-line min-h-[24px] flex items-end pb-1 text-[11px] font-semibold" id="pf_${f.id}"><span class="typed"></span></div>
-              </div>`).join("")}
-          </div>
-        </div>`).join("");
-    }
+</main></div>
 
-    async function generateForm() {
-      if (!state.formSchema) { showToast("No form selected", "Choose an official form first."); return; }
-      const btn = $("generateButton");
-      const answers = {};
-      (state.formSchema.worker_inputs || []).forEach(inp => {
-        const el = $("wi_" + inp.id);
-        if (el && el.value !== "") answers[inp.id] = el.value;
-      });
+<script>
+// ── tiny helpers ──────────────────────────────────────────────────────────
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(path, opts){
+  try{
+    const r = await fetch(path, Object.assign({credentials:'same-origin', headers:{'Content-Type':'application/json'}}, opts||{}));
+    const j = await r.json().catch(()=>({}));
+    return {ok:r.ok, status:r.status, j};
+  }catch(e){ return {ok:false, status:0, j:{error:String(e)}}; }
+}
+const classBadge = c => {
+  const m={'OSHA-required':['req','OSHA-required'],'Origin recommendation':['rec','Origin rec'],
+           'Best practice':['best','Best practice'],'Customer requirement':['cust','Customer req']};
+  const v=m[c]; return v?`<span class="badge ${v[0]}">${v[1]}</span>`:(c?`<span class="badge rec">${esc(c)}</span>`:'');
+};
+const srcHtml = refs => (refs&&refs.length)
+  ? `<div class="src">Source: ${refs.map(r=>r.url?`<a href="${esc(r.url)}" target="_blank">${esc(r.citation||r.title||'ref')}</a>`:esc(r.citation||r.title||'ref')).join(' · ')}</div>` : '';
 
-      btn.disabled = true; btn.classList.add("opacity-70", "cursor-wait");
-      btn.textContent = "Validating…";
-      $("formEngineStatus").textContent = "VALIDATING INPUT";
-      $("formEngineStatus").className = "rounded-full border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 text-[8px] text-amber-400";
-      $("auditStamp").classList.remove("show");
+// ── tab router ────────────────────────────────────────────────────────────
+const loaded = {};
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-'+name));
+  if(!loaded[name]){ loaded[name]=true; (INIT[name]||(()=>{}))(); }
+}
+const INIT = {
+  home: renderHome,
+  library: loadLibrary,
+  monitor: loadDigest,
+  companies: ()=>{ initCoForm(); loadPortfolio(); },
+  programs: ()=>fillCompanySelect('pg-co', loadPackage),
+  prequal: ()=>fillCompanySelect('pq-co'),
+  audits: loadAudits,
+  review: loadReview,
+  training: ()=>fillCompanySelect('tr-co', loadTraining),
+  citation: ()=>{},
+  brain: ()=>{ const f=$('#brFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  forms: ()=>{ const f=$('#fvFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  checklist: ()=>{ const f=$('#clFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+};
 
-      const r = await api("/api/form-vault/fill", { method: "POST", body: JSON.stringify({ form_id: state.formSchema.id, answers }) });
-      const j = r.j || {};
+// company select fill (shared) ------------------------------------------------
+let COMPANIES = [];
+async function fetchCompanies(){
+  if(COMPANIES.length) return COMPANIES;
+  const {j} = await api('/api/company/list');
+  COMPANIES = (j.items||[]).map(c=>({id:c.company_id, name:c.company}));
+  return COMPANIES;
+}
+async function fillCompanySelect(id, cb){
+  const list = await fetchCompanies();
+  const sel = $('#'+id); if(!sel) return;
+  sel.innerHTML = list.length ? list.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')
+                              : '<option value="">No companies yet — add one in the Companies tab</option>';
+  if(cb) cb();
+}
 
-      btn.disabled = false; btn.classList.remove("opacity-70", "cursor-wait");
-      btn.textContent = "Generate Audit-Ready Form";
+// ── MONITOR ────────────────────────────────────────────────────────────────
+async function runSweep(){
+  const b=$('#btnSweep'); b.disabled=true; b.innerHTML='<span class="spin"></span> Sweeping…';
+  const {j} = await api('/api/monitor/sweep',{method:'POST',body:JSON.stringify({})});
+  b.disabled=false; b.textContent='Run sweep now';
+  if(j&&j.counts){
+    $('#sweepMeta').textContent = `Swept ${j.companies_scanned} companies · ${j.counts.new} new · ${j.counts.continuing} continuing · ${j.counts.resolved_this_run} resolved.`;
+  }
+  loadDigest();
+}
+async function loadDigest(){
+  const {j} = await api('/api/monitor/digest');
+  const bs = (j&&j.by_severity)||{high:0,medium:0,info:0};
+  const total = (j&&j.open_total)||0;
+  $('#cnt-monitor').textContent = total;
+  $('#cnt-monitor').classList.toggle('zero', total===0);
+  $('#digestTiles').innerHTML =
+     tile(total,'Open alerts')+tile(bs.high||0,'High','hi')+tile(bs.medium||0,'Medium','md')+tile(bs.info||0,'Info');
+  if(j&&j.last_run) $('#sweepMeta').textContent = $('#sweepMeta').textContent || ('Last run '+fmt(j.last_run));
+  const rules=(j&&j.by_rule)||{};
+  $('#ruleChips').innerHTML = Object.keys(rules).length
+     ? Object.entries(rules).map(([k,v])=>`<span class="chip">${esc(ruleLabel(k))}: ${v}</span>`).join('') : '';
+  // companies at risk
+  const cs=(j&&j.companies)||[];
+  $('#riskCompanies').innerHTML = cs.length ? `<table><thead><tr><th>Company</th><th class="c">High</th><th class="c">Total open</th></tr></thead><tbody>${
+     cs.map(c=>`<tr class="clk" onclick="monCompany('${esc(c.company_id)}')"><td class="name">${esc(c.company)}</td><td class="c">${c.high}</td><td class="c">${c.total}</td></tr>`).join('')}</tbody></table>`
+     : `<div class="empty">No companies flagged. ${total?'':'Run a sweep to check.'}</div>`;
+  loadAlerts();
+}
+async function loadAlerts(){
+  const {j} = await api('/api/monitor/alerts?status=open');
+  renderAlerts($('#alertFeed'), (j&&j.items)||[]);
+}
+async function monCompany(id){
+  const {j} = await api('/api/monitor/company/'+encodeURIComponent(id));
+  renderAlerts($('#alertFeed'), (j&&j.alerts)||[], j&&j.company_id);
+  $('#p-monitor').scrollIntoView({behavior:'smooth'});
+}
+function renderAlerts(el, items, scope){
+  if(!items.length){ el.innerHTML = `<div class="empty">${scope?'No open alerts for this company.':'No open alerts.'}</div>`; return; }
+  el.innerHTML = `<table><thead><tr><th>Sev</th><th>Company</th><th>Alert</th><th>Rule</th></tr></thead><tbody>${
+    items.map(a=>`<tr><td><span class="pill sev ${esc(a.severity)}">${esc(a.severity)}</span></td>
+      <td class="name">${esc(a.company)}</td>
+      <td>${esc(a.title)}<div class="sub">${esc(a.detail||'')}</div></td>
+      <td class="sub">${esc(ruleLabel(a.rule))}${a.standard?'<br>'+esc(a.standard):''}</td></tr>`).join('')}</tbody></table>`;
+}
+const RULES={capa_overdue:'Overdue action',capa_due_soon:'Due soon',capa_human_review:'Human review',risk_elevated:'Elevated risk',programs_missing:'Missing program'};
+const ruleLabel = r => RULES[r]||r;
+const tile=(n,l,c)=>`<div class="tile ${c||''}"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+const fmt = s => { try{return new Date(s).toLocaleString();}catch(e){return s;} };
 
-      if (j.ok === false || j.error) {
-        $("formEngineStatus").textContent = "COULD NOT FILL";
-        $("formEngineStatus").className = "rounded-full border border-rose-500/20 bg-rose-500/5 px-2.5 py-1 text-[8px] text-rose-400";
-        showToast("Fill failed", j.error || "Check your inputs.");
-        return;
-      }
+// ── COMPANIES ──────────────────────────────────────────────────────────────
+async function loadPortfolio(){
+  $('#coDetail').classList.add('hidden'); $('#coListCard').classList.remove('hidden');
+  const {j} = await api('/api/company/portfolio');
+  const rows=(j&&j.companies)||[];
+  $('#portfolio').innerHTML = rows.length ? `<table><thead><tr><th>Company</th><th>Industry</th><th class="c">State</th><th class="c">Risk</th><th class="c">Open</th><th class="c">Overdue</th></tr></thead><tbody>${
+    rows.map(c=>`<tr class="clk" onclick="companyDetail('${esc(c.company_id)}')">
+      <td class="name">${esc(c.company)}</td><td class="sub">${esc(c.industry||'—')}</td>
+      <td class="c sub">${esc(c.state||'')}</td>
+      <td class="c"><span class="pill risk ${esc(c.band)}">${esc(c.band)} ${c.score}</span></td>
+      <td class="c">${c.open_capas}</td><td class="c">${c.overdue_capas?'<b class="no">'+c.overdue_capas+'</b>':0}</td></tr>`).join('')}</tbody></table>`
+    : `<div class="empty">No companies yet. Add one above.</div>`;
+}
+async function upsertCompany(){
+  const name=$('#co-name').value.trim(); if(!name){ $('#co-save-msg').textContent=' Name required.'; return; }
+  const plats=$('#co-plats').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body={company:name, industry:$('#co-industry').value.trim(), naics:$('#co-naics').value.trim(),
+    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null,
+    customer_platforms:plats, activities:coSelectedHazards()};
+  const {j}=await api('/api/company/upsert',{method:'POST',body:JSON.stringify(body)});
+  $('#co-save-msg').textContent = j&&j.ok?' Saved.':(' '+((j&&j.error)||'Error'));
+  COMPANIES=[]; loadPortfolio();
+}
 
-      // Paint the resolved values onto the official layout, with the typed reveal.
-      let delay = 0;
-      (j.sections || []).forEach(sec => (sec.fields || []).forEach(f => {
-        const holder = $("pf_" + f.id);
-        if (!holder) return;
-        const span = holder.querySelector(".typed");
-        let val = f.value;
-        if (f.matrix) val = (f.rows && f.rows.length) ? `${f.rows.length} hazard row(s) from Checklist/AHA` : (f.note || "Add hazard rows in Checklist");
-        if (f.signature) val = f.value || "— sign on official copy —";
-        span.textContent = val != null && val !== "" ? val : (f.required ? "⟨ required — not provided ⟩" : "—");
-        span.classList.remove("visible");
-        setTimeout(() => span.classList.add("visible"), delay);
-        delay += 120;
-      }));
+// ── COMPANIES: full-auto scope capture ───────────────────────────────────────
+let CO_TRIGGERS = null;          // schema triggers, loaded once
+const _debounce = (fn, ms=280) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
-      setTimeout(() => {
-        if (j.audit_ready) {
-          $("auditStamp").classList.add("show");
-          $("formEngineStatus").textContent = "AUDIT READY";
-          $("formEngineStatus").className = "rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-[8px] text-emerald-400";
-          showToast("Form generated", `${j.title} is audit-ready.`);
-        } else {
-          $("formEngineStatus").textContent = "MISSING REQUIRED";
-          $("formEngineStatus").className = "rounded-full border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 text-[8px] text-amber-400";
-          const miss = (j.missing_required || []).slice(0, 3).join(", ");
-          showToast("Not yet audit-ready", miss ? "Missing: " + miss : "Some required fields are unresolved.");
-        }
-      }, delay + 150);
-    }
+// Built-in fallbacks so the dropdowns ALWAYS populate, even if the backend
+// scoping routes aren't reachable yet. The live routes are still preferred
+// (they're the source of truth); these only fill in if a route is missing.
+const CO_STATES_FALLBACK = [
+  ["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],
+  ["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],["DC","District of Columbia"],
+  ["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],
+  ["IN","Indiana"],["IA","Iowa"],["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],
+  ["ME","Maine"],["MD","Maryland"],["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],
+  ["MS","Mississippi"],["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],
+  ["NH","New Hampshire"],["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],
+  ["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],["OR","Oregon"],
+  ["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],["SD","South Dakota"],
+  ["TN","Tennessee"],["TX","Texas"],["UT","Utah"],["VT","Vermont"],["VA","Virginia"],
+  ["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"],
+  ["PR","Puerto Rico"],["VI","U.S. Virgin Islands"],["GU","Guam"]
+].map(([code,name])=>({code,name})).sort((a,b)=>a.name.localeCompare(b.name));
+const CO_INDUSTRIES_FALLBACK = [
+  {label:"Roofing contractor",naics:"238160",group:"Specialty trade — construction"},
+  {label:"Electrical contractor",naics:"238210",group:"Specialty trade — construction"},
+  {label:"Plumbing, heating & HVAC contractor",naics:"238220",group:"Specialty trade — construction"},
+  {label:"Poured concrete foundation & structure contractor",naics:"238110",group:"Specialty trade — construction"},
+  {label:"Structural steel & precast concrete contractor",naics:"238120",group:"Specialty trade — construction"},
+  {label:"Framing contractor (carpentry)",naics:"238130",group:"Specialty trade — construction"},
+  {label:"Masonry contractor",naics:"238140",group:"Specialty trade — construction"},
+  {label:"Glass & glazing contractor",naics:"238150",group:"Specialty trade — construction"},
+  {label:"Drywall & insulation contractor",naics:"238310",group:"Specialty trade — construction"},
+  {label:"Painting & wall covering contractor",naics:"238320",group:"Specialty trade — construction"},
+  {label:"Flooring contractor",naics:"238330",group:"Specialty trade — construction"},
+  {label:"Finish carpentry contractor",naics:"238350",group:"Specialty trade — construction"},
+  {label:"Site preparation / excavation contractor",naics:"238910",group:"Specialty trade — construction"},
+  {label:"Fire sprinkler & fire protection contractor",naics:"238220",group:"Specialty trade — construction"},
+  {label:"Other building equipment contractor",naics:"238290",group:"Specialty trade — construction"},
+  {label:"Single-family home building (construction)",naics:"236115",group:"General construction"},
+  {label:"Commercial & institutional building construction",naics:"236220",group:"General construction"},
+  {label:"Water & sewer line construction",naics:"237110",group:"Heavy & civil construction"},
+  {label:"Oil & gas pipeline construction",naics:"237120",group:"Heavy & civil construction"},
+  {label:"Power & communication line construction",naics:"237130",group:"Heavy & civil construction"},
+  {label:"Highway, street & bridge construction",naics:"237310",group:"Heavy & civil construction"},
+  {label:"Crude petroleum & natural gas extraction (oil & gas operator)",naics:"211120",group:"Oil, gas & energy"},
+  {label:"Drilling oil & gas wells",naics:"213111",group:"Oil, gas & energy"},
+  {label:"Support activities for oil & gas operations (well servicing)",naics:"213112",group:"Oil, gas & energy"},
+  {label:"Petroleum refinery (refining)",naics:"324110",group:"Oil, gas & energy"},
+  {label:"Pipeline transportation of crude oil / natural gas",naics:"486110",group:"Oil, gas & energy"},
+  {label:"Machine shop / metal fabrication",naics:"332710",group:"Industrial & manufacturing"},
+  {label:"Fabricated structural metal manufacturing",naics:"332312",group:"Industrial & manufacturing"},
+  {label:"Commercial & industrial machinery repair / maintenance",naics:"811310",group:"Industrial & manufacturing"},
+  {label:"General warehousing & storage",naics:"493110",group:"Industrial & other"},
+  {label:"General freight trucking (long-distance)",naics:"484121",group:"Transportation"},
+  {label:"Landscaping services",naics:"561730",group:"Industrial & other"},
+  {label:"Remediation / environmental cleanup services",naics:"562910",group:"Environmental"},
+  {label:"Hazardous waste treatment & disposal",naics:"562211",group:"Environmental"},
+  {label:"Facilities support / building maintenance services",naics:"561210",group:"Industrial & other"},
+  {label:"Janitorial & building cleaning services",naics:"561720",group:"Industrial & other"}
+];
 
-    // ── AI Field Inspector — real photo → /api/photo-audit/analyze ─────────────
-    $("scanButton").addEventListener("click", () => { if (!state.scanning) $("photoInput").click(); });
+function fillIndustrySelect(inds){
+  const isel=$('#co-industry'); if(!isel) return;
+  const groups={}; inds.forEach(x=>{ (groups[x.group||'Other']||(groups[x.group||'Other']=[])).push(x); });
+  isel.innerHTML = '<option value="">Select a trade / industry…</option>' +
+    Object.keys(groups).map(g=>`<optgroup label="${esc(g)}">`+
+      groups[g].map(x=>`<option value="${esc(x.label)}" data-naics="${esc(x.naics)}" title="${esc(x.title||'')}">${esc(x.label)} — ${esc(x.naics)}</option>`).join('')
+      +`</optgroup>`).join('');
+  isel.addEventListener('change', coIndustryChanged);
+}
+function fillStateSelect(sts){
+  const ssel=$('#co-state'); if(!ssel) return;
+  ssel.innerHTML = '<option value="">Select a state…</option>' +
+    sts.map(s=>`<option value="${esc(s.code)}">${esc(s.name)} (${esc(s.code)})</option>`).join('');
+  ssel.addEventListener('change', coStateChanged);
+}
 
-    $("photoInput").addEventListener("change", async e => {
-      const file = e.target.files && e.target.files[0];
-      e.target.value = "";
-      if (!file) return;
-      runInspection(file);
-    });
+async function initCoForm(){
+  if(CO_TRIGGERS) return;        // idempotent
+  // Load each piece independently so one missing route never stalls the others.
+  api('/api/scoping/schema').then(r=>{
+    CO_TRIGGERS = (r.j&&r.j.triggers)||[];
+    renderHazGrid(CO_TRIGGERS, new Set());
+  }).catch(()=>{ CO_TRIGGERS=[]; renderHazGrid([], new Set()); });
 
-    async function runInspection(file) {
-      state.scanning = true;
-      $("auditBadge").classList.remove("show");
-      // show the chosen photo
-      const img = $("scanPhoto");
-      img.src = URL.createObjectURL(file);
-      img.classList.remove("hidden");
-      $("cameraMeta").textContent = file.name;
+  api('/api/scoping/industries').then(r=>{
+    const inds=(r.j&&r.j.industries)||[];
+    fillIndustrySelect(inds.length ? inds : CO_INDUSTRIES_FALLBACK);
+  }).catch(()=>fillIndustrySelect(CO_INDUSTRIES_FALLBACK));
 
-      $("scannerLine").classList.remove("scanning"); void $("scannerLine").offsetWidth; $("scannerLine").classList.add("scanning");
-      $("scanStatus").classList.remove("hidden");
-      $("scanButton").classList.add("opacity-70", "cursor-wait");
-      $("scanButtonText").textContent = "Analyzing…";
-      $("scanStatusText").textContent = "Uploading & mapping image geometry…";
-      setTimeout(() => { if (state.scanning) $("scanStatusText").textContent = "Matching hazards against active regulatory brain…"; }, 900);
+  api('/api/scoping/states').then(r=>{
+    const sts=(r.j&&r.j.states)||[];
+    fillStateSelect(sts.length ? sts : CO_STATES_FALLBACK);
+  }).catch(()=>fillStateSelect(CO_STATES_FALLBACK));
 
-      const fd = new FormData();
-      fd.append("files", file);
-      let j = {};
-      try {
-        const r = await fetch("/api/photo-audit/analyze", { method: "POST", credentials: "same-origin", body: fd });
-        j = await r.json().catch(() => ({}));
-      } catch (err) { j = { error: String(err) }; }
+  const onScope = _debounce(coScopePreview, 320);
+  const nx=$('#co-naics'); if(nx) nx.addEventListener('input', onScope);
+  const hd=$('#co-head'); if(hd) hd.addEventListener('input', onScope);
+}
 
-      $("scanStatus").classList.add("hidden");
-      $("scanButton").classList.remove("opacity-70", "cursor-wait");
-      $("scanButtonText").textContent = "Run AI Inspection Scan Again";
-      state.scanning = false;
+function renderHazGrid(triggers, preChecked){
+  const grid=$('#co-haz'); if(!grid) return;
+  if(!triggers.length){ grid.innerHTML='<div class="muted" style="font-size:12px">No hazard list available.</div>'; return; }
+  grid.innerHTML = triggers.map(t=>{
+    const on = preChecked.has(t.key) ? ' checked' : '';
+    return `<label class="hz"><input type="checkbox" value="${esc(t.key)}"${on} onchange="coScopePreview()">
+      <span>${esc(t.q)}<br><small class="muted">${esc(t.category)}</small></span></label>`;
+  }).join('');
+}
 
-      if (j.error) { showToast("Inspector", j.error); return; }
-      renderFinding(j);
-    }
+function coSelectedHazards(){
+  return Array.from(document.querySelectorAll('#co-haz input[type=checkbox]:checked')).map(c=>c.value);
+}
 
-    function renderFinding(report) {
-      const findings = report.findings || [];
-      const inner = $("auditBadgeInner");
-      if (!findings.length) {
-        inner.className = "rounded-xl border border-emerald-500/30 bg-slate-950/92 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,.5)] overflow-hidden";
-        $("auditDot").className = "h-2 w-2 rounded-full bg-emerald-400";
-        $("auditKicker").className = "text-[10px] uppercase tracking-[.13em] text-emerald-300 font-semibold";
-        $("auditKicker").textContent = "No hazard matched";
-        $("auditEvidence").textContent = report.scene ? report.scene.slice(0, 40) : "Scene analyzed";
-        $("auditResult").textContent = "No regulatory finding surfaced for this photo.";
-        $("auditTags").innerHTML = "";
-        $("auditConf").textContent = "—";
-        $("auditAction").textContent = "None";
-        $("auditBadge").classList.add("show");
-        showToast("Inspection complete", "No hazard matched in this photo.");
-        return;
-      }
-      // top finding = highest severity/confidence (already ordered by engine)
-      const f = findings[0];
-      const sev = (f.severity || "medium").toLowerCase();
-      const sevColor = sev === "high" ? "rose" : sev === "low" ? "emerald" : "amber";
-      const cite = (f.standard && f.standard.citation) || "";
-      inner.className = `rounded-xl border border-${sevColor}-500/30 bg-slate-950/92 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,.5)] overflow-hidden`;
-      $("auditDot").className = `h-2 w-2 rounded-full bg-${sevColor}-400`;
-      $("auditKicker").className = `text-[10px] uppercase tracking-[.13em] text-${sevColor}-300 font-semibold`;
-      $("auditKicker").textContent = "Regulatory Finding";
-      $("auditEvidence").textContent = `${findings.length} finding(s)`;
-      $("auditResult").textContent = `${f.title}${cite ? " — cites " + cite : ""}`;
-      const conf = f.confidence != null ? Math.round(f.confidence * 100) + "%" : "—";
-      $("auditConf").textContent = conf;
-      $("auditConf").className = `text-2xl font-semibold text-${sevColor === "rose" ? "rose" : "emerald"}-400`;
-      $("auditAction").textContent = f.needs_review ? "Flagged for review" : "Work order logged";
-      $("auditTags").innerHTML = [
-        `<span class="rounded-md border border-${sevColor}-500/20 bg-${sevColor}-500/5 px-2 py-1 text-[9px] text-${sevColor}-300">${sev.toUpperCase()} risk</span>`,
-        cite ? `<span class="rounded-md border border-slate-700 px-2 py-1 text-[9px] text-slate-400">${esc(cite)}</span>` : "",
-        `<span class="rounded-md border border-slate-700 px-2 py-1 text-[9px] text-slate-400">${esc(f.confidence_band || "matched")}</span>`,
-      ].join("");
-      $("auditBadge").classList.add("show");
-      showToast("Inspection complete", cite ? `${cite} matched at ${conf}.` : `${f.title} identified.`);
-    }
+async function coIndustryChanged(){
+  const sel=$('#co-industry');
+  const text=(sel.value||'').trim();
+  // Auto-fill the NAICS from the selected option.
+  const opt=sel.options[sel.selectedIndex];
+  const naics=opt?opt.getAttribute('data-naics'):'';
+  if(naics) $('#co-naics').value=naics;
+  if(!text){ $('#co-haz-hint').textContent=''; coScopePreview(); return; }
+  // Pre-check the likely hazards for this trade.
+  const {j:sj={}} = await api('/api/scoping/suggest?industry='+encodeURIComponent(text));
+  const keys=new Set(sj.suggested||[]);
+  if(CO_TRIGGERS){
+    coSelectedHazards().forEach(k=>keys.add(k));   // keep anything already ticked
+    renderHazGrid(CO_TRIGGERS, keys);
+  }
+  const matched=(sj.matched||[]);
+  $('#co-haz-hint').textContent = matched.length ? ('Auto-checked from: '+matched.join(', ')) : '';
+  coScopePreview();
+}
 
-    // ── Regulatory Brain "Sync now" — re-pull live counts ──────────────────────
-    $("syncButton").addEventListener("click", async () => {
-      const status = $("brainStatus"), progress = $("syncProgress");
-      status.textContent = "SYNCING";
-      status.className = "rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-[8px] text-amber-400";
-      progress.style.width = "12%"; progress.classList.remove("bg-emerald-500"); progress.classList.add("bg-amber-500");
-      const [spine, rev] = await Promise.all([api("/api/spine/stats"), api("/api/review/overview")]);
-      state.spine = (spine.j && spine.j.meta) || spine.j || state.spine; state.review = rev.j || state.review;
-      progress.style.width = "100%";
-      setTimeout(() => {
-        progress.classList.remove("bg-amber-500"); progress.classList.add("bg-emerald-500");
-        renderMetrics(); renderBottom(); renderFindings();
-        if (state.focus) focusAgency(state.focus, false);
-        showToast("Regulatory database synced", "Live counts refreshed from the evidence spine.");
-      }, 350);
-    });
+async function coStateChanged(){
+  const code=($('#co-state').value||'').trim();
+  const badge=$('#co-juris');
+  if(!code){ if(badge){ badge.classList.add('hidden'); badge.innerHTML=''; } coScopePreview(); return; }
+  const {j} = await api('/api/scoping/jurisdiction?state='+encodeURIComponent(code));
+  const ju=(j&&j.jurisdiction)||null;
+  if(badge && ju){
+    const kind=ju.jurisdiction; // federal | state | both
+    const label = kind==='state' ? 'State Plan' : kind==='both' ? 'State Plan + Federal OSHA' : 'Federal OSHA';
+    badge.classList.remove('hidden');
+    badge.innerHTML = `<span class="jflag ${esc(kind)}">${esc(label)}</span>
+      <span class="jtxt"><b>${esc(ju.authority||'')}</b> — ${esc(ju.note||'')}
+      ${ju.agency_url?` <a href="${esc(ju.agency_url)}" target="_blank" rel="noopener">${esc(ju.agency||'agency')}</a>`:''}</span>`;
+  }
+  coScopePreview();
+}
 
-    $("generateButton").addEventListener("click", generateForm);
-    $("profileBtn").addEventListener("click", () => showToast("Owner profile", "Administrator controls are in the full console."));
+async function coScopePreview(){
+  const industry=$('#co-industry').value.trim(), naics=$('#co-naics').value.trim();
+  const box=$('#co-scope-preview');
+  if(!industry && !naics){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const body={company:$('#co-name').value.trim()||'preview', industry, naics,
+    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null,
+    activities:coSelectedHazards()};
+  const {j}=await api('/api/scoping/resolve',{method:'POST',body:JSON.stringify(body)});
+  const sc=(j&&j.scope)||j||{};
+  if(!sc || sc.error || sc.required_count==null){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  const stds=(sc.required_standards||[]);
+  const rk=sc.recordkeeping||{};
+  const rkLine = rk.reason
+    ? `<div class="rk ${rk.must_keep_300_log?'keep':'exempt'}"><b>${rk.must_keep_300_log?'300-Log required':'300-Log: partially exempt'}</b> — ${esc(rk.reason)}</div>`
+    : '';
+  const ju=sc.jurisdiction||null;
+  const juLine = ju
+    ? `<div class="rk juris"><span class="jflag ${esc(ju.jurisdiction)}">${ju.jurisdiction==='state'?'State Plan':ju.jurisdiction==='both'?'State Plan + Federal':'Federal OSHA'}</span> <b>${esc(ju.authority||'')}</b> — ${esc(ju.note||'')}</div>`
+    : '';
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline">
+      <b>${esc(sc.sector_label||sc.sector||'Scope')}</b>
+      <span class="muted" style="font-size:12px">${sc.required_count||0} required · ${sc.baseline_count||0} baseline · ${sc.triggered_count||0} triggered</span></div>
+    ${juLine}
+    ${rkLine}
+    <div class="stdlist">${stds.map(s=>`<div class="std">
+      <span class="src-tag ${s.source==='triggered'?'triggered':'baseline'}">${s.source==='triggered'?'triggered':'baseline'}</span>
+      <span><b>${esc(s.title||s.id)}</b> <span class="muted">${esc(s.citation||'')}</span></span></div>`).join('')}</div>`;
+}
+async function companyDetail(id){
+  const [main, scoped] = await Promise.all([
+    api('/api/company/'+encodeURIComponent(id)),
+    api('/api/company/'+encodeURIComponent(id)+'/scope'),
+  ]);
+  const j=main.j;
+  if(!j||j.error){ return; }
+  const p=j.profile||{}, r=j.risk||{}, sc=j.scope||{}, capas=j.capas||[];
+  const full=(scoped.j&&scoped.j.scope)||{};
+  const stds=full.required_standards||[];
+  const rk=full.recordkeeping||{};
+  $('#coListCard').classList.add('hidden');
+  const el=$('#coDetail'); el.classList.remove('hidden');
+  const scopeBody = stds.length
+    ? `<div class="muted" style="margin-bottom:8px">${esc(full.sector_label||full.sector||sc.sector_label||'—')} · ${full.required_count||0} required · ${full.baseline_count||0} baseline · ${full.triggered_count||0} triggered</div>
+       ${rk.reason?`<div class="rkline ${rk.must_keep_300_log?'keep':'exempt'}"><b>${rk.must_keep_300_log?'300-Log required':'300-Log: partially exempt'}</b> — ${esc(rk.reason)} <span class="muted">(${esc(rk.citation||'')})</span></div>`:''}
+       <table style="margin-top:10px"><thead><tr><th>Standard</th><th>Citation</th><th class="c">Source</th></tr></thead><tbody>${
+         stds.map(s=>`<tr><td class="name">${esc(s.title||s.id)}<div class="sub">${esc(s.why||'')}</div></td>
+           <td class="sub">${esc(s.citation||'')}</td>
+           <td class="c"><span class="src-tag ${s.source==='triggered'?'triggered':'baseline'}">${s.source==='triggered'?'triggered':'baseline'}</span></td></tr>`).join('')}</tbody></table>`
+    : `<div class="muted">${esc(sc.sector_label||sc.sector||'—')} · ${sc.required_count||0} required standards · ${sc.triggered_count||0} triggered${sc.recordkeeping?' · recordkeeping applies':''}</div>`;
+  el.innerHTML = `<span class="back" onclick="loadPortfolio()">← All companies</span>
+    <div class="gradewrap"><div><div class="co">${esc(p.company||'')}</div>
+      <div class="grade">${r.score!=null?r.score:'—'}</div>
+      <div><span class="pill risk ${esc(r.band)}">${esc(r.band||'')}</span></div></div>
+      <div style="flex:1;min-width:200px"><div class="co">Why</div>${(r.drivers||[]).map(d=>`<div style="font-size:13px;margin-top:3px">• ${esc(d)}</div>`).join('')}</div></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn sm" onclick="runPhotoAudit('${esc(id)}')">📷 Run photo audit for this company</button>
+      <button class="btn ghost sm" onclick="gotoProgramsFor('${esc(id)}')">View program package →</button>
+      <button class="btn ghost sm" onclick="gotoPrequalFor('${esc(id)}')">Prequal readiness →</button>
+    </div>
+    <h2 class="sec">Scope</h2>
+    ${scopeBody}
+    <h2 class="sec">Corrective actions (${capas.length})</h2>
+    ${capas.length?`<table><thead><tr><th>Title</th><th>Standard</th><th>Stage</th><th class="c">Due</th></tr></thead><tbody>${
+      capas.map(c=>`<tr><td>${esc(c.title)} ${c.human_review_required?'<span class="badge req">review</span>':''}</td>
+        <td class="sub">${esc(c.standard||'—')}</td>
+        <td>${esc(c.stage_label||c.stage||'')}</td>
+        <td class="c ${c.overdue?'no':''}">${esc(c.abatement_date||'—')}${c.overdue?' ⚠':''}</td></tr>`).join('')}</tbody></table>`
+      :'<div class="empty">No corrective actions on file.</div>'}`;
+  el.scrollIntoView({behavior:'smooth'});
+}
+function gotoProgramsFor(id){ showTab('programs'); fillCompanySelect('pg-co',()=>{ $('#pg-co').value=id; loadPackage(); }); }
+function gotoPrequalFor(id){ showTab('prequal'); fillCompanySelect('pq-co',()=>{ $('#pq-co').value=id; }); }
+function runPhotoAudit(id){ location.href = '/photo-audit?company='+encodeURIComponent(id)+'&back=/sie'; }
 
-    // PWA install support (service worker never caches pages/API)
-    if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js").catch(() => {}); }
+// ── PROGRAMS ───────────────────────────────────────────────────────────────
+async function loadPackage(){
+  const id=$('#pg-co').value; if(!id){ $('#pgSummary').innerHTML=''; $('#pgEntries').innerHTML=''; return; }
+  $('#pgDoc').classList.add('hidden');
+  const {j}=await api('/api/program/package/'+encodeURIComponent(id));
+  if(!j||j.error){ $('#pgEntries').innerHTML=`<div class="err">${esc((j&&j.error)||'not found')}</div>`; return; }
+  const s=j.summary||{};
+  $('#pgSummary').innerHTML = `<div class="tiles">
+    ${tile(j.required_count||0,'Required standards')}${tile(s.programs_mandated||0,'Mandated programs')}
+    ${tile(s.programs_mandated_missing||0,'Missing', s.programs_mandated_missing?'hi':'')}
+    ${tile(s.programs_available||0,'Available')}${tile(s.training_mandates||0,'Training mandates')}${tile(s.jsas_available||0,'JSAs')}</div>`;
+  const es=j.entries||[];
+  $('#pgEntries').innerHTML = `<h2 class="sec">Standards (${es.length})</h2>
+    <table><thead><tr><th>Standard</th><th>Program</th><th>Training</th><th>JSA</th></tr></thead><tbody>${
+    es.map(e=>`<tr class="clk" onclick="renderDoc('${esc(id)}','${esc(e.id)}')">
+      <td><span class="name">${esc(e.title||e.id)}</span><div class="sub">${esc(e.citation||'')}</div></td>
+      <td>${classBadge(e.program.classification)} ${e.program.available?'<span class="yes">✓</span>':'<span class="no">missing</span>'}</td>
+      <td>${classBadge(e.training.classification)} ${e.training.verbatim_mandate?'<span class="sub">verbatim</span>':''}</td>
+      <td>${e.jsa.available?'<span class="yes">✓</span>':'<span class="sub">—</span>'}</td></tr>`).join('')}</tbody></table>`;
+}
+async function renderDoc(cid,sid){
+  const {j}=await api('/api/program/'+encodeURIComponent(cid)+'/'+encodeURIComponent(sid));
+  if(!j||j.error){ return; }
+  const el=$('#pgDoc'); el.classList.remove('hidden');
+  el.innerHTML=`<span class="back" onclick="document.getElementById('pgDoc').classList.add('hidden')">← Close</span>
+    <h1>${esc(j.standard.title||sid)}</h1><p class="lede">${esc(j.standard.citation||'')}</p>
+    <h2 class="sec">Written program ${classBadge(j.program.classification)}</h2>
+    ${j.program.available?`<pre style="white-space:pre-wrap;font:inherit;font-size:13px;background:var(--light);border-radius:8px;padding:14px">${esc(j.program.markdown)}</pre>`:`<div class="muted">${esc(j.program.note||'Not in library.')}</div>`}
+    <h2 class="sec">Training ${classBadge(j.training.classification)}</h2>
+    <div style="font-size:13px;white-space:pre-wrap">${esc(j.training.text||'')}</div>${srcHtml(j.training.source_refs)}
+    <h2 class="sec">Job hazard analysis</h2>
+    ${j.jsa.available?j.jsa.html:`<div class="muted">${esc(j.jsa.note||'No JSA in library.')}</div>`}`;
+  el.scrollIntoView({behavior:'smooth'});
+}
 
-    boot();
-  </script>
+// ── PREQUAL ────────────────────────────────────────────────────────────────
+async function runPrequal(){
+  const id=$('#pq-co').value; if(!id){ $('#pqResult').innerHTML='<div class="err">Pick a company.</div>'; return; }
+  const metrics={};
+  const num=(k,el)=>{const v=parseFloat($(el).value); if(!isNaN(v)) metrics[k]=v;};
+  num('emr','#pq-emr'); num('trir','#pq-trir'); num('dart','#pq-dart'); num('training_complete','#pq-train');
+  const ins=$('#pq-ins').value; if(ins==='true') metrics.insurance_ok=true; if(ins==='false') metrics.insurance_ok=false;
+  const body={metrics}; const plat=$('#pq-plat').value; if(plat) body.platform=plat;
+  $('#pqResult').innerHTML='<div class="muted" style="margin-top:12px"><span class="spin" style="border-color:var(--orange);border-top-color:transparent"></span> Assessing…</div>';
+  const {j}=await api('/api/prequal/'+encodeURIComponent(id),{method:'POST',body:JSON.stringify(body)});
+  if(!j||j.error){ $('#pqResult').innerHTML=`<div class="err">${esc((j&&j.error)||'error')}</div>`; return; }
+  $('#pqResult').innerHTML = j.assessments ? j.assessments.map(prequalCard).join('') : prequalCard(j);
+}
+function prequalCard(a){
+  const g=a.estimated_grade||{}; const light=(g.traffic_light||'').split(' ')[0];
+  const gaps=a.gaps||[]; const det=gaps.filter(x=>x.status==='detected'); const chk=gaps.filter(x=>x.status==='checklist');
+  const rb = /Not ready/.test(a.readiness)?'warn':(/On track/.test(a.readiness)?'ok':'info');
+  const gapItem=x=>`<div class="item ${esc(x.severity)}"><div class="t">${esc(x.title)} <span class="chip">${esc(x.status)}</span></div>
+     <div class="d">${esc(x.detail)}</div>${x.source&&x.source.reason?`<div class="m">Rejection reason: “${esc(x.source.reason)}” <span class="sub">(${esc(x.source.record_id||'')})</span></div>`:''}</div>`;
+  return `<div class="card tight" style="margin-top:14px">
+    <div class="gradewrap"><div><div class="co">${esc(a.company)} · ${esc(a.platform)}</div>
+      <div class="grade">${esc(g.grade||'?')}</div><div class="co">score ${g.score!=null?g.score:'—'}</div></div>
+      <div style="flex:1;min-width:180px"><div class="light ${esc(light)}">${esc(g.traffic_light||'')}</div>
+      <div class="co" style="margin-top:6px">Posture</div>
+      <div style="font-size:13px">${a.posture.programs_available}/${a.posture.programs_mandated} programs · ${a.posture.open_capas} open CAPA · ${a.posture.overdue_capas} overdue · risk ${esc(a.posture.risk_band||'')}</div></div></div>
+    <div class="banner ${rb}">${esc(a.readiness)}</div>
+    ${det.length?`<h2 class="sec">Detected by Origin (${det.length})</h2>${det.map(gapItem).join('')}`:''}
+    ${chk.length?`<h2 class="sec">You must supply (${chk.length})</h2>${chk.map(gapItem).join('')}`:''}
+    <div class="disc">${esc(a.caveat||'')}</div></div>`;
+}
+
+// ── AUDITS ─────────────────────────────────────────────────────────────────
+async function loadAudits(){
+  const ov=await api('/api/audit/overview'); const o=ov.j||{};
+  $('#auditTiles').innerHTML = tile(o.total||0,'Audits')+tile(o.high||0,'High findings','hi')+tile(o.open_capas!=null?o.open_capas:(o.capas_opened||0),'CAPAs opened');
+  const {j}=await api('/api/audit/list');
+  const rows=(j&&j.items)||[];
+  $('#auditList').innerHTML = rows.length?`<table><thead><tr><th>Company</th><th class="c">Findings</th><th class="c">High</th><th>When</th></tr></thead><tbody>${
+    rows.map(a=>`<tr class="clk" onclick="auditDetail('${esc(a.id)}')"><td class="name">${esc(a.company||'—')}</td>
+      <td class="c">${a.total_findings!=null?a.total_findings:(a.summary&&a.summary.total)||'—'}</td>
+      <td class="c">${(a.summary&&a.summary.high)!=null?a.summary.high:(a.high||'—')}</td>
+      <td class="sub">${esc(fmt(a.created_at||a.recorded_at||''))}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No audits yet. Capture one from the Photo Audit tool.</div>';
+}
+async function auditDetail(id){
+  const {j}=await api('/api/audit/'+encodeURIComponent(id));
+  if(!j||j.error) return;
+  const fs=j.findings||[]; const el=$('#auditDetail'); el.classList.remove('hidden');
+  el.innerHTML=`<span class="back" onclick="document.getElementById('auditDetail').classList.add('hidden')">← Close</span>
+    <h1>${esc(j.company||'Audit')}</h1><p class="lede">${esc(fmt(j.created_at||''))} · ${fs.length} findings</p>
+    ${fs.map(f=>`<div class="item ${esc((f.severity||'').toLowerCase())}"><div class="t">${esc(f.title||'Finding')} <span class="pill sev ${esc((f.severity||'medium').toLowerCase())}">${esc(f.severity||'')}</span></div>
+      <div class="d">${esc(f.description||'')}</div>
+      ${f.standard?`<div class="m">${esc(f.standard.citation||f.standard)}</div>`:'<div class="m">Unmatched — human review</div>'}
+      ${f.capa_id?`<div class="src">CAPA ${esc(f.capa_id)}</div>`:`<button class="btn sm" style="margin-top:8px" onclick="promote('${esc(id)}','${esc(f.finding_id||f.id)}')">Open CAPA</button>`}</div>`).join('')}`;
+  el.scrollIntoView({behavior:'smooth'});
+}
+async function promote(aid,fid){
+  await api('/api/audit/'+encodeURIComponent(aid)+'/promote/'+encodeURIComponent(fid),{method:'POST',body:JSON.stringify({})});
+  auditDetail(aid);
+}
+
+// ── REVIEW (human-review inbox) ─────────────────────────────────────────────
+const RV_REASON={unmatched:'Unmatched — no citation found',low_confidence:'Low-confidence detection'};
+async function loadReview(){
+  // overview drives the tiles + the tab badge; list auto-ingests server-side
+  const ov=await api('/api/review/overview'); const o=ov.j||{};
+  const pend=o.pending||0;
+  $('#cnt-review').textContent=pend;
+  $('#cnt-review').classList.toggle('zero',pend===0);
+  $('#reviewTiles').innerHTML=tile(pend,'Pending','hi')+tile(o.approved||0,'Approved')+tile(o.rejected||0,'Rejected')+tile(o.total||0,'Total');
+  const status=$('#rv-status')?$('#rv-status').value:'pending';
+  const {j}=await api('/api/review/list'+(status?('?status='+encodeURIComponent(status)):''));
+  renderReviewItems((j&&j.items)||[]);
+}
+function renderReviewItems(items){
+  const el=$('#reviewList');
+  if(!items.length){ el.innerHTML='<div class="empty">Nothing waiting. Unmatched or low-confidence findings will appear here.</div>'; return; }
+  el.innerHTML=items.map(reviewCard).join('');
+}
+function reviewCard(it){
+  const sev=(it.severity||'medium').toLowerCase();
+  const decided=it.status&&it.status!=='pending';
+  const conf=(it.confidence!=null)?`<span class="chip">confidence ${it.confidence}</span>`:'';
+  const reason=RV_REASON[it.reason]||it.reason||'';
+  const stdVal=esc(it.standard||'');
+  let foot;
+  if(decided){
+    const ra=it.resulting_action||{};
+    const tag=it.status==='approved'?`<span class="pill sev high">approved</span>`:`<span class="pill sev medium">rejected</span>`;
+    const cap=ra.capa_id?` · CAPA ${esc(ra.capa_id)}`:(ra.type==='dismissed'?' · dismissed':'');
+    foot=`<div class="m">${tag} by ${esc(it.reviewer||it.decided_by||'—')} · ${esc(fmt(it.decided_at||''))}${cap}${it.note?' · “'+esc(it.note)+'”':''}</div>`;
+  }else{
+    foot=`<div class="row" style="margin-top:10px;gap:8px;align-items:flex-end">
+      <div class="fld sm" style="flex:1;min-width:180px"><label>Citation to attach (optional)</label>
+        <input id="rv-std-${esc(it.id)}" placeholder="29 CFR 1926.xxx" value="${stdVal}"></div>
+      <button class="btn sm" onclick="approveItem('${esc(it.id)}')">Approve → open CAPA</button>
+      <button class="btn ghost sm" onclick="rejectItem('${esc(it.id)}')">Reject</button>
+    </div>`;
+  }
+  return `<div class="item ${sev}">
+    <div class="t">${esc(it.title||'Finding')} <span class="pill sev ${sev}">${esc(it.severity||'medium')}</span> ${conf}</div>
+    <div class="d">${esc(it.company||'')}${reason?' · '+esc(reason):''}</div>
+    ${it.standard&&decided?`<div class="m">${stdVal}</div>`:''}
+    ${foot}</div>`;
+}
+async function approveItem(id){
+  const inp=$('#rv-std-'+id); const std=inp?inp.value.trim():'';
+  const edits=std?{standard:std}:null;
+  await api('/api/review/'+encodeURIComponent(id)+'/approve',{method:'POST',body:JSON.stringify(edits?{edits}:{})});
+  loadReview();
+}
+async function rejectItem(id){
+  await api('/api/review/'+encodeURIComponent(id)+'/reject',{method:'POST',body:JSON.stringify({})});
+  loadReview();
+}
+
+// ── TRAINING ───────────────────────────────────────────────────────────────
+const TR_STATUS = {
+  expired:  ['#b91c1c','#fee2e2','Expired'],
+  expiring: ['#b45309','#fef3c7','Expiring'],
+  missing:  ['#6b7280','#f3f4f6','Not on file'],
+  current:  ['#166534','#dcfce7','Current'],
+};
+function trStatusPill(st){
+  const v=TR_STATUS[st]||TR_STATUS.missing;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:${v[0]};background:${v[1]}">${v[2]}</span>`;
+}
+function trCurrentCid(){ const s=$('#tr-co'); return s?s.value:''; }
+
+async function loadTraining(){
+  const cid=trCurrentCid();
+  if(!cid){ $('#trCatalogCard').innerHTML=''; $('#trMatrix').innerHTML='<div class="empty">Pick a company to see its training matrix.</div>'; return; }
+  const {j}=await api('/api/training/'+encodeURIComponent(cid)+'/matrix');
+  if(!j||j.error){ $('#trMatrix').innerHTML=`<div class="err">${esc((j&&j.error)||'error')}</div>`; return; }
+  const exp=(j.expired||[]).length, dueSoon=(j.expiring||[]).length;
+  const badge=exp+dueSoon;
+  $('#cnt-training').textContent=badge;
+  $('#cnt-training').classList.toggle('zero',badge===0);
+  $('#trainTiles').innerHTML=tile(j.employee_count||0,'Employees')+tile(j.course_count||0,'Required courses')
+    +tile(dueSoon,'Expiring',dueSoon?'hi':'')+tile(exp,'Expired',exp?'hi':'');
+  renderCatalog(j.courses||[]);
+  renderMatrix(j);
+}
+function renderCatalog(courses){
+  const el=$('#trCatalogCard');
+  if(!courses.length){ el.innerHTML='<h2 class="sec" style="margin-top:0">Required training</h2><div class="empty">No OSHA-required training resolves for this company\u2019s scope. Add hazards/activities in the Companies tab.</div>'; return; }
+  el.innerHTML='<h2 class="sec" style="margin-top:0">Required training — derived &amp; sourced</h2>'
+    +courses.map(c=>`<div class="item info">
+        <div class="t">${esc(c.title)} ${classBadge(c.classification_label)}</div>
+        <div class="d">${esc(c.citation)} · <span class="chip">${esc(c.cadence)}</span></div>
+        ${c.why?`<div class="m">${esc(c.why)}</div>`:''}
+      </div>`).join('');
+}
+function renderMatrix(j){
+  const el=$('#trMatrix');
+  const rows=j.rows||[];
+  if(!rows.length){ el.innerHTML='<div class="card"><div class="empty">No employees yet. Add one above to build the matrix.</div></div>'; return; }
+  if(!(j.courses||[]).length){ el.innerHTML=''; return; }
+  el.innerHTML=rows.map(r=>{
+    const cells=(r.cells||[]).map(c=>{
+      const meta=c.completed_on
+        ? `done ${esc(c.completed_on)}${c.expires_on?` · expires ${esc(c.expires_on)}`:''}${(c.days_left!=null&&c.status!=='current')?` · ${c.days_left<0?Math.abs(c.days_left)+'d overdue':c.days_left+'d left'}`:''}`
+        : `${esc(c.cadence)}`;
+      return `<div class="item ${c.status==='expired'?'high':(c.status==='expiring'?'medium':'info')}">
+        <div class="t" style="font-size:14px">${esc(c.title)} ${trStatusPill(c.status)}</div>
+        <div class="d">${esc(c.citation)} · ${meta}</div>
+        <div class="row" style="margin-top:8px;gap:8px;align-items:flex-end">
+          <div class="fld sm" style="width:170px"><label>Completed on</label>
+            <input type="date" id="tr-date-${esc(r.employee_id)}-${esc(c.course_id)}"></div>
+          <button class="btn sm" onclick="recordCompletion('${esc(r.employee_id)}','${esc(c.course_id)}')">Record completion</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="t" style="font-size:16px">${esc(r.name)}${r.role?` <span class="muted" style="font-weight:400">· ${esc(r.role)}</span>`:''}</div>
+        <button class="btn ghost sm" onclick="deactivateEmployee('${esc(r.employee_id)}')">Remove</button>
+      </div>
+      ${cells}
+    </div>`;
+  }).join('');
+}
+async function addEmployee(){
+  const cid=trCurrentCid(); const name=$('#tr-emp-name').value.trim();
+  const msg=$('#tr-emp-msg');
+  if(!cid){ msg.textContent='Pick a company first.'; return; }
+  if(!name){ msg.textContent='Name is required.'; return; }
+  msg.textContent='Saving…';
+  const {j}=await api('/api/training/'+encodeURIComponent(cid)+'/employee',
+    {method:'POST',body:JSON.stringify({name, role:$('#tr-emp-role').value.trim()})});
+  if(!j||j.error){ msg.textContent=(j&&j.error)||'error'; return; }
+  msg.textContent=''; $('#tr-emp-name').value=''; $('#tr-emp-role').value='';
+  loadTraining();
+}
+async function recordCompletion(eid, courseId){
+  const inp=$('#tr-date-'+eid+'-'+courseId);
+  const on=inp&&inp.value?inp.value:'';
+  await api('/api/training/employee/'+encodeURIComponent(eid)+'/complete',
+    {method:'POST',body:JSON.stringify({course_id:courseId, completed_on:on})});
+  loadTraining();
+}
+async function deactivateEmployee(eid){
+  await api('/api/training/employee/'+encodeURIComponent(eid)+'/deactivate',{method:'POST',body:JSON.stringify({})});
+  loadTraining();
+}
+
+// ── CITATION ───────────────────────────────────────────────────────────────
+async function runCitation(){
+  const std=$('#ci-std').value.trim(), text=$('#ci-text').value.trim();
+  if(!std && !text){ $('#ciResult').innerHTML='<div class="err">Enter a standard or citation text.</div>'; return; }
+  const body={standard:std, text:text, company:$('#ci-co').value.trim(),
+              classification:$('#ci-class').value, penalty:$('#ci-pen').value.trim()};
+  $('#ciResult').innerHTML='<div class="muted" style="margin-top:12px"><span class="spin" style="border-color:var(--orange);border-top-color:transparent"></span> Analyzing…</div>';
+  const {j}=await api('/api/citation/analyze',{method:'POST',body:JSON.stringify(body)});
+  if(!j||j.error){ $('#ciResult').innerHTML=`<div class="err">${esc((j&&j.error)||'error')}</div>`; return; }
+  const outs=j.outputs||{}; const order=['summary','source','hazard_explanation','immediate_corrective_action','recommended_corrective_action','root_cause','training','documentation','evidence_checklist','followup_checklist','recurrence_prevention','abatement_tracking'];
+  const keys=order.filter(k=>outs[k]).concat(Object.keys(outs).filter(k=>!order.includes(k)));
+  $('#ciResult').innerHTML = `${j.human_review_required?'<div class="banner warn">⚠ Flagged for human review — at least one part could not be deterministically sourced.</div>':''}
+    ${j.standard_resolved?'<div class="banner ok">Standard resolved to a current CFR record.</div>':'<div class="banner info">Standard not resolved in the knowledge store — treated cautiously.</div>'}
+    ${keys.map(k=>{const it=outs[k];return `<div class="item ${it.human_review_required?'high':'info'}">
+      <div class="t">${esc(it.title||k)} ${classBadge(it.classification)}</div>
+      <div class="d" style="white-space:pre-wrap">${esc(it.body||'')}</div>
+      ${srcHtml(it.source_refs)}${it.confidence!=null?`<div class="m">confidence ${it.confidence}</div>`:''}</div>`;}).join('')}
+    <div class="disc">${esc(j.disclaimer||'')}</div>`;
+}
+
+// boot
+loadDigest();
+// ══ HOME / COMMAND CENTER ═══════════════════════════════════════════════════
+async function renderHome(){
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+  try{
+    const [cat,std,spine,forms,rev]=await Promise.all([
+      api('/api/brain-router/catalog'), api('/api/compliance/kb/standards'),
+      api('/api/spine/stats'), api('/api/form-vault/catalog'), api('/api/review/overview')
+    ]);
+    const ags=(cat.j&&cat.j.agencies)||[];
+    set('hm-brains', ags.filter(a=>a.enabled).length+'/'+(ags.length||8));
+    const stds=(std.j&&std.j.standards)||[]; set('hm-standards', stds.length||'0');
+    const meta=(spine.j&&spine.j.meta)||spine.j||{}; set('hm-evidence', meta.nodes!=null?meta.nodes:'0');
+    const fl=(forms.j&&forms.j.forms)||[]; set('hm-forms', fl.length||'0');
+    const pend=(rev.j&&rev.j.pending)!=null?rev.j.pending:0; set('hm-review', pend);
+    const cr=document.getElementById('cnt-review'); if(cr){ cr.textContent=pend; cr.classList.toggle('zero',!pend); }
+  }catch(e){}
+}
+
+// ══ ASSET LIBRARY (8-agency) ════════════════════════════════════════════════
+const AGENCY_ORDER=['OSHA','MSHA','FMCSA','EPA','BLM','USACE','PHMSA','FRA','Other'];
+const AGENCY_LABEL={OSHA:'OSHA \u2014 29 CFR',MSHA:'MSHA \u2014 30 CFR',FMCSA:'FMCSA / DOT \u2014 49 CFR',
+  EPA:'EPA \u2014 40 CFR',BLM:'BLM \u2014 43 CFR',USACE:'USACE \u2014 EM 385-1-1',
+  PHMSA:'PHMSA \u2014 49 CFR',FRA:'FRA \u2014 49 CFR',
+  Other:'Other \u2014 state-plan, ANSI/API, prequal & insurance'};
+let LIB_STANDARDS=null;
+function agencyForStd(citation){
+  const c=String(citation||'').toUpperCase();
+  if(c.includes('EM 385')||c.includes('EM385')||c.includes('EM-385')) return 'USACE';
+  const m=c.match(/(\d+)\s*CFR\s*(?:PART\s*)?(\d+)/);
+  if(m){ const t=+m[1], part=+m[2];
+    if(t===29) return 'OSHA'; if(t===30) return 'MSHA'; if(t===40) return 'EPA'; if(t===43) return 'BLM';
+    if(t===49){ if((part>=171&&part<=185)||(part>=190&&part<=199)) return 'PHMSA';
+                if(part>=200&&part<=299) return 'FRA'; return 'FMCSA'; }
+  }
+  if(c.includes('MSHA')) return 'MSHA';
+  if(c.includes('EPA')||c.includes('RCRA')) return 'EPA';
+  if(c.includes('FMCSA')) return 'FMCSA';
+  if(c.includes('OSHA')||c.includes('654')) return 'OSHA';   // General Duty + state-plan OSHA
+  return 'Other';
+}
+function _truthyStr(v){ if(typeof v==='string') return !['','0','false','no','n','none'].includes(v.trim().toLowerCase()); return !!v; }
+function tileLib(n,l){ return `<div class="tile"><div class="n">${esc(n)}</div><div class="l">${esc(l)}</div></div>`; }
+async function loadLibrary(force){
+  if(LIB_STANDARDS && !force){ renderLibrary(); return; }
+  const body=document.getElementById('libBody'); if(body) body.innerHTML='<div class="empty">Loading library\u2026</div>';
+  const {j,ok}=await api('/api/compliance/kb/standards');
+  if(!ok){ if(body) body.innerHTML='<div class="err">Could not load the library.</div>'; return; }
+  LIB_STANDARDS=(j.standards||[]).map(s=>Object.assign({},s,{_ag:agencyForStd(s.citation)}));
+  const sel=document.getElementById('libAgency');
+  if(sel && sel.options.length<=1){
+    const present=AGENCY_ORDER.filter(a=>LIB_STANDARDS.some(s=>s._ag===a));
+    sel.innerHTML='<option value="">All agencies</option>'+present.map(a=>`<option value="${a}">${esc(AGENCY_LABEL[a])}</option>`).join('');
+  }
+  renderLibrary();
+}
+function renderLibrary(){
+  if(!LIB_STANDARDS) return;
+  const q=((document.getElementById('libSearch')||{}).value||'').trim().toLowerCase();
+  const af=(document.getElementById('libAgency')||{}).value||'';
+  const rows=LIB_STANDARDS.filter(s=>{
+    if(af && s._ag!==af) return false;
+    if(q){ const hay=(String(s.title||'')+' '+String(s.citation||'')+' '+String(s.category||'')).toLowerCase(); if(!hay.includes(q)) return false; }
+    return true;
+  });
+  const covered=new Set(LIB_STANDARDS.map(s=>s._ag).filter(a=>a!=='Other')).size;
+  const tiles=document.getElementById('libTiles');
+  if(tiles) tiles.innerHTML=tileLib(LIB_STANDARDS.length,'Total standards')+tileLib(covered+'/8','Agencies covered')+tileLib(rows.length,'Showing');
+  const groups={}; AGENCY_ORDER.forEach(a=>groups[a]=[]);
+  rows.forEach(s=>{ (groups[s._ag]||groups.Other).push(s); });
+  let html='';
+  AGENCY_ORDER.forEach(a=>{
+    const g=groups[a]; if(!g.length) return;
+    html+=`<div class="card"><div style="display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap">`
+      +`<h2 class="sec" style="margin:0;border:0;padding:0">${esc(AGENCY_LABEL[a])}</h2>`
+      +`<span class="lib-agency">${g.length} standard${g.length!==1?'s':''}</span></div>`
+      +`<table><thead><tr><th>Standard</th><th>Citation</th><th>Category</th><th class="c">Written program</th></tr></thead><tbody>`
+      +g.map(s=>`<tr class="clk" onclick="libDoc('${esc(String(s.id))}')"><td><span class="name">${esc(s.title||s.id)}</span></td>`
+        +`<td class="sub">${esc(s.citation||'\u2014')}</td><td class="sub">${esc(s.category||'\u2014')}</td>`
+        +`<td class="c">${_truthyStr(s.written_program)?'<span class="badge req">Required</span>':'<span class="badge rec">Recommended</span>'}</td></tr>`).join('')
+      +`</tbody></table></div>`;
+  });
+  const bodyEl=document.getElementById('libBody');
+  if(bodyEl) bodyEl.innerHTML=html||'<div class="empty">No standards match your filters.</div>';
+  const dEl=document.getElementById('libDoc'); if(dEl) dEl.innerHTML='';
+}
+async function libDoc(id){
+  const box=document.getElementById('libDoc'); if(!box) return;
+  box.innerHTML='<div class="card"><div class="empty">Loading standard\u2026</div></div>';
+  const {j,ok}=await api('/api/compliance/kb/standards/'+encodeURIComponent(id));
+  if(!ok){ box.innerHTML='<div class="card"><div class="err">Could not load that standard.</div></div>'; return; }
+  const r=j.standard||j.record||j.r||j||{};
+  const body=r.body||r.program||r.program_markdown||r.markdown||'';
+  const ag=agencyForStd(r.citation);
+  box.innerHTML=`<div class="card"><span class="back" onclick="document.getElementById('libDoc').innerHTML='';window.scrollTo({top:0,behavior:'smooth'})">\u2190 back to library</span>`
+    +`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px"><span class="lib-agency">${esc(AGENCY_LABEL[ag]||ag)}</span>`
+    +`${_truthyStr(r.written_program)?'<span class="badge req">Written program required</span>':'<span class="badge rec">Recommended</span>'}</div>`
+    +`<h1 style="margin-top:10px">${esc(r.title||id)}</h1>`
+    +`<p class="lede">${esc(r.citation||'')}${r.category?' \u00b7 '+esc(r.category):''}</p>`
+    +(body?`<div class="banner info" style="white-space:pre-wrap;line-height:1.6">${esc(String(body).slice(0,6000))}</div>`
+          :'<div class="muted">Open this standard in the Programs tab (pick a company) to generate the full sector-specific written program.</div>')
+    +`</div>`;
+  box.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ══ boot ════════════════════════════════════════════════════════════════════
+renderHome();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+</script>
 </body>
 </html>

@@ -2,7 +2,7 @@
   "name": "Origin Compliance",
   "short_name": "Origin",
   "description": "OSHA-grounded compliance platform — photo walk-through audits, prequal monitoring, and document management.",
-  "start_url": "/app",
+  "start_url": "/sie",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
