@@ -497,9 +497,60 @@ function renderScope(){
   h+='<textarea id="scopeText" style="width:100%;min-height:150px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical" '
     +'placeholder="e.g. Industrial electrical contractor. We do high-voltage work, motor control installs, and cable tray in refineries and chemical plants. Crews use aerial lifts, work at heights, and enter confined spaces. Occasional hot work / welding.">'+esc(d.scope||'')+'</textarea>';
   h+='<div id="scopeMsg" style="font-size:12.5px;color:var(--green);margin-top:8px;min-height:16px"></div>';
-  h+='<div style="margin-top:10px"><button class="btn orange" onclick="saveScope()">Save scope of work</button></div>';
+  h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<button class="btn orange" style="width:auto;padding:11px 20px" onclick="buildStack()">Build my compliance stack now</button>'
+    +'<button class="btn" style="width:auto;padding:11px 18px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-weight:600;color:var(--charcoal)" onclick="saveScope()">Just save (no build)</button></div>';
   h+='</div>';
+  // Optional: paste the ISN/Avetta prequal questionnaire to auto-fill the scope.
+  h+='<div class="card" style="padding:16px;margin-top:14px;background:#f7f9fc;border-color:#d9e2ec">';
+  h+='<div style="font-size:14px;font-weight:600;margin-bottom:4px">Have your ISN / Avetta / PEC questionnaire?</div>';
+  h+='<div class="mini" style="margin-bottom:8px">Paste it below and Origin reads your trade, state, headcount, and required hazard programs — then fills in the scope above for you.</div>';
+  h+='<textarea id="qText" style="width:100%;min-height:110px;padding:10px;border:1px solid #d9e2ec;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Paste the prequal questionnaire text here…"></textarea>';
+  h+='<div style="margin-top:8px"><button class="btn" style="width:auto;padding:9px 16px;border:1px solid #d9e2ec;background:#fff;border-radius:8px;cursor:pointer;font-weight:600;color:var(--charcoal)" onclick="qPrefill()">Read questionnaire &amp; fill scope</button> <span id="qMsg" class="mini" style="margin-left:6px"></span></div>';
+  h+='</div>';
+  h+='<div id="buildResult" style="margin-top:14px"></div>';
   document.getElementById('scope').innerHTML=h;
+}
+// Parsed questionnaire intake (naics/state/headcount/activities), applied on build.
+var PARSED=null;
+function qPrefill(){
+  var t=(document.getElementById('qText').value||'').trim();
+  var msg=document.getElementById('qMsg');
+  if(!t){msg.style.color='var(--red)';msg.textContent='Paste the questionnaire first.';return;}
+  msg.style.color='var(--muted)';msg.textContent='Reading…';
+  api('/portal/api/onboard/parse',{method:'POST',body:{text:t}}).then(function(r){
+    var it=(r.j&&r.j.intake)||null;
+    if(!r.ok||!it){msg.style.color='var(--red)';msg.textContent=(r.j&&r.j.error)||'Could not read that.';return;}
+    PARSED=it;
+    if(it.industry){document.getElementById('scopeText').value=it.industry;}
+    msg.style.color='var(--green)';
+    msg.textContent=(it.signals&&it.signals.length)?('Detected: '+it.signals.join(' · ')):'Read. Now build your stack.';
+  });
+}
+function buildStack(){
+  var t=(document.getElementById('scopeText').value||'').trim();
+  var out=document.getElementById('buildResult');
+  if(!t&&!(PARSED&&PARSED.industry)){out.innerHTML='<div class="callout" style="color:var(--red)">Describe your work (or paste your questionnaire) first — Origin needs to know your trade.</div>';return;}
+  out.innerHTML='<div class="callout">Building your full compliance stack — this takes a moment…</div>';
+  var body={scope:t, industry:(PARSED&&PARSED.industry)||t};
+  if(PARSED){body.naics=PARSED.naics;body.state=PARSED.state;body.headcount=PARSED.headcount;body.activities=PARSED.activities;}
+  api('/portal/api/onboard',{method:'POST',body:body}).then(function(r){
+    if(!r.ok||!(r.j&&r.j.ok)){out.innerHTML='<div class="callout" style="color:var(--red)">'+esc((r.j&&r.j.error)||'Build failed. Please try again.')+'</div>';return;}
+    var built=(r.j.built||[]), sc=(r.j.scope||{});
+    var rows=built.map(function(d){return '<div class="doc-row"><div class="doc-left"><div class="doc-ico">DOC</div><div><div class="doc-name">'+esc(d.title||d.gap_id)+'</div><div class="doc-sub">Built by Origin — in My Documents</div></div></div></div>';}).join('');
+    out.innerHTML='<div class="card" style="border-color:var(--green)"><div style="font-size:15px;font-weight:700;margin-bottom:2px">✓ Built '+(r.j.built_count||built.length)+' documents into your vault</div>'
+      +'<div class="mini" style="margin-bottom:10px">'+((sc.required_count!=null)?(sc.required_count+' required standards scoped for your work. '):'')+'Everything is now in <b>My Documents</b>, ready to view or print, and fully editable.</div>'
+      +rows
+      +'<div style="margin-top:10px"><button class="btn orange" style="width:auto;padding:9px 16px" onclick="goDocs()">Go to My Documents</button></div></div>';
+    if(DATA){DATA.scope=t;}
+  });
+}
+function goDocs(){
+  api('/portal/api/me').then(function(r){
+    if(r.ok){DATA=r.j;render();}
+    var tab=document.querySelector('.tab[data-page="docs"]');
+    if(tab)go(tab);
+  });
 }
 function saveScope(){
   var t=(document.getElementById('scopeText').value||'').trim();

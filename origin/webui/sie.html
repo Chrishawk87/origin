@@ -115,6 +115,9 @@
   .naics-sug .opt:last-child{border-radius:0 0 8px 8px}
   .naics-sug .opt:hover{background:var(--light)}
   .naics-sug .opt b{color:var(--orange)}
+  .qbox{margin:6px 0 4px;background:var(--light);border:1px dashed var(--line);border-radius:10px;padding:12px 14px}
+  .onboardres{margin-top:14px;background:var(--light);border-radius:10px;padding:14px 16px}
+  .onboardres .std{display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
   .scopewrap{margin-top:12px}
   .hazgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:8px} @media(max-width:640px){.hazgrid{grid-template-columns:1fr}}
   .hazgrid label.hz{display:flex;gap:8px;align-items:flex-start;font-size:13px;font-weight:400;color:var(--ink);cursor:pointer;padding:4px 0}
@@ -459,7 +462,15 @@
         <div><h1>Companies</h1><p class="lede">Portfolio risk from open corrective actions. Click a company to drill in.</p></div>
         <button class="btn ghost sm" onclick="loadPortfolio()">Refresh</button>
       </div>
-      <details class="form" id="coForm"><summary>+ Add / update a company</summary>
+      <details class="form" id="coForm"><summary>+ Add a company &amp; build its whole stack</summary>
+        <div class="qbox">
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <label style="margin:0">Have their ISN / Avetta / PEC questionnaire? Paste it — Origin fills this in.</label>
+            <span id="co-q-msg" class="muted" style="font-size:12px"></span>
+          </div>
+          <textarea id="co-q-text" rows="4" placeholder="Paste the prequal questionnaire text here (trade, NAICS, state, headcount, hazards)…"></textarea>
+          <button class="btn ghost sm" style="margin-top:8px" onclick="onboardParse()">Prefill from questionnaire</button>
+        </div>
         <div class="grid2" style="margin-top:10px">
           <div><label>Company name *</label><input id="co-name" placeholder="Acme Well Services"></div>
           <div><label>Industry / trade</label><select id="co-industry"><option value="">Loading trades…</option></select></div>
@@ -477,8 +488,12 @@
           <div id="co-haz" class="hazgrid"><div class="muted" style="font-size:12px">Type the trade above and Origin will pre-check the likely hazards.</div></div>
         </div>
         <div id="co-scope-preview" class="scopeprev hidden"></div>
-        <button class="btn sm" style="margin-top:12px" onclick="upsertCompany()">Save company</button>
-        <span id="co-save-msg" class="muted"></span>
+        <div class="row" style="margin-top:12px;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn" id="co-onboard-btn" onclick="onboardBuild()">Build the whole compliance stack now</button>
+          <button class="btn ghost sm" onclick="upsertCompany()">Just save (no build)</button>
+          <span id="co-save-msg" class="muted"></span>
+        </div>
+        <div id="co-onboard-result" class="onboardres hidden"></div>
       </details>
       <div id="portfolio"><div class="empty">Loading…</div></div>
     </div>
@@ -775,6 +790,65 @@ async function upsertCompany(){
     customer_platforms:plats, activities:coSelectedHazards()};
   const {j}=await api('/api/company/upsert',{method:'POST',body:JSON.stringify(body)});
   $('#co-save-msg').textContent = j&&j.ok?' Saved.':(' '+((j&&j.error)||'Error'));
+  COMPANIES=[]; loadPortfolio();
+}
+
+// ── ONBOARDING: paste a prequal questionnaire → prefill the form ──────────────
+async function onboardParse(){
+  const text=($('#co-q-text').value||'').trim();
+  const msg=$('#co-q-msg');
+  if(!text){ msg.textContent='Paste the questionnaire text first.'; return; }
+  msg.innerHTML='<span class="spin"></span> Reading…';
+  const {j}=await api('/api/company/onboard/parse',{method:'POST',body:JSON.stringify({text})});
+  const it=(j&&j.intake)||null;
+  if(!it){ msg.textContent=(j&&j.error)||'Could not read that.'; return; }
+  if(it.naics) $('#co-naics').value=it.naics;
+  if(it.state){ $('#co-state').value=it.state; coStateChanged(); }
+  if(it.headcount) $('#co-head').value=it.headcount;
+  // Free-text the trade into the industry select if present (option may not exist).
+  if(it.industry){
+    const isel=$('#co-industry');
+    if(![...isel.options].some(o=>o.value===it.industry)){
+      isel.add(new Option(it.industry+(it.naics?(' — '+it.naics):''), it.industry), 0);
+    }
+    isel.value=it.industry;
+  }
+  // Check the hazards the parser armed.
+  if(CO_TRIGGERS){
+    const keys=new Set([...coSelectedHazards(), ...(it.activities||[])]);
+    renderHazGrid(CO_TRIGGERS, keys);
+  }
+  coScopePreview();
+  msg.textContent = (it.signals&&it.signals.length) ? ('Detected: '+it.signals.join(' · ')) : 'Prefilled.';
+}
+
+// ── ONBOARDING: build the entire document stack into the company vault ────────
+async function onboardBuild(){
+  const name=$('#co-name').value.trim();
+  const res=$('#co-onboard-result');
+  if(!name){ $('#co-save-msg').textContent=' Name required.'; return; }
+  const btn=$('#co-onboard-btn'); btn.disabled=true;
+  const oldTxt=btn.textContent; btn.innerHTML='<span class="spin"></span> Building the stack…';
+  const plats=$('#co-plats').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body={company:name, industry:$('#co-industry').value.trim(), naics:$('#co-naics').value.trim(),
+    state:$('#co-state').value.trim(), headcount:parseInt($('#co-head').value)||null,
+    customer_platforms:plats, activities:coSelectedHazards()};
+  const {j}=await api('/api/company/onboard',{method:'POST',body:JSON.stringify(body)});
+  btn.disabled=false; btn.textContent=oldTxt;
+  if(!j||!j.ok){ res.classList.remove('hidden'); res.innerHTML=`<div class="empty">${esc((j&&j.error)||'Build failed.')}</div>`; return; }
+  const cid=(j.profile||{}).company_id||'';
+  const built=(j.built||[]);
+  const sc=j.scope||{};
+  res.classList.remove('hidden');
+  res.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline">
+      <b>Built ${j.built_count||built.length} document${(j.built_count===1)?'':'s'} into ${esc(name)}'s vault</b>
+      <span class="muted" style="font-size:12px">${sc.required_count||0} required standards scoped</span></div>
+    <div class="stdlist">${built.map(d=>`<div class="std">
+        <span class="src-tag baseline">built</span>
+        <span><b>${esc(d.title||d.gap_id)}</b></span>
+        ${(cid&&d.doc_id)?`<a class="btn ghost sm" style="margin-left:auto" href="/api/company/${encodeURIComponent(cid)}/docs/${encodeURIComponent(d.doc_id)}" target="_blank">View</a>`:''}
+      </div>`).join('')}</div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Everything is in the company's vault and fully editable. Open the Programs tab to work from the manual.</div>`;
   COMPANIES=[]; loadPortfolio();
 }
 

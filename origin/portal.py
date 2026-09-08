@@ -1708,6 +1708,114 @@ def register_portal(app) -> None:
         save_client(rec)
         return {"ok": True}
 
+    @app.post("/portal/api/onboard/parse")
+    def portal_onboard_parse(request: Request, body: dict = Body(...)):
+        """A signed-in sub pastes its ISN/Avetta prequal questionnaire; Origin
+        reads it and returns the inferred intake (trade, NAICS, state, headcount,
+        armed hazard programs) for the sub to confirm. Builds nothing."""
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        text = (body.get("text") or "").strip()
+        if not text:
+            return JSONResponse({"error": "Paste the questionnaire text first."},
+                                status_code=400)
+        try:
+            from . import onboarding as _ob
+            return {"ok": True, "intake": _ob.parse_questionnaire(text)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.post("/portal/api/onboard")
+    def portal_onboard(request: Request, body: dict = Body(...)):
+        """Zero-setup self-onboarding for a signed-in subcontractor: take the
+        intake (trade + hazard programs, or the parsed questionnaire), stamp it on
+        the sub's record + company profile, then build the ENTIRE compliance stack
+        and drop every document into the sub's own vault, editable after. Fully
+        offline. This is the sub-facing twin of /api/company/onboard."""
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        slug = sess["slug"]
+        rec = load_client(slug)
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        if not (rec.get("company") or "").strip():
+            return JSONResponse({"error": "Your company name isn't set on this "
+                                          "account yet — contact your contractor."},
+                                status_code=400)
+        intake = body if isinstance(body, dict) else {}
+        scope_text = (intake.get("industry") or intake.get("scope")
+                      or rec.get("trade") or rec.get("scope") or "").strip()
+        if not scope_text:
+            return JSONResponse(
+                {"error": "Pick your trade (or paste your prequal questionnaire) "
+                          "so Origin knows which programs your work requires."},
+                status_code=400)
+        acts = intake.get("activities")
+        acts = [a for a in acts if isinstance(a, str)] if isinstance(acts, list) else []
+
+        # Persist the intake onto the sub record.
+        rec["trade"] = scope_text
+        if intake.get("naics"):
+            rec["naics"] = str(intake.get("naics")).strip()
+        if intake.get("state"):
+            rec["state"] = str(intake.get("state")).strip()
+        save_client(rec)
+
+        # Bridge to a company profile, then stamp the hazard activities on it so the
+        # combined manual reflects the triggered programs (build_package reads the
+        # stored profile).
+        cid = _ensure_profile_for_sub(rec)
+        if not cid:
+            return JSONResponse({"error": "could not build a company profile"},
+                                status_code=500)
+        try:
+            from . import company_profile as _cp
+            _cp.upsert({"company_id": cid, "company": rec.get("company", ""),
+                        "activities": acts}, by="portal-sub",
+                       gc_slug=(rec.get("gc_slug") or "").strip())
+        except Exception:
+            pass
+
+        # Build the whole stack and drop each doc into the sub vault (same write
+        # pattern as the one-click prequal Fix).
+        try:
+            from . import onboarding as _ob
+            from . import compliance as _cmp
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"onboarding unavailable: {exc}"},
+                                status_code=500)
+        profile = {"company": rec.get("company", ""), "industry": scope_text,
+                   "naics": rec.get("naics", ""), "state": rec.get("state", ""),
+                   "headcount": intake.get("headcount"), "activities": acts}
+        try:
+            plan = _ob.plan_stack(profile)
+            stack = _ob.build_full_stack(cid, company=rec.get("company", ""),
+                                         scope_text=scope_text, scope=plan["scope"])
+        except Exception as exc:
+            return JSONResponse({"error": f"could not build the stack: {exc}"},
+                                status_code=500)
+        docs_dir = _client_dir(slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        built = []
+        for d in stack:
+            html_path = _cmp.unique_path(
+                docs_dir, (_cmp.safe_filename(d["title"]).rsplit(".", 1)[0] + ".html"))
+            html_path.write_text(d["html"], encoding="utf-8")
+            row = {"name": d["title"], "sub": "Built by Origin — onboarding",
+                   "file": html_path.name, "source": "origin-draft",
+                   "gap_id": d["gap_id"]}
+            rec.setdefault("documents", []).append(row)
+            built.append({"gap_id": d["gap_id"], "title": d["title"],
+                          "file": html_path.name})
+        rec["onboarded_at"] = _now()
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "built": built, "built_count": len(built),
+                "scope": {"required_count": plan["scope"].get("required_count"),
+                          "sector_label": plan["scope"].get("sector_label")}}
+
     @app.post("/portal/api/upload")
     def portal_upload(request: Request, file: UploadFile = File(...),
                       name: str = Form(""), folder: str = Form("Uploaded")):

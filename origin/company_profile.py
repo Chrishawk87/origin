@@ -465,6 +465,64 @@ def register_company(app) -> None:
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
+    # ── zero-setup onboarding (build the whole stack from a short intake) ─────
+    @app.post("/api/company/onboard/parse")
+    def company_onboard_parse(request: Request, body: dict = Body(default=None)):
+        """Read a pasted/uploaded ISN/Avetta prequal questionnaire and return the
+        inferred intake (trade, NAICS, state, headcount, armed hazard triggers)
+        for the wizard to confirm before building. Builds nothing."""
+        payload = body if isinstance(body, dict) else {}
+        text = (payload.get("text") or "").strip()
+        if not text:
+            return JSONResponse({"error": "Paste the questionnaire text first."},
+                                status_code=400)
+        try:
+            from . import onboarding as _ob
+            return {"ok": True, "intake": _ob.parse_questionnaire(text)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.post("/api/company/onboard")
+    def company_onboard(request: Request, body: dict = Body(default=None)):
+        """Zero-setup onboarding: upsert the company profile from the intake, then
+        build the entire compliance stack and drop every document into the
+        company's vault. Returns what was built. Tenant-scoped exactly like
+        /api/company/upsert."""
+        payload = body if isinstance(body, dict) else {}
+        company = (payload.get("company") or "").strip()
+        if not company:
+            return JSONResponse({"error": "company is required"}, status_code=400)
+        owner, gc = _scope(request)
+        cid = _slug(payload.get("company_id") or company)
+        existing = get(cid)
+        if not owner:
+            if existing and (existing.get("gc_slug") or "") != (gc or ""):
+                return JSONResponse({"error": "forbidden"}, status_code=403)
+            stamp = gc
+        else:
+            stamp = payload.get("gc_slug", gc)
+        try:
+            from . import onboarding as _ob
+            rec = upsert(payload, by=payload.get("by", "owner"), gc_slug=stamp)
+            cid = rec["company_id"]
+            scope_text = (rec.get("industry") or rec.get("naics") or "").strip()
+            plan = _ob.plan_stack(payload)
+            stack = _ob.build_full_stack(cid, company=rec.get("company", company),
+                                         scope_text=scope_text, scope=plan["scope"])
+            built = []
+            for d in stack:
+                entry = save_company_doc(cid, mid="onboard:" + d["gap_id"],
+                                         title=d["title"], html=d["html"],
+                                         by=payload.get("by", "owner"))
+                built.append({"gap_id": d["gap_id"], "title": d["title"],
+                              "doc_id": entry["doc_id"]})
+            return {"ok": True, "profile": rec, "built": built,
+                    "built_count": len(built),
+                    "scope": {"required_count": plan["scope"].get("required_count"),
+                              "sector_label": plan["scope"].get("sector_label")}}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
     @app.get("/api/company/{company_id}")
     def company_get(company_id: str):
         view = company_view(company_id)
