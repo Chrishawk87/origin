@@ -317,6 +317,101 @@ def portfolio(gc_slug: Optional[str] = None) -> Dict[str, Any]:
     return {"companies": rows, "total": len(rows)}
 
 
+# ── company document store (the "magic button" output) ─────────────────────────
+# When the owner fills a library master for a company, we save the resulting
+# company-ready HTML here — one folder per company, plus a manifest of what's in
+# it. The blank master in the Asset Library keeps its {{TOKENS}} and is never
+# touched, so it can be filled again for the next company.
+COMPANY_DOCS_DIR = DATA_DIR / "company_docs"
+
+
+def _docs_dir(cid: str) -> Path:
+    d = COMPANY_DOCS_DIR / _slug(cid)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _manifest_path(cid: str) -> Path:
+    return _docs_dir(cid) / "manifest.json"
+
+
+def _read_manifest(cid: str) -> List[Dict[str, Any]]:
+    p = _manifest_path(cid)
+    if not p.exists():
+        return []
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _write_manifest(cid: str, items: List[Dict[str, Any]]) -> None:
+    _manifest_path(cid).write_text(json.dumps(items, indent=2), encoding="utf-8")
+
+
+def doc_fields_for(company_id: str) -> Dict[str, str]:
+    """Deterministic seed for a library document's {{TOKENS}} from what the
+    platform already knows about a company. The owner can override any of these
+    in the fill form; the two we can't know (address, administrator) come back
+    blank for the owner to type. Never fabricates."""
+    rec = get(company_id) or {}
+    company = (rec.get("company") or "").strip()
+    scope_txt = (rec.get("industry") or "").strip()
+    state = (rec.get("state") or "").strip()
+    if scope_txt and state:
+        scope_txt = f"{scope_txt} ({state})"
+    return {
+        "COMPANY_NAME": company,
+        "COMPANY_ADDRESS": "",
+        "EFFECTIVE_DATE": datetime.now(timezone.utc).strftime("%B %d, %Y"),
+        "PROGRAM_ADMINISTRATOR": "",
+        "ADMIN_TITLE": "",
+        "SCOPE": scope_txt,
+    }
+
+
+def save_company_doc(company_id: str, *, mid: str, title: str, html: str,
+                     fields: Optional[Dict[str, Any]] = None,
+                     by: str = "owner") -> Dict[str, Any]:
+    """Persist a filled, company-ready document for a company. Returns the
+    manifest entry. The company folder is created on demand."""
+    cid = _slug(company_id)
+    items = _read_manifest(cid)
+    doc_id = f"{_slug(title)}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    (_docs_dir(cid) / f"{doc_id}.html").write_text(html or "", encoding="utf-8")
+    entry = {
+        "doc_id": doc_id,
+        "mid": mid,
+        "title": title,
+        "fields": fields or {},
+        "created_at": _now(),
+        "updated_at": _now(),
+        "created_by": by,
+    }
+    # If a doc from the same master already exists, keep the newest but retain
+    # history — simplest: prepend the new entry so lists show newest first.
+    items.insert(0, entry)
+    _write_manifest(cid, items)
+    return entry
+
+
+def list_company_docs(company_id: str) -> List[Dict[str, Any]]:
+    return _read_manifest(_slug(company_id))
+
+
+def get_company_doc(company_id: str, doc_id: str):
+    """Return (html, entry) for a saved company doc, or (None, None)."""
+    cid = _slug(company_id)
+    for e in _read_manifest(cid):
+        if e.get("doc_id") == doc_id:
+            p = _docs_dir(cid) / f"{doc_id}.html"
+            if p.exists():
+                return p.read_text(encoding="utf-8"), e
+            return None, e
+    return None, None
+
+
 # ── routes ────────────────────────────────────────────────────────────────────
 def register_company(app) -> None:
     """Attach Company Profile + Risk routes. Isolated + non-fatal, mirroring the
@@ -389,3 +484,37 @@ def register_company(app) -> None:
         if sc is None:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"ok": True, "scope": sc}
+
+    # ── company documents (magic-button output) ─────────────────────────────
+    @app.get("/api/company/{company_id}/doc-fields")
+    def company_doc_fields(company_id: str):
+        """Seed values for a library document's fields from the company profile."""
+        return {"ok": True, "fields": doc_fields_for(company_id)}
+
+    @app.get("/api/company/{company_id}/docs")
+    def company_docs_list(company_id: str):
+        return {"ok": True, "items": list_company_docs(company_id)}
+
+    @app.post("/api/company/{company_id}/docs")
+    def company_docs_save(company_id: str, body: dict = Body(default=None)):
+        payload = body if isinstance(body, dict) else {}
+        html = payload.get("html") or ""
+        title = (payload.get("title") or "").strip() or "Document"
+        mid = (payload.get("mid") or "").strip()
+        if not html:
+            return JSONResponse({"error": "html is required"}, status_code=400)
+        try:
+            entry = save_company_doc(company_id, mid=mid, title=title, html=html,
+                                     fields=payload.get("fields") or {},
+                                     by=payload.get("by", "owner"))
+            return {"ok": True, "doc": entry}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.get("/api/company/{company_id}/docs/{doc_id}")
+    def company_docs_get(company_id: str, doc_id: str):
+        from fastapi.responses import HTMLResponse
+        html, entry = get_company_doc(company_id, doc_id)
+        if html is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return HTMLResponse(html)

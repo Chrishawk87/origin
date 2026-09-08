@@ -761,6 +761,44 @@ def save_master_html(mid: str, html: str) -> bool:
     return True
 
 
+# ── Auto-fill a master for a company (the "magic" button) ────────────────────
+# The company-specific values a library document exposes as {{TOKENS}}. Filling
+# any of these produces a company-ready copy WITHOUT mutating the blank master:
+# we read the pristine master, replace the tokens on a copy, and re-wrap. The
+# master file on disk keeps its {{TOKENS}} so it can be filled again for the
+# next company. (Same token set the GC portal already fills on assign.)
+LIB_DOC_FIELDS = [
+    ("COMPANY_NAME",          "Company name"),
+    ("COMPANY_ADDRESS",       "Company address"),
+    ("EFFECTIVE_DATE",        "Effective date"),
+    ("PROGRAM_ADMINISTRATOR", "Program administrator"),
+    ("ADMIN_TITLE",           "Administrator title"),
+    ("SCOPE",                 "Scope of work"),
+]
+
+
+def fill_master_html(mid: str, fields: Optional[Dict[str, Any]] = None):
+    """Return (doc_html, title) for a library master with the supplied field
+    values applied to its {{TOKENS}}, wrapped as a clean printable document.
+    Returns (None, None) if the master no longer exists. Non-destructive: the
+    stored master keeps its placeholders."""
+    html = read_master_html(mid)
+    if html is None:
+        return None, None
+    title = master_title(mid)
+    f = fields or {}
+    for token, _label in LIB_DOC_FIELDS:
+        val = f.get(token) or f.get(token.lower())
+        if val:
+            html = html.replace("{{%s}}" % token, str(val))
+    # Keep the review-date tokens coherent with a supplied effective date so the
+    # cover table doesn't show a raw {{...}} next to a real date.
+    eff = f.get("EFFECTIVE_DATE") or f.get("effective_date")
+    if eff:
+        html = html.replace("{{LAST_REVIEW_DATE}}", str(eff))
+    return wrap_document(html, title), title
+
+
 def _slug(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]+", "-", s or "").strip("-").lower() or "master"
 

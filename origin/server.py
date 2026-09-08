@@ -1180,6 +1180,66 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         dl = _cmp.safe_filename(title)[:-5] + ".pdf"
         return FileResponse(str(out), filename=dl, media_type="application/pdf")
 
+    # -- Magic button: auto-fill a master for a company ----------------------
+    @app.post("/api/compliance/master/{mid}/fill")
+    def compliance_master_fill(mid: str, body: dict = Body(default=None)):
+        """Return a company-ready copy of a master with its {{TOKENS}} filled.
+        Seeds from the company profile (if company_id given), then applies any
+        explicit field overrides. Never mutates the blank master."""
+        payload = body if isinstance(body, dict) else {}
+        cid = (payload.get("company_id") or "").strip()
+        fields: dict = {}
+        if cid:
+            try:
+                from . import company_profile as _cp
+                fields.update(_cp.doc_fields_for(cid))
+            except Exception:
+                pass
+        override = payload.get("fields")
+        if isinstance(override, dict):
+            for k, v in override.items():
+                if v not in (None, ""):
+                    fields[k] = v
+        html, title = _cmp.fill_master_html(mid, fields)
+        if html is None:
+            return JSONResponse({"error": "master not found"}, status_code=404)
+        return {"ok": True, "id": mid, "title": title, "html": html, "fields": fields}
+
+    @app.post("/api/compliance/master/{mid}/fill/pdf")
+    def compliance_master_fill_pdf(mid: str, body: dict = Body(default=None)):
+        """Render a filled (or edited) master to PDF. If the body carries `html`
+        (the user's in-place edits), that exact HTML is rendered; otherwise the
+        master is filled from company_id + fields first."""
+        payload = body if isinstance(body, dict) else {}
+        html = payload.get("html")
+        title = (payload.get("title") or "").strip()
+        if not html:
+            cid = (payload.get("company_id") or "").strip()
+            fields: dict = {}
+            if cid:
+                try:
+                    from . import company_profile as _cp
+                    fields.update(_cp.doc_fields_for(cid))
+                except Exception:
+                    pass
+            override = payload.get("fields")
+            if isinstance(override, dict):
+                for k, v in override.items():
+                    if v not in (None, ""):
+                        fields[k] = v
+            html, title2 = _cmp.fill_master_html(mid, fields)
+            if html is None:
+                return JSONResponse({"error": "master not found"}, status_code=404)
+            title = title or title2
+        title = title or _cmp.master_title(mid) or "Document"
+        out = _cmp.LIBRARY_DIR / (mid + "-filled.pdf")
+        try:
+            _cmp.render_pdf(html, out, title=title)
+        except RuntimeError as e:
+            return JSONResponse({"error": str(e)}, status_code=200)
+        dl = _cmp.safe_filename(title)[:-5] + ".pdf"
+        return FileResponse(str(out), filename=dl, media_type="application/pdf")
+
     # -- Assign a master into a customer project (copy-on-assign) -------------
     @app.post("/api/projects/{slug}/compliance/assign")
     def compliance_assign(slug: str, body: dict = Body(...)):

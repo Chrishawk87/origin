@@ -252,8 +252,20 @@
   .libcard-t{font-weight:700;font-size:13.5px;color:#f4f7fb;line-height:1.35}
   .libcard-m{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
   .libframe{width:100%;height:78vh;border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:12px}
+  /* magic auto-fill panel */
+  .lf-panel{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;background:rgba(16,185,129,.05)}
+  .lf-top{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
+  .lf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+  .lf-row{display:flex;flex-direction:column;gap:4px}
+  .lf-lab{font-size:12px;font-weight:600;color:var(--muted)}
+  .lf-in{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card,#0b1220);color:inherit;font-size:13.5px}
+  .lf-msg{margin-top:10px;font-size:13px;color:var(--muted);min-height:18px}
+  .lf-msg.ok{color:#10b981}
+  .lf-msg.err{color:#ef4444}
+  .btn.magic{background:linear-gradient(135deg,#10b981,#0ea5e9);border:0;color:#fff;font-weight:700}
   @media(max-width:820px){
     .libgrid{grid-template-columns:1fr}
+    .lf-grid{grid-template-columns:1fr}
     .libframe{height:70vh}
   }
   /* ===== LIGHT SKIN — flips colors to a light palette, keeps the sidebar ===== */
@@ -1384,6 +1396,17 @@ function renderLibrary(){
   if(bodyEl) bodyEl.innerHTML=html||'<div class="empty">No documents match your filters.</div>';
   const dEl=document.getElementById('libDoc'); if(dEl) dEl.innerHTML='';
 }
+// ── Asset Library "magic button": auto-fill, edit in place, save to company ──
+const LIB_FIELDS=[
+  ['COMPANY_NAME','Company name'],
+  ['COMPANY_ADDRESS','Company address'],
+  ['EFFECTIVE_DATE','Effective date'],
+  ['PROGRAM_ADMINISTRATOR','Program administrator'],
+  ['ADMIN_TITLE','Administrator title'],
+  ['SCOPE','Scope of work']
+];
+let LIB_CUR=null;      // {id,title,type}
+let LIB_EDIT=false;    // edit-in-place toggle state
 async function libDoc(id){
   const box=document.getElementById('libDoc'); if(!box) return;
   box.innerHTML='<div class="card"><div class="empty">Opening document\u2026</div></div>';
@@ -1391,17 +1414,126 @@ async function libDoc(id){
   if(!ok){ box.innerHTML='<div class="card"><div class="err">Could not open that document.</div></div>'; return; }
   const title=j.title||id, doc=j.html||'';
   const t=docType(id);
+  LIB_CUR={id:id,title:title,type:t}; LIB_EDIT=false;
+  const cos=await fetchCompanies();
+  const opts='<option value="">— pick a company —</option>'
+    +cos.map(c=>`<option value="${esc(c.id)}">${esc(c.name||c.id)}</option>`).join('');
+  const fieldRows=LIB_FIELDS.map(f=>
+    `<label class="lf-row"><span class="lf-lab">${esc(f[1])}</span>`
+    +`<input id="lf_${f[0]}" class="lf-in" type="text" placeholder=""></label>`).join('');
   box.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">`
     +`<span class="back" onclick="document.getElementById('libDoc').innerHTML='';window.scrollTo({top:0,behavior:'smooth'})">\u2190 back to library</span>`
-    +`<div style="display:flex;gap:8px"><button class="btn ghost sm" onclick="printLibDoc()">Print / Save PDF</button></div></div>`
+    +`<div style="display:flex;gap:8px;flex-wrap:wrap">`
+      +`<button class="btn ghost sm" id="libEditBtn" onclick="libToggleEdit()">Edit text in place</button>`
+      +`<button class="btn ghost sm" onclick="libDownloadPdf()">Download PDF</button>`
+      +`<button class="btn sm" onclick="libSaveToCompany()">Save to company</button>`
+    +`</div></div>`
     +`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">${typeBadge(t)}</div>`
     +`<h1 style="margin-top:8px">${esc(title)}</h1>`
-    +`<p class="lede">Ready-to-use written document. Print or Save as PDF to send it to your desk.</p>`
+    +`<p class="lede">Pick a company (or type the details), hit <b>Auto-fill</b>, tweak the text if you like, then save it to that company or download a PDF. The blank master stays untouched for the next company.</p>`
+    +`<div class="lf-panel">`
+      +`<div class="lf-top"><label class="lf-row" style="flex:1;min-width:220px"><span class="lf-lab">Company</span>`
+        +`<select id="lf_company" class="lf-in" onchange="libSeed()">${opts}</select></label>`
+        +`<button class="btn sm magic" onclick="libFill()">\u2728 Auto-fill</button></div>`
+      +`<div class="lf-grid">${fieldRows}</div>`
+      +`<div class="lf-msg" id="libMsg"></div>`
+    +`</div>`
     +`<iframe id="libFrame" class="libframe" title="${esc(title)}"></iframe>`
+    +`<div id="libSaved" style="margin-top:12px"></div>`
     +`</div>`;
   const fr=document.getElementById('libFrame');
   if(fr){ fr.srcdoc=doc; }
   box.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function libMsg(txt,cls){ const m=document.getElementById('libMsg'); if(m){ m.textContent=txt||''; m.className='lf-msg'+(cls?' '+cls:''); } }
+function libCompanyId(){ const s=document.getElementById('lf_company'); return s?s.value:''; }
+function libGatherFields(){ const o={}; LIB_FIELDS.forEach(f=>{ const el=document.getElementById('lf_'+f[0]); if(el && el.value.trim()) o[f[0]]=el.value.trim(); }); return o; }
+// When a company is picked, seed the field inputs from what the platform knows.
+async function libSeed(){
+  const cid=libCompanyId(); if(!cid) return;
+  const {j,ok}=await api('/api/company/'+encodeURIComponent(cid)+'/doc-fields');
+  if(ok && j.fields){ LIB_FIELDS.forEach(f=>{ const el=document.getElementById('lf_'+f[0]); if(el && !el.value.trim() && j.fields[f[0]]) el.value=j.fields[f[0]]; }); }
+  libLoadSaved(cid);
+}
+// Auto-fill: send company + typed fields to the server, drop the ready copy in.
+async function libFill(){
+  if(!LIB_CUR) return;
+  libMsg('Filling\u2026');
+  const body={company_id:libCompanyId(), fields:libGatherFields()};
+  const {j,ok}=await api('/api/compliance/master/'+encodeURIComponent(LIB_CUR.id)+'/fill',
+    {method:'POST',body:JSON.stringify(body)});
+  if(!ok||!j.html){ libMsg((j&&j.error)||'Could not fill that document.','err'); return; }
+  const fr=document.getElementById('libFrame'); if(fr){ fr.srcdoc=j.html; }
+  // reflect any server-seeded values back into the inputs
+  if(j.fields){ LIB_FIELDS.forEach(f=>{ const el=document.getElementById('lf_'+f[0]); if(el && !el.value.trim() && j.fields[f[0]]) el.value=j.fields[f[0]]; }); }
+  LIB_EDIT=false; const b=document.getElementById('libEditBtn'); if(b) b.textContent='Edit text in place';
+  libMsg('Filled. Edit in place, save to the company, or download a PDF.','ok');
+}
+// Grab the current document HTML from the iframe (captures inline edits too).
+function libCurrentHtml(){
+  const fr=document.getElementById('libFrame'); if(!fr) return '';
+  try{ const d=fr.contentDocument||fr.contentWindow.document; if(d && d.documentElement) return '<!doctype html>'+d.documentElement.outerHTML; }catch(e){}
+  return fr.getAttribute('srcdoc')||'';
+}
+function libToggleEdit(){
+  const fr=document.getElementById('libFrame'); if(!fr) return;
+  let d; try{ d=fr.contentDocument||fr.contentWindow.document; }catch(e){ return; }
+  if(!d||!d.body) return;
+  LIB_EDIT=!LIB_EDIT;
+  d.body.contentEditable=LIB_EDIT?'true':'false';
+  d.designMode=LIB_EDIT?'on':'off';
+  const b=document.getElementById('libEditBtn');
+  if(b) b.textContent=LIB_EDIT?'Done editing':'Edit text in place';
+  if(LIB_EDIT){ libMsg('Editing on — click into the document and type. Hit "Done editing" when finished.'); try{ fr.contentWindow.focus(); }catch(e){} }
+  else libMsg('Edits captured. Save to the company or download a PDF to keep them.','ok');
+}
+async function libDownloadPdf(){
+  if(!LIB_CUR) return;
+  libMsg('Building PDF\u2026');
+  const html=libCurrentHtml();
+  try{
+    const r=await fetch('/api/compliance/master/'+encodeURIComponent(LIB_CUR.id)+'/fill/pdf',
+      {method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({html:html,title:LIB_CUR.title})});
+    const ct=r.headers.get('content-type')||'';
+    if(!r.ok||ct.indexOf('application/pdf')<0){
+      let msg='Could not build the PDF.'; try{ const j=await r.json(); if(j&&j.error) msg=j.error; }catch(e){}
+      libMsg(msg,'err'); return;
+    }
+    const blob=await r.blob(); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url;
+    a.download=(LIB_CUR.title||'document').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'')+'.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    libMsg('PDF downloaded.','ok');
+  }catch(e){ libMsg('Could not build the PDF.','err'); }
+}
+async function libSaveToCompany(){
+  if(!LIB_CUR) return;
+  const cid=libCompanyId();
+  if(!cid){ libMsg('Pick a company first to save a copy to it.','err'); return; }
+  libMsg('Saving\u2026');
+  const html=libCurrentHtml();
+  const body={mid:LIB_CUR.id,title:LIB_CUR.title,html:html,fields:libGatherFields()};
+  const {j,ok}=await api('/api/company/'+encodeURIComponent(cid)+'/docs',
+    {method:'POST',body:JSON.stringify(body)});
+  if(!ok||!j.doc){ libMsg((j&&j.error)||'Could not save.','err'); return; }
+  libMsg('Saved to '+(coName(cid))+'. It stays under that company; the blank master is untouched.','ok');
+  libLoadSaved(cid);
+}
+function coName(cid){ const c=(COMPANIES||[]).find(x=>x.id===cid); return c?(c.name||cid):cid; }
+async function libLoadSaved(cid){
+  const box=document.getElementById('libSaved'); if(!box) return;
+  if(!cid){ box.innerHTML=''; return; }
+  const {j,ok}=await api('/api/company/'+encodeURIComponent(cid)+'/docs');
+  const items=(ok&&j.items)?j.items:[];
+  if(!items.length){ box.innerHTML=`<div class="src">No saved documents for ${esc(coName(cid))} yet.</div>`; return; }
+  box.innerHTML=`<h2 class="sec" style="margin:0 0 6px">Saved for ${esc(coName(cid))}</h2>`
+    +`<div class="libgrid">`+items.map(d=>
+      `<a class="libcard" href="/api/company/${encodeURIComponent(cid)}/docs/${encodeURIComponent(d.doc_id)}" target="_blank" rel="noopener">`
+      +`<span class="libcard-t">${esc(d.title||d.doc_id)}</span>`
+      +`<span class="libcard-m"><span class="chip">${esc((d.created_at||'').slice(0,10))}</span></span></a>`).join('')
+    +`</div>`;
 }
 function printLibDoc(){
   const fr=document.getElementById('libFrame');
