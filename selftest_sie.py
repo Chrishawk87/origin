@@ -465,41 +465,71 @@ def check_perception(client, token: str) -> None:
          "title": "", "description": "morale"}) is None, \
         "a non-hazard must resolve to nothing, never a forced citation"
 
-    # 1b. PRECISION — the corpus now holds 5700+ sections across 30/40/43/49 CFR
-    #     whose keywords are just title-word splits, so an incidental query word
-    #     used to surface the WRONG (often non-OSHA) standard at high confidence
-    #     (the mine-berm scene once cited "Smoking and use of open flames"). Two
-    #     invariants guard against that regression:
-    #       - a photo audit must NEVER stamp a non-OSHA (not-29-CFR) section as a
-    #         high-confidence citation; if such a record is the best hit it is at
-    #         most a low-confidence review candidate, and
-    #       - whatever standard IS returned must be labeled with its own correct
-    #         title number — a 43/30/40 CFR section is never mislabeled "29 CFR".
-    non_osha_scenes = [
-        "open oil storage tank venting vapors near the well pad",   # 43 CFR / BLM
-        "smoking near the mine portal",                             # 30 CFR / MSHA
-        "hazardous waste drum staged by the road",                  # 49 CFR / DOT
+    # 1b. PRECISION — the corpus holds 5700+ sections across 30/40/43/49 CFR whose
+    #     keywords are just title-word splits, so an incidental query word can
+    #     surface the WRONG standard at high confidence (the mine-berm scene once
+    #     cited "Smoking and use of open flames"). A scene that lacks a specific
+    #     jurisdiction anchor may still brush a non-OSHA verbatim record, but it
+    #     must NEVER be stamped high-confidence off an incidental word, and
+    #     whatever standard IS returned must carry its own correct CFR title
+    #     number — a 30/40/43/49 CFR section is never mislabeled "29 CFR".
+    incidental_scenes = [
+        "worker near an open flame in the shop",     # brushes a mine smoking rec
+        "hazardous waste drum staged by the road",   # brushes a DOT definitions rec
     ]
-    for desc in non_osha_scenes:
+    for desc in incidental_scenes:
         std = pa._resolve_citation(
             {"hazard_category": desc, "title": "", "description": desc})
         if std is None:
             continue  # honest no-match is always acceptable
         cit = std.get("citation", "")
         if not cit.startswith("29 CFR"):
-            assert std["confidence_band"] != "high", (
-                "a non-OSHA section must never be a high-confidence photo-audit "
-                f"citation: {desc!r} → {std}")
-            # and it must carry its own correct CFR title, not a fake "29 CFR"
+            # an unanchored, incidental non-OSHA brush must not be high-confidence
+            # and must not come from the deterministic multi-agency battery
+            assert std["confidence_band"] != "high" \
+                and std.get("match_method") != "nonosha_map", (
+                "an unanchored non-OSHA brush must never be a high-confidence "
+                f"photo-audit citation: {desc!r} → {std}")
             assert cit and cit[:2].isdigit() and " CFR " in cit, \
                 f"non-OSHA hit mislabeled: {desc!r} → {cit!r}"
 
+    # 1c. MULTI-AGENCY LANES — the photo auditor is a field auditor for oil & gas
+    #     / industrial sites, so a domain-anchored non-OSHA hazard must resolve in
+    #     its OWN authority lane (MSHA / EPA / BLM / DOT), high-confidence, via the
+    #     deterministic battery — never blended into an OSHA verdict, never
+    #     mislabeled "29 CFR". Each scene names an unambiguous jurisdiction anchor.
+    agency_scenes = [
+        # description, expected section, expected authority, expected title num
+        ("haul road dump point with no berm at the edge", "56.9300", "MSHA", "30"),
+        ("diesel tank with no secondary containment or dike", "112.7", "EPA", "40"),
+        ("open oil storage tank venting vapors near the well pad", "3179.90", "BLM", "43"),
+        ("cargo tank truck with no placard", "172.504", "DOT", "49"),
+    ]
+    for desc, section, authority, title_num in agency_scenes:
+        std = pa._resolve_citation(
+            {"hazard_category": desc, "title": "", "description": desc})
+        assert std is not None, \
+            f"a domain-anchored {authority} hazard must resolve, not no-match: {desc!r}"
+        assert std["section"] == section, \
+            f"{authority} scene resolved to wrong section: {desc!r} → {std['section']} (want {section})"
+        assert std.get("authority") == authority, \
+            f"{authority} scene mislabeled authority: {desc!r} → {std.get('authority')}"
+        assert std.get("authority") != "OSHA", \
+            f"a non-OSHA hazard must never land in the OSHA lane: {desc!r} → {std}"
+        assert std.get("citation", "").startswith(f"{title_num} CFR "), \
+            f"{authority} scene mislabeled title: {desc!r} → {std.get('citation')!r}"
+        assert std.get("match_method") == "nonosha_map", \
+            f"{authority} scene must resolve via the deterministic battery: {desc!r} → {std.get('match_method')}"
+        assert std["confidence_band"] == "high", \
+            f"a domain-anchored {authority} hazard must be high-confidence: {desc!r} → {std}"
+
     # A genuine OSHA construction hazard still resolves to the RIGHT section at
-    # high confidence — tightening precision must not blunt real matches.
+    # high confidence — the multi-agency lanes must not blunt real OSHA matches.
     good = pa._resolve_citation({
         "hazard_category": "worker at an unprotected roof edge with no guardrail",
         "title": "", "description": "no fall protection, near the edge"})
     assert good and good["section"] == "1926.501" \
+        and good["authority"] == "OSHA" \
         and good["confidence_band"] == "high", \
         f"a real OSHA fall hazard must still resolve high-confidence: {good}"
 

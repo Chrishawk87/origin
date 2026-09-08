@@ -246,6 +246,31 @@ def _citation_for(rec: Optional[Dict[str, Any]], section: str) -> str:
     return "29 CFR " + section
 
 
+# Which federal authority owns a CFR title. This is the "lane" a finding belongs
+# to — kept EXPLICIT so a mine (MSHA), transport (DOT), spill (EPA) or federal-
+# lease (BLM) hazard is never silently reported as an OSHA violation. The four
+# regulatory classifications must never blend.
+_AUTHORITY_BY_TITLE = {
+    "29": "OSHA",   # Occupational Safety & Health Administration
+    "30": "MSHA",   # Mine Safety & Health Administration
+    "40": "EPA",    # Environmental Protection Agency
+    "43": "BLM",    # Bureau of Land Management (federal oil & gas leases)
+    "49": "DOT",    # Dept. of Transportation (PHMSA hazmat / FMCSA)
+}
+
+
+def _authority_for(rec: Optional[Dict[str, Any]], citation: str) -> str:
+    """The enforcing authority for a resolved standard, from the record's bulk-XML
+    url (title-NN) or the citation's leading title number. Defaults to OSHA (the
+    OSHA structural index carries no url but is always Title 29)."""
+    m = re.search(r"title-(\d+)", (rec or {}).get("url") or "")
+    if not m:
+        m = re.match(r"\s*(\d{2})\s+CFR", citation or "")
+    if m:
+        return _AUTHORITY_BY_TITLE.get(str(int(m.group(1))), "OSHA")
+    return "OSHA"
+
+
 def _fix_from_program(section: str) -> Tuple[Optional[str], List[str]]:
     """If the KB has a written-program record for this section, return its
     (title, required_elements) so the report can show what a compliant program
@@ -318,12 +343,77 @@ _HAZARD_MAP: List[Tuple[Any, str]] = [
 ]
 
 
+# ── non-OSHA deterministic battery (MSHA / EPA / BLM / DOT) ────────────────────
+# The photo audit began OSHA-only, but an oil & gas / industrial site is a
+# four-agency world: a haul-road berm is MSHA, an uncontained tank is EPA, a
+# federal-lease thief hatch is BLM, an unplacarded load is DOT. This battery
+# gives those hazards a DIRECT, deterministic anchor to the exact non-OSHA
+# section — its own lane, tagged with its own authority, NEVER folded into an
+# OSHA verdict. It runs only AFTER the OSHA battery, so where a hazard could be
+# either (e.g. generic flammable storage), the broadest workplace-safety net —
+# OSHA — still wins; this lane captures what OSHA's battery genuinely does not.
+# Like the OSHA table it NEVER fabricates: every mapped section must re-verify
+# against the verbatim KB, and each regex carries its domain signal (mine /
+# transport / spill / lease) so jurisdiction is unambiguous. Ordered
+# most-specific first. Every section below is present in osha_verbatim.jsonl.
+_NONOSHA_HAZARD_MAP_RAW: List[Tuple[str, str]] = [
+    # — MSHA, surface mine/quarry (30 CFR Part 56) — mine context required —
+    (r"(?:haul ?road|elevated roadway|dump ?point|mine|quarry|highwall|"
+     r"muck ?pile).*(?:berm|guard ?rail)|"
+     r"(?:berm|guard ?rail).*(?:haul ?road|elevated roadway|dump ?point|"
+     r"mine|quarry)", "56.9300"),
+    (r"(?:dump ?site|dumping (?:point|location)|tipping).*(?:restraint|"
+     r"berm|spotter|no barrier)", "56.9301"),
+    (r"(?:mine|quarry|highwall).*(?:safe access|no access|blocked travelway)|"
+     r"unsafe access.*(?:mine|quarry)", "56.11001"),
+    (r"(?:mine|quarry|msha).*(?:open flame|smoking|ignition source)|"
+     r"smoking.*(?:mine|quarry|portal|underground)", "56.4100"),
+    (r"(?:mine|quarry|msha).*(?:unguarded|moving machine part|exposed "
+     r"(?:gear|pulley))", "56.14107"),
+    # — EPA (40 CFR) — environmental domain, inherently non-OSHA —
+    (r"spcc|spill prevention|secondary containment|no containment.*tank|"
+     r"tank.*no (?:dike|containment)|oil spill|dike(?:d)? area|"
+     r"uncontained (?:oil|fuel|tank)", "112.7"),
+    (r"used oil.*(?:storage|container|drum|not labeled|unlabel)|"
+     r"(?:container|drum|tank).*used oil", "279.22"),
+    (r"hazardous waste.*(?:accumulation|satellite|open (?:drum|container)|"
+     r"unlabel|not (?:marked|labeled)|generator)|"
+     r"(?:accumulation|satellite) area.*hazardous waste", "262.15"),
+    # — BLM (43 CFR) — federal oil & gas lease surface operations —
+    (r"(?:thief hatch|storage tank).*(?:open|vent|vapor)|"
+     r"tank (?:vapor|venting)|(?:lease|well ?pad).*(?:vent|vapor|open hatch)",
+     "3179.90"),
+    (r"(?:lease|well ?pad|flowline|wellhead).*leak|"
+     r"(?:uncontrolled|unrepaired) leak.*(?:lease|gas|oil)|flaring.*(?:lease|"
+     r"blm)", "3179.101"),
+    # — DOT (49 CFR) — transport / hazmat carriage —
+    (r"(?:placard|placarding).*(?:missing|wrong|absent|no)|"
+     r"(?:no|missing|incorrect) placard|(?:truck|trailer|cargo tank|vehicle)"
+     r".*(?:unplacarded|no placard)", "172.504"),
+    (r"(?:hazmat|hazardous material).*(?:marking|labeling|no label|unmarked)"
+     r".*(?:package|packaging|drum)|"
+     r"(?:package|packaging).*hazmat.*(?:unmarked|no label)", "172.301"),
+    (r"(?:cargo|load).*(?:not secured|unsecured|loose|inadequate securement)|"
+     r"(?:unsecured|loose) (?:cargo|load|freight)", "392.9"),
+    (r"cargo tank.*(?:inspection|test|out of date|expired)|"
+     r"(?:expired|overdue) (?:cargo tank|mc[- ]?\d+).*(?:test|inspection)",
+     "180.407"),
+    (r"(?:driver|logbook|log book|record of duty|hours of service|\bhos\b|"
+     r"drive time).*(?:exceed|over|falsif|violation|missing)|"
+     r"(?:exceed|over).*hours of service", "395.8"),
+]
+_NONOSHA_HAZARD_MAP: List[Tuple[Any, str]] = [
+    (re.compile(p, re.I), s) for p, s in _NONOSHA_HAZARD_MAP_RAW
+]
+
+
 # Confidence by HOW the citation was resolved. A deterministic table hit or a
 # curated verbatim hit is trustworthy enough to auto-open a corrective action;
 # a loose brain-search overlap is a CANDIDATE only, and is routed to human
 # review rather than acted on automatically. Nothing below the review line ever
 # auto-generates a CAPA — honest confidence in, honest routing out.
 _CONF_MAP = 0.9          # explicit hazard-category table, KB-verified
+_CONF_NONOSHA_MAP = 0.85 # explicit MSHA/EPA/BLM/DOT table hit, KB-verified
 _CONF_VERBATIM = 0.78    # curated verbatim-text section match
 _CONF_BRAIN = 0.5        # loose brain-search title overlap (candidate only)
 _CONF_NONE = 0.0
@@ -344,6 +434,15 @@ def _band(conf: float) -> str:
 def _map_section(query: str) -> Optional[str]:
     """First hazard-category keyword match → its OSHA section, else None."""
     for rx, section in _HAZARD_MAP:
+        if rx.search(query):
+            return section
+    return None
+
+
+def _map_nonosha_section(query: str) -> Optional[str]:
+    """First non-OSHA (MSHA/EPA/BLM/DOT) hazard-category match → its section,
+    else None. Runs only after the OSHA table, so OSHA wins any overlap."""
+    for rx, section in _NONOSHA_HAZARD_MAP:
         if rx.search(query):
             return section
     return None
@@ -381,6 +480,22 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             section = mapped
             method = "hazard_map"
             confidence = _CONF_MAP
+
+    # 0b) Non-OSHA deterministic battery (MSHA / EPA / BLM / DOT). Runs only if
+    #     the OSHA table did not match, so OSHA owns any overlap. A mapped
+    #     section is trusted only after it re-verifies against the verbatim KB
+    #     (never fabricate), and it is stamped high-confidence WITHIN ITS OWN
+    #     authority lane — the audit will carry that authority so a mine / spill
+    #     / transport / lease finding is never reported as an OSHA violation.
+    if not section:
+        mapped = _map_nonosha_section(query)
+        if mapped:
+            rec = kb.verbatim_text(mapped)
+            if rec and rec.get("section") == mapped:
+                verbatim = rec
+                section = mapped
+                method = "nonosha_map"
+                confidence = _CONF_NONOSHA_MAP
 
     # 1) Prefer a verbatim-text hit — those are the curated walk-through hazards
     #    and give us exact law text. But a raw top-hit is NOT trustworthy on its
@@ -445,12 +560,14 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     title = (verbatim or {}).get("title") or (idx_rec or {}).get("title", "")
     url = (verbatim or {}).get("url") or (idx_rec or {}).get("url", "")
     citation = _citation_for(verbatim or idx_rec, section)
+    authority = _authority_for(verbatim or idx_rec, citation)
 
     prog_title, required_elements = _fix_from_program(section)
 
     return {
         "section": section,
         "citation": citation,
+        "authority": authority,
         "standard_title": (title or "").rstrip("."),
         "url": url,
         "verbatim_text": (verbatim or {}).get("text"),
