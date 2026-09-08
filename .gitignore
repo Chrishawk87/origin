@@ -9,3 +9,6 @@ build/
 dist/
 # runtime grade-calibration data (lives in the data volume, never committed)
 compliance_calibration.json
+# CFR bulk source XML — huge (200MB+), local-only, never pushed
+cfr_bulk/
+_cfr_*.txt

@@ -33,6 +33,27 @@ def _seed_client(company: str, email: str, pin: str) -> str:
     return slug
 
 
+def _seed_gc(name: str, email: str, pin: str) -> str:
+    slug = _portal.slugify(name)
+    rec = {"slug": slug, "name": name, "email": email,
+           "pin_hash": _portal.hash_pin(slug, pin),
+           "members": [{"id": "owner", "name": name, "email": email,
+                        "pin_hash": _portal.hash_pin(slug, pin),
+                        "role": "owner", "subs": "all"}]}
+    _portal.save_gc(rec)
+    return slug
+
+
+def _seed_staff(name: str, email: str, pin: str) -> str:
+    rec = _portal.load_owner()
+    members = rec.get("members") or []
+    members.append({"id": "staff1", "name": name, "email": email,
+                    "pin_hash": _portal.hash_pin("owner", pin), "role": "member"})
+    rec["members"] = members
+    _portal.save_owner(rec)
+    return "staff1"
+
+
 PASS, FAIL = [], []
 
 
@@ -53,8 +74,9 @@ def main():
     check("/sie without session redirects to /sie/login",
           r.status_code == 302 and r.headers.get("location") == "/sie/login")
     r = c.get("/sie/login")
-    check("/sie/login serves the sign-in page (200 HTML)",
-          r.status_code == 200 and "Safety Intelligence Engine" in r.text)
+    check("/sie/login serves the white-label sign-in page (200 HTML)",
+          r.status_code == 200 and "ORIGIN" in r.text
+          and "tabOwner" not in r.text)  # single field, no Owner/Client tabs
     r = c.get("/api/company/list")
     check("/api/* refused without a session (401)", r.status_code == 401)
 
@@ -91,6 +113,52 @@ def main():
     check("client cannot reach owner /api/* (401)", r.status_code == 401)
     r = c.get("/sie/api/whoami")
     check("whoami = client", r.json().get("role") == "client")
+
+    print("· one field, server routes by identity (white-label front door)")
+    # Everyone types email + one secret; no Owner/Client choice on the page.
+    # Owner password via the single `secret` field → console.
+    c = TestClient(app, follow_redirects=False)
+    r = c.post("/sie/api/login", json={"email": "boss@origin.test",
+                                       "secret": "correct horse battery"})
+    check("owner signs in through the single field → /sie",
+          r.status_code == 200 and r.json().get("redirect") == "/sie"
+          and _portal.ADMIN_COOKIE in c.cookies)
+
+    # Origin staff member you set up (email + PIN) → same console.
+    staff_id = _seed_staff("Dana Staff", "dana@origin.test", "4321")
+    c = TestClient(app, follow_redirects=False)
+    r = c.post("/sie/api/login", json={"email": "dana@origin.test", "secret": "0000"})
+    check("wrong staff PIN rejected (401)", r.status_code == 401)
+    r = c.post("/sie/api/login", json={"email": "dana@origin.test", "secret": "4321"})
+    check("staff member signs in → /sie + admin cookie",
+          r.status_code == 200 and r.json().get("redirect") == "/sie"
+          and _portal.ADMIN_COOKIE in c.cookies)
+    r = c.get("/sie")
+    check("staff reaches the console (200)", r.status_code == 200)
+
+    # A GC you set up (email + PIN) → the console, tenant-scoped elsewhere.
+    _seed_gc("Big GC Co", "gc@bigco.test", "5555")
+    c = TestClient(app, follow_redirects=False)
+    r = c.post("/sie/api/login", json={"email": "gc@bigco.test", "secret": "0001"})
+    check("wrong GC PIN rejected (401)", r.status_code == 401)
+    r = c.post("/sie/api/login", json={"email": "gc@bigco.test", "secret": "5555"})
+    check("GC signs in → /sie + gc cookie (not admin)",
+          r.status_code == 200 and r.json().get("redirect") == "/sie"
+          and _portal.GC_COOKIE in c.cookies and _portal.ADMIN_COOKIE not in c.cookies)
+    r = c.get("/sie")
+    check("GC reaches the console (200)", r.status_code == 200)
+
+    # A contractor/client through the SAME field → their scoped portal.
+    c = TestClient(app, follow_redirects=False)
+    r = c.post("/sie/api/login", json={"email": "acme@client.test", "secret": "1234"})
+    check("contractor signs in through the single field → /portal",
+          r.status_code == 200 and r.json().get("redirect") == "/portal"
+          and _portal.CLIENT_COOKIE in c.cookies)
+
+    # An email nobody owns is a clean failure.
+    c = TestClient(app, follow_redirects=False)
+    r = c.post("/sie/api/login", json={"email": "nobody@nowhere.test", "secret": "x"})
+    check("unknown email rejected (401)", r.status_code == 401)
 
     print("· photo audit now requires a session (no anonymous full access)")
     anon = TestClient(app, follow_redirects=False)

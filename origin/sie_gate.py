@@ -67,34 +67,33 @@ _MAGIC_DEFAULT = 60 * 60 * 24   # 1 day if nothing supplied
 
 
 # ── login page (self-contained, mobile-first, no external deps) ──────────
+# WHITE-LABEL: one screen, ORIGIN wordmark, a single email + password field.
+# No "Owner / Client" tabs — the person just enters their email and secret and
+# the server recognizes who they are (owner, staff, GC, or contractor) and sends
+# them to the right place. Exactly like the platform's own login.
 _LOGIN_PAGE = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sign in — Safety Intelligence Engine</title>
+<title>Sign in — ORIGIN</title>
 <style>
-  :root{ --bg:#0b1220; --card:#111a2e; --line:#22314f; --ink:#e8eefc;
-         --muted:#9fb0d0; --accent:#3d7dff; --accent2:#2b63d9; --danger:#ff6b6b; }
+  :root{ --bg:#0b1220; --card:#111a2e; --line:#2a3a5c; --ink:#f2f6ff;
+         --muted:#aab9d6; --accent:#1E7A46; --accent2:#186338; --danger:#ff7b7b; }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; background:
      radial-gradient(1200px 600px at 50% -10%, #16233f 0%, var(--bg) 60%);
      color:var(--ink); font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
   .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding:24px; }
-  .card{ width:100%; max-width:420px; background:var(--card); border:1px solid var(--line);
-         border-radius:18px; padding:28px 24px 24px; box-shadow:0 20px 60px rgba(0,0,0,.45); }
-  .brand{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
-  .dot{ width:12px; height:12px; border-radius:50%; background:var(--accent);
-        box-shadow:0 0 16px var(--accent); }
-  h1{ font-size:20px; margin:0; letter-spacing:.2px; }
-  .sub{ color:var(--muted); font-size:13px; margin:6px 0 20px; }
-  .seg{ display:flex; background:#0c1526; border:1px solid var(--line);
-        border-radius:12px; padding:4px; margin-bottom:18px; }
-  .seg button{ flex:1; border:0; background:transparent; color:var(--muted);
-        padding:9px 8px; border-radius:9px; font-weight:600; font-size:14px; cursor:pointer; }
-  .seg button.on{ background:var(--accent); color:#fff; }
+  .card{ width:100%; max-width:400px; background:var(--card); border:1px solid var(--line);
+         border-radius:18px; padding:32px 26px 26px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .word{ font-size:30px; font-weight:800; letter-spacing:2.5px; text-align:center;
+         color:#fff; margin:0 0 2px; }
+  .word span{ color:var(--accent); }
+  .sub{ color:var(--muted); font-size:13px; margin:4px 0 24px; text-align:center; }
   label{ display:block; font-size:12px; color:var(--muted); margin:0 0 6px; text-transform:uppercase; letter-spacing:.6px; }
-  input{ width:100%; padding:13px 14px; margin-bottom:14px; border-radius:11px;
+  input{ width:100%; padding:13px 14px; margin-bottom:16px; border-radius:11px;
          border:1px solid var(--line); background:#0c1526; color:var(--ink); font-size:16px; }
+  input::placeholder{ color:#6c7d9e; }
   input:focus{ outline:none; border-color:var(--accent); }
   .go{ width:100%; padding:14px; border:0; border-radius:11px; background:var(--accent);
        color:#fff; font-weight:700; font-size:16px; cursor:pointer; }
@@ -102,73 +101,44 @@ _LOGIN_PAGE = """<!doctype html>
   .go[disabled]{ opacity:.6; cursor:default; }
   .msg{ min-height:20px; margin-top:14px; font-size:14px; color:var(--danger); text-align:center; }
   .msg.ok{ color:#5fd39a; }
-  .foot{ text-align:center; color:var(--muted); font-size:12px; margin-top:18px; }
-  a{ color:var(--accent); text-decoration:none; }
-  .hide{ display:none; }
+  .foot{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; }
+  a{ color:#7fb59a; text-decoration:none; }
 </style></head>
 <body><div class="wrap"><div class="card">
-  <div class="brand"><span class="dot"></span><h1>Safety Intelligence Engine</h1></div>
+  <div class="word">ORIGIN<span>.</span></div>
   <div class="sub">Sign in to continue.</div>
 
-  <div class="seg">
-    <button id="tabOwner" class="on" type="button">Owner</button>
-    <button id="tabClient" type="button">Client</button>
-  </div>
-
   <form id="form" autocomplete="on">
-    <label id="lblEmail">Email</label>
+    <label>Email</label>
     <input id="email" type="email" inputmode="email" autocomplete="username" placeholder="you@company.com" required>
 
-    <div id="ownerFields">
-      <label>Password</label>
-      <input id="password" type="password" autocomplete="current-password" placeholder="Your master password">
-    </div>
-
-    <div id="clientFields" class="hide">
-      <label>PIN</label>
-      <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Your PIN">
-    </div>
+    <label>Password</label>
+    <input id="secret" type="password" autocomplete="current-password" placeholder="Your password" required>
 
     <button id="go" class="go" type="submit">Sign in</button>
     <div id="msg" class="msg"></div>
   </form>
 
-  <div class="foot" id="foot">Trouble signing in? Contact your Origin administrator.</div>
+  <div class="foot">Trouble signing in? Contact your Origin administrator.</div>
 </div></div>
 
 <script>
 (function(){
-  var mode = "owner";
-  var tabOwner = document.getElementById("tabOwner");
-  var tabClient = document.getElementById("tabClient");
-  var ownerFields = document.getElementById("ownerFields");
-  var clientFields = document.getElementById("clientFields");
   var msg = document.getElementById("msg");
   var go = document.getElementById("go");
 
-  function setMode(m){
-    mode = m;
-    var owner = (m === "owner");
-    tabOwner.classList.toggle("on", owner);
-    tabClient.classList.toggle("on", !owner);
-    ownerFields.classList.toggle("hide", !owner);
-    clientFields.classList.toggle("hide", owner);
-    msg.textContent = ""; msg.className = "msg";
-  }
-  tabOwner.addEventListener("click", function(){ setMode("owner"); });
-  tabClient.addEventListener("click", function(){ setMode("client"); });
+  var q = new URLSearchParams(location.search);
+  if(q.get("expired")){ msg.textContent = "Your access link expired. Please sign in."; }
 
   document.getElementById("form").addEventListener("submit", function(e){
     e.preventDefault();
     msg.textContent = ""; msg.className = "msg";
     var email = (document.getElementById("email").value || "").trim();
-    var body = { email: email };
-    if(mode === "owner"){ body.password = document.getElementById("password").value || ""; }
-    else { body.pin = (document.getElementById("pin").value || "").trim(); }
+    var secret = document.getElementById("secret").value || "";
     go.disabled = true; go.textContent = "Signing in…";
     fetch("/sie/api/login", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(body)
+      body: JSON.stringify({ email: email, secret: secret })
     }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
         if(res.ok && res.j && res.j.ok){
@@ -238,54 +208,100 @@ def register_sie_gate(app) -> None:
             return RedirectResponse("/portal", status_code=302)
         return HTMLResponse(_LOGIN_PAGE, headers=_NO_STORE)
 
-    # ── login: master (email+password) OR client (email+PIN) ────────────────
+    # ── login: ONE screen, the server figures out who you are ───────────────
+    # White-label: no "Owner / Client" choice. The person types their email +
+    # secret and we try, in order, every identity that email could belong to:
+    #   1. the master owner  (email + password)      → admin session  → /sie
+    #   2. an Origin staff member you set up (email+PIN) → admin session → /sie
+    #   3. a GC / GC teammate (email + PIN)          → gc session     → /sie
+    #   4. a contractor / client (email + PIN)       → client session → /portal
+    # The single "secret" field carries a password for the owner and a PIN for
+    # everyone else; legacy "password"/"pin" keys are still accepted so nothing
+    # that already posts to this endpoint breaks.
     @app.post("/sie/api/login")
     def sie_login(request: Request, body: dict = Body(...)):
         email = (body.get("email") or "").strip()
         key = email.lower()
+        secret = (body.get("secret") or body.get("password")
+                  or body.get("pin") or "").strip()
         if _portal._login_locked(key):
             return JSONResponse(
                 {"error": "Too many attempts. Please wait a few minutes and try again."},
                 status_code=429)
+        if not email or not secret:
+            return JSONResponse({"error": "Enter your email and password."},
+                                status_code=401)
 
-        # (1) Client email + PIN — the same credential used on the site.
-        pin = (body.get("pin") or "").strip()
-        if pin and not body.get("password"):
-            rec = _portal.find_by_email(email)
-            if (rec and rec.get("pin_hash")
-                    and _portal.verify_pin(rec["slug"], pin, rec["pin_hash"])):
+        # (1) Master owner — email + password. If the email IS the owner email we
+        #     settle it here and never fall through, so a wrong owner password
+        #     can't be silently retried as a PIN.
+        if hmac.compare_digest(key, _owner_email()):
+            owner_pw = _owner_password()
+            if not owner_pw:
+                return JSONResponse(
+                    {"error": "Owner login isn't configured yet. Set SIE_OWNER_PASSWORD on the server."},
+                    status_code=503)
+            if hmac.compare_digest(secret, owner_pw):
                 _portal._login_clear(key)
-                resp = JSONResponse({"ok": True, "role": "client",
-                                     "redirect": "/portal",
-                                     "company": rec.get("company")})
-                resp.set_cookie(_portal.CLIENT_COOKIE,
-                                _portal._session("client", rec["slug"]),
-                                httponly=True, samesite="lax",
-                                max_age=_portal.SESSION_TTL,
+                resp = JSONResponse({"ok": True, "role": "owner", "redirect": "/sie"})
+                resp.set_cookie(_portal.ADMIN_COOKIE,
+                                _sign_admin(time.time() + _MASTER_TTL),
+                                httponly=True, samesite="lax", max_age=_MASTER_TTL,
                                 secure=_secure(request))
                 return resp
             _portal._login_note_fail(key)
-            return JSONResponse({"error": "Wrong email or PIN."}, status_code=401)
-
-        # (2) Master owner email + password.
-        password = body.get("password") or ""
-        owner_pw = _owner_password()
-        if not owner_pw:
-            return JSONResponse(
-                {"error": "Owner login isn't configured yet. Set SIE_OWNER_PASSWORD on the server."},
-                status_code=503)
-        good = (hmac.compare_digest(key, _owner_email())
-                and hmac.compare_digest(password, owner_pw))
-        if not good:
-            _portal._login_note_fail(key)
             return JSONResponse({"error": "Wrong email or password."}, status_code=401)
-        _portal._login_clear(key)
-        resp = JSONResponse({"ok": True, "role": "owner", "redirect": "/sie"})
-        resp.set_cookie(_portal.ADMIN_COOKIE,
-                        _sign_admin(time.time() + _MASTER_TTL),
-                        httponly=True, samesite="lax", max_age=_MASTER_TTL,
-                        secure=_secure(request))
-        return resp
+
+        # (2) Origin staff member you set up under Account & Team (email + PIN) —
+        #     same full owner console as you, scoped by their member id.
+        try:
+            member = _portal.find_owner_member_by_email(email)
+        except Exception:
+            member = None
+        if (member and member.get("pin_hash")
+                and _portal.verify_pin("owner", secret, member["pin_hash"])):
+            _portal._login_clear(key)
+            resp = JSONResponse({"ok": True, "role": "staff", "redirect": "/sie",
+                                 "name": member.get("name", "")})
+            resp.set_cookie(_portal.ADMIN_COOKIE,
+                            _portal._session("admin", "", member=member.get("id", "")),
+                            httponly=True, samesite="lax",
+                            max_age=_portal.SESSION_TTL, secure=_secure(request))
+            return resp
+
+        # (3) GC or GC teammate (email + PIN) — lands in the /sie console, scoped
+        #     to that GC's own subcontractors by the existing tenant gating.
+        try:
+            gc_rec, gc_member = _portal.find_gc_member_by_email(email)
+        except Exception:
+            gc_rec, gc_member = None, None
+        if (gc_rec and gc_member and gc_member.get("pin_hash")
+                and _portal.verify_pin(gc_rec["slug"], secret, gc_member["pin_hash"])):
+            _portal._login_clear(key)
+            resp = JSONResponse({"ok": True, "role": "gc", "redirect": "/sie",
+                                 "name": gc_rec.get("name", "")})
+            resp.set_cookie(_portal.GC_COOKIE,
+                            _portal._session("gc", gc_rec["slug"],
+                                             gc_member.get("id", "owner")),
+                            httponly=True, samesite="lax",
+                            max_age=_portal.SESSION_TTL, secure=_secure(request))
+            return resp
+
+        # (4) Contractor / client (email + PIN) — their own scoped portal view.
+        rec = _portal.find_by_email(email)
+        if (rec and rec.get("pin_hash")
+                and _portal.verify_pin(rec["slug"], secret, rec["pin_hash"])):
+            _portal._login_clear(key)
+            resp = JSONResponse({"ok": True, "role": "client", "redirect": "/portal",
+                                 "company": rec.get("company")})
+            resp.set_cookie(_portal.CLIENT_COOKIE,
+                            _portal._session("client", rec["slug"]),
+                            httponly=True, samesite="lax",
+                            max_age=_portal.SESSION_TTL, secure=_secure(request))
+            return resp
+
+        _portal._login_note_fail(key)
+        return JSONResponse({"error": "Wrong email or password."}, status_code=401)
 
     # ── temporary access: generate a magic link (owner only) ────────────────
     @app.post("/sie/api/magic")
