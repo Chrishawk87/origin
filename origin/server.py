@@ -641,6 +641,17 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             pass
         return None
 
+    def _client_session_ok(request) -> bool:
+        """True when the request carries a valid contractor-portal (client)
+        session cookie. Used to let a signed-in contractor use the Photo Audit
+        tool without exposing it to anonymous visitors."""
+        try:
+            from . import portal as _portal
+            p = _portal._unsign(request.cookies.get(_portal.CLIENT_COOKIE, ""))
+            return bool(p and p.get("role") == "client")
+        except Exception:
+            return False
+
     # The tenant-scoped SIE surface a logged-in GC may reach. Everything else
     # under /api stays owner-only. Safe-by-default: a path must match here to be
     # reachable by a GC at all, and any company_id it names must be one the GC
@@ -743,15 +754,41 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     @app.middleware("http")
     async def _auth(request, call_next):
         # The Photo Audit tool is used by GC/sub/owner dashboards whose users
-        # authenticate by portal session, not the internal access token, so its
-        # analyze endpoint must not be gated by the token.
+        # authenticate by a PORTAL SESSION (admin/GC/client cookie), not the
+        # internal access token — so it can't be gated by the token. But it must
+        # still require SOME valid session: previously it was fully public, which
+        # let anyone with the link run the whole tool with no login. Now it
+        # accepts owner (token/admin), GC, or contractor sessions, and refuses
+        # anonymous visitors when the app is served over a network.
         # The cron-sweep endpoint has its OWN token gate (MONITOR_SWEEP_TOKEN)
         # so an external scheduler can trigger it without the internal access
         # token; it must therefore bypass this outer gate.
         path = request.url.path
-        _public_api = (path.startswith("/api/photo-audit/")
-                       or path == "/api/monitor/cron-sweep")
-        is_api = path.startswith("/api") and not _public_api
+        _photo_api = path.startswith("/api/photo-audit/")
+        _public_api = (path == "/api/monitor/cron-sweep")
+        is_api = path.startswith("/api") and not _public_api and not _photo_api
+
+        if _photo_api:
+            supplied = (request.headers.get("x-origin-token")
+                        or request.query_params.get("token"))
+            if (token and supplied == token) or _admin_session_ok(request):
+                request.state.sie_owner = True
+                request.state.sie_gc_slug = (request.query_params.get("gc") or "").strip() or None
+            elif _gc_slug_ok(request):
+                request.state.sie_owner = False
+                request.state.sie_gc_slug = _gc_slug_ok(request)
+            elif _client_session_ok(request):
+                request.state.sie_owner = False
+                request.state.sie_gc_slug = None
+            elif not token:
+                # Local single-user run (no access token configured) = owner.
+                request.state.sie_owner = True
+                request.state.sie_gc_slug = None
+            else:
+                return JSONResponse({"error": "unauthorized — please sign in"},
+                                    status_code=401)
+            return await call_next(request)
+
         if token and is_api:
             supplied = request.headers.get("x-origin-token") or request.query_params.get("token")
             if supplied == token or _admin_session_ok(request):
@@ -1531,7 +1568,17 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     photo_audit_html = Path(__file__).parent / "webui" / "photo_audit.html"
 
     @app.get("/photo-audit", response_class=HTMLResponse)
-    def photo_audit_page():
+    def photo_audit_page(request: Request):
+        # Require a session (owner/GC/contractor) — never anonymous. Without this
+        # gate anyone with the link opened a fully working audit and, from there,
+        # the rest of the app. Unauthenticated visitors go to the sign-in screen.
+        from starlette.responses import RedirectResponse
+        authed = (_admin_session_ok(request) or bool(_gc_slug_ok(request))
+                  or _client_session_ok(request))
+        if not authed and token and (request.query_params.get("token") == token):
+            authed = True
+        if not authed:
+            return RedirectResponse("/sie/login", status_code=302)
         if photo_audit_html.is_file():
             return photo_audit_html.read_text(encoding="utf-8")
         return "<h1>Photo Walk-Through Audit</h1><p>Tool page missing.</p>"

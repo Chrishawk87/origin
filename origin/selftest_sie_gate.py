@@ -92,6 +92,30 @@ def main():
     r = c.get("/sie/api/whoami")
     check("whoami = client", r.json().get("role") == "client")
 
+    print("· photo audit now requires a session (no anonymous full access)")
+    anon = TestClient(app, follow_redirects=False)
+    r = anon.get("/photo-audit")
+    check("/photo-audit without a session redirects to /sie/login",
+          r.status_code == 302 and "/sie/login" in r.headers.get("location", ""))
+    r = anon.post("/api/photo-audit/analyze", data={"company": "x"})
+    check("/api/photo-audit/* refused without a session (401)", r.status_code == 401)
+
+    owner_pa = TestClient(app, follow_redirects=False)
+    owner_pa.post("/sie/api/login", json={"email": "boss@origin.test",
+                                          "password": "correct horse battery"})
+    r = owner_pa.get("/photo-audit")
+    check("owner reaches /photo-audit page (200)", r.status_code == 200)
+    r = owner_pa.post("/api/photo-audit/analyze", data={"company": "x"})
+    check("owner passes the photo-audit auth gate (not 401)", r.status_code != 401)
+
+    client_pa = TestClient(app, follow_redirects=False)
+    client_pa.post("/sie/api/login", json={"email": "acme@client.test", "pin": "1234"})
+    r = client_pa.get("/photo-audit")
+    check("signed-in contractor reaches /photo-audit page (200)", r.status_code == 200)
+    r = client_pa.post("/api/photo-audit/analyze", data={"company": "x"})
+    check("signed-in contractor passes the photo-audit gate (not 401)",
+          r.status_code != 401)
+
     print("· magic link (temporary owner access)")
     owner = TestClient(app, follow_redirects=False)
     owner.post("/sie/api/login", json={"email": "boss@origin.test",

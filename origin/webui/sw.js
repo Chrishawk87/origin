@@ -3,13 +3,15 @@
  * deliberately conservative — it NEVER caches HTML pages or API responses, so
  * an installed app always shows live data and never a stale login/screen.
  * Only the static app icons + manifest are cached (they rarely change). */
-const CACHE = 'origin-v1';
+// Bump this whenever the shell/manifest changes so installed apps drop the old
+// cache on activate. The manifest is deliberately NOT cached — it must always be
+// fetched fresh so start_url (now /sie) can never be pinned to a stale page.
+const CACHE = 'origin-v2';
 const ASSETS = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
-  '/apple-touch-icon.png',
-  '/manifest.webmanifest'
+  '/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', function (e) {
