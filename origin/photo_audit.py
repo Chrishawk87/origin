@@ -197,6 +197,55 @@ def _is_non_hazard_title(title: str) -> bool:
     return t in _NON_HAZARD_TITLES
 
 
+def _is_osha_record(rec: Dict[str, Any]) -> bool:
+    """True if a verbatim record is an OSHA (29 CFR) standard. Non-OSHA titles
+    (30 CFR MSHA, 40 CFR EPA, 43 CFR BLM, 49 CFR DOT) are real law but are NOT
+    what a workplace safety photo audit cites, so they must never be stamped as
+    a high-confidence OSHA hit."""
+    cit = (rec.get("citation") or "")
+    if cit.startswith("29 CFR"):
+        return True
+    return "title-29" in (rec.get("url") or "")
+
+
+def _verbatim_hit_is_strong(query: str, rec: Dict[str, Any]) -> bool:
+    """Decide whether a verbatim-search hit is a GENUINE subject match or just a
+    coincidental single-word collision.
+
+    The precision problem: backfilled non-OSHA records carry keywords that are
+    merely their title split into single words (e.g. 'Smoking and use of open
+    flames' → ['smoking','open','flames']). A hazard query that happens to
+    contain 'open' then scores a full keyword hit and the wrong standard surfaces
+    at high confidence. Curated OSHA hazards, by contrast, carry distinctive
+    MULTI-WORD keyword phrases ('machine guard', 'point of operation',
+    'unprotected edge'). So a hit is strong only when either:
+      (a) a distinctive multi-word keyword phrase appears verbatim in the query, or
+      (b) the hazard shares >= 2 meaningful words with the section's own title.
+    A lone single-word keyword collision is NOT strong."""
+    ql = (query or "").lower()
+    for k in rec.get("keywords", []) or []:
+        k = (k or "").lower().strip()
+        if " " in k and len(k) >= 5 and k in ql:
+            return True
+    q_words = _meaningful_words(query)
+    title_words = _meaningful_words(rec.get("title", ""))
+    return len(q_words & title_words) >= 2
+
+
+def _citation_for(rec: Optional[Dict[str, Any]], section: str) -> str:
+    """Correct 'NN CFR §' label for a record. Uses the record's own citation if
+    present; else derives the title number from its bulk-XML url (title-NN);
+    else defaults to 29 CFR (OSHA structural-index sections carry no citation but
+    are always Title 29). Prevents mislabeling a non-OSHA section as '29 CFR'."""
+    cit = (rec or {}).get("citation")
+    if cit:
+        return cit
+    m = re.search(r"title-(\d+)", (rec or {}).get("url") or "")
+    if m:
+        return f"{int(m.group(1))} CFR {section}"
+    return "29 CFR " + section
+
+
 def _fix_from_program(section: str) -> Tuple[Optional[str], List[str]]:
     """If the KB has a written-program record for this section, return its
     (title, required_elements) so the report can show what a compliant program
@@ -334,14 +383,29 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             confidence = _CONF_MAP
 
     # 1) Prefer a verbatim-text hit — those are the curated walk-through hazards
-    #    and give us exact law text.
+    #    and give us exact law text. But a raw top-hit is NOT trustworthy on its
+    #    own: the corpus now holds 5700+ sections across 30/40/43/49 CFR whose
+    #    keywords are just title-word splits, so one incidental query word can
+    #    surface the wrong (often non-OSHA) standard. Gate it:
+    #      strong subject match AND an OSHA (29 CFR) standard → high confidence.
+    #      only one of those true → real standard but route to human review.
+    #      neither → drop it; fall through to the strict brain path / no-match.
     if not section:
         vhits = kb.verbatim_search(query, limit=1)
         if vhits and not _is_non_hazard_title(vhits[0].get("title")):
-            verbatim = vhits[0]
-            section = verbatim.get("section")
-            method = "verbatim"
-            confidence = _CONF_VERBATIM
+            cand = vhits[0]
+            strong = _verbatim_hit_is_strong(query, cand)
+            is_osha = _is_osha_record(cand)
+            if strong and is_osha:
+                verbatim = cand
+                section = cand.get("section")
+                method = "verbatim"
+                confidence = _CONF_VERBATIM
+            elif strong or is_osha:
+                verbatim = cand
+                section = cand.get("section")
+                method = "verbatim_candidate"
+                confidence = _CONF_BRAIN
 
     # 2) Otherwise fall back to the full brain (structural OSHA index + programs)
     #    so we can still cite a real standard even without stored verbatim text.
@@ -380,7 +444,7 @@ def _resolve_citation(hazard: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     title = (verbatim or {}).get("title") or (idx_rec or {}).get("title", "")
     url = (verbatim or {}).get("url") or (idx_rec or {}).get("url", "")
-    citation = (verbatim or {}).get("citation") or ("29 CFR " + section)
+    citation = _citation_for(verbatim or idx_rec, section)
 
     prog_title, required_elements = _fix_from_program(section)
 

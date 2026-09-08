@@ -465,6 +465,44 @@ def check_perception(client, token: str) -> None:
          "title": "", "description": "morale"}) is None, \
         "a non-hazard must resolve to nothing, never a forced citation"
 
+    # 1b. PRECISION — the corpus now holds 5700+ sections across 30/40/43/49 CFR
+    #     whose keywords are just title-word splits, so an incidental query word
+    #     used to surface the WRONG (often non-OSHA) standard at high confidence
+    #     (the mine-berm scene once cited "Smoking and use of open flames"). Two
+    #     invariants guard against that regression:
+    #       - a photo audit must NEVER stamp a non-OSHA (not-29-CFR) section as a
+    #         high-confidence citation; if such a record is the best hit it is at
+    #         most a low-confidence review candidate, and
+    #       - whatever standard IS returned must be labeled with its own correct
+    #         title number — a 43/30/40 CFR section is never mislabeled "29 CFR".
+    non_osha_scenes = [
+        "open oil storage tank venting vapors near the well pad",   # 43 CFR / BLM
+        "smoking near the mine portal",                             # 30 CFR / MSHA
+        "hazardous waste drum staged by the road",                  # 49 CFR / DOT
+    ]
+    for desc in non_osha_scenes:
+        std = pa._resolve_citation(
+            {"hazard_category": desc, "title": "", "description": desc})
+        if std is None:
+            continue  # honest no-match is always acceptable
+        cit = std.get("citation", "")
+        if not cit.startswith("29 CFR"):
+            assert std["confidence_band"] != "high", (
+                "a non-OSHA section must never be a high-confidence photo-audit "
+                f"citation: {desc!r} → {std}")
+            # and it must carry its own correct CFR title, not a fake "29 CFR"
+            assert cit and cit[:2].isdigit() and " CFR " in cit, \
+                f"non-OSHA hit mislabeled: {desc!r} → {cit!r}"
+
+    # A genuine OSHA construction hazard still resolves to the RIGHT section at
+    # high confidence — tightening precision must not blunt real matches.
+    good = pa._resolve_citation({
+        "hazard_category": "worker at an unprotected roof edge with no guardrail",
+        "title": "", "description": "no fall protection, near the edge"})
+    assert good and good["section"] == "1926.501" \
+        and good["confidence_band"] == "high", \
+        f"a real OSHA fall hazard must still resolve high-confidence: {good}"
+
     # 2. Confidence-based review routing through a recorded audit. Three findings,
     #    all HIGH severity, differing only in match/confidence:
     #      a) matched + confident  → auto-CAPA
