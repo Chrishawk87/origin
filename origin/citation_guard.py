@@ -37,12 +37,11 @@ from . import compliance_kb as kb
 # "49 CFR"/"§" context is present or they resolve in the KB (see _classify).
 _CFR_RE = re.compile(
     r"""(?ix)
-    \b
-    (?P<cfr>(?:29|49)\s*C\.?\s*F\.?\s*R\.?\.?\s*)?
+    (?P<cfr>\b\d{2}\s*C\.?\s*F\.?\s*R\.?\.?\s*)?
     (?P<sec>\u00a7\s*)?
     (?:
-        (?P<subpart>\d{3,4}\s+Subpart\s+[A-Z]+)
-      | (?P<section>\d{3,4}\.\d+[A-Za-z]?(?:\([0-9A-Za-z]+\))*)
+        (?P<subpart>\b\d{3,4}\s+Subpart\s+[A-Z]+)
+      | (?P<section>\b\d{2,4}\.\d+[A-Za-z]?(?:\([0-9A-Za-z]+\))*)
     )
     """,
 )
@@ -65,12 +64,18 @@ def _verify_one(raw: str) -> Tuple[Optional[str], Optional[dict]]:
     rec = kb.osha_section(raw)
     if rec:
         return "osha", rec
-    rec = kb.by_citation(_canon(raw))
-    if rec:
-        return "program", rec
     rec = kb.fmcsa_section(raw)
     if rec:
         return "fmcsa", rec
+    # Verbatim corpus resolves ANY CFR title we've ingested — 29/49 bodies plus
+    # 40 (EPA), 30 (MSHA), 43 (BLM). This is what makes non-OSHA/non-FMCSA
+    # citations verifiable instead of silently ignored.
+    rec = kb.verbatim_text(raw)
+    if rec:
+        return "cfr", rec
+    rec = kb.by_citation(_canon(raw))
+    if rec:
+        return "program", rec
     rec = kb.training_requirement(raw)
     if rec:
         return "training", rec
