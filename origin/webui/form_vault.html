@@ -142,7 +142,7 @@
 
       <div id="formActions" class="factions hidden">
         <button type="button" class="btn" id="btnAutoFill">Auto-fill official form</button>
-        <button type="button" class="btn ghost" id="btnPrint">Print / Save PDF</button>
+        <button type="button" class="btn ghost" id="btnPrint">Download official PDF</button>
       </div>
 
       <div id="picked-empty" class="empty">Choose a form above to begin.</div>
@@ -340,8 +340,39 @@
     doFill();
   });
 
-  // ── Print / Save PDF — open the filled official form in a clean print window.
+  // ── Download official PDF — server renders a real, inspection-grade PDF file
+  // from the current answers (audit-ready badge, sectioned fields, AHA matrix,
+  // signature block). Falls back to the browser print view if the server call
+  // fails (e.g. pop-up/offline), so the worker always gets a document.
   $('btnPrint').addEventListener('click', function(){
+    if(!SCHEMA){ showError('Choose a form first.'); return; }
+    var btn = this; var label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Building PDF…';
+    fetch('/api/form-vault/pdf', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ form_id: SCHEMA.id, answers: answers })
+    })
+      .then(function(r){
+        var ct = r.headers.get('Content-Type') || '';
+        if(!r.ok || ct.indexOf('application/pdf') === -1){
+          return r.json().then(function(j){ throw new Error((j && j.error) || 'render failed'); });
+        }
+        return r.blob();
+      })
+      .then(function(blob){
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = (SCHEMA.id || 'official-form') + '.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+      })
+      .catch(function(err){ printFallback(); })
+      .then(function(){ btn.disabled = false; btn.textContent = label; });
+  });
+
+  // Client-side print window — used only if the server PDF endpoint is unreachable.
+  function printFallback(){
     var off = $('officialForm');
     if(!SCHEMA || !off || !off.innerHTML.trim()){ showError('Fill the form first.'); return; }
     var title = SCHEMA.title || 'Official form';
@@ -369,7 +400,7 @@
     w.document.close();
     w.focus();
     setTimeout(function(){ try{ w.print(); }catch(e){} }, 350);
-  });
+  }
 })();
 </script>
 </body>

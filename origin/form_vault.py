@@ -490,3 +490,38 @@ def register_form_vault(app) -> None:
             return fill(form_id, answers=answers, gc_slug=_scope(request), persist=persist)
         except Exception as exc:
             return JSONResponse({"error": f"Could not fill form: {exc}"}, status_code=200)
+
+    @app.post("/api/form-vault/pdf")
+    async def form_vault_pdf(request: Request, body: dict = Body(default=None)):
+        """Render the auto-filled official form as a real, downloadable PDF file.
+
+        Same tenant scoping as /fill. Returns application/pdf as an attachment on
+        success; a JSON error (200) otherwise, so the tool never hard-fails."""
+        from fastapi.responses import Response
+        payload = body if isinstance(body, dict) else {}
+        if not payload:
+            try:
+                payload = await request.json()
+            except Exception:
+                payload = {}
+        form_id = (payload.get("form_id") or "").strip() if isinstance(payload, dict) else ""
+        if not form_id:
+            return JSONResponse({"error": "Provide 'form_id' and 'answers'."}, status_code=400)
+        answers = payload.get("answers") if isinstance(payload, dict) else None
+        try:
+            from . import pdf_render
+        except Exception as exc:
+            return JSONResponse({"error": f"PDF engine unavailable: {exc}"}, status_code=200)
+        try:
+            out = pdf_render.render_pdf(form_id, answers=answers, gc_slug=_scope(request))
+        except Exception as exc:
+            return JSONResponse({"error": f"Could not render PDF: {exc}"}, status_code=200)
+        if not out.get("ok"):
+            return JSONResponse({"error": out.get("error", "render failed")}, status_code=200)
+        headers = {
+            "Content-Disposition": f'attachment; filename="{out["filename"]}"',
+            "X-Audit-Ready": "1" if out.get("audit_ready") else "0",
+            "X-Render-Mode": out.get("mode", "generated"),
+            "Cache-Control": "no-store",
+        }
+        return Response(content=out["pdf"], media_type="application/pdf", headers=headers)
