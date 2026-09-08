@@ -2439,6 +2439,35 @@ def register_portal(app) -> None:
             return None, slug, JSONResponse({"error": "not found"}, status_code=404)
         return rec, slug, None
 
+    def _ensure_profile_for_sub(rec):
+        """Bridge a portal sub to a company_profile so the prequal engine (which
+        requires a profile) can grade it. The profile id is namespaced per
+        GC + company so it can never collide with — or clobber — an owner-side
+        company profile of the same name. Ownership is stamped with the sub's
+        gc_slug. Returns the company_id, or None if the sub has no company name."""
+        try:
+            from . import company_profile as _cp
+        except Exception:
+            return None
+        company = (rec.get("company") or "").strip()
+        if not company:
+            return None
+        gc = (rec.get("gc_slug") or "").strip()
+        base = _cp._slug(company)
+        cid = f"gc-{gc}-{base}" if gc else base
+        payload = {
+            "company_id": cid,
+            "company": company,
+            "industry": (rec.get("trade") or rec.get("scope") or "").strip(),
+            "naics": (rec.get("naics") or "").strip(),
+            "state": (rec.get("state") or "").strip(),
+        }
+        plats = rec.get("prequal_platforms")
+        if isinstance(plats, list) and plats:
+            payload["customer_platforms"] = plats
+        prof = _cp.upsert(payload, by="portal-sub", gc_slug=gc)
+        return prof.get("company_id")
+
     @app.post("/portal/api/gc/sub/{sub_slug}/gap")
     def gc_gap(sub_slug: str, request: Request, body: dict = Body(...)):
         """GC Gap Finder — run the Origin gap analysis against one of the GC's
@@ -2494,6 +2523,61 @@ def register_portal(app) -> None:
             rec["trade"] = industry
         save_client(rec)
         return {"ok": True, "report": report}
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/prequal")
+    def gc_prequal(sub_slug: str, request: Request, body: dict = Body(default=None)):
+        """GC Prequal Readiness — estimate one of the GC's subs' ISN / Avetta /
+        Veriforce readiness with a sourced gap list, using the sub's own posture
+        plus the GC-entered safety metrics (EMR / TRIR / DART / insurance /
+        MSQ / training). Mirror of gc_gap: guard, bridge the sub to a company
+        profile, run the engine, store the report on the sub. Fully offline."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        payload = body if isinstance(body, dict) else {}
+        metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
+        platforms = payload.get("platforms")
+        if not (rec.get("company") or "").strip():
+            return JSONResponse({"error": "Add the subcontractor's company name first."},
+                                status_code=400)
+        if not (rec.get("trade") or rec.get("scope") or "").strip():
+            return JSONResponse(
+                {"error": "Add a scope of work (or trade) for this subcontractor first — "
+                          "that's what tells prequal which programs their work requires."},
+                status_code=400)
+        if isinstance(platforms, list):
+            rec["prequal_platforms"] = [str(p).strip() for p in platforms if str(p).strip()]
+        try:
+            from . import prequal_engine as _pq
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"prequal engine unavailable: {exc}"}, status_code=500)
+        cid = _ensure_profile_for_sub(rec)
+        if not cid:
+            return JSONResponse({"error": "could not build a company profile for this sub"},
+                                status_code=500)
+        try:
+            report = _pq.assess_all(cid, metrics)
+        except Exception as exc:
+            return JSONResponse({"error": f"prequal failed: {exc}"}, status_code=500)
+        if report is None:
+            return JSONResponse({"error": "company profile not found"}, status_code=404)
+        rec["prequal_report"] = report
+        rec["prequal_run_at"] = _now()
+        if isinstance(metrics, dict):
+            rec["prequal_metrics"] = {k: v for k, v in metrics.items() if v is not None}
+        save_client(rec)
+        return {"ok": True, "report": report}
+
+    @app.get("/portal/api/gc/sub/{sub_slug}/prequal")
+    def gc_prequal_get(sub_slug: str, request: Request):
+        """Read the last stored prequal report for one of the GC's subs."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        return {"ok": True, "report": rec.get("prequal_report"),
+                "run_at": rec.get("prequal_run_at"),
+                "metrics": rec.get("prequal_metrics") or {},
+                "platforms": rec.get("prequal_platforms") or []}
 
     @app.post("/portal/api/gc/sub/{sub_slug}/draft")
     def gc_draft(sub_slug: str, request: Request, body: dict = Body(...)):

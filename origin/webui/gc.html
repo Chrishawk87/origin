@@ -344,6 +344,35 @@
   </div>
 </div>
 
+<!-- prequal readiness drawer -->
+<div class="drawer" id="pqDrawer" style="width:min(600px,96vw)">
+  <div class="dh"><div class="nm" id="pqName">Prequal readiness</div><button class="x" onclick="closePrequal()">×</button></div>
+  <div style="padding:18px;overflow-y:auto;flex:1" id="pqBody">
+    <div class="ds" style="margin-bottom:12px">Enter the safety numbers you have for this sub (leave blank what you don\u2019t). Origin grades their ISN / Avetta / Veriforce readiness and lists exactly what\u2019s still owed. Estimate only \u2014 confirm against the live scorecard.</div>
+    <div class="stitle" style="margin-top:0">Platforms</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="pqplat" value="ISN" checked> ISNetworld</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="pqplat" value="Avetta" checked> Avetta</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="pqplat" value="Veriforce" checked> Veriforce</label>
+    </div>
+    <div class="stitle">Safety metrics</div>
+    <div class="row3">
+      <div><label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">EMR</label><input class="f" id="pq_emr" placeholder="e.g. 0.95"></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">TRIR</label><input class="f" id="pq_trir" placeholder="e.g. 2.1"></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">DART</label><input class="f" id="pq_dart" placeholder="e.g. 1.4"></div>
+    </div>
+    <div class="row2">
+      <div><label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Training complete %</label><input class="f" id="pq_train" placeholder="0\u2013100"></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">MSQ complete %</label><input class="f" id="pq_msq" placeholder="0\u2013100"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin:2px 0 14px"><input type="checkbox" id="pq_ins"> COI + endorsements confirmed on file</label>
+    <div id="pqResult"></div>
+  </div>
+  <div class="composer" style="justify-content:flex-end;gap:8px">
+    <button class="btn sm" onclick="runPrequal()" id="pqRunBtn">Run readiness</button>
+  </div>
+</div>
+
 <!-- asset library drawer -->
 <div class="drawer" id="libDrawer" style="width:min(560px,96vw)">
   <div class="dh"><div class="nm" id="libName">Asset Library</div><button class="x" onclick="closeLib()">×</button></div>
@@ -481,6 +510,16 @@ function renderDetail(){
       <div class="v ${gradeClass(p.grade)}">${esc(g)}</div>
       <span class="pill ${platPill(p.status)}">${esc(p.status||'—')}</span></div>`}).join('')
     ||'<div class="empty" style="grid-column:1/-1">No prequal platforms recorded yet.</div>';
+  // Origin readiness estimate (last run), if any
+  let pqSummary='';
+  const pq=s.prequal_report;
+  if(pq&&Array.isArray(pq.assessments)&&pq.assessments.length){
+    const line=pq.assessments.map(a=>{const g=(a.estimated_grade&&a.estimated_grade.grade)||'?';
+      const n=(a.gap_counts&&a.gap_counts.high)||0;
+      return esc(a.platform)+' <b class="'+gradeClass(g)+'">'+esc(g)+'</b>'+(n?(' · '+n+' high gap'+(n===1?'':'s')):'');}).join(' &nbsp;·&nbsp; ');
+    pqSummary='<div class="scopenote">Origin readiness estimate (ran '+ago(s.prequal_run_at)+'): '+line+
+      '. Click <b>Run readiness</b> for the full sourced gap list. Estimate only \u2014 confirm against the live scorecard.</div>';
+  }
   // safety metrics
   const coiMap={current:['COI Current','pill'],expiring:['COI Expiring','pill warn'],expired:['COI Expired','pill bad'],none:['No COI on file','pill bad']};
   const coi=coiMap[s.coi_status]||coiMap.none;
@@ -534,7 +573,10 @@ function renderDetail(){
       <button class="btn sm" onclick='openGap(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Run gap finder</button>
       <button class="btn green sm" onclick='openLib(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Asset library</button>
     </div>
-    <div class="stitle">Prequal grades</div><div class="cards">${cards}</div>
+    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Prequal grades</span>
+      <button class="btn sm" onclick='openPrequal(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Run readiness</button>
+    </div><div class="cards">${cards}</div>${pqSummary}
     <div class="stitle">Safety metrics</div><div class="cards">${safety}</div>
     <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
       <span>Documents on file</span>
@@ -1009,6 +1051,75 @@ async function buildDrafts(publish){
   alert((publish?'Published ':'Built ')+built.length+' document'+(built.length===1?'':'s')+
     (publish?' to '+ ((SUBS.find(x=>x.slug===GAPSUB)||{}).company||'this sub')+'\u2019s page.':' for review.'));
   if(publish){closeGap();await boot();}
+}
+
+/* ── prequal readiness ── */
+let PQSUB=null;
+function openPrequal(slug,name){PQSUB=slug;
+  $('pqName').textContent='Prequal readiness · '+name;
+  $('pqResult').innerHTML='';
+  // seed the form from any metrics we ran last time
+  const s=SUBS.find(x=>x.slug===slug)||{};const m=s.prequal_metrics||{};
+  $('pq_emr').value=(m.emr!=null?m.emr:'');
+  $('pq_trir').value=(m.trir!=null?m.trir:'');
+  $('pq_dart').value=(m.dart!=null?m.dart:'');
+  $('pq_train').value=(m.training_complete!=null?Math.round(m.training_complete*100):'');
+  $('pq_msq').value=(m.msq_complete!=null?Math.round(m.msq_complete*100):'');
+  $('pq_ins').checked=(m.insurance_ok===true);
+  const chosen=s.prequal_platforms||[];
+  document.querySelectorAll('.pqplat').forEach(c=>{if(chosen.length)c.checked=chosen.includes(c.value)});
+  // show the last stored report immediately if present
+  if(s.prequal_report)renderPrequal(s.prequal_report);
+  $('pqDrawer').classList.add('open');
+}
+function closePrequal(){$('pqDrawer').classList.remove('open');PQSUB=null}
+function pqNum(id){const v=parseFloat($(id).value);return isNaN(v)?null:v}
+async function runPrequal(){
+  if(!PQSUB)return;
+  const metrics={};
+  const emr=pqNum('pq_emr');if(emr!=null)metrics.emr=emr;
+  const trir=pqNum('pq_trir');if(trir!=null)metrics.trir=trir;
+  const dart=pqNum('pq_dart');if(dart!=null)metrics.dart=dart;
+  const tr=pqNum('pq_train');if(tr!=null)metrics.training_complete=Math.max(0,Math.min(1,tr/100));
+  const mq=pqNum('pq_msq');if(mq!=null)metrics.msq_complete=Math.max(0,Math.min(1,mq/100));
+  if($('pq_ins').checked)metrics.insurance_ok=true;
+  const platforms=Array.from(document.querySelectorAll('.pqplat:checked')).map(c=>c.value);
+  const btn=$('pqRunBtn');const orig=btn.textContent;btn.textContent='Running…';btn.disabled=true;
+  $('pqResult').innerHTML='<div class="empty">Estimating readiness…</div>';
+  const r=await api('/portal/api/gc/sub/'+PQSUB+'/prequal',{method:'POST',
+    body:JSON.stringify({metrics:metrics,platforms:platforms})});
+  btn.textContent=orig;btn.disabled=false;
+  if(!r.ok){$('pqResult').innerHTML='<div class="empty">'+esc(r.data.error||'Readiness estimate failed.')+'</div>';return}
+  const rep=r.data.report||{};
+  const s=SUBS.find(x=>x.slug===PQSUB);if(s){s.prequal_report=rep;s.prequal_metrics=metrics;s.prequal_platforms=platforms;}
+  renderPrequal(rep);
+  renderDetail();
+}
+function pqGapRow(g){
+  const sev=(g.severity==='high')?'<span class="tag miss">High</span>':
+    (g.severity==='medium'?'<span class="tag exp">Medium</span>':'<span class="tag">Info</span>');
+  const badge=(g.status==='detected')?'<span class="pill bad">Detected</span>':'<span class="pill warn">You supply</span>';
+  const src=(g.source&&g.source.reason)?('<div class="ds" style="margin-top:4px">Source: '+esc(g.source.reason)+(g.source.platform?(' ('+esc(g.source.platform)+')'):'')+'</div>'):'';
+  return '<div class="docrow" style="flex-direction:column;align-items:stretch;gap:4px">'+
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="dn" style="flex:1">'+esc(g.title||g.id)+'</div>'+sev+badge+'</div>'+
+    '<div class="ds">'+esc(g.detail||'')+'</div>'+src+'</div>';
+}
+function renderPrequal(rep){
+  const asmts=(rep&&rep.assessments)||[];
+  if(!asmts.length){$('pqResult').innerHTML='<div class="empty">No readiness result yet — run it above.</div>';return}
+  let html='';
+  asmts.forEach(a=>{
+    const g=(a.estimated_grade&&a.estimated_grade.grade)||'?';
+    const gc=(a.gap_counts||{});
+    html+='<div class="mcard" style="margin:12px 0 8px"><div style="display:flex;align-items:center;gap:10px">'+
+      '<div class="k" style="flex:1">'+esc(a.platform)+'</div>'+
+      '<div class="v '+gradeClass(g)+'" style="font-size:26px">'+esc(g)+'</div></div>'+
+      '<div style="font-size:13.5px;font-weight:600;margin-top:6px">'+esc(a.readiness||'')+'</div>'+
+      '<div class="ds" style="margin-top:4px">'+esc((gc.detected||0)+' detected · '+(gc.checklist||0)+' you supply · '+(gc.high||0)+' high-severity')+'</div></div>';
+    (a.gaps||[]).forEach(gp=>{html+=pqGapRow(gp);});
+  });
+  if(rep.caveat)html+='<div class="scopenote" style="margin-top:10px">'+esc(rep.caveat)+'</div>';
+  $('pqResult').innerHTML=html;
 }
 
 /* ── asset library ── */
