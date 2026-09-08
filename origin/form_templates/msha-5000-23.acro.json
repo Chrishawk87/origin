@@ -1,0 +1,22 @@
+{
+  "_comment": "AcroForm named-field map for the official fillable MSHA 5000-23. Keys under 'text'/'combine'/'checks' are form_vault official-field ids (of_*); values are the real PDF field names. Checkbox on-state is /1.",
+  "on_state": "/1",
+  "text": {
+    "of_miner": "form1[0].#subform[0].Name1[0]",
+    "of_date": "form1[0].#subform[0].DateTrainingCompleted[0]"
+  },
+  "combine": {
+    "form1[0].#subform[0].MineName[0]": {"ids": ["of_mine_name", "of_mine_id"], "sep": "  —  MSHA ID "},
+    "form1[0].#subform[0].SMEdate[0]": {"ids": ["of_date"], "sep": " "}
+  },
+  "checks": {
+    "of_type": {
+      "New Miner (Part 46)": "form1[0].#subform[0].CBNewMiner[0]",
+      "New Miner (Part 48)": "form1[0].#subform[0].CBNewMiner[0]",
+      "Newly Employed Experienced Miner": "form1[0].#subform[0].CBExperienceMiner[0]",
+      "Annual Refresher": "form1[0].#subform[0].CBAnnualRefresher[0]",
+      "Task Training": "form1[0].#subform[0].CBNewTask[0]",
+      "Hazard Training": "form1[0].#subform[0].CBHazardTraining[0]"
+    }
+  }
+}

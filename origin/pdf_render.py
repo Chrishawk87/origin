@@ -5,15 +5,21 @@ official government field layout and stamps it "Audit Ready". This module turns
 that structured result into an actual, downloadable **PDF file** — the artifact
 an inspector or a prequal reviewer (ISN/Avetta/Veriforce) can be handed.
 
-Two rendering paths, same public entry point ``render_pdf``:
+Three rendering paths, same public entry point ``render_pdf``:
 
-  1. TEMPLATE OVERLAY (pixel-perfect). If a real blank government PDF is present
-     at ``form_templates/<form_id>.pdf`` with a coordinate map at
+  1. ACROFORM NAMED-FIELD FILL (pixel-perfect, preferred). If a real blank
+     government PDF at ``form_templates/<form_id>.pdf`` carries interactive
+     AcroForm fields, the resolved values are written straight into the named
+     fields (pypdf ``update_page_form_field_values``) with an optional map at
+     ``form_templates/<form_id>.acro.json`` translating our official-field ids to
+     the PDF's field names. This is how the genuine fillable MSHA 5000-23 fills.
+
+  2. TEMPLATE OVERLAY. If a real blank PDF is present with a coordinate map at
      ``form_templates/<form_id>.map.json``, the resolved values are stamped onto
-     the real form at the mapped x/y positions (reportlab canvas → pypdf merge).
-     This is how a genuine MSHA 5000-23 or USACE 385 gets filled in place.
+     the real form at the mapped x/y positions (reportlab canvas → pypdf merge) —
+     for flat (non-interactive) government scans.
 
-  2. GENERATED FALLBACK (always available). When no template is on disk — the
+  3. GENERATED FALLBACK (always available). When no template is on disk — the
      default today, since the blank forms live at their government source — the
      engine lays out a clean, sectioned, inspection-grade PDF from the same
      official field layout: agency header, CFR authority, an Audit-Ready badge,
@@ -60,7 +66,16 @@ def render_pdf(form_id: str, answers: Optional[Dict[str, Any]] = None,
     if not result.get("ok"):
         return result
 
-    # Path 1: stamp onto a real government template when one is on disk.
+    # Path 1: fill a real interactive government form by field name (best).
+    try:
+        filled = _fill_acroform(form_id, result)
+        if filled is not None:
+            return {"ok": True, "pdf": filled, "filename": _filename(form_id),
+                    "audit_ready": result.get("audit_ready"), "mode": "template"}
+    except Exception:
+        pass  # a bad template must never block the remaining paths
+
+    # Path 2: stamp onto a flat government template via a coordinate map.
     try:
         stamped = _overlay_template(form_id, result)
         if stamped is not None:
@@ -69,7 +84,7 @@ def render_pdf(form_id: str, answers: Optional[Dict[str, Any]] = None,
     except Exception:
         pass  # a bad template must never block the generated fallback
 
-    # Path 2: generate a clean inspection-grade PDF from the field layout.
+    # Path 3: generate a clean inspection-grade PDF from the field layout.
     try:
         pdf = _generate(result)
     except Exception as exc:
@@ -82,7 +97,99 @@ def _filename(form_id: str) -> str:
     return f"{form_id}.pdf"
 
 
-# ── Path 1: real-template overlay (pixel-perfect fill) ────────────────────────
+# ── Path 1: real interactive-form fill by field name (pixel-perfect) ──────────
+def _fill_acroform(form_id: str, result: Dict[str, Any]) -> Optional[bytes]:
+    """Write resolved values into the named AcroForm fields of a real blank
+    government PDF, preserving the official layout exactly. Returns PDF bytes, or
+    None when there's no template on disk or the template carries no interactive
+    fields (so the caller falls through to overlay / generated).
+
+    Optional map (form_templates/<id>.acro.json) translates our official-field
+    ids to the PDF's field names:
+        {"on_state": "/1",
+         "text":    {"<of_id>": "<pdf.field.name>"},
+         "combine": {"<pdf.field.name>": {"ids": ["<of_id>", ...], "sep": " "}},
+         "checks":  {"<of_id>": {"<value>": "<pdf.checkbox.field.name>"}}}
+    With no map, of_ids are matched against PDF field names directly.
+    """
+    tpl = _TEMPLATE_DIR / f"{form_id}.pdf"
+    if not tpl.exists():
+        return None
+
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(str(tpl))
+    try:
+        fields = reader.get_fields()
+    except Exception:
+        fields = None
+    if not fields:
+        return None  # flat PDF — let the overlay path try
+
+    values = _flat_values(result)
+    amap = _TEMPLATE_DIR / f"{form_id}.acro.json"
+    spec = json.loads(amap.read_text(encoding="utf-8")) if amap.exists() else {}
+    on_state = spec.get("on_state", "/1")
+
+    text_val: Dict[str, str] = {}
+
+    # Direct text mappings (of_id -> pdf field name); no map => name==of_id.
+    text_map = spec.get("text")
+    if text_map is None and not spec:
+        text_map = {k: k for k in values}
+    for of_id, pdf_name in (text_map or {}).items():
+        v = values.get(of_id)
+        if v not in (None, ""):
+            text_val[pdf_name] = str(v)
+
+    # Combined text fields (several answers joined into one PDF field).
+    for pdf_name, comb in (spec.get("combine") or {}).items():
+        parts = [str(values.get(i)) for i in comb.get("ids", []) if values.get(i)]
+        if parts:
+            text_val[pdf_name] = comb.get("sep", " ").join(parts)
+
+    # Checkbox mappings (value of an of_id selects which box to tick).
+    check_val: Dict[str, Any] = {}
+    for of_id, mapping in (spec.get("checks") or {}).items():
+        target = mapping.get(str(values.get(of_id) or "").strip())
+        if target:
+            check_val[target] = on_state
+
+    if not text_val and not check_val:
+        return None  # nothing to write — fall through
+
+    writer = PdfWriter()
+    writer.append(reader)
+
+    from pypdf.generic import NameObject
+    fill_all = dict(text_val)
+    fill_all.update({k: NameObject(v) for k, v in check_val.items()})
+    for page in writer.pages:
+        try:
+            writer.update_page_form_field_values(page, fill_all, auto_regenerate=False)
+        except Exception:
+            # older pypdf without checkbox support in this call — do text only
+            if text_val:
+                writer.update_page_form_field_values(page, text_val)
+
+    # Ask viewers to regenerate field appearances so values render everywhere.
+    try:
+        writer.set_need_appearances_writer(True)
+    except Exception:
+        try:
+            from pypdf.generic import BooleanObject
+            root = writer._root_object
+            if "/AcroForm" in root:
+                root["/AcroForm"][NameObject("/NeedAppearances")] = BooleanObject(True)
+        except Exception:
+            pass
+
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+# ── Path 2: real-template overlay (flat scans, coordinate map) ────────────────
 def _overlay_template(form_id: str, result: Dict[str, Any]) -> Optional[bytes]:
     """Stamp resolved values onto a real blank government PDF using a coordinate
     map. Returns PDF bytes, or None when no template/map pair is present so the
@@ -359,7 +466,11 @@ def _selftest() -> Tuple[bool, str]:
     checks: List[str] = []
     ok = True
     samples = {
-        "msha-5000-23": {},
+        "msha-5000-23": {
+            "company": "Lone Star Aggregates LLC", "mine_name": "Pit 7", "mine_id": "41-02345",
+            "miner_name": "Jesse R. Alvarado", "training_type": "Annual Refresher",
+            "hours": "8", "date_completed": "2026-09-08", "instructor": "M. Rios",
+        },
         "usace-aha": {"activity": "excavation"},
         "msha-wpe": {
             "company": "Acme Aggregates", "mine_name": "Pit 4", "mine_id": "41-01234",
