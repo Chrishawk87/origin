@@ -331,7 +331,7 @@
         <button class="btn orange sm" onclick="showAddGc()">+ Add GC</button>
       </div>
       <div id="addGcBox" class="card hidden" style="margin-bottom:16px">
-        <div class="section-title" style="margin-top:0">New / edit general contractor</div>
+        <div class="section-title" style="margin-top:0" id="gcBoxTitle">New general contractor</div>
         <div class="row3">
           <div><label class="lbl">Company name</label><input class="f" id="g_name"></div>
           <div><label class="lbl">Login email</label><input class="f" id="g_email" type="email"></div>
@@ -630,6 +630,8 @@ function renderGcRoster(){
 }
 function showAddGc(){document.getElementById('addGcBox').classList.remove('hidden');
   ['g_name','g_email','g_pin','g_slug'].forEach(function(id){document.getElementById(id).value='';});
+  var t=document.getElementById('gcBoxTitle');if(t)t.textContent='New general contractor';
+  document.getElementById('g_pin').placeholder='4+ digits';
   document.getElementById('g_name').focus();}
 function hideAddGc(){document.getElementById('addGcBox').classList.add('hidden');}
 function editGc(slug){
@@ -640,6 +642,7 @@ function editGc(slug){
   document.getElementById('g_pin').value='';
   document.getElementById('g_slug').value=g.slug;
   document.getElementById('g_pin').placeholder='•••• leave blank to keep';
+  var t=document.getElementById('gcBoxTitle');if(t)t.textContent='Editing: '+(g.name||'');
   document.getElementById('g_name').focus();
 }
 function saveGc(){

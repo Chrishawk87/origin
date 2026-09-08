@@ -1925,7 +1925,19 @@ def register_portal(app) -> None:
         if not name:
             return JSONResponse({"error": "GC name required"}, status_code=400)
         incoming_slug = (body.get("slug") or "").strip()
-        slug = incoming_slug or slugify(name)
+        if incoming_slug:
+            # Editing an existing GC — the Edit button carries its slug.
+            slug = incoming_slug
+        else:
+            # Brand-new GC. Never reuse an existing slug: two companies whose
+            # names normalize to the same value ("ABC Inc" and "ABC, Inc.")
+            # must not overwrite each other. Pick the first free slug.
+            base = slugify(name)
+            slug = base
+            n = 2
+            while load_gc(slug) is not None:
+                slug = f"{base}-{n}"
+                n += 1
         existing = load_gc(slug)
         is_new = existing is None
         rec = existing or _blank_gc(name, body.get("email", ""))
