@@ -670,6 +670,12 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         # Brain Router (agency-mode): self-scoping to the tenant's sie_gc_slug;
         # catalog/profile carry no company_id and are tenant-filtered in-handler.
         _re.compile(r"^/api/brain-router/(catalog|profile)$"),
+        # Form Vault (Screen 3): official-form catalog/schema/fill. Self-scoping to
+        # the tenant's sie_gc_slug; carries no company_id; fill is stateless (or
+        # persists under the tenant's own key). Agency visibility is Brain-Router
+        # scoped in-handler.
+        _re.compile(r"^/api/form-vault/(catalog|fill)$"),
+        _re.compile(r"^/api/form-vault/form/[^/]+$"),
     ]
     # Paths a GC may hit that legitimately carry no company_id (they are either
     # self-scoping, stateless, or a tenant-filtered portfolio rollup). Every
@@ -679,7 +685,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     _GC_NO_CID_OK = _re.compile(
         r"^/api/(company/(list|portfolio|upsert)|scoping/[^/]+"
         r"|review/(overview|list)|training/overview"
-        r"|brain-router/(catalog|profile))$")
+        r"|brain-router/(catalog|profile)"
+        r"|form-vault/(catalog|fill|form/[^/]+))$")
 
     def _gc_company_id(request):
         """Best-effort: the company_id a request targets, for GC ownership checks.
@@ -1553,6 +1560,30 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return checklist_html.read_text(encoding="utf-8")
         return "<h1>Field Checklist</h1><p>Tool page missing.</p>"
 
+    # ── Brain Router — the agency-mode toggle console (Screen 1 "Smart Profile") ──
+    # Turn on the regulatory agencies that govern this account and the whole app
+    # reshapes: nav gains that agency's tabs and the citation resolver is scoped
+    # to only its CFR lane. Page is a shell over /api/brain-router/*.
+    brain_router_html = Path(__file__).parent / "webui" / "brain_router.html"
+
+    @app.get("/brain-router", response_class=HTMLResponse)
+    def brain_router_page():
+        if brain_router_html.is_file():
+            return brain_router_html.read_text(encoding="utf-8")
+        return "<h1>Brain Router</h1><p>Tool page missing.</p>"
+
+    # ── Form Vault — split-screen official-form filler (Screen 3) ─────────────
+    # Worker answers a short form on the left; Origin auto-fills the official
+    # government form on the right and stamps "Audit Ready". Shell over
+    # /api/form-vault/*; agency set scoped by the Brain Router.
+    form_vault_html = Path(__file__).parent / "webui" / "form_vault.html"
+
+    @app.get("/form-vault", response_class=HTMLResponse)
+    def form_vault_page():
+        if form_vault_html.is_file():
+            return form_vault_html.read_text(encoding="utf-8")
+        return "<h1>Form Vault</h1><p>Tool page missing.</p>"
+
     # ── App launcher (the installed PWA opens here) ───────────────────────────
     # Routes each phone to whichever dashboard it is signed in to — owner/admin,
     # GC, or contractor — instead of dumping everyone on the internal AI console.
@@ -2232,6 +2263,19 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _brain_exc:  # pragma: no cover
         _brain = None
         print(f"[brain_router] disabled — registration failed: {_brain_exc}")
+
+    # ── Form Vault (Screen 3): official-government-form auto-fill engine ──────
+    # A worker's short answers are projected onto the real form's field layout
+    # (MSHA 5000-23, OSHA 300A, USACE AHA) deterministically — no LLM — and the
+    # record is stamped "Audit Ready" once every required field is satisfied. The
+    # visible form set is scoped to the agencies enabled in the Brain Router.
+    # Isolated + non-fatal, same as every SIE module.
+    try:
+        from . import form_vault as _formvault
+        _formvault.register_form_vault(app)
+    except Exception as _fv_exc:  # pragma: no cover
+        _formvault = None
+        print(f"[form_vault] disabled — registration failed: {_fv_exc}")
 
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and

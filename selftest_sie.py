@@ -1235,6 +1235,103 @@ def check_brain_router(client, token: str) -> None:
           "through the API tenant-isolated; bad payloads 400 and unknown codes drop")
 
 
+def check_form_vault(client, token: str) -> None:
+    """The Form Vault is Screen 3: a worker answers a short, plain-language form and
+    Origin auto-fills the *official government form* — the exact fields, in the exact
+    sections an inspector expects — stamping it "Audit Ready" only when every required
+    field is satisfied. All deterministic and offline: a compact answer set is
+    projected onto the official layout by an explicit mapping (copy / today / join),
+    never guessed. It is agency-scoped through the Brain Router: a form only appears
+    for a tenant whose agency is toggled on.
+
+      1. AGENCY SCOPING. An MSHA-enabled tenant sees Form 5000-23; an OSHA-only tenant
+         does NOT — a disabled agency's form can never surface for that account.
+      2. AUTO-FILL PROJECTS ANSWERS ONTO THE OFFICIAL LAYOUT. A full worker answer set
+         lands on the right official fields and, with the signature applied on the
+         official copy, the form reports audit_ready with no missing fields.
+      3. MISSING REQUIRED = NOT AUDIT READY. Drop one required answer and that official
+         field is flagged in missing_required; audit_ready flips False. Nothing is faked.
+      4. ROUTES. catalog / form / fill round-trip through the API, tenant-scoped, and a
+         fill with no form_id is a clean 400."""
+    from origin import form_vault as fv
+    from origin import brain_router as br
+
+    H = {"X-Origin-Token": token}
+    slug = "fv-selftest"
+
+    full_answers = {
+        "company": "Basin Aggregates LLC", "mine_name": "West Pit",
+        "mine_id": "41-01234", "miner_name": "Jordan Reyes",
+        "training_type": "Annual Refresher", "hours": 8,
+        "date_completed": "2026-09-01", "instructor": "Pat Nguyen",
+    }
+
+    # 1. AGENCY SCOPING — MSHA on shows the mine form; OSHA-only hides it.
+    br.set_active(["OSHA", "MSHA"], gc_slug=slug)
+    ids = {f["id"] for f in fv.catalog(slug)}
+    assert "msha-5000-23" in ids, f"MSHA-enabled tenant must see Form 5000-23: {ids}"
+    assert "osha-300a" in ids, f"OSHA-enabled tenant must see Form 300A: {ids}"
+
+    br.set_active(["OSHA"], gc_slug=slug)
+    ids_osha = {f["id"] for f in fv.catalog(slug)}
+    assert "msha-5000-23" not in ids_osha, \
+        f"an OSHA-only tenant must NOT be offered a mining form: {ids_osha}"
+    assert fv.form_schema("msha-5000-23", slug).get("ok") is False, \
+        "requesting a disabled agency's form must be refused, not fabricated"
+    assert fv.fill("msha-5000-23", full_answers, gc_slug=slug).get("ok") is False, \
+        "filling a disabled agency's form must be refused"
+
+    # 2. AUTO-FILL — re-enable MSHA, full answers → audit ready, no gaps.
+    br.set_active(["OSHA", "MSHA"], gc_slug=slug)
+    res = fv.fill("msha-5000-23", full_answers, gc_slug=slug)
+    assert res.get("ok") and res.get("audit_ready") is True, \
+        f"a complete 5000-23 must be Audit Ready: {res.get('missing_required')}"
+    assert res.get("missing_required") == [], res.get("missing_required")
+    flat = {fld["id"]: fld["value"] for s in res["sections"] for fld in s["fields"]}
+    assert flat["of_company"] == "Basin Aggregates LLC", flat
+    assert flat["of_mine_id"] == "41-01234", flat
+    assert flat["of_type"] == "Annual Refresher", flat
+    # the instructor signature is required but satisfied by being signed on the copy
+    sig = next(fld for s in res["sections"] for fld in s["fields"] if fld["id"] == "of_instr_sig")
+    assert sig["satisfied"] is True and sig.get("signature") is True, sig
+
+    # 3. MISSING REQUIRED — drop the instructor → that field flags, audit_ready False.
+    partial = {k: v for k, v in full_answers.items() if k != "instructor"}
+    res2 = fv.fill("msha-5000-23", partial, gc_slug=slug)
+    assert res2.get("audit_ready") is False, "a missing required field must block Audit Ready"
+    assert "Instructor's Name" in res2.get("missing_required", []), res2.get("missing_required")
+
+    # 4. ROUTES round-trip through the API, tenant-scoped. The API runs as the
+    #    owner tenant, so enable OSHA on the owner profile first (a prior check may
+    #    have narrowed it) — the vault only offers forms for enabled agencies.
+    br.set_active(["OSHA"], gc_slug=None)
+    r = client.get("/api/form-vault/catalog", headers=H)
+    assert r.status_code == 200 and r.json().get("ok"), r.text
+    api_ids = {f["id"] for f in r.json().get("forms", [])}
+    assert "osha-300a" in api_ids, api_ids
+    r = client.get("/api/form-vault/form/osha-300a", headers=H)
+    assert r.status_code == 200 and r.json().get("ok"), r.text
+    r = client.post("/api/form-vault/fill", headers=H, json={
+        "form_id": "osha-300a",
+        "answers": {"establishment": "Acme Steel", "city": "Houston", "state": "TX",
+                    "industry": "Steel fabrication", "avg_employees": 42,
+                    "total_hours": 84000, "deaths": 0, "days_away_cases": 1,
+                    "restricted_cases": 0, "other_cases": 2,
+                    "exec_name": "Dana Cole", "exec_title": "VP Ops"},
+    })
+    assert r.status_code == 200 and r.json().get("audit_ready") is True, r.text
+    # validation: no form_id is a clean 400
+    r = client.post("/api/form-vault/fill", headers=H, json={})
+    assert r.status_code == 400, f"a fill with no form_id must 400: {r.status_code}"
+
+    print("[pass] Form Vault: MSHA-on tenant is offered Form 5000-23 while an OSHA-only "
+          "tenant is refused it (form + fill both blocked); a complete 5000-23 auto-fills "
+          "the official layout (company/mine ID/type land in place, instructor signature "
+          "counts as signed-on-copy) and reports Audit Ready with no gaps; dropping the "
+          "instructor flags that official field and flips audit_ready False; catalog/form/"
+          "fill round-trip through the API tenant-scoped and a fill with no form_id 400s")
+
+
 def main() -> int:
     assert _keys_are_unset(), "LLM keys must be unset for this test to mean anything"
     print(f"[info] ORIGIN_DATA_DIR={_DATA_DIR}  (throwaway)")
@@ -1260,6 +1357,7 @@ def main() -> int:
         check_checklists(client, token)
         check_ecfr(client, token)
         check_brain_router(client, token)
+        check_form_vault(client, token)
     finally:
         try:
             eng.shutdown()

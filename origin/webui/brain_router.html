@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brain Router — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F; --blue:#1F5FA8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:760px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:26px 28px}
+  h1{font-size:23px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 18px;font-size:15px}
+  .sectlbl{font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--orange);margin:26px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;font-weight:800}
+  /* agency toggle cards */
+  .agency{border:1px solid var(--line);border-left:6px solid #C9CED6;border-radius:11px;padding:15px 17px;margin-bottom:13px;background:#fff;display:flex;justify-content:space-between;align-items:center;gap:14px;cursor:pointer;transition:border-color .12s,background .12s}
+  .agency:hover{border-color:#C9CED6;background:#FAFBFC}
+  .agency.on{border-left-color:var(--orange);background:var(--cream)}
+  .agency .meta{flex:1 1 auto;min-width:0}
+  .agency .al{font-weight:800;color:var(--charcoal);font-size:15.5px}
+  .agency .as{font-size:12.5px;color:var(--grey);margin-top:4px}
+  .brainflag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:middle}
+  .brainflag.ready{background:#DBEEE2;color:#155e35}
+  .brainflag.planned{background:#FBEAD1;color:#8a5a09}
+  .brainflag.partial{background:#DDE9F6;color:#1a4b86}
+  /* the switch */
+  .sw{flex:0 0 auto;width:52px;height:30px;border-radius:20px;background:#C9CED6;position:relative;transition:background .15s}
+  .agency.on .sw{background:var(--orange)}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+  .agency.on .sw::after{left:25px}
+  /* live nav preview */
+  .navprev{background:var(--charcoal);border-radius:11px;padding:14px 16px;margin-top:4px}
+  .navprev .nl{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#8A9099;font-weight:800;margin-bottom:10px}
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{font-size:12.5px;font-weight:700;border-radius:20px;padding:5px 12px;background:#33373E;color:#E4E6E9;white-space:nowrap}
+  .chip.base{background:#3E4A3F;color:#CDE9D4}
+  .chip.ag{background:#4A2F22;color:#F6C9AE}
+  .scopeline{font-size:12.5px;color:var(--grey);margin-top:12px}
+  .scopeline b{color:var(--charcoal)}
+  .cscope{display:inline-block;font-size:11.5px;font-weight:800;color:var(--red);background:#FBF4EF;border:1px solid #F0D9C9;border-radius:7px;padding:3px 9px;margin:2px 4px 2px 0}
+  .cscope.none{color:var(--grey);background:#F1F2F4;border-color:var(--line)}
+  /* actions */
+  .actions{display:flex;gap:10px;align-items:center;margin-top:22px;flex-wrap:wrap}
+  .btn{appearance:none;border:0;border-radius:8px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff}
+  .btn:hover{background:var(--red)}
+  .btn:disabled{background:#C9CED6;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--orange);background:var(--cream)}
+  .saved{font-size:13px;font-weight:800;color:var(--green);opacity:0;transition:opacity .2s}
+  .saved.show{opacity:1}
+  .hidden{display:none}
+  .disc{font-size:11.5px;color:var(--grey);margin-top:22px;border-top:1px solid var(--line);padding-top:12px}
+  .errbox{background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange);border-radius:10px;padding:14px 16px;font-size:14px;margin-top:16px}
+  .working{text-align:center;padding:34px 20px;color:var(--grey)}
+  .spin{width:32px;height:32px;border:4px solid var(--line);border-top-color:var(--orange);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C1F24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}</script>
+<script defer src="/pwa-install.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a id="backLink" href="/sie" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Safety Intelligence</a><span class="tag">Brain Router · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+
+      <div id="intro">
+        <h1>Turn on the agencies that govern your work</h1>
+        <p class="lede">Origin is one app for every regulator. Toggle on the agencies that actually apply — OSHA, MSHA, trucking, environmental, and more — and the whole console reshapes itself: the navigation gains that agency's tabs, and the photo-audit citation engine is restricted so only that agency's law can surface. Nothing blends across lanes.</p>
+      </div>
+
+      <div id="working">
+        <div class="working"><div class="spin"></div>
+          <div style="font-weight:800;color:var(--charcoal);font-size:15px">Loading your agency profile…</div>
+        </div>
+      </div>
+
+      <div id="result" class="hidden">
+        <div class="sectlbl">Regulatory agencies</div>
+        <div id="agencies"></div>
+
+        <div class="sectlbl">Live navigation preview</div>
+        <div class="navprev">
+          <div class="nl">Tabs this profile shows</div>
+          <div class="chips" id="navChips"></div>
+          <div class="scopeline" id="scopeLine"></div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="saveBtn" type="button">Save agency profile</button>
+          <button class="btn ghost" id="resetBtn" type="button">Reset changes</button>
+          <span class="saved" id="savedMsg">Saved ✓</span>
+        </div>
+
+        <div class="disc" id="rdisc"></div>
+      </div>
+
+      <div id="err"></div>
+
+    </div>
+    <footer class="foot">Origin · one app, every regulator — agency scope drives navigation and citation lanes</footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var _params = new URLSearchParams(location.search);
+
+  // ?back= returns the user to their own dashboard; ?embed=1 strips the brand bar
+  // when this page is embedded as a tab inside another console.
+  try {
+    var _bk = _params.get('back');
+    var _allow = { '/admin':'Admin', '/gc':'Dashboard', '/portal':'Portal', '/sie':'Safety Intelligence' };
+    if (_bk && _allow.hasOwnProperty(_bk)) {
+      var _bl = $('backLink');
+      if (_bl){ _bl.setAttribute('href', _bk); _bl.textContent = '← ' + _allow[_bk]; }
+    }
+    if (_params.get('embed') === '1') {
+      var _hdr = document.querySelector('header.brand'); if (_hdr) _hdr.style.display = 'none';
+      var _rl = document.querySelector('.rule'); if (_rl) _rl.style.display = 'none';
+      var _wr = document.querySelector('.wrap'); if (_wr) _wr.style.padding = '0';
+      document.body.style.background = 'transparent';
+    }
+  } catch(e){}
+
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function showError(msg){
+    $('working').classList.add('hidden');
+    var box = document.createElement('div');
+    box.className = 'errbox'; box.textContent = msg;
+    $('err').innerHTML = ''; $('err').appendChild(box);
+    setTimeout(function(){ if(box.parentNode) box.parentNode.removeChild(box); }, 9000);
+  }
+
+  // The catalog as loaded from the server, and the working set of enabled codes
+  // (mutated locally as the user toggles, only persisted on Save).
+  var CATALOG = [];
+  var SAVED = [];        // codes the server currently has on file (for Reset)
+  var selected = {};     // code -> bool, the live working set
+  var CONFIGURED = false;
+
+  function brainWord(b){
+    if(b === 'ready') return 'live';
+    if(b === 'planned') return 'planned';
+    if(b === 'partial') return 'partial';
+    return b || '';
+  }
+
+  function agencyCard(a){
+    var el = document.createElement('div');
+    el.className = 'agency' + (selected[a.code] ? ' on' : '');
+    el.setAttribute('data-code', a.code);
+    var titles = (a.titles && a.titles.length) ? a.titles.map(function(t){ return t + ' CFR'; }).join(' · ') : 'EM 385-1-1';
+    var flag = '<span class="brainflag ' + esc(a.brain) + '">' + esc(brainWord(a.brain)) + '</span>';
+    var tabs = (a.tabs || []).map(function(t){ return esc(t.label); }).join(' · ');
+    el.innerHTML =
+      '<div class="meta">' +
+        '<div class="al">' + esc(a.label) + flag + '</div>' +
+        '<div class="as">' + esc(titles) + (tabs ? ' &nbsp;·&nbsp; ' + tabs : '') + '</div>' +
+      '</div>' +
+      '<div class="sw" aria-hidden="true"></div>';
+    el.addEventListener('click', function(){
+      selected[a.code] = !selected[a.code];
+      el.classList.toggle('on', !!selected[a.code]);
+      previewFromSelection();
+    });
+    return el;
+  }
+
+  // Build the nav + citation-scope preview LOCALLY from the working selection, so
+  // the operator sees the effect of a toggle before committing. Mirrors the
+  // server's nav_for / citation_authorities logic (base tabs + enabled agency
+  // tabs; authorities = the set of non-null authorities among enabled agencies).
+  var BASE_TABS = ['Dashboard','Photo Audit','Checklist','Review'];
+  function previewFromSelection(){
+    var chips = BASE_TABS.map(function(t){ return '<span class="chip base">' + esc(t) + '</span>'; });
+    var auths = {};
+    CATALOG.forEach(function(a){
+      if(!selected[a.code]) return;
+      (a.tabs || []).forEach(function(t){ chips.push('<span class="chip ag">' + esc(t.label) + '</span>'); });
+      if(a.authority) auths[a.authority] = true;
+    });
+    $('navChips').innerHTML = chips.join('');
+
+    var anyOn = CATALOG.some(function(a){ return selected[a.code]; });
+    var authList = Object.keys(auths).sort();
+    var scopeHtml;
+    if(!anyOn){
+      scopeHtml = '<b>Citation lanes:</b> no agency selected — nothing will be cited.';
+    } else if(!authList.length){
+      scopeHtml = '<b>Citation lanes:</b> <span class="cscope none">form-driven only (no CFR)</span>';
+    } else {
+      scopeHtml = '<b>Citation lanes:</b> ' + authList.map(function(x){
+        return '<span class="cscope">' + esc(x) + '</span>'; }).join('') +
+        ' — only these agencies\u2019 standards can surface on a photo audit.';
+    }
+    $('scopeLine').innerHTML = scopeHtml;
+    markDirty();
+  }
+
+  function selectedCodes(){
+    return CATALOG.filter(function(a){ return selected[a.code]; }).map(function(a){ return a.code; });
+  }
+  function sameSet(a, b){
+    if(a.length !== b.length) return false;
+    var s = {}; a.forEach(function(x){ s[x]=1; });
+    return b.every(function(x){ return s[x]; });
+  }
+  function markDirty(){
+    var dirty = !sameSet(selectedCodes(), SAVED) || !CONFIGURED;
+    $('saveBtn').disabled = false;      // always allow an explicit save (first-time write)
+    $('resetBtn').style.display = dirty && CONFIGURED ? 'inline-block' : 'none';
+    $('savedMsg').classList.remove('show');
+  }
+
+  function renderCatalog(){
+    var host = $('agencies'); host.innerHTML = '';
+    CATALOG.forEach(function(a){ host.appendChild(agencyCard(a)); });
+    previewFromSelection();
+    $('rdisc').textContent = CONFIGURED
+      ? 'This profile is saved for your account. Turning an agency off hides its tabs and blocks its citations for everyone under this account; turning it on is additive.'
+      : 'You have no saved profile yet, so every live agency shows and citations are unscoped (Origin behaves exactly as before). Saving here locks in your agency scope.';
+  }
+
+  function applyProfile(p){
+    CATALOG = (p && p.agencies) || [];
+    CONFIGURED = !!(p && p.configured);
+    selected = {};
+    CATALOG.forEach(function(a){ if(a.enabled) selected[a.code] = true; });
+    SAVED = CONFIGURED ? selectedCodes() : [];   // unset → Reset falls back to "all off is not saved"
+    renderCatalog();
+    $('working').classList.add('hidden');
+    $('intro').classList.remove('hidden');
+    $('result').classList.remove('hidden');
+  }
+
+  function load(){
+    fetch('/api/brain-router/profile', { headers:{'Accept':'application/json'}, credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(p){
+        if(!p || p.error){ showError((p && p.error) || 'Could not load the agency profile.'); return; }
+        applyProfile(p);
+      })
+      .catch(function(){ showError('Could not reach the Brain Router. Please try again.'); });
+  }
+
+  function save(){
+    var codes = selectedCodes();
+    $('saveBtn').disabled = true;
+    $('savedMsg').classList.remove('show');
+    fetch('/api/brain-router/profile', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ agencies: codes })
+    })
+      .then(function(r){ return r.json().then(function(j){ return {status:r.status, j:j}; }); })
+      .then(function(res){
+        if(res.status >= 400 || (res.j && res.j.error)){
+          showError((res.j && res.j.error) || 'Could not save the profile.');
+          $('saveBtn').disabled = false; return;
+        }
+        applyProfile(res.j);              // echo the authoritative new state
+        $('savedMsg').classList.add('show');
+        setTimeout(function(){ $('savedMsg').classList.remove('show'); }, 2600);
+      })
+      .catch(function(){ showError('Could not save. Please try again.'); $('saveBtn').disabled = false; });
+  }
+
+  function reset(){
+    selected = {};
+    SAVED.forEach(function(c){ selected[c] = true; });
+    // reflect on the cards
+    Array.prototype.forEach.call(document.querySelectorAll('.agency'), function(el){
+      var code = el.getAttribute('data-code');
+      el.classList.toggle('on', !!selected[code]);
+    });
+    previewFromSelection();
+  }
+
+  $('saveBtn').addEventListener('click', save);
+  $('resetBtn').addEventListener('click', reset);
+
+  load();
+})();
+</script>
+</body>
+</html>

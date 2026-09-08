@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Form Vault — Origin (internal)</title>
+<style>
+  :root{
+    --charcoal:#1C1F24; --orange:#E8551F; --orange2:#F2712F; --cream:#FFF2EA;
+    --light:#F2F0EE; --grey:#6B7280; --line:#E3E6EA; --ink:#2B2F36; --white:#fff;
+    --red:#C8461A; --green:#1E7A46; --amber:#B7791F; --blue:#1F5FA8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDEEF0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.5;}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 14px 60px;}
+  .card{background:var(--white);border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08);}
+  header.brand{background:var(--charcoal);padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+  .word{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .word span{color:var(--orange2)}
+  .tag{color:#C9CED6;font-size:12px;background:#33373E;border-radius:20px;padding:5px 12px}
+  .rule{height:5px;background:var(--orange)}
+  .pad{padding:24px 28px}
+  h1{font-size:22px;line-height:1.25;color:var(--charcoal);margin:0 0 4px}
+  p.lede{color:var(--grey);margin:0 0 16px;font-size:14.5px}
+  label.fld{display:block;font-size:12px;font-weight:700;color:#556;letter-spacing:.3px;margin-bottom:5px}
+  select,input[type=text],input[type=number],input[type=date]{width:100%;padding:10px 12px;border:1px solid #C9CED6;border-radius:9px;font-size:14.5px;background:#fff;color:var(--charcoal)}
+  .btn{appearance:none;border:0;border-radius:8px;padding:11px 20px;font-size:14.5px;font-weight:700;cursor:pointer;background:var(--orange);color:#fff}
+  .btn:hover{background:var(--red)}
+  .btn.ghost{background:#fff;color:var(--charcoal);border:1.5px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--orange);background:var(--cream)}
+  .hidden{display:none}
+  /* form picker */
+  .picker{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px}
+  .picker .grow{flex:1 1 320px}
+  .agtag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.4px;border-radius:6px;padding:2px 8px;background:#EDEFF2;color:#4a4f57;margin-left:8px;vertical-align:middle}
+  /* split screen */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
+  @media(max-width:820px){ .split{grid-template-columns:1fr} }
+  .side{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .side .sh{padding:12px 16px;font-weight:800;font-size:13px;letter-spacing:.4px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+  .side.left .sh{background:var(--cream);color:var(--orange);border-bottom:1px solid var(--line)}
+  .side.right .sh{background:var(--charcoal);color:#fff}
+  .side .sb{padding:16px}
+  .worker .f{margin-bottom:13px}
+  .worker .help{font-size:11.5px;color:var(--grey);margin-top:4px}
+  .req-star{color:var(--red)}
+  /* official form render */
+  .osec{margin-bottom:16px}
+  .osec .ol{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--blue);font-weight:800;border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:9px}
+  .of{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed #EEF0F2;font-size:13.5px}
+  .of:last-child{border-bottom:0}
+  .of .ofl{color:var(--grey);flex:0 0 46%}
+  .of .ofv{color:var(--charcoal);font-weight:700;text-align:right;flex:1 1 auto;word-break:break-word}
+  .of .ofv.empty{color:#B9BEC6;font-weight:600;font-style:italic}
+  .of .ofv .fnote{display:block;font-size:11px;color:var(--amber);font-weight:700;font-style:normal;margin-top:2px}
+  /* matrix rows */
+  .mrow{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:8px;background:#FAFBFC}
+  .mrow .mh{font-weight:800;color:var(--charcoal);font-size:13px}
+  .mrow ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink)}
+  .mrow .mc{font-size:11.5px;color:var(--red);font-weight:800;margin-top:5px}
+  /* audit-ready badge */
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;border-radius:20px;padding:5px 13px}
+  .badge.ready{background:#DBEEE2;color:#155e35}
+  .badge.notready{background:#FBEAD1;color:#8a5a09}
+  .missbox{background:#FBF4EF;border:1px solid #F0D9C9;border-radius:9px;padding:10px 13px;font-size:12.5px;color:#8a3d1a;margin-top:12px}
+  .missbox b{color:var(--red)}
+  .govlink{font-size:12px;margin-top:14px}
+  .govlink a{color:var(--orange);font-weight:700;text-decoration:none}
+  .govlink a:hover{text-decoration:underline}
+  .empty{color:var(--grey);text-align:center;padding:36px 16px;font-size:14px}
+  .errbox{background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange);border-radius:10px;padding:14px 16px;font-size:14px;margin-top:16px}
+  footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1C1F24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Origin">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}</script>
+<script defer src="/pwa-install.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand"><div class="word">ORIGIN<span>.</span></div><div><a id="backLink" href="/sie" style="color:#C9CED6;text-decoration:none;font-size:12px;margin-right:12px">← Safety Intelligence</a><span class="tag">Form Vault · internal</span></div></header>
+    <div class="rule"></div>
+    <div class="pad">
+
+      <h1>A 60-second answer becomes the official form</h1>
+      <p class="lede">Pick an official government form. Answer the short field on the left and Origin auto-fills the exact form an inspector expects on the right — stamped <b>Audit Ready</b> the moment every required field is satisfied. Only the forms for the agencies you turned on in the Brain Router appear here.</p>
+
+      <div class="picker">
+        <div class="grow">
+          <label class="fld" for="formPick">Official form</label>
+          <select id="formPick"><option value="">— Choose a form —</option></select>
+        </div>
+        <div id="pickMeta" style="font-size:12.5px;color:var(--grey)"></div>
+      </div>
+
+      <div id="split" class="split hidden">
+        <div class="side left">
+          <div class="sh">Worker · quick entry</div>
+          <div class="sb worker" id="workerForm"></div>
+        </div>
+        <div class="side right">
+          <div class="sh"><span>Official form</span><span id="badge"></span></div>
+          <div class="sb" id="officialForm"><div class="empty">Fill the fields on the left.</div></div>
+        </div>
+      </div>
+
+      <div id="picked-empty" class="empty">Choose a form above to begin.</div>
+
+      <div id="err"></div>
+
+    </div>
+    <footer class="foot">Origin · official-form auto-fill — the authoritative blank form always lives at the linked government source</footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var _params = new URLSearchParams(location.search);
+
+  try {
+    var _bk = _params.get('back');
+    var _allow = { '/admin':'Admin', '/gc':'Dashboard', '/portal':'Portal', '/sie':'Safety Intelligence' };
+    if (_bk && _allow.hasOwnProperty(_bk)) {
+      var _bl = $('backLink');
+      if (_bl){ _bl.setAttribute('href', _bk); _bl.textContent = '← ' + _allow[_bk]; }
+    }
+    if (_params.get('embed') === '1') {
+      var _hdr = document.querySelector('header.brand'); if (_hdr) _hdr.style.display = 'none';
+      var _rl = document.querySelector('.rule'); if (_rl) _rl.style.display = 'none';
+      var _wr = document.querySelector('.wrap'); if (_wr) _wr.style.padding = '0';
+      document.body.style.background = 'transparent';
+    }
+  } catch(e){}
+
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function showError(msg){
+    var box = document.createElement('div');
+    box.className = 'errbox'; box.textContent = msg;
+    $('err').innerHTML = ''; $('err').appendChild(box);
+    setTimeout(function(){ if(box.parentNode) box.parentNode.removeChild(box); }, 9000);
+  }
+
+  var SCHEMA = null;         // current form schema
+  var answers = {};          // worker input id -> value
+  var fillTimer = null;
+
+  // Populate the form picker from the vault — never hardcode the list, so it
+  // reflects exactly which agencies are enabled in the Brain Router.
+  fetch('/api/form-vault/catalog', { headers:{'Accept':'application/json'}, credentials:'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      var forms = (j && j.forms) || [];
+      var sel = $('formPick');
+      if(!forms.length){
+        $('picked-empty').textContent = 'No forms are available. Turn on an agency in the Brain Router to unlock its forms.';
+        return;
+      }
+      forms.forEach(function(f){
+        var o = document.createElement('option');
+        o.value = f.id; o.textContent = f.title + '  (' + f.agency + ')';
+        o.setAttribute('data-summary', f.summary || '');
+        sel.appendChild(o);
+      });
+    })
+    .catch(function(){ showError('Could not reach the Form Vault. Please try again.'); });
+
+  $('formPick').addEventListener('change', function(){
+    var id = this.value;
+    if(!id){ $('split').classList.add('hidden'); $('picked-empty').classList.remove('hidden'); $('pickMeta').textContent=''; return; }
+    var opt = this.options[this.selectedIndex];
+    $('pickMeta').textContent = opt ? (opt.getAttribute('data-summary') || '') : '';
+    loadForm(id);
+  });
+
+  function loadForm(id){
+    fetch('/api/form-vault/form/' + encodeURIComponent(id), { headers:{'Accept':'application/json'}, credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(s){
+        if(!s || !s.ok){ showError((s && s.error) || 'That form is not available.'); return; }
+        SCHEMA = s; answers = {};
+        renderWorker(s);
+        $('split').classList.remove('hidden');
+        $('picked-empty').classList.add('hidden');
+        $('officialForm').innerHTML = '<div class="empty">Fill the fields on the left.</div>';
+        $('badge').innerHTML = '';
+        doFill();   // show the empty official layout with required flags immediately
+      })
+      .catch(function(){ showError('Could not load that form. Please try again.'); });
+  }
+
+  function renderWorker(s){
+    var host = $('workerForm'); host.innerHTML = '';
+    (s.worker_inputs || []).forEach(function(w){
+      var wrap = document.createElement('div'); wrap.className = 'f';
+      var star = w.required ? ' <span class="req-star">*</span>' : '';
+      var lab = document.createElement('label'); lab.className = 'fld';
+      lab.innerHTML = esc(w.label) + star;
+      wrap.appendChild(lab);
+
+      var input;
+      if(w.type === 'select'){
+        input = document.createElement('select');
+        var blank = document.createElement('option'); blank.value=''; blank.textContent='— select —';
+        input.appendChild(blank);
+        (w.options || []).forEach(function(op){
+          var o = document.createElement('option'); o.value = op; o.textContent = op; input.appendChild(o);
+        });
+      } else {
+        input = document.createElement('input');
+        input.type = (w.type === 'number') ? 'number' : (w.type === 'date' ? 'date' : 'text');
+        if(w.placeholder) input.placeholder = w.placeholder;
+        if(w.type === 'number') input.step = 'any';
+      }
+      input.addEventListener('input', function(){ answers[w.id] = input.value; scheduleFill(); });
+      input.addEventListener('change', function(){ answers[w.id] = input.value; scheduleFill(); });
+      wrap.appendChild(input);
+      if(w.help){ var h = document.createElement('div'); h.className='help'; h.textContent = w.help; wrap.appendChild(h); }
+      host.appendChild(wrap);
+    });
+  }
+
+  function scheduleFill(){ if(fillTimer) clearTimeout(fillTimer); fillTimer = setTimeout(doFill, 260); }
+
+  function doFill(){
+    if(!SCHEMA) return;
+    fetch('/api/form-vault/fill', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ form_id: SCHEMA.id, answers: answers })
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(!res || !res.ok){ showError((res && res.error) || 'Could not fill the form.'); return; }
+        renderOfficial(res);
+      })
+      .catch(function(){ /* keep last render on transient error */ });
+  }
+
+  function renderOfficial(res){
+    var host = $('officialForm'); host.innerHTML = '';
+    (res.sections || []).forEach(function(sec){
+      var s = document.createElement('div'); s.className = 'osec';
+      var h = '<div class="ol">' + esc(sec.section) + '</div>';
+      (sec.fields || []).forEach(function(f){
+        if(f.matrix){
+          h += '<div class="of"><span class="ofl">' + esc(f.label) + '</span></div>';
+          if((f.rows||[]).length){
+            f.rows.forEach(function(row){
+              h += '<div class="mrow"><div class="mh">' + esc(row.hazard || row.step || 'Hazard') + '</div>';
+              if((row.controls||[]).length){
+                h += '<ul>' + row.controls.map(function(c){ return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>';
+              }
+              if(row.citation) h += '<div class="mc">' + esc(row.citation) + '</div>';
+              h += '</div>';
+            });
+          } else {
+            h += '<div class="of"><span class="ofv empty">— <span class="fnote">' + esc(f.note || 'to be completed') + '</span></span></div>';
+          }
+          return;
+        }
+        var val = f.value;
+        var cls = val ? 'ofv' : 'ofv empty';
+        var disp = val ? esc(val) : '—';
+        var note = (!val && f.note) ? '<span class="fnote">' + esc(f.note) + '</span>' : '';
+        h += '<div class="of"><span class="ofl">' + esc(f.label) +
+             (f.required ? ' <span class="req-star">*</span>' : '') + '</span>' +
+             '<span class="' + cls + '">' + disp + note + '</span></div>';
+      });
+      s.innerHTML = h; host.appendChild(s);
+    });
+
+    // audit-ready badge
+    if(res.audit_ready){
+      $('badge').innerHTML = '<span class="badge ready">✓ Audit Ready</span>';
+    } else {
+      var n = (res.missing_required || []).length;
+      $('badge').innerHTML = '<span class="badge notready">' + n + ' field' + (n===1?'':'s') + ' left</span>';
+    }
+    if(!res.audit_ready && (res.missing_required||[]).length){
+      var mb = document.createElement('div'); mb.className='missbox';
+      mb.innerHTML = '<b>Still required:</b> ' + res.missing_required.map(esc).join(', ') + '.';
+      host.appendChild(mb);
+    }
+    if(res.gov_url){
+      var g = document.createElement('div'); g.className='govlink';
+      g.innerHTML = 'Official blank form: <a href="' + esc(res.gov_url) + '" target="_blank" rel="noopener">government source ↗</a>';
+      host.appendChild(g);
+    }
+  }
+})();
+</script>
+</body>
+</html>

@@ -159,6 +159,8 @@
   <button class="tab" data-tab="review">Review <span class="cnt zero" id="cnt-review">0</span></button>
   <button class="tab" data-tab="training">Training <span class="cnt zero" id="cnt-training">0</span></button>
   <button class="tab" data-tab="citation">Citation</button>
+  <button class="tab" data-tab="brain">Brain Router</button>
+  <button class="tab" data-tab="forms">Form Vault</button>
   <button class="tab" data-tab="checklist">Checklist</button>
   <button class="tab" data-tab="photo">Photo Audit</button>
 </div>
@@ -342,6 +344,24 @@
     </div>
   </section>
 
+  <!-- ══ BRAIN ROUTER ══ -->
+  <!-- Screen 1 "Smart Profile": toggle the agencies that govern this account. The
+       choice drives the nav + the citation lane scope for the photo audit,
+       resolved deterministically from Origin's own knowledge (no LLM). -->
+  <section class="panel" id="p-brain">
+    <iframe id="brFrame" title="Brain Router" data-src="/brain-router?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
+  <!-- ══ FORM VAULT ══ -->
+  <!-- Screen 3: a worker's 60-second entry auto-fills the official government
+       form (MSHA 5000-23, OSHA 300A, USACE AHA) and stamps it "Audit Ready".
+       Which forms appear is scoped by the Brain Router's enabled agencies. -->
+  <section class="panel" id="p-forms">
+    <iframe id="fvFrame" title="Form Vault" data-src="/form-vault?embed=1"
+      style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
+  </section>
+
   <!-- ══ CHECKLIST ══ -->
   <!-- The Universal Regulatory Router's field page, embedded so the console stays
        one page / one nav. Regulatory text becomes a live checklist + AHA matrix;
@@ -398,6 +418,8 @@ const INIT = {
   review: loadReview,
   training: ()=>fillCompanySelect('tr-co', loadTraining),
   citation: ()=>{},
+  brain: ()=>{ const f=$('#brFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
+  forms: ()=>{ const f=$('#fvFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
   checklist: ()=>{ const f=$('#clFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
   photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src; } },
 };
