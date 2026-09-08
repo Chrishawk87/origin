@@ -74,7 +74,7 @@
   .factions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
   .factions .btn{padding:12px 18px}
   /* ── DARK EMBED THEME (when loaded inside /sie) ─────────────────── */
-  body.embed{background:transparent;color:#e8edf4}
+  body.embed{background:#020617;color:#e8edf4}
   body.embed .card{background:transparent;box-shadow:none;border-radius:0}
   body.embed .pad{padding:2px 2px 24px}
   body.embed h1{color:#f4f7fb}
@@ -100,6 +100,11 @@
   body.embed .btn.ghost{background:#14202f;color:#f4f7fb;border-color:#2c3c56}
   body.embed .btn.ghost:hover{border-color:var(--orange);background:#1a2940}
   body.embed footer.foot{display:none}
+  /* Light-mode embed: strip chrome but keep the light base theme (no dark skin). */
+  body.embedlight{background:#EDEEF0}
+  body.embedlight .card{background:transparent;box-shadow:none;border-radius:0}
+  body.embedlight .pad{padding:2px 2px 24px}
+  body.embedlight footer.foot{display:none}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#1C1F24">
@@ -170,7 +175,7 @@
       var _hdr = document.querySelector('header.brand'); if (_hdr) _hdr.style.display = 'none';
       var _rl = document.querySelector('.rule'); if (_rl) _rl.style.display = 'none';
       var _wr = document.querySelector('.wrap'); if (_wr) _wr.style.padding = '0';
-      document.body.classList.add('embed');
+      document.body.classList.add(_params.get('theme') === 'light' ? 'embedlight' : 'embed');
     }
   } catch(e){}
 
