@@ -66,6 +66,26 @@
   .spin{width:32px;height:32px;border:4px solid var(--line);border-top-color:var(--orange);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+  /* ── DARK EMBED THEME (when loaded inside /sie) ─────────────────── */
+  body.embed{background:transparent;color:#e8edf4}
+  body.embed .card{background:transparent;box-shadow:none;border-radius:0}
+  body.embed .pad{padding:2px 2px 24px}
+  body.embed h1{color:#f4f7fb}
+  body.embed p.lede{color:#c4cfdd}
+  body.embed .sectlbl{color:#f2712f;border-bottom-color:#2c3c56}
+  body.embed .agency{background:rgba(148,163,184,.05);border-color:#2c3c56;border-left-color:#3a4a63}
+  body.embed .agency:hover{background:rgba(148,163,184,.09);border-color:#3a4a63}
+  body.embed .agency.on{background:rgba(232,85,31,.12);border-left-color:var(--orange)}
+  body.embed .agency .al{color:#f4f7fb}
+  body.embed .agency .as{color:#9fb0c6}
+  body.embed .sw{background:#3a4a63}
+  body.embed .scopeline{color:#9fb0c6}
+  body.embed .scopeline b{color:#f4f7fb}
+  body.embed .cscope.none{color:#9fb0c6;background:#14202f;border-color:#2c3c56}
+  body.embed .btn.ghost{background:#14202f;color:#f4f7fb;border-color:#2c3c56}
+  body.embed .disc{color:#9fb0c6;border-top-color:#2c3c56}
+  body.embed .working{color:#9fb0c6}
+  body.embed footer.foot{display:none}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#1C1F24">
@@ -140,7 +160,7 @@
       var _hdr = document.querySelector('header.brand'); if (_hdr) _hdr.style.display = 'none';
       var _rl = document.querySelector('.rule'); if (_rl) _rl.style.display = 'none';
       var _wr = document.querySelector('.wrap'); if (_wr) _wr.style.padding = '0';
-      document.body.style.background = 'transparent';
+      document.body.classList.add('embed');
     }
   } catch(e){}
 

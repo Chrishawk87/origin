@@ -70,6 +70,36 @@
   .empty{color:var(--grey);text-align:center;padding:36px 16px;font-size:14px}
   .errbox{background:#2B1B14;color:#FCEBE2;border:1px solid var(--orange);border-radius:10px;padding:14px 16px;font-size:14px;margin-top:16px}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+  /* form action toolbar */
+  .factions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .factions .btn{padding:12px 18px}
+  /* ── DARK EMBED THEME (when loaded inside /sie) ─────────────────── */
+  body.embed{background:transparent;color:#e8edf4}
+  body.embed .card{background:transparent;box-shadow:none;border-radius:0}
+  body.embed .pad{padding:2px 2px 24px}
+  body.embed h1{color:#f4f7fb}
+  body.embed p.lede{color:#c4cfdd}
+  body.embed label.fld{color:#b4c0d2}
+  body.embed #pickMeta{color:#b4c0d2}
+  body.embed select,body.embed input[type=text],body.embed input[type=number],body.embed input[type=date]{
+    background:#14202f;color:#f4f7fb;border-color:#2c3c56}
+  body.embed select option{background:#14202f;color:#f4f7fb}
+  body.embed .side{background:rgba(148,163,184,.05);border-color:#2c3c56}
+  body.embed .side.left .sh{background:rgba(232,85,31,.12);color:#f2712f;border-bottom-color:#2c3c56}
+  body.embed .side.right .sh{background:#0d1826;color:#f4f7fb}
+  body.embed .worker .help{color:#9fb0c6}
+  body.embed .osec .ol{color:#7fb3ff;border-bottom-color:#2c3c56}
+  body.embed .of{border-bottom-color:#22304a}
+  body.embed .of .ofl{color:#b4c0d2}
+  body.embed .of .ofv{color:#f4f7fb}
+  body.embed .of .ofv.empty{color:#7f8da3}
+  body.embed .mrow{background:rgba(148,163,184,.06);border-color:#2c3c56}
+  body.embed .mrow .mh{color:#f4f7fb}
+  body.embed .mrow ul{color:#cdd8e6}
+  body.embed .empty{color:#9fb0c6}
+  body.embed .btn.ghost{background:#14202f;color:#f4f7fb;border-color:#2c3c56}
+  body.embed .btn.ghost:hover{border-color:var(--orange);background:#1a2940}
+  body.embed footer.foot{display:none}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#1C1F24">
@@ -110,6 +140,11 @@
         </div>
       </div>
 
+      <div id="formActions" class="factions hidden">
+        <button type="button" class="btn" id="btnAutoFill">Auto-fill official form</button>
+        <button type="button" class="btn ghost" id="btnPrint">Print / Save PDF</button>
+      </div>
+
       <div id="picked-empty" class="empty">Choose a form above to begin.</div>
 
       <div id="err"></div>
@@ -135,7 +170,7 @@
       var _hdr = document.querySelector('header.brand'); if (_hdr) _hdr.style.display = 'none';
       var _rl = document.querySelector('.rule'); if (_rl) _rl.style.display = 'none';
       var _wr = document.querySelector('.wrap'); if (_wr) _wr.style.padding = '0';
-      document.body.style.background = 'transparent';
+      document.body.classList.add('embed');
     }
   } catch(e){}
 
@@ -175,7 +210,7 @@
 
   $('formPick').addEventListener('change', function(){
     var id = this.value;
-    if(!id){ $('split').classList.add('hidden'); $('picked-empty').classList.remove('hidden'); $('pickMeta').textContent=''; return; }
+    if(!id){ $('split').classList.add('hidden'); $('formActions').classList.add('hidden'); $('picked-empty').classList.remove('hidden'); $('pickMeta').textContent=''; return; }
     var opt = this.options[this.selectedIndex];
     $('pickMeta').textContent = opt ? (opt.getAttribute('data-summary') || '') : '';
     loadForm(id);
@@ -189,6 +224,7 @@
         SCHEMA = s; answers = {};
         renderWorker(s);
         $('split').classList.remove('hidden');
+        $('formActions').classList.remove('hidden');
         $('picked-empty').classList.add('hidden');
         $('officialForm').innerHTML = '<div class="empty">Fill the fields on the left.</div>';
         $('badge').innerHTML = '';
@@ -296,6 +332,44 @@
       host.appendChild(g);
     }
   }
+
+  // ── Magic auto-fill button — force an immediate fill from current answers.
+  $('btnAutoFill').addEventListener('click', function(){
+    if(!SCHEMA){ showError('Choose a form first.'); return; }
+    if(fillTimer) clearTimeout(fillTimer);
+    doFill();
+  });
+
+  // ── Print / Save PDF — open the filled official form in a clean print window.
+  $('btnPrint').addEventListener('click', function(){
+    var off = $('officialForm');
+    if(!SCHEMA || !off || !off.innerHTML.trim()){ showError('Fill the form first.'); return; }
+    var title = SCHEMA.title || 'Official form';
+    var stamp = new Date().toLocaleString();
+    var css = ''
+      + 'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#1C1F24;margin:28px;line-height:1.5}'
+      + 'h1{font-size:19px;margin:0 0 2px}.meta{font-size:12px;color:#6B7280;margin:0 0 18px}'
+      + '.osec{margin-bottom:16px}.osec .ol{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#1F5FA8;font-weight:800;border-bottom:1px solid #E3E6EA;padding-bottom:5px;margin-bottom:9px}'
+      + '.of{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed #EEF0F2;font-size:13.5px}'
+      + '.of .ofl{color:#6B7280;flex:0 0 46%}.of .ofv{color:#1C1F24;font-weight:700;text-align:right;flex:1 1 auto;word-break:break-word}'
+      + '.of .ofv.empty{color:#B9BEC6;font-style:italic}.of .fnote{display:block;font-size:11px;color:#B7791F;font-weight:700}'
+      + '.mrow{border:1px solid #E3E6EA;border-radius:9px;padding:9px 11px;margin-top:8px}.mrow .mh{font-weight:800;font-size:13px}'
+      + '.mrow ul{margin:6px 0 0;padding-left:18px;font-size:12.5px}.mrow .mc{font-size:11.5px;color:#C8461A;font-weight:800;margin-top:5px}'
+      + '.badge{display:inline-block;font-size:12px;font-weight:800;border-radius:20px;padding:4px 12px;margin-bottom:14px}'
+      + '.missbox,.govlink,.errbox{display:none}';
+    // clone the official render but strip the audit badge duplication note box
+    var body = off.innerHTML.replace(/<div class="missbox[\s\S]*?<\/div>/g,'');
+    var badge = $('badge') ? $('badge').textContent.trim() : '';
+    var w = window.open('', '_blank');
+    if(!w){ showError('Allow pop-ups to print or save this form.'); return; }
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'
+      + esc(title) + '</title><style>' + css + '</style></head><body>'
+      + '<h1>' + esc(title) + '</h1><div class="meta">Origin auto-filled · ' + esc(stamp)
+      + (badge ? ' · ' + esc(badge) : '') + '</div>' + body + '</body></html>');
+    w.document.close();
+    w.focus();
+    setTimeout(function(){ try{ w.print(); }catch(e){} }, 350);
+  });
 })();
 </script>
 </body>

@@ -79,6 +79,32 @@
   .spin{width:32px;height:32px;border:4px solid var(--line);border-top-color:var(--orange);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
   footer.foot{background:var(--orange);color:#fff;text-align:center;padding:14px;font-size:12px}
+  /* ── DARK EMBED THEME (when loaded inside /sie) ─────────────────── */
+  body.embed{background:transparent;color:#e8edf4}
+  body.embed .card{background:transparent;box-shadow:none;border-radius:0}
+  body.embed .pad{padding:2px 2px 24px}
+  body.embed h1{color:#f4f7fb}
+  body.embed p.lede{color:#c4cfdd}
+  body.embed label.fld{color:#b4c0d2}
+  body.embed .sectlbl{color:#f2712f;border-bottom-color:#2c3c56}
+  body.embed select,body.embed input[type=text]{background:#14202f;color:#f4f7fb;border-color:#2c3c56}
+  body.embed select option{background:#14202f;color:#f4f7fb}
+  body.embed .field{background:rgba(148,163,184,.05);border-color:#2c3c56}
+  body.embed .field .fl{color:#f4f7fb}
+  body.embed .field .req{color:#dbe3ee}
+  body.embed .metaline{color:#9fb0c6}
+  body.embed .metaline b{color:#f4f7fb}
+  body.embed .seg{border-color:#2c3c56}
+  body.embed .seg button{background:#14202f;color:#dbe3ee;border-right-color:#2c3c56}
+  body.embed .unit{color:#9fb0c6}
+  body.embed .aha{border-color:#2c3c56}
+  body.embed .aha .ah{background:#0d1826;color:#f4f7fb;border-bottom-color:#2c3c56}
+  body.embed .aha .cc{color:#9fb0c6}
+  body.embed .aha ul{color:#dbe3ee}
+  body.embed .disc{color:#9fb0c6;border-top-color:#2c3c56}
+  body.embed .working{color:#9fb0c6}
+  body.embed .btn.ghost{background:#14202f;color:#f4f7fb;border-color:#2c3c56}
+  body.embed footer.foot{display:none}
   @media print{
     body{background:#fff}
     header.brand,.rule,footer.foot,.controls,.btn,.seg button{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -166,7 +192,7 @@
       var _hdr = document.querySelector('header.brand'); if (_hdr) _hdr.style.display = 'none';
       var _rl = document.querySelector('.rule'); if (_rl) _rl.style.display = 'none';
       var _wr = document.querySelector('.wrap'); if (_wr) _wr.style.padding = '0';
-      document.body.style.background = 'transparent';
+      document.body.classList.add('embed');
     }
   } catch(e){}
 
