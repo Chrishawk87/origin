@@ -261,6 +261,8 @@
     <a href="/admin">Admin</a>
     <a href="/photo-audit">Photo Audit</a>
     <a href="/app">App</a>
+    <a href="#" id="navShare" title="Create a time-limited access link to text or email someone">Share access</a>
+    <a href="#" id="navSignout">Sign out</a>
   </nav>
 </header>
 <div class="rule"></div>
@@ -1286,6 +1288,57 @@ function printLibDoc(){
 // ══ boot ════════════════════════════════════════════════════════════════════
 renderHome();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+</script>
+<script>
+/* Front-door controls: sign out + create a temporary access link. Both call
+   the /sie/api gate. "Share access" is owner-only (the endpoint enforces it). */
+(function(){
+  var signout = document.getElementById("navSignout");
+  if(signout) signout.addEventListener("click", function(e){
+    e.preventDefault();
+    fetch("/sie/api/logout", {method:"POST", credentials:"same-origin"})
+      .then(function(r){ return r.json(); })
+      .then(function(j){ window.location.href = (j && j.redirect) || "/sie/login"; })
+      .catch(function(){ window.location.href = "/sie/login"; });
+  });
+
+  var share = document.getElementById("navShare");
+  if(share) share.addEventListener("click", function(e){
+    e.preventDefault();
+    var ans = prompt(
+      "Temporary access — how long should the link work?\n\n" +
+      "Type a number of HOURS (e.g. 1, 8, 24).\n" +
+      "The person who opens the link is signed in until it expires.", "24");
+    if(ans === null) return;
+    var hours = parseFloat(ans);
+    if(!(hours > 0)){ alert("Please enter a number of hours, like 8 or 24."); return; }
+    fetch("/sie/api/magic", {
+      method:"POST", credentials:"same-origin",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({hours: hours})
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if(!res.ok || !res.j || !res.j.url){
+          alert((res.j && res.j.error) || "Couldn't create the link."); return;
+        }
+        var url = res.j.url;
+        var mins = Math.round((res.j.expires_in||0)/60);
+        var human = mins >= 60 ? (Math.round(mins/60)+" hour(s)") : (mins+" minutes");
+        if(navigator.share){
+          navigator.share({title:"Origin — temporary access", text:"Access link (expires in "+human+"):", url:url})
+            .catch(function(){ _copy(url, human); });
+        } else { _copy(url, human); }
+      }).catch(function(){ alert("Network error creating the link."); });
+  });
+
+  function _copy(url, human){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){
+        alert("Access link copied (expires in "+human+"):\n\n"+url+"\n\nPaste it into a text or email.");
+      }).catch(function(){ prompt("Access link (expires in "+human+") — copy it:", url); });
+    } else { prompt("Access link (expires in "+human+") — copy it:", url); }
+  }
+})();
 </script>
 </body>
 </html>

@@ -1543,7 +1543,23 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     sie_html = Path(__file__).parent / "webui" / "sie.html"
 
     @app.get("/sie", response_class=HTMLResponse)
-    def sie_console():
+    def sie_console(request: Request):
+        # Unified front door: require a session. Owner/GC land in the console;
+        # a signed-in client belongs in their own scoped portal; everyone else
+        # is sent to the /sie sign-in screen.
+        from starlette.responses import RedirectResponse
+        authed = _admin_session_ok(request) or bool(_gc_slug_ok(request))
+        if not authed and token and (request.query_params.get("token") == token):
+            authed = True   # legacy owner access token still opens the console
+        if not authed:
+            try:
+                from . import portal as _portal
+                cp = _portal._unsign(request.cookies.get(_portal.CLIENT_COOKIE, ""))
+                if cp and cp.get("role") == "client":
+                    return RedirectResponse("/portal", status_code=302)
+            except Exception:
+                pass
+            return RedirectResponse("/sie/login", status_code=302)
         if sie_html.is_file():
             return sie_html.read_text(encoding="utf-8")
         return "<h1>Safety Intelligence Engine</h1><p>Console page missing.</p>"
@@ -2108,6 +2124,15 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _portal.register_portal(app)
     except Exception as _portal_exc:  # pragma: no cover
         print(f"[portal] disabled — registration failed: {_portal_exc}")
+
+    # ── Unified /sie sign-in (master owner login + client + magic link) ──
+    # Gives the Safety Intelligence Engine its own front door. Isolated + non-
+    # fatal; reuses the portal's proven cookie/secret scheme (see sie_gate.py).
+    try:
+        from . import sie_gate as _sie_gate
+        _sie_gate.register_sie_gate(app)
+    except Exception as _sie_gate_exc:  # pragma: no cover
+        print(f"[sie_gate] disabled — registration failed: {_sie_gate_exc}")
 
     # ── ISN Upload Tracker (abatement status ladder) ──
     # Additive overlay on the portal's own client.json; isolated + non-fatal.
