@@ -2579,6 +2579,51 @@ def register_portal(app) -> None:
                 "metrics": rec.get("prequal_metrics") or {},
                 "platforms": rec.get("prequal_platforms") or []}
 
+    @app.post("/portal/api/gc/sub/{sub_slug}/prequal/fix")
+    def gc_prequal_fix(sub_slug: str, request: Request, body: dict = Body(...)):
+        """One-click Fix — generate the document that CLOSES a diagnosed prequal
+        gap and drop it straight into the sub's document vault, pre-filled with the
+        sub's company name + scope. If the Origin library has the content we use it;
+        if it doesn't, prequal_fix authors a baseline. Fully offline. The document
+        lands with source='origin-draft' so it stays editable afterward."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        gap_id = (body.get("gap_id") or "").strip()
+        if not gap_id:
+            return JSONResponse({"error": "which gap?"}, status_code=400)
+        company = (rec.get("company") or "").strip()
+        if not company:
+            return JSONResponse({"error": "Add the subcontractor's company name first."},
+                                status_code=400)
+        scope = (rec.get("trade") or rec.get("scope") or "").strip()
+        try:
+            from . import prequal_fix as _fix
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"fix generator unavailable: {exc}"}, status_code=500)
+        # The combined manual + training matrix read the sub's program package, which
+        # needs a company profile — bridge it the same way prequal itself does.
+        cid = _ensure_profile_for_sub(rec) or ""
+        try:
+            out = _fix.generate(gap_id, company=company, company_id=cid, scope=scope)
+        except Exception as exc:
+            return JSONResponse({"error": f"could not build the fix: {exc}"}, status_code=500)
+        if not out:
+            return JSONResponse({"error": "that gap has no one-click fix"}, status_code=400)
+        from . import compliance as _cmp
+        docs_dir = _client_dir(sub_slug) / "docs"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        html_path = _cmp.unique_path(
+            docs_dir, (_cmp.safe_filename(out["title"]).rsplit(".", 1)[0] + ".html"))
+        html_path.write_text(out["html"], encoding="utf-8")
+        fname = html_path.name
+        row = {"name": out["title"], "sub": "Built by Origin — prequal fix",
+               "file": fname, "source": "origin-draft", "gap_id": gap_id}
+        rec.setdefault("documents", []).append(row)
+        rec["updated"] = _now()
+        save_client(rec)
+        return {"ok": True, "title": out["title"], "file": fname}
+
     @app.post("/portal/api/gc/sub/{sub_slug}/draft")
     def gc_draft(sub_slug: str, request: Request, body: dict = Body(...)):
         """Build the missing/failing written programs the GC Gap Finder found for

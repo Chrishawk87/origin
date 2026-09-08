@@ -118,11 +118,44 @@ def platform_requirements(platform: str) -> Dict[str, Any]:
     }
 
 
+# ── remediation / one-click "Fix it" descriptors ───────────────────────────────
+# For every gap Origin can act on, this says what Origin will generate and drop
+# straight into the sub's document vault. auto=True surfaces a "Fix it" button in
+# the portal. `produces` is the plain-English name of the document it creates.
+# (human-review is intentionally absent — it needs a person, not a document.)
+FIX_SPECS: Dict[str, Dict[str, Any]] = {
+    "programs-missing":     {"auto": True, "label": "Build the manual",
+                             "produces": "Company-specific written safety manual (all mandated programs)"},
+    "programs-specificity": {"auto": True, "label": "Build the manual",
+                             "produces": "Company-specific written safety manual (all mandated programs)"},
+    "dna-program":          {"auto": True, "label": "Generate program",
+                             "produces": "Drug & Alcohol (DOT) written program"},
+    "training-records":     {"auto": True, "label": "Build the matrix",
+                             "produces": "Individual training-record matrix"},
+    "oq-individual":        {"auto": True, "label": "Build the tracker",
+                             "produces": "Operator Qualification per-individual + task tracker"},
+    "emr-letter":           {"auto": True, "label": "Draft the letter",
+                             "produces": "Carrier EMR request letter"},
+    "coi-endorsements":     {"auto": True, "label": "Draft the letter",
+                             "produces": "COI + endorsements broker request letter"},
+    "rates-reconcile":      {"auto": True, "label": "Build the worksheet",
+                             "produces": "TRIR / DART reconciliation worksheet"},
+    "capa-overdue":         {"auto": True, "label": "Build the record",
+                             "produces": "CAPA closure record"},
+    "capa-open":            {"auto": True, "label": "Build the record",
+                             "produces": "CAPA closure record"},
+}
+
+
 # ── gap builder ───────────────────────────────────────────────────────────────
 def _gap(gid: str, severity: str, status: str, title: str, detail: str,
          source: Optional[Dict[str, str]]) -> Dict[str, Any]:
-    return {"id": gid, "severity": severity, "status": status,
-            "title": title, "detail": detail, "source": source or {}}
+    gap = {"id": gid, "severity": severity, "status": status,
+           "title": title, "detail": detail, "source": source or {}}
+    fix = FIX_SPECS.get(gid)
+    if fix:
+        gap["fix"] = dict(fix)
+    return gap
 
 
 def _build_gaps(canon: str, pkg: Dict[str, Any], risk: Dict[str, Any],

@@ -1100,9 +1100,28 @@ function pqGapRow(g){
     (g.severity==='medium'?'<span class="tag exp">Medium</span>':'<span class="tag">Info</span>');
   const badge=(g.status==='detected')?'<span class="pill bad">Detected</span>':'<span class="pill warn">You supply</span>';
   const src=(g.source&&g.source.reason)?('<div class="ds" style="margin-top:4px">Source: '+esc(g.source.reason)+(g.source.platform?(' ('+esc(g.source.platform)+')'):'')+'</div>'):'';
+  let fix='';
+  if(g.fix&&g.fix.auto){
+    const label=esc(g.fix.label||'Fix it');const produces=esc(g.fix.produces||'');
+    fix='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px">'+
+      '<button class="btn green sm" onclick=\'pqFix('+JSON.stringify(g.id||'')+',this)\'>'+label+'</button>'+
+      (produces?'<span class="ds" style="flex:1">Origin builds: '+produces+'</span>':'')+'</div>';
+  }
   return '<div class="docrow" style="flex-direction:column;align-items:stretch;gap:4px">'+
     '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="dn" style="flex:1">'+esc(g.title||g.id)+'</div>'+sev+badge+'</div>'+
-    '<div class="ds">'+esc(g.detail||'')+'</div>'+src+'</div>';
+    '<div class="ds">'+esc(g.detail||'')+'</div>'+src+fix+'</div>';
+}
+async function pqFix(gapId,btn){
+  if(!PQSUB||!gapId)return;
+  const orig=btn.textContent;btn.textContent='Building…';btn.disabled=true;
+  const r=await api('/portal/api/gc/sub/'+PQSUB+'/prequal/fix',{method:'POST',
+    body:JSON.stringify({gap_id:gapId})});
+  if(!r.ok){btn.textContent=orig;btn.disabled=false;alert((r.data&&r.data.error)||'Could not build the fix.');return}
+  btn.textContent='Added to Documents ✓';
+  btn.parentNode.insertAdjacentHTML('beforeend',
+    ' <span class="ds">“'+esc(r.data.title||'')+'” dropped into this sub\u2019s Documents.</span>');
+  // refresh the sub roster so the new doc shows in the Documents list
+  await boot();
 }
 function renderPrequal(rep){
   const asmts=(rep&&rep.assessments)||[];
