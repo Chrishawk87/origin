@@ -250,6 +250,7 @@
     <div class="tab" data-page="board" onclick="tab(this)">Compliance Board <span class="pip" id="boardPip" style="display:none">0</span></div>
     <div class="tab" data-page="gcs" onclick="tab(this)">General Contractors <span class="pip" id="gcPip" style="display:none">0</span></div>
     <div class="tab" data-page="owndocs" onclick="tab(this)">Origin Documents</div>
+    <div class="tab" data-page="machine" onclick="tab(this)">Lead Machine <span class="pip" id="machinePip" style="display:none">0</span></div>
     <div class="tab" data-page="leads" onclick="tab(this)">New Leads <span class="pip" id="leadPip" style="display:none">0</span></div>
     <div class="tab" data-page="requests" onclick="tab(this)">Document Requests <span class="pip" id="reqPip" style="display:none">0</span></div>
     <div class="tab" data-page="account" onclick="tab(this)">Account &amp; Team</div>
@@ -319,6 +320,17 @@
       </div>
 
       <div id="leadList"></div>
+    </div></section>
+
+    <section id="machine" class="page"><div class="pagewrap">
+      <div class="hello">
+        <div><h2>Lead Machine</h2><div class="sub">Your morning call list. The 25 Houston-area companies most likely to pay you today \u2014 each with their problem, the exact service to offer, why now, and a 30-second pitch. Builds fresh once a day; hit Refresh to pull again.</div></div>
+        <div class="bar"><button class="btn ghost sm" id="machineRefreshBtn" onclick="refreshMachine()">\u21bb Refresh list</button></div>
+      </div>
+      <div id="machineNote" class="hint" style="margin-bottom:8px"></div>
+      <div id="machineSum" class="boardsum"></div>
+      <div id="machineStatus" class="hint" style="margin:8px 0"></div>
+      <div id="machineList"></div>
     </div></section>
 
     <section id="requests" class="page"><div class="pagewrap">
@@ -915,7 +927,7 @@ function attachGc(){
 function fmtTs(ts){if(!ts)return '';try{var d=new Date(ts);if(isNaN(d))return '';return d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
 function tab(el){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');
   var id=el.getAttribute('data-page');document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();if(id==='gcs')loadGcs();if(id==='owndocs')loadOwnDocs();if(id==='board')renderBoard();if(id==='account')loadAccount();}
+  document.getElementById(id).classList.add('active');if(id==='requests')loadRequests();if(id==='leads')loadLeads();if(id==='machine')loadMachine();if(id==='gcs')loadGcs();if(id==='owndocs')loadOwnDocs();if(id==='board')renderBoard();if(id==='account')loadAccount();}
 
 var CLIENTS=[];         // roster from /portal/api/admin/clients
 function loadClients(cb){
@@ -1397,6 +1409,85 @@ function radarLeadCard(l,i){
     +'</div>'
     +'<div style="text-align:right"><div class="hint" style="max-width:220px">No contact captured \u2014 look up the owner and call. Pain is fresh.</div></div>'
     +'</div></div>';
+}
+var MACHINE=null;
+function loadMachine(refresh){
+  var st=document.getElementById('machineStatus');
+  var btn=document.getElementById('machineRefreshBtn');
+  if(st)st.textContent=refresh?'Pulling fresh citations from OSHA / MSHA / FMCSA\u2026 this can take a few seconds.':'Loading today\u2019s list\u2026';
+  if(btn)btn.disabled=true;
+  var url='/portal/api/admin/lead-machine'+(refresh?'?refresh=1':'');
+  api(url).then(function(r){
+    if(btn)btn.disabled=false;
+    if(!r.j||r.j.error){if(st)st.textContent='Could not build the list: '+esc((r.j&&r.j.error)||'unknown error');return;}
+    MACHINE=r.j;renderMachine();
+    if(st)st.textContent='';
+  }).catch(function(e){if(btn)btn.disabled=false;if(st)st.textContent='Could not build the list: '+esc(String(e));});
+}
+function refreshMachine(){loadMachine(true);}
+function renderMachine(){
+  var el=document.getElementById('machineList');if(!el)return;
+  var b=MACHINE||{};var leads=b.leads||[];var c=b.counts||{};
+  var note=document.getElementById('machineNote');
+  if(note){note.innerHTML=b.note?('<span style="color:#c0392b">'+esc(b.note)+'</span>'):'';}
+  var sum=document.getElementById('machineSum');
+  if(sum){
+    var when=b.generated_at?(' \u00b7 built '+esc(String(b.generated_at).replace('T',' ').slice(0,16))):'';
+    var bits=[(c.total||0)+' calls today',
+      (c.houston||0)+' Houston',(c.texas||0)+' rest of TX',
+      (c.nearby||0)+' nearby',(c.other||0)+' out of area',
+      (c.needs_help_fast||0)+' likely no safety dept',(c.hot||0)+' hot'];
+    sum.innerHTML='<div class="hint">'+esc(bits.join(' \u00b7 '))+(b.cached?' \u00b7 cached (Refresh for a fresh pull)':'')+when+'</div>';
+  }
+  var pip=document.getElementById('machinePip');
+  if(pip){var n=leads.length;pip.style.display=n?'inline-block':'none';pip.textContent=n;}
+  if(!leads.length){el.innerHTML='<div class="card">No fresh penalty-bearing citations to call on right now. Hit <b>Refresh list</b>, widen the date window, or check that DOL_API_KEY is set on Railway (OSHA + MSHA need it; FMCSA works without).</div>';return;}
+  el.innerHTML=leads.map(function(l,i){return machineCard(l,i);}).join('');
+}
+function machineScorePill(s){s=Number(s)||0;var c=(s>=70)?'#e8813a':(s>=45)?'#c99a2e':'#888';
+  return '<span class="pip" style="background:'+c+';font-size:12px">SCORE '+s+'/100</span>';}
+function machineCard(l,i){
+  var cp=l.call_prep||{};
+  var meta=[l.industry,[l.city,l.state].filter(Boolean).join(', '),
+            l.inspection?('Insp #'+esc(l.inspection)):'',
+            l.days_ago!=null?('cited '+l.days_ago+'d ago'):(l.issued?('cited '+esc(l.issued)):'')].filter(Boolean);
+  var svc=(l.services||[]).map(function(s){return '<div class="hint" style="margin:1px 0">\u2713 '+esc(s)+'</div>';}).join('');
+  var links=[];
+  if(cp.google)links.push('<a href="'+esc(cp.google)+'" target="_blank" rel="noopener">Find phone \u2197</a>');
+  if(cp.maps)links.push('<a href="'+esc(cp.maps)+'" target="_blank" rel="noopener">Maps \u2197</a>');
+  if(cp.osha)links.push('<a href="'+esc(cp.osha)+'" target="_blank" rel="noopener">OSHA record \u2197</a>');
+  var confirmed=(l.penalty>0);
+  return '<div class="card" style="margin-bottom:12px;border-left:3px solid '+(confirmed?'#e8813a':'#888')+'">'
+    +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'
+    +'<div style="min-width:0">'
+      +'<div style="font-weight:700;font-size:15px">'+(i+1)+'. '+esc(l.company||'(company unknown)')+' '
+        +machineScorePill(l.score)
+        +(l.needs_help_fast?' <span class="pip" style="background:#3a7">likely no safety dept</span>':'')
+        +(l.region?' <span class="pip" style="background:#667">'+esc(l.region)+'</span>':'')+'</div>'
+      +'<div class="hint" style="margin-top:3px">'+esc(meta.join(' \u00b7 '))+'</div>'
+      +'<div style="margin-top:6px"><b>Problem:</b> '+esc(l.problem||'')
+        +(l.standard?' <span class="hint">('+esc(l.standard)+(l.severity?' \u00b7 '+esc(l.severity):'')+(l.penalty?' \u00b7 '+money(l.penalty):'')+')</span>':'')+'</div>'
+      +(l.why?'<div class="hint" style="margin-top:4px"><b>Why now:</b> '+esc(l.why)+'</div>':'')
+    +'</div>'
+    +'<div style="min-width:190px;max-width:230px">'
+      +'<div class="hint" style="font-weight:600;margin-bottom:2px">Offer to sell:</div>'+svc
+    +'</div>'
+    +'</div>'
+    +'<div style="margin-top:10px;padding:10px;background:#faf6f0;border:1px solid #eadfce;border-radius:8px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+        +'<div class="hint" style="font-weight:600">30-second pitch</div>'
+        +'<button class="btn ghost sm" onclick="copyPitch('+i+',this)">Copy</button></div>'
+      +'<div id="pitch'+i+'" style="margin-top:4px;font-size:13px;line-height:1.5">'+esc(l.pitch||'')+'</div>'
+    +'</div>'
+    +(links.length?'<div class="hint" style="margin-top:8px">'+links.join(' \u00b7 ')+'</div>':'')
+    +'</div>';
+}
+function copyPitch(i,btn){
+  var el=document.getElementById('pitch'+i);if(!el)return;
+  var txt=el.textContent||'';
+  var done=function(){if(btn){var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o;},1200);}};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,done);}
+  else{try{var t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);done();}catch(e){}}
 }
 function loadRadarConfig(){
   api('/portal/api/admin/radar/config').then(function(r){

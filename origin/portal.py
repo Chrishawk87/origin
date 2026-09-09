@@ -5135,6 +5135,50 @@ def register_portal(app) -> None:
             headers={"Content-Disposition": 'attachment; filename="%s"' % fname},
         )
 
+    @app.get("/portal/api/admin/lead-machine")
+    def admin_lead_machine(request: Request):
+        """Origin Lead Machine — today's ranked 'who should I call today' brief.
+        Houston-first, filled toward 25; each lead is a full call card (problem,
+        exact service to offer, why now, 30-second pitch, call-prep links). The
+        first hit of the day builds + caches the list; later hits reuse it.
+        Pass ?refresh=1 to force a fresh pull."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        try:
+            from . import lead_machine as _lm
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"lead machine unavailable: {exc}"},
+                                status_code=500)
+        refresh = request.query_params.get("refresh") in ("1", "true", "yes")
+        try:
+            return _lm.todays_brief(refresh=refresh)
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @app.post("/portal/api/admin/lead-machine/refresh")
+    def admin_lead_machine_refresh(request: Request, body: dict = Body(default=None)):
+        """Force-rebuild today's Lead Machine brief now (re-pulls the gov APIs and
+        overwrites today's cache). Optional body: since_days, min_penalty, target."""
+        if not admin_session(request):
+            return JSONResponse({"error": "admin only"}, status_code=401)
+        try:
+            from . import lead_machine as _lm
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": f"lead machine unavailable: {exc}"},
+                                status_code=500)
+        body = body or {}
+        try:
+            kwargs = {"refresh": True}
+            if body.get("since_days"):
+                kwargs["since_days"] = int(body["since_days"])
+            if body.get("min_penalty"):
+                kwargs["min_penalty"] = float(body["min_penalty"])
+            if body.get("target"):
+                kwargs["target"] = int(body["target"])
+            return _lm.todays_brief(**kwargs)
+        except Exception as exc:  # pragma: no cover
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
     @app.post("/portal/api/admin/client/{slug}/email-docs")
     def admin_email_docs(slug: str, request: Request, body: dict = Body(...)):
         """Email the client the finished documents in their vault (attached), plus

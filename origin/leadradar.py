@@ -336,14 +336,42 @@ def _aggregate_violations(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any
         vtype = _pick(rec, "viol_type", "violation_type").upper()[:1]
         agg = by_insp.setdefault(activity, {
             "activity_nr": activity, "penalty": 0.0, "issued": "",
-            "citations": 0, "types": set()})
+            "citations": 0, "types": set(), "standards": []})
         agg["penalty"] += penalty
         agg["citations"] += 1
         if vtype:
             agg["types"].add(vtype)
+        std = _norm_standard(_pick(rec, "standard", "cited_standard", "standard_cited"))
+        if std and std not in agg["standards"]:
+            agg["standards"].append(std)
         if issued and issued > agg["issued"]:
             agg["issued"] = issued
     return by_insp
+
+
+def _norm_standard(raw: str) -> str:
+    """Normalize a DOL 'standard' value to a clean CFR citation like
+    '1926.501(b)(1)'. The DOL table stores it in several shapes ('19260501 B01',
+    '1926 0501 B 01', '1926.501(b)(1)'); we pull the part + section + any
+    subparts. Never invents digits — an unrecognizable value returns as-is."""
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    # If it already looks like a dotted CFR cite, keep it.
+    m = re.match(r"^\s*(19\d\d)\.?(\d{2,4})", s)
+    if not m:
+        return s[:40]
+    part, section = m.group(1), m.group(2).lstrip("0") or "0"
+    cite = f"{part}.{section}"
+    # Trailing subparts, e.g. 'B01' / 'B 01' / '(b)(1)'.
+    tail = s[m.end():]
+    subs = re.findall(r"[A-Za-z]+|\d+", tail)
+    for sub in subs[:4]:
+        if sub.isalpha():
+            cite += f"({sub.lower()})"
+        else:
+            cite += f"({int(sub)})"
+    return cite
 
 
 def _build_osha_lead(insp: Dict[str, Any], agg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -370,6 +398,8 @@ def _build_osha_lead(insp: Dict[str, Any], agg: Dict[str, Any]) -> Optional[Dict
         "activity_nr": activity,
         "citations": agg.get("citations", 0),
         "viol_types": [_VIOL_TYPE_LABEL.get(t, t) for t in types],
+        "standards": list(agg.get("standards") or []),
+        "num_employees": _pick(insp, "nr_in_estab", "num_employees", "employee_count"),
         "trade_match": _naics_is_target(naics),
         "url": (f"https://www.osha.gov/ords/imis/establishment.inspection_detail?id={activity}"
                 if activity else ""),
