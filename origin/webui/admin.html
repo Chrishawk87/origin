@@ -1441,7 +1441,7 @@ function renderMachine(){
   }
   var pip=document.getElementById('machinePip');
   if(pip){var n=leads.length;pip.style.display=n?'inline-block':'none';pip.textContent=n;}
-  if(!leads.length){el.innerHTML='<div class="card">No fresh penalty-bearing citations to call on right now. Hit <b>Refresh list</b>, widen the date window, or check that DOL_API_KEY is set on Railway (OSHA + MSHA need it; FMCSA works without).</div>';return;}
+  if(!leads.length){el.innerHTML='<div class="card">No fresh penalty-bearing citations to call on right now. Hit <b>Refresh list</b>, widen the date window, or check that <b>DOL_API_KEY</b> is set on Railway (OSHA + MSHA both need it). EPA federal enforcement is keyless but must reach the ECHO endpoint.</div>';return;}
   el.innerHTML=leads.map(function(l,i){return machineCard(l,i);}).join('');
 }
 function machineScorePill(s){s=Number(s)||0;var c=(s>=70)?'#e8813a':(s>=45)?'#c99a2e':'#888';
