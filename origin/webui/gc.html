@@ -579,6 +579,10 @@ function renderDetail(){
     </div><div class="cards">${cards}</div>${pqSummary}
     <div class="stitle">Safety metrics</div><div class="cards">${safety}</div>
     <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Compliance health</span>
+      <button class="btn sm" onclick='runHealthSweep(${JSON.stringify(s.slug)})' title="Draft any renewals due within 30 days into this sub's vault and email them">Sweep &amp; auto-draft</button>
+    </div><div id="healthSec">Loading\u2026</div>
+    <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
       <span>Documents on file</span>
       <div style="display:flex;gap:8px">
         <button class="btn green sm" onclick='autofillAll(${JSON.stringify(s.slug)})' title="Fill company name, scope and dates into every document at once">\u2728 Auto-fill all</button>
@@ -590,6 +594,33 @@ function renderDetail(){
       <button class="btn sm" onclick='openGap(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Run gap finder</button>
     </div>${neededHtml}
     <div class="scopenote">${noteScope}</div>`;
+  loadGcHealth(s.slug);
+}
+/* ── compliance health (continuous watch) for the selected sub ── */
+function healthCol(state){return state==='expired'?'#c0392b':(state==='expiring'?'#d98c00':'#1a8a4a')}
+async function loadGcHealth(slug){
+  const box=$('healthSec');if(!box)return;
+  const r=await api('/portal/api/gc/sub/'+slug+'/health');
+  const box2=$('healthSec');if(!box2||SEL!==slug)return;
+  const j=(r&&r.data)||{};
+  if(j.error||!j.items){box2.innerHTML='<div class="empty">Compliance health unavailable.</div>';return}
+  const due=(j.items||[]).filter(it=>it.state==='expired'||it.state==='expiring');
+  if(!due.length){box2.innerHTML='<div class="empty">All watched dates are current \u2014 insurance, EMR, training and DOT records. Nothing due in the next 30 days.</div>';return}
+  box2.innerHTML=due.map(it=>{
+    const col=healthCol(it.state);
+    const dl=(it.days_left==null)?'':(it.days_left<0?('expired '+Math.abs(it.days_left)+'d ago'):('in '+it.days_left+'d'));
+    const when=it.expires?(' \u00b7 '+esc(it.expires)):'';
+    return `<div class="docrow"><div style="flex:1"><div class="dn">${esc(it.label||'Item')}</div>
+      <div class="ds">${esc(it.source||'')}${when}</div></div>
+      <span class="tag ${it.state==='expired'?'exp':'miss'}" style="color:${col}">${it.state==='expired'?'Expired':'Renewal due'}${dl?(' \u00b7 '+dl):''}</span></div>`;
+  }).join('');
+}
+async function runHealthSweep(slug){
+  const r=await api('/portal/api/gc/sub/'+slug+'/health/sweep',{method:'POST',body:JSON.stringify({})});
+  if(!r.ok||(r.data&&r.data.error)){alert((r.data&&r.data.error)||'Sweep failed.');return}
+  const d=r.data||{};const n=(d.drafted||[]).length;
+  alert(n?(n+' renewal document'+(n>1?'s':'')+' drafted into this sub\u2019s vault'+(d.emailed?' and emailed to them.':'.')):(d.emailed?'Reminder emailed to the sub.':'Nothing due \u2014 no drafts needed.'));
+  loadSub(false);
 }
 async function fillDoc(slug,program){
   const r=await api('/portal/api/gc/sub/'+slug+'/request-doc',{method:'POST',body:JSON.stringify({program:program})});

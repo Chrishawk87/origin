@@ -3686,6 +3686,69 @@ def register_portal(app) -> None:
         return _run_msg_replace(rec, _client_dir(sess["slug"]) / "msgfiles",
                                 save_client, "sub", target, file, note)
 
+    # ===================== COMPLIANCE HEALTH (continuous watch) =================
+    # The "continuous, not one-shot" layer: watch everything on a sub that
+    # expires (COI, EMR, training, DOT medical / OQ), warn before it lapses, and
+    # auto-build the renewal document into the vault + email the sub 30 days out.
+    # Deterministic + offline (see compliance_health.py); a running sweep is
+    # opt-in per request. Ownership is guarded exactly like every other sub
+    # route: a sub sees only itself; a GC (or owner via ?gc=) only its own subs.
+
+    def _health_sweep_and_persist(rec, sub_slug):
+        """Run the action sweep for one sub (auto-draft renewals + one digest
+        email), persist the record, and return the sweep summary. Isolated:
+        a failure yields an error payload, never a 500 that breaks the page."""
+        from . import compliance_health as _health
+        cid = _ensure_profile_for_sub(rec) or ""
+        docs_dir = _client_dir(sub_slug) / "docs"
+        summary = _health.sweep_sub(rec, company_id=cid, docs_dir=docs_dir)
+        rec["health_run_at"] = _now()
+        save_client(rec)
+        return summary
+
+    @app.get("/portal/api/sub/health")
+    def sub_health(request: Request):
+        """A signed-in subcontractor's own compliance-health feed (read-only)."""
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        try:
+            from . import compliance_health as _health
+            cid = _ensure_profile_for_sub(rec) or ""
+            return {"ok": True, **_health.health_for_sub(rec, company_id=cid)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.get("/portal/api/gc/sub/{sub_slug}/health")
+    def gc_sub_health(sub_slug: str, request: Request):
+        """The compliance-health feed for one of the acting GC's subs (read-only)."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        try:
+            from . import compliance_health as _health
+            cid = _ensure_profile_for_sub(rec) or ""
+            return {"ok": True, **_health.health_for_sub(rec, company_id=cid)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/health/sweep")
+    def gc_sub_health_sweep(sub_slug: str, request: Request,
+                            body: dict = Body(default=None)):
+        """Run the action sweep for one of the acting GC's subs: auto-build any
+        renewal documents due within 30 days into the sub's vault and send the
+        sub one digest email. Deduped so repeat sweeps never spam or duplicate."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        try:
+            return {"ok": True, **_health_sweep_and_persist(rec, sub_slug)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
     # ===================== MY DOCUMENTS (GC + owner vaults) =====================
     # The GC and the Origin owner each get their own Documents vault, same shape
     # as a sub's: folders + rows, files served from the record's docs/ dir. Rows

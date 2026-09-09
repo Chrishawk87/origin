@@ -585,8 +585,43 @@ function renderOverview(prequal){
       +'<div class="card plat"><div class="logo">Compliance Home Base</div><div class="gradeltr" style="font-size:20px;color:var(--charcoal)">Ready</div><span class="badge b-grey">Audit-ready</span></div>'
       +'</div>';
   }
+  h+='<div id="healthCard"></div>';
   h+='<div class="callout">Everything on this portal is prepared and kept current for you by Origin Management Solutions. View or print any document anytime — so whether an inspector, a client, or a general contractor asks, you&#39;re always audit-ready.</div>';
   document.getElementById('overview').innerHTML=h;
+  loadHealth();
+}
+// ─────────────── Compliance Health (continuous watch) ───────────────
+function healthColor(state){return state==='expired'?'#c0392b':(state==='expiring'?'#d98c00':'#1a8a4a');}
+function loadHealth(){
+  var box=document.getElementById('healthCard');if(!box)return;
+  api('/portal/api/sub/health').then(function(r){
+    var box=document.getElementById('healthCard');if(!box)return;
+    var j=r.j||{}; if(j.error||!j.items){box.innerHTML='';return;}
+    var items=j.items||[];
+    // Show what's expired or in the 30-day window; that's the actionable feed.
+    var due=items.filter(function(it){return it.state==='expired'||it.state==='expiring';});
+    if(!due.length){
+      box.innerHTML='<div class="card" style="margin-top:14px;border-left:4px solid #1a8a4a">'
+        +'<div style="font-weight:700;margin-bottom:2px">Compliance Health \u2014 all clear \u2713</div>'
+        +'<div class="mini">Origin is watching every expiration date on your file \u2014 insurance, EMR, training and DOT records. Nothing is due in the next 30 days.</div></div>';
+      return;
+    }
+    var rows=due.map(function(it){
+      var col=healthColor(it.state);
+      var dl=(it.days_left==null)?'':(it.days_left<0?('expired '+Math.abs(it.days_left)+'d ago'):('in '+it.days_left+' days'));
+      var when=it.expires?(' \u00b7 '+esc(it.expires)):'';
+      var lbl=it.state==='expired'?'Expired':'Renewal due';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #eef1f5">'
+        +'<span class="dot-s" style="background:'+col+'"></span>'
+        +'<div style="flex:1"><div style="font-weight:600">'+esc(it.label||'Item')+'</div>'
+        +'<div class="mini">'+esc(it.source||'')+when+'</div></div>'
+        +'<span class="countdown" style="color:'+col+'">'+esc(lbl)+(dl?(' \u00b7 '+dl):'')+'</span></div>';
+    }).join('');
+    box.innerHTML='<div class="card" style="margin-top:14px;border-left:4px solid '+healthColor(due[0].state)+'">'
+      +'<div style="font-weight:700;margin-bottom:2px">Compliance Health \u2014 '+due.length+' item'+(due.length>1?'s':'')+' need'+(due.length>1?'':'s')+' attention</div>'
+      +'<div class="mini" style="margin-bottom:4px">Origin watches everything that expires and warns you before it lapses. When something is within 30 days we draft the renewal into <b>My Documents</b> and email you \u2014 you never have to remember a date.</div>'
+      +rows+'</div>';
+  });
 }
 function renderPrequal(){
   var p=DATA.platforms||{}, h='';
