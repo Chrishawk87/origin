@@ -3940,6 +3940,126 @@ def register_portal(app) -> None:
         save_gc(rec)
         return {"ok": True, "file": safe}
 
+    # ---- Trade packs (one-click compliance kit per trade/sector) ----
+    @app.get("/portal/api/gc/trade-packs")
+    def gc_trade_packs(request: Request):
+        """Catalog of every trade pack (label + program/JSA/training counts)."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        try:
+            from . import trade_packs as _tp
+            return {"ok": True, "packs": _tp.list_packs()}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.get("/portal/api/gc/trade-packs/{key}")
+    def gc_trade_pack(key: str, request: Request):
+        """Full manifest for one trade pack (programs, JSAs, training, checklist)."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        try:
+            from . import trade_packs as _tp
+            return {"ok": True, **_tp.manifest(key)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.post("/portal/api/gc/trade-packs/apply")
+    def gc_trade_pack_apply(request: Request, body: dict = Body(...)):
+        """Drop a trade pack's programs + JSAs as ready documents, either onto a
+        sub's record (target='sub') or into the GC's own vault (target='vault').
+        Never fabricates — only renders masters that exist. Isolated: any failure
+        returns an error payload instead of crashing the live app."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        try:
+            from . import trade_packs as _tp
+            from . import compliance as _cmp
+            key = (body.get("key") or "").strip()
+            target = (body.get("target") or "").strip().lower()
+            man = _tp.manifest(key)
+            if not man.get("ok"):
+                return JSONResponse({"error": man.get("error", "unknown pack")},
+                                    status_code=400)
+            docs = list(man.get("programs", [])) + list(man.get("jsas", []))
+            if not docs:
+                return JSONResponse({"error": "this pack has no documents"},
+                                    status_code=400)
+            eff = (body.get("effective_date") or "").strip() or time.strftime("%Y-%m-%d")
+
+            if target == "sub":
+                sub_slug = (body.get("sub_slug") or "").strip()
+                rec, _s, err = _gc_owned_sub(request, sub_slug)
+                if err:
+                    return err
+                docs_dir = _client_dir(sub_slug) / "docs"
+                docs_dir.mkdir(parents=True, exist_ok=True)
+                fields = {"COMPANY_NAME": rec.get("company", "") or "",
+                          "EFFECTIVE_DATE": eff}
+                applied = []
+                for d in docs:
+                    mid = d.get("mid")
+                    doc_html, title = _render_library_doc(mid, fields)
+                    if not doc_html:
+                        continue
+                    title = title or d.get("title") or mid
+                    fname = _cmp.safe_filename(title).rsplit(".", 1)[0] + ".html"
+                    (docs_dir / fname).write_text(doc_html, encoding="utf-8")
+                    row = {"name": title,
+                           "sub": f"Trade pack — {man.get('label', key)}",
+                           "file": fname, "source": "origin-draft",
+                           "mid": mid, "fields": fields}
+                    for existing in rec.setdefault("documents", []):
+                        if existing.get("name") == title:
+                            existing.update(row)
+                            break
+                    else:
+                        rec["documents"].append(row)
+                    applied.append(title)
+                rec["updated"] = _now()
+                save_client(rec)
+                return {"ok": True, "target": "sub", "sub_slug": sub_slug,
+                        "applied": len(applied), "label": man.get("label", key)}
+
+            if target == "vault":
+                rec = load_gc(slug)
+                if not rec:
+                    return JSONResponse({"error": "not found"}, status_code=404)
+                docs_dir = _gc_dir(slug) / "docs"
+                docs_dir.mkdir(parents=True, exist_ok=True)
+                fld = man.get("label", key) or "Trade Pack"
+                _add_folder(rec, fld)
+                fields = {"COMPANY_NAME": rec.get("company", "") or rec.get("name", "") or "",
+                          "EFFECTIVE_DATE": eff}
+                applied = []
+                for d in docs:
+                    mid = d.get("mid")
+                    doc_html, title = _render_library_doc(mid, fields)
+                    if not doc_html:
+                        continue
+                    title = title or d.get("title") or mid
+                    fname = _cmp.safe_filename(title).rsplit(".", 1)[0] + ".html"
+                    (docs_dir / fname).write_text(doc_html, encoding="utf-8")
+                    row = {"name": title, "sub": fld, "file": fname,
+                           "source": "gc", "folder": fld}
+                    for existing in rec.setdefault("documents", []):
+                        if existing.get("name") == title and existing.get("folder") == fld:
+                            existing.update(row)
+                            break
+                    else:
+                        rec["documents"].append(row)
+                    applied.append(title)
+                save_gc(rec)
+                return {"ok": True, "target": "vault", "folder": fld,
+                        "applied": len(applied), "label": man.get("label", key)}
+
+            return JSONResponse({"error": "target must be 'sub' or 'vault'"},
+                                status_code=400)
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
     @app.get("/portal/api/gc/docfile/{fname}")
     def gc_docfile(fname: str, request: Request):
         slug = acting_gc_slug(request)

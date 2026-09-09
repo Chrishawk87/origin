@@ -202,6 +202,7 @@
   <nav class="tabs"><div class="inner">
     <div class="tab active" data-page="monitor" onclick="tab(this)">Monitoring</div>
     <div class="tab" data-page="ranking" onclick="tab(this)">Risk Ranking</div>
+    <div class="tab" data-page="packs" onclick="tab(this)">Trade Packs</div>
     <div class="tab" data-page="docs" onclick="tab(this)">My Documents</div>
     <div class="tab" data-page="origin" onclick="tab(this)">Messages with Origin <span class="pip" id="ownerPip" style="display:none">0</span></div>
     <div class="tab" data-page="brand" onclick="tab(this)">Branding</div>
@@ -225,6 +226,25 @@
       <div class="sub">Your whole roster ranked worst-first. Four signals blend into one 0&ndash;100 score: reported injury metrics (TRIR/DART/EMR), open corrective actions &amp; risk band, prequal &amp; document gaps, and expiring compliance. Nothing is guessed &mdash; a sub with no data on a signal scores 0 there and is labeled <i>not scored</i>.</div></div>
       <button class="btn ghost sm" onclick="loadRanking()">Refresh</button></div>
     <div id="rankBody"><div class="empty">Loading&hellip;</div></div>
+  </div></section>
+
+  <!-- ── TRADE PACKS ── -->
+  <section id="packs" class="page"><div class="wrap">
+    <div class="hello"><div><h2>Trade Packs</h2>
+      <div class="sub">A one-click compliance kit for a trade: the written programs, job-hazard analyses, required-training list, and prequal document checklist &mdash; all drawn from the knowledge base, nothing invented. Pick a trade, then drop the whole kit onto a subcontractor&rsquo;s record or into your own vault.</div></div>
+      <button class="btn ghost sm" onclick="loadTradePacks()">Refresh</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:4px 0 14px">
+      <label style="flex:1;min-width:220px"><div class="ds" style="margin-bottom:4px">Trade pack</div>
+        <select id="packSel" onchange="loadPackManifest()" style="width:100%;padding:9px;border:1px solid var(--line,#e6e0d6);border-radius:8px;background:transparent;color:inherit"></select></label>
+      <label style="flex:1;min-width:220px"><div class="ds" style="margin-bottom:4px">Apply to</div>
+        <select id="packTarget" onchange="packTargetChange()" style="width:100%;padding:9px;border:1px solid var(--line,#e6e0d6);border-radius:8px;background:transparent;color:inherit">
+          <option value="vault">My own vault</option>
+          <option value="sub">A subcontractor&hellip;</option></select></label>
+      <label id="packSubWrap" style="flex:1;min-width:220px;display:none"><div class="ds" style="margin-bottom:4px">Subcontractor</div>
+        <select id="packSub" style="width:100%;padding:9px;border:1px solid var(--line,#e6e0d6);border-radius:8px;background:transparent;color:inherit"></select></label>
+      <button class="btn" id="packApply" onclick="applyTradePack()">Apply pack</button>
+    </div>
+    <div id="packBody"><div class="empty">Loading trade packs&hellip;</div></div>
   </div></section>
 
   <!-- ── MY DOCUMENTS (own vault) ── -->
@@ -477,6 +497,7 @@ function tab(el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$(el.dataset.page).classList.add('active');
   if(el.dataset.page==='origin')loadOwner();
   if(el.dataset.page==='ranking')loadRanking();
+  if(el.dataset.page==='packs')loadTradePacks();
   if(el.dataset.page==='docs')loadGcDocs();
   if(el.dataset.page==='account')loadAccount();}
 
@@ -718,6 +739,72 @@ async function loadRanking(){
       +'<div class="rankdet" style="display:none;margin-top:10px;border-top:1px solid var(--line,#e6e0d6);padding-top:8px">'+groups+'</div>'
       +'</div>';
   }).join('');
+}
+/* ── trade packs: pick a trade, preview the kit, apply to a sub or the vault ── */
+let PACKS=[];
+async function loadTradePacks(){
+  var box=$('packBody');if(!box)return;
+  box.innerHTML='<div class="empty">Loading trade packs\u2026</div>';
+  var sel=$('packSel');var sub=$('packSub');
+  if(sub){sub.innerHTML=(SUBS||[]).map(function(s){return '<option value="'+esc(s.slug)+'">'+esc(s.company||s.name||s.slug)+'</option>';}).join('')
+    ||'<option value="">No subcontractors yet</option>';}
+  var r=await api('/portal/api/gc/trade-packs');
+  var j=(r&&r.data)||{};
+  if(!j.ok){box.innerHTML='<div class="empty">Trade packs unavailable right now.</div>';return}
+  PACKS=j.packs||[];
+  if(!PACKS.length){box.innerHTML='<div class="empty">No trade packs available.</div>';return}
+  sel.innerHTML=PACKS.map(function(p){
+    return '<option value="'+esc(p.key)+'">'+esc(p.label)+' \u2014 '+p.program_count+' programs, '+p.jha_count+' JSAs, '+p.training_count+' training</option>';
+  }).join('');
+  loadPackManifest();
+}
+function packTargetChange(){
+  var t=$('packTarget').value;$('packSubWrap').style.display=(t==='sub')?'':'none';
+}
+async function loadPackManifest(){
+  var box=$('packBody');var key=$('packSel').value;if(!box||!key)return;
+  box.innerHTML='<div class="empty">Building the kit\u2026</div>';
+  var r=await api('/portal/api/gc/trade-packs/'+encodeURIComponent(key));
+  var m=(r&&r.data)||{};
+  if(!m.ok){box.innerHTML='<div class="empty">This pack could not be built.</div>';return}
+  var c=m.counts||{};
+  function list(title,items,render){
+    if(!items||!items.length)return '';
+    return '<div class="card" style="padding:14px;margin-bottom:10px"><div class="dn" style="font-size:15px;margin-bottom:6px">'
+      +esc(title)+' <span class="tag">'+items.length+'</span></div><ul class="ds" style="margin:0 0 0 16px">'
+      +items.map(render).join('')+'</ul></div>';
+  }
+  var head='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 14px">'
+    +'<span class="tag">'+(c.programs||0)+' written programs</span>'
+    +'<span class="tag">'+(c.jsas||0)+' job hazard analyses</span>'
+    +'<span class="tag">'+(m.training||[]).length+' required trainings</span>'
+    +'<span class="tag">'+(m.checklist||[]).length+' checklist items</span></div>';
+  box.innerHTML=head
+    +list('Written programs',m.programs,function(p){return '<li>'+esc(p.title)+'</li>';})
+    +list('Job hazard analyses',m.jsas,function(p){return '<li>'+esc(p.title)+'</li>';})
+    +list('Required training',m.training,function(t){return '<li>'+esc(t.title)+' <span class="ds">('+esc(t.citation)+')</span></li>';})
+    +list('Prequal document checklist',m.checklist,function(k){return '<li>'+esc(k.label)+'</li>';});
+}
+async function applyTradePack(){
+  var key=$('packSel').value;var target=$('packTarget').value;
+  if(!key){alert('Pick a trade pack first.');return}
+  var body={key:key,target:target};
+  var where='your vault';
+  if(target==='sub'){
+    var ss=$('packSub').value;
+    if(!ss){alert('Pick a subcontractor first.');return}
+    body.sub_slug=ss;
+    var opt=$('packSub').options[$('packSub').selectedIndex];
+    where=(opt?opt.text:'the subcontractor');
+  }
+  var btn=$('packApply');btn.disabled=true;var was=btn.textContent;btn.textContent='Applying\u2026';
+  var r=await api('/portal/api/gc/trade-packs/apply',{method:'POST',body:JSON.stringify(body)});
+  btn.disabled=false;btn.textContent=was;
+  var d=(r&&r.data)||{};
+  if(!r.ok||d.error){alert(d.error||'Could not apply this pack.');return}
+  alert(d.applied+' document'+(d.applied===1?'':'s')+' from the "'+(d.label||'')+'" pack added to '+where+'.');
+  if(target==='sub'){await boot();}
+  else{if(typeof loadGcDocs==='function')loadGcDocs();}
 }
 async function runHealthSweep(slug){
   const r=await api('/portal/api/gc/sub/'+slug+'/health/sweep',{method:'POST',body:JSON.stringify({})});
