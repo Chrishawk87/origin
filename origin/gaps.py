@@ -29,6 +29,51 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import compliance_kb as kb
 
+try:
+    from . import citations as _citations
+except Exception:  # never let the citation layer break gap analysis
+    _citations = None
+
+
+def _regulatory_text_md(citation: str) -> str:
+    """Return a markdown "Regulatory Text" section carrying the verbatim CFR body
+    for ``citation`` (title + source + standard text), or '' when the KB has no
+    verbatim text. Never-fabricate, isolated — a resolver error yields ''."""
+    if _citations is None or not citation:
+        return ""
+    try:
+        rec = _citations.cite(citation)
+    except Exception:
+        return ""
+    if not rec.get("ok") or not rec.get("verbatim"):
+        return ""
+    head = rec.get("citation") or citation
+    title = rec.get("title") or ""
+    url = rec.get("url") or ""
+    parts = ["\n\n---\n\n## Regulatory Text (verbatim)",
+             f"**{head}{(' — ' + title) if title else ''}**\n"]
+    if url:
+        parts.append(f"Source: {url}\n")
+    parts.append("> " + rec["verbatim"].strip().replace("\n", "\n> "))
+    return "\n".join(parts)
+
+
+def _attach_citations(*lists) -> None:
+    """Enrich any gap-shaped lists in place with a verified citation_record.
+
+    Isolated: a failure here must never disturb the gap report. Each row that
+    carries a KB-resolvable ``citation`` gains a ``citation_record`` (CFR title,
+    source URL, and verbatim standard text when the KB has it) for the UI's
+    click-to-expand block. Rows whose citation can't be verified are untouched.
+    """
+    if _citations is None:
+        return
+    for rows in lists:
+        try:
+            _citations.attach(rows)
+        except Exception:
+            continue
+
 
 def _has_jha(program_id: str) -> bool:
     """True if Origin has an industry job-hazard analysis (JSA) for this program.
@@ -509,6 +554,11 @@ def find_gaps(
     except Exception:
         intel = []
 
+    # Bulletproof layer (Phase A): attach a verified CFR citation record to every
+    # gap so the UI can show the official title, source link, and verbatim
+    # standard text. Never-fabricate, isolated — unresolvable citations skipped.
+    _attach_citations(gaps, extra, matched_flags)
+
     return {
         "meta": meta,
         "intel": intel,
@@ -712,6 +762,10 @@ def draft_programs(
             md = md.replace("{{COMPANY_NAME}}", company)
         if effective_date:
             md = md.replace("{{EFFECTIVE_DATE}}", effective_date)
+        # Bulletproof layer: append the verbatim CFR text this program is built on
+        # so the drafted document carries the actual regulation (title + source +
+        # standard text). Never-fabricate: only when the KB resolves it; isolated.
+        md = md + _regulatory_text_md(rec.get("citation", ""))
         title = rec.get("title", eid)
         out.append({
             "id": eid,

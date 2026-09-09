@@ -43,6 +43,11 @@ try:
 except Exception:  # pragma: no cover
     _sc = None
 
+try:
+    from . import citations as _citations
+except Exception:  # citation layer must never break document render
+    _citations = None
+
 # ── classification labels (single, never mixed — same vocabulary as Phase 1) ──
 OSHA_REQUIRED = "OSHA-required"
 ORIGIN_REC = "Origin recommendation"
@@ -206,6 +211,18 @@ def render_document(company_id: str, standard_id: str) -> Optional[Dict[str, Any
 
     jsa_html = jha.render_jha(standard_id, sector) if jha.has_jha(standard_id) else None
 
+    # Bulletproof layer: the verbatim CFR text of the standard this whole package
+    # is built on, so the document can show the actual regulation it cites.
+    # Never-fabricate: only included when the KB resolves it; isolated.
+    reg_text = None
+    if _citations is not None and citation:
+        try:
+            rec = _citations.cite(citation)
+            if rec.get("ok"):
+                reg_text = rec
+        except Exception:
+            reg_text = None
+
     return {
         "company_id": pkg["company_id"],
         "company": pkg["company"],
@@ -214,6 +231,7 @@ def render_document(company_id: str, standard_id: str) -> Optional[Dict[str, Any
             "id": standard_id, "citation": citation, "title": entry["title"],
             "resolved": entry["resolved"], "source_refs": entry["source_refs"],
         },
+        "regulatory_text": reg_text,
         "program": {
             "classification": entry["program"]["classification"],
             "available": program_md is not None,

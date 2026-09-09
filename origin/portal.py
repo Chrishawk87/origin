@@ -51,6 +51,32 @@ except Exception:  # pragma: no cover - standalone/test import
 PORTAL_DIR = DATA_DIR / "portal"
 CLIENTS_DIR = PORTAL_DIR / "clients"
 
+# Bulletproof citation layer — enrich required-document rows with a traceable
+# CFR citation_record (title + source + verbatim text) for the portal UI.
+# Isolated + never-fabricate: only verified standards get enriched.
+try:
+    from . import citations as _citations
+except Exception:  # citation layer must never break the portal
+    _citations = None
+
+
+def _enrich_doc_citations(docs: Any) -> None:
+    """Attach citation_record to each document row that carries a CFR citation.
+    In place, isolated, skips rows with no resolvable standard (never-fabricate)."""
+    if _citations is None or not isinstance(docs, list):
+        return
+    try:
+        _citations.attach(docs)
+    except Exception:
+        pass
+
+
+def _docs_with_citations(docs: Any) -> Any:
+    """Same as _enrich_doc_citations but returns the (enriched, in place) list —
+    convenient for inline use in payload builders."""
+    _enrich_doc_citations(docs)
+    return docs
+
 # --- secrets ---------------------------------------------------------------
 # The signing secret protects EVERY session cookie and is also the pepper mixed
 # into every client PIN hash. If an attacker knew it, they could forge a cookie
@@ -857,6 +883,7 @@ def _client_by_project(project_slug: str) -> Optional[Dict[str, Any]]:
 def _public_view(rec: Dict[str, Any]) -> Dict[str, Any]:
     """What the logged-in client is allowed to see (no pin hash)."""
     safe = {k: v for k, v in rec.items() if k != "pin_hash"}
+    _enrich_doc_citations(safe.get("documents"))
     return safe
 
 
@@ -1189,7 +1216,7 @@ def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
             "trade": rec.get("trade", ""),
             "platforms": rec.get("platforms", {}),
             "coi": rec.get("coi", []),
-            "documents": rec.get("documents", []),
+            "documents": _docs_with_citations(rec.get("documents", [])),
             "trir": rec.get("trir", ""),
             "emr": rec.get("emr", ""),
             "action_required": flags["action_required"],
@@ -2012,6 +2039,7 @@ def register_portal(app) -> None:
         out = dict(rec)
         out["pin_set"] = bool(rec.get("pin_hash"))
         out.pop("pin_hash", None)
+        _enrich_doc_citations(out.get("documents"))
         return out
 
     def _logo_ext(filename: str) -> str:
@@ -4774,6 +4802,7 @@ def register_portal(app) -> None:
                     "source": "recommended", "to_build": True,
                     "program_id": d["id"], "priority": d["priority"],
                     "needs_jha": needs_jha,
+                    "citation": d.get("citation", ""),
                     "sub_sections": d.get("sub_sections") or [],
                 })
                 existing_names.add(d["title"])

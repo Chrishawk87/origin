@@ -96,6 +96,14 @@
   .docrow .dn{font-weight:700;font-size:14px}
   .docrow .ds{font-size:12px;color:var(--muted);margin-top:2px}
   .docrow .sp{flex:1}
+  .citebox{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:6px}
+  .citechip{font-size:11px;font-weight:800;letter-spacing:.3px;background:#12331F;color:#7FE0A6;border:1px solid #2C6142;border-radius:5px;padding:2px 8px;font-family:ui-monospace,Menlo,monospace}
+  .citetitle{font-size:12px;color:var(--muted)}
+  .citesrc{font-size:11px;color:var(--orange);text-decoration:none;font-weight:600}
+  .citesrc:hover{text-decoration:underline}
+  .citetoggle{font-size:11px;font-weight:700;color:var(--orange);background:none;border:none;cursor:pointer;padding:0;font-family:inherit}
+  .citepop{flex-basis:100%;margin-top:6px;background:#FBF9F5;border:1px solid #D9D2C7;border-radius:8px;padding:10px 12px}
+  .citepop pre{margin:0;white-space:pre-wrap;font-size:12.5px;line-height:1.5;color:#2A2E35;font-family:ui-monospace,Menlo,monospace}
   .tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
   .tag.miss{background:var(--redbg);color:var(--red)}.tag.exp{background:var(--amberbg);color:var(--amber)}
   .scopenote{color:var(--muted);font-size:12px;margin-top:16px;padding:12px 14px;background:var(--card);border:1px dashed var(--line);border-radius:10px}
@@ -417,6 +425,19 @@ const GCQ=new URLSearchParams(location.search).get('gc');           // owner act
 function q(p){return GCQ?(p+(p.includes('?')?'&':'?')+'gc='+encodeURIComponent(GCQ)):p}
 async function api(path,opts){const r=await fetch(q(path),Object.assign({headers:{'Content-Type':'application/json'}},opts||{}));let d={};try{d=await r.json()}catch(e){}return{ok:r.ok,status:r.status,data:d}}
 function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function renderCite(rec, fallback){
+  if(!rec || !rec.ok){ return fallback ? '<div class="citebox"><span class="citechip">'+esc(fallback)+'</span></div>' : ''; }
+  var num=rec.citation||fallback||'', title=rec.title||'', url=rec.url||'', vb=rec.verbatim||'';
+  var h='<div class="citebox"><span class="citechip">'+esc(num)+'</span>';
+  if(title) h+='<span class="citetitle">'+esc(title)+'</span>';
+  if(url)   h+='<a class="citesrc" href="'+esc(url)+'" target="_blank" rel="noopener">source \u2197</a>';
+  if(vb){ h+='<button type="button" class="citetoggle" onclick="citeToggle(this)">Show regulation text \u25be</button>'
+           +'<div class="citepop" hidden><pre>'+esc(vb)+'</pre></div>'; }
+  return h+'</div>';
+}
+function citeToggle(btn){ var pop=btn.nextElementSibling; if(!pop) return;
+  if(pop.hasAttribute('hidden')){ pop.removeAttribute('hidden'); btn.textContent='Hide regulation text \u25b4'; }
+  else{ pop.setAttribute('hidden',''); btn.textContent='Show regulation text \u25be'; } }
 function initials(n){return(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 function ago(iso){if(!iso)return'—';const t=Date.parse((iso||'').replace(' ','T'));if(isNaN(t))return'—';
   const m=Math.max(0,(Date.now()-t)/6e4);if(m<60)return Math.round(m)+'m ago';const h=m/60;if(h<24)return Math.round(h)+'h ago';
@@ -537,7 +558,7 @@ function renderDetail(){
     const editable=!!d.mid;
     const fillBtn=editable?`<button class="btn sm" onclick='openFill(${JSON.stringify(s.slug)},${x.i})'>Fill in details</button>`:'';
     return `<div class="docrow"><div style="flex:1"><div class="dn">${esc(d.name||'Document')}</div>
-      <div class="ds">${esc(d.sub||d.source||'On file')}</div></div>
+      <div class="ds">${esc(d.sub||d.source||'On file')}</div>${renderCite(d.citation_record, d.citation)}</div>
       ${fillBtn}
       <button class="btn ghost sm" onclick='viewDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.file)})'>View</button>
       <button class="btn ghost sm" onclick='printDoc(${JSON.stringify(s.slug)},${JSON.stringify(d.file)})'>Print</button>
@@ -547,7 +568,7 @@ function renderDetail(){
 
   let neededHtml=needed.map(x=>{const d=x.d;
     return `<div class="docrow"><div style="flex:1"><div class="dn">${esc(d.name||'Document')}</div>
-      <div class="ds">${esc(d.sub||'Required for their scope')}</div></div>
+      <div class="ds">${esc(d.sub||'Required for their scope')}</div>${renderCite(d.citation_record, d.citation)}</div>
       <span class="tag miss">Needed</span>
       <button class="btn green sm" onclick='openLib(${JSON.stringify(s.slug)},${JSON.stringify(s.company)})'>Fill from library</button></div>`;
   }).join('');
@@ -1093,7 +1114,7 @@ function renderGapReport(){
   html+='<div class="ds" style="margin:2px 0 10px">Check the programs to build, then publish them to this sub\u2019s page.</div>';
   html+=open.map(g=>{
     const draftable=g.can_autodraft;
-    const cite=g.citation?('<div class="ds">'+esc(g.citation)+'</div>'):'';
+    const cite=renderCite(g.citation_record, g.citation);
     const badge=(g.status==='MISSING')?'<span class="tag miss">Missing</span>':'<span class="tag exp">Failing</span>';
     return '<label class="docrow" style="cursor:pointer;align-items:flex-start">'+
       '<input type="checkbox" class="gapchk" value="'+esc(g.id)+'" '+(draftable?'checked':'')+' '+(draftable?'':'disabled')+' style="margin-top:3px">'+

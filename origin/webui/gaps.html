@@ -47,6 +47,15 @@
   .gap.PRESENT{border-left-color:var(--green)}
   .gap .t{font-weight:700;color:var(--charcoal);font-size:15px}
   .gap .cite{font-size:12px;color:var(--grey)}
+  /* citation chip (shared component) */
+  .citebox{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:6px}
+  .citechip{font-size:11px;font-weight:800;letter-spacing:.3px;background:#12331F;color:#7FE0A6;border:1px solid #2C6142;border-radius:5px;padding:2px 8px;font-family:ui-monospace,Menlo,monospace}
+  .citetitle{font-size:12px;color:#8A9099}
+  .citesrc{font-size:11px;color:var(--orange);text-decoration:none;font-weight:600}
+  .citesrc:hover{text-decoration:underline}
+  .citetoggle{font-size:11px;font-weight:700;color:var(--orange);background:none;border:none;cursor:pointer;padding:0;font-family:inherit}
+  .citepop{flex-basis:100%;margin-top:6px;background:#FBF9F5;border:1px solid #D9D2C7;border-radius:8px;padding:10px 12px}
+  .citepop pre{margin:0;white-space:pre-wrap;font-size:12.5px;line-height:1.5;color:#2A2E35;font-family:ui-monospace,Menlo,monospace}
   .pill{float:right;font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;color:#fff}
   .pill.MISSING{background:var(--red)} .pill.FAILING{background:var(--amber)} .pill.PRESENT{background:var(--green)}
   .gap .detail{font-size:13.5px;color:var(--ink);margin-top:8px}
@@ -264,6 +273,28 @@ function renderFiles(){
   $('filelist').querySelectorAll('a').forEach(a=>a.onclick=e=>{e.preventDefault();CHOSEN.splice(+a.dataset.i,1);renderFiles();});
 }
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+/* ── Bulletproof citation chip (CFR number + title + source + expandable verbatim text).
+   rec = a citation_record {ok,citation,title,url,part,verbatim,kind} or falsy.
+   Never fabricates: no rec/ok -> shows only the raw citation string (or nothing). */
+function renderCite(rec, fallback){
+  if(!rec || !rec.ok){
+    return fallback ? '<div class="citebox"><span class="citechip">'+esc(fallback)+'</span></div>' : '';
+  }
+  var num=rec.citation||fallback||'', title=rec.title||'', url=rec.url||'', vb=rec.verbatim||'';
+  var h='<div class="citebox"><span class="citechip">'+esc(num)+'</span>';
+  if(title) h+='<span class="citetitle">'+esc(title)+'</span>';
+  if(url)   h+='<a class="citesrc" href="'+esc(url)+'" target="_blank" rel="noopener">source \u2197</a>';
+  if(vb){
+    h+='<button type="button" class="citetoggle" onclick="citeToggle(this)">Show regulation text \u25be</button>'
+      +'<div class="citepop" hidden><pre>'+esc(vb)+'</pre></div>';
+  }
+  return h+'</div>';
+}
+function citeToggle(btn){
+  var pop=btn.nextElementSibling; if(!pop) return;
+  if(pop.hasAttribute('hidden')){ pop.removeAttribute('hidden'); btn.textContent='Hide regulation text \u25b4'; }
+  else{ pop.setAttribute('hidden',''); btn.textContent='Show regulation text \u25be'; }
+}
 
 $('go').addEventListener('click', analyze);
 async function analyze(){
@@ -385,7 +416,7 @@ async function draft(ids, btnEl){
 
 function gapCard(g){
   let h=`<div class="gap ${g.status}"><span class="pill ${g.status}">${g.status}</span>
-    <div class="t">${esc(g.title)}${g.platform_flagged?'<span class="flag">Platform flagged</span>':''}</div><div class="cite">${esc(g.citation||'')}</div>`;
+    <div class="t">${esc(g.title)}${g.platform_flagged?'<span class="flag">Platform flagged</span>':''}</div>${renderCite(g.citation_record, g.citation)}`;
   if(g.platform_flagged&&g.platform_reason){
     h+=`<div class="plat">Reviewer: ${esc(g.platform_reason)}</div>`;
   }
