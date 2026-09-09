@@ -582,6 +582,7 @@ function renderDetail(){
       <span>Compliance health</span>
       <button class="btn sm" onclick='runHealthSweep(${JSON.stringify(s.slug)})' title="Draft any renewals due within 30 days into this sub's vault and email them">Sweep &amp; auto-draft</button>
     </div><div id="healthSec">Loading\u2026</div>
+    <div class="stitle">Prequal readiness board</div><div id="loopSec">Loading\u2026</div>
     <div class="stitle" style="display:flex;align-items:center;justify-content:space-between">
       <span>Documents on file</span>
       <div style="display:flex;gap:8px">
@@ -595,6 +596,39 @@ function renderDetail(){
     </div>${neededHtml}
     <div class="scopenote">${noteScope}</div>`;
   loadGcHealth(s.slug);
+  loadGcLoop(s.slug);
+}
+/* ── prequal close-the-loop board (per platform) for the selected sub ── */
+var LOOP_LBL={needed:'Needed',drafted:'Drafted',submitted:'Submitted',accepted:'Accepted'};
+function loopCol(s){return s==='accepted'?'#1a8a4a':(s==='submitted'?'#d98c00':(s==='drafted'?'#2b6cb0':'#8a94a6'))}
+async function loadGcLoop(slug){
+  const box=$('loopSec');if(!box)return;
+  const r=await api('/portal/api/gc/sub/'+slug+'/loop');
+  const box2=$('loopSec');if(!box2||SEL!==slug)return;
+  const j=(r&&r.data)||{};
+  if(j.error||!j.platforms){box2.innerHTML='<div class="empty">Prequal readiness board unavailable \u2014 add this sub\u2019s company details to grade.</div>';return}
+  const plats=(j.platforms||[]).filter(p=>(p.items||[]).length);
+  if(!plats.length){box2.innerHTML='<div class="empty">No prequal items yet for this sub.</div>';return}
+  box2.innerHTML=plats.map(p=>{
+    const open=(p.counts||{}).open||0,total=(p.counts||{}).total||0;
+    const head=`<div style="display:flex;align-items:center;gap:8px;margin:10px 0 4px"><b style="flex:1">${esc(p.platform||'Platform')}</b>`
+      +`<span class="tag ${open===0?'ok':'miss'}">${open===0?'All accepted':(open+' of '+total+' open')}</span></div>`;
+    const rows=(p.items||[]).map(it=>{
+      const col=loopCol(it.state);
+      const chip=`<span class="tag" style="color:${col}">${esc(LOOP_LBL[it.state]||it.state)}</span>`;
+      let btn='';
+      if(it.state!=='submitted'&&it.state!=='accepted'){btn=`<button class="btn ghost sm" onclick='markGcLoop(${JSON.stringify(slug)},${JSON.stringify(p.platform)},${JSON.stringify(it.id)},"submitted")'>Mark submitted</button>`}
+      else if(it.state==='submitted'){btn=`<button class="btn ghost sm" onclick='markGcLoop(${JSON.stringify(slug)},${JSON.stringify(p.platform)},${JSON.stringify(it.id)},"accepted")'>Mark accepted</button>`}
+      return `<div class="docrow"><div style="flex:1"><div class="dn">${esc(it.title||it.id)}</div>
+        <div class="ds">${esc(it.detail||'')}</div></div>${chip}${btn}</div>`;
+    }).join('');
+    return head+rows;
+  }).join('');
+}
+async function markGcLoop(slug,platform,item_id,state){
+  const r=await api('/portal/api/gc/sub/'+slug+'/loop/state',{method:'POST',body:JSON.stringify({platform:platform,item_id:item_id,state:state})});
+  if(!r.ok||(r.data&&r.data.error)){alert((r.data&&r.data.error)||'Could not update.');return}
+  loadGcLoop(slug);
 }
 /* ── compliance health (continuous watch) for the selected sub ── */
 function healthCol(state){return state==='expired'?'#c0392b':(state==='expiring'?'#d98c00':'#1a8a4a')}

@@ -3749,6 +3749,85 @@ def register_portal(app) -> None:
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
+    # ===================== PREQUAL CLOSE-THE-LOOP BOARD ========================
+    # Feature #3: the per-platform status board. The readiness engine diagnoses
+    # each platform's gaps; this tracks every gap through Needed -> Drafted ->
+    # Submitted -> Accepted. Drafted is auto-detected (Origin produced the doc);
+    # Submitted/Accepted are marked by a human (sub or GC). No auto-login — Origin
+    # never submits into a network on anyone's behalf. Same ownership guard as
+    # every sub route. Deterministic + offline (see prequal_loop.py).
+
+    def _sub_loop_board(rec):
+        from . import prequal_loop as _loop
+        cid = _ensure_profile_for_sub(rec) or ""
+        return _loop.board_for_sub(rec, company_id=cid)
+
+    @app.get("/portal/api/sub/loop")
+    def sub_loop(request: Request):
+        """A signed-in subcontractor's own per-platform close-the-loop board."""
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        try:
+            return {"ok": True, **_sub_loop_board(rec)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.post("/portal/api/sub/loop/state")
+    def sub_loop_state(request: Request, body: dict = Body(...)):
+        """The sub marks one board item Submitted / Accepted (or undoes it)."""
+        sess = client_session(request)
+        if not sess:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        rec = load_client(sess["slug"])
+        if not rec:
+            return JSONResponse({"error": "account not found"}, status_code=404)
+        try:
+            from . import prequal_loop as _loop
+            out = _loop.set_state(
+                rec, platform=(body.get("platform") or ""),
+                item_id=(body.get("item_id") or ""),
+                state=(body.get("state") or ""),
+                note=(body.get("note") or ""), by="sub")
+            if out.get("ok"):
+                save_client(rec)
+            return out
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.get("/portal/api/gc/sub/{sub_slug}/loop")
+    def gc_sub_loop(sub_slug: str, request: Request):
+        """The close-the-loop board for one of the acting GC's subs."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        try:
+            return {"ok": True, **_sub_loop_board(rec)}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
+    @app.post("/portal/api/gc/sub/{sub_slug}/loop/state")
+    def gc_sub_loop_state(sub_slug: str, request: Request, body: dict = Body(...)):
+        """The GC marks one of its sub's board items Submitted / Accepted."""
+        rec, slug, err = _gc_owned_sub(request, sub_slug)
+        if err:
+            return err
+        try:
+            from . import prequal_loop as _loop
+            out = _loop.set_state(
+                rec, platform=(body.get("platform") or ""),
+                item_id=(body.get("item_id") or ""),
+                state=(body.get("state") or ""),
+                note=(body.get("note") or ""), by="gc")
+            if out.get("ok"):
+                save_client(rec)
+            return out
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
     # ===================== MY DOCUMENTS (GC + owner vaults) =====================
     # The GC and the Origin owner each get their own Documents vault, same shape
     # as a sub's: folders + rows, files served from the record's docs/ dir. Rows

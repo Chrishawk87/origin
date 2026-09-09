@@ -586,9 +586,54 @@ function renderOverview(prequal){
       +'</div>';
   }
   h+='<div id="healthCard"></div>';
+  h+='<div id="loopCard"></div>';
   h+='<div class="callout">Everything on this portal is prepared and kept current for you by Origin Management Solutions. View or print any document anytime — so whether an inspector, a client, or a general contractor asks, you&#39;re always audit-ready.</div>';
   document.getElementById('overview').innerHTML=h;
   loadHealth();
+  loadLoop();
+}
+// ─────────────── Prequal close-the-loop board (per platform) ───────────────
+var LOOP_STATES=['needed','drafted','submitted','accepted'];
+var LOOP_LABEL={needed:'Needed',drafted:'Drafted',submitted:'Submitted',accepted:'Accepted'};
+function loopColor(s){return s==='accepted'?'#1a8a4a':(s==='submitted'?'#d98c00':(s==='drafted'?'#2b6cb0':'#8a94a6'));}
+function loadLoop(){
+  var box=document.getElementById('loopCard');if(!box)return;
+  api('/portal/api/sub/loop').then(function(r){
+    var box=document.getElementById('loopCard');if(!box)return;
+    var j=r.j||{}; if(j.error||!j.platforms){box.innerHTML='';return;}
+    var plats=(j.platforms||[]).filter(function(p){return (p.items||[]).length;});
+    if(!plats.length){box.innerHTML='';return;}
+    var cards=plats.map(function(p){
+      var open=(p.counts||{}).open||0, total=(p.counts||{}).total||0;
+      var head='<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+        +'<div style="font-weight:700;flex:1">'+esc(p.platform||'Platform')+' \u2014 readiness board</div>'
+        +'<span class="badge '+(open===0?'b-green':'b-amber')+'">'+(open===0?'All accepted \u2713':(open+' of '+total+' open'))+'</span></div>';
+      var rows=(p.items||[]).map(function(it){
+        var col=loopColor(it.state);
+        var chip='<span class="badge" style="background:'+col+';color:#fff">'+esc(LOOP_LABEL[it.state]||it.state)+'</span>';
+        var bstyle='padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink);white-space:nowrap';
+        var btns='';
+        if(it.state!=='submitted'&&it.state!=='accepted'){
+          btns='<button style="'+bstyle+'" onclick="markLoop(\''+esc(p.platform)+'\',\''+esc(it.id)+'\',\'submitted\')">Mark submitted</button>';
+        }else if(it.state==='submitted'){
+          btns='<button style="'+bstyle+'" onclick="markLoop(\''+esc(p.platform)+'\',\''+esc(it.id)+'\',\'accepted\')">Mark accepted</button>';
+        }else{btns='<span class="mini" style="color:#1a8a4a;font-weight:600">Done \u2713</span>';}
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #eef1f5">'
+          +'<span class="dot-s" style="background:'+col+'"></span>'
+          +'<div style="flex:1"><div style="font-weight:600">'+esc(it.title||it.id)+'</div>'
+          +'<div class="mini">'+esc(it.detail||'')+'</div></div>'+chip+btns+'</div>';
+      }).join('');
+      return '<div class="card" style="margin-top:14px;border-left:4px solid '+(open===0?'#1a8a4a':'#2b6cb0')+'">'+head+rows+'</div>';
+    }).join('');
+    box.innerHTML='<div style="margin-top:18px;font-weight:700">Prequal readiness \u2014 close the loop</div>'
+      +'<div class="mini" style="margin-bottom:2px">For each platform you\'re on, we track every required item from <b>Needed</b> to <b>Drafted</b> (we prepared it) to <b>Submitted</b> (you uploaded it) to <b>Accepted</b> (the platform cleared it). Mark each item as you go so nothing slips.</div>'
+      +cards;
+  });
+}
+function markLoop(platform,item_id,state){
+  api('/portal/api/sub/loop/state',{method:'POST',body:{platform:platform,item_id:item_id,state:state}}).then(function(r){
+    loadLoop();
+  });
 }
 // ─────────────── Compliance Health (continuous watch) ───────────────
 function healthColor(state){return state==='expired'?'#c0392b':(state==='expiring'?'#d98c00':'#1a8a4a');}
