@@ -399,6 +399,21 @@ def slugify(name: str) -> str:
     return s or "client"
 
 
+def unique_client_slug(name: str) -> str:
+    """Mint a slug for a BRAND-NEW client record that does not collide with any
+    existing one. Without this, two companies whose names slugify to the same
+    value (or a blank/"client" fallback) would resolve to the same folder and the
+    second "Add" would silently overwrite the first instead of creating a new
+    record. Appends -2, -3, ... until the folder is free."""
+    base = slugify(name)
+    slug = base
+    n = 2
+    while _client_dir(slug).exists():
+        slug = f"{base}-{n}"
+        n += 1
+    return slug
+
+
 # ── Asset-library document fill-in ───────────────────────────────────────────
 # When a GC pulls a master into a sub's vault it still carries {{TOKENS}}. These
 # are the fields the GC can fill in from the app (token -> friendly label). The
@@ -1198,6 +1213,17 @@ def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
         if not rec or (rec.get("gc_slug", "") or "") != gc_slug:
             continue
         flags = _monitoring_flags(rec)
+        # The GC-entered readiness numbers live under prequal_metrics; the forward
+        # view reads root trir/emr. Fall back to the readiness numbers so the
+        # figures the GC just typed actually show up on the dashboard instead of a
+        # bare dash.
+        pmetrics = rec.get("prequal_metrics") if isinstance(rec.get("prequal_metrics"), dict) else {}
+        trir = rec.get("trir", "")
+        if (trir is None or trir == "") and pmetrics.get("trir") is not None:
+            trir = pmetrics.get("trir")
+        emr = rec.get("emr", "")
+        if (emr is None or emr == "") and pmetrics.get("emr") is not None:
+            emr = pmetrics.get("emr")
         out.append({
             "slug": rec.get("slug"),
             "company": rec.get("company"),
@@ -1217,8 +1243,15 @@ def clients_for_gc(gc_slug: str) -> List[Dict[str, Any]]:
             "platforms": rec.get("platforms", {}),
             "coi": rec.get("coi", []),
             "documents": _docs_with_citations(rec.get("documents", [])),
-            "trir": rec.get("trir", ""),
-            "emr": rec.get("emr", ""),
+            "trir": trir,
+            "emr": emr,
+            # ---- readiness (last Run readiness) so the forward view can show the
+            #      GC-entered grades + COI, not just an empty "Compliant" ----
+            "prequal_report": rec.get("prequal_report"),
+            "prequal_metrics": pmetrics,
+            "prequal_run_at": rec.get("prequal_run_at", ""),
+            "prequal_platforms": rec.get("prequal_platforms") or [],
+            "insurance_ok": bool(pmetrics.get("insurance_ok")),
             "action_required": flags["action_required"],
             "coi_status": flags["coi_status"],
             "coi_soonest": flags["coi_soonest"],
@@ -1993,18 +2026,18 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "company name required"}, status_code=400)
         incoming_slug = (body.get("slug") or "").strip()
         email = (body.get("email") or "").strip()
-        # Guard against duplicate accounts for the same email. Login looks clients
-        # up by email, so two records sharing one email make a client's profile
-        # appear to "revert" to whichever record sorts first. When saving a NEW
-        # client (no slug yet) whose email already exists, edit that existing
-        # record in place instead of minting a second one.
-        if not incoming_slug and email:
-            existing = find_by_email(email)
-            if existing:
-                incoming_slug = existing["slug"]
-        slug = incoming_slug or slugify(company)
-        rec = load_client(slug) or _blank_client(company, email,
-                                                 body.get("client_type", "prequal"))
+        # Add (no slug) => always mint a fresh, non-colliding record and create a
+        # new client. Edit (slug present) => update that exact record in place.
+        # We deliberately do NOT resolve a new Add to an existing record by email
+        # or by a slugify collision: that renamed/overwrote the client already on
+        # file instead of adding a new one.
+        if incoming_slug:
+            slug = incoming_slug
+            rec = load_client(slug) or _blank_client(company, email,
+                                                     body.get("client_type", "prequal"))
+        else:
+            slug = unique_client_slug(company)
+            rec = _blank_client(company, email, body.get("client_type", "prequal"))
         rec["slug"] = slug
         rec["company"] = company
         for key in ("email", "client_type", "plan", "scope", "trade", "gc_slug"):
@@ -2454,12 +2487,17 @@ def register_portal(app) -> None:
             return JSONResponse({"error": "company name required"}, status_code=400)
         incoming_slug = (body.get("slug") or "").strip()
         email = (body.get("email") or "").strip()
-        if not incoming_slug and email:
-            existing = find_by_email(email)
-            if existing:
-                incoming_slug = existing["slug"]
-        sub_slug = incoming_slug or slugify(company)
-        rec = load_client(sub_slug)
+        # Add (no slug) => always mint a fresh, non-colliding record. Edit (slug
+        # present) => update that exact record in place. We deliberately do NOT
+        # resolve a new Add to an existing record by email or by a slugify
+        # collision: doing so renamed/overwrote the contractor already on file
+        # instead of creating a new subcontractor.
+        if incoming_slug:
+            sub_slug = incoming_slug
+            rec = load_client(sub_slug)
+        else:
+            sub_slug = unique_client_slug(company)
+            rec = None
         is_new = rec is None
         if rec is None:
             rec = _blank_client(company, email, body.get("client_type", "prequal"))

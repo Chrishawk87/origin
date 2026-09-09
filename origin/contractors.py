@@ -33,6 +33,11 @@ from typing import Any, Dict, List, Optional
 
 from .paths import DATA_DIR
 
+try:
+    from . import citations as _citations
+except Exception:  # citation layer must never break the dashboard
+    _citations = None
+
 ROOT = DATA_DIR / "contractors"
 
 VALID_STATUS = ("green", "yellow", "red", "unknown")
@@ -392,6 +397,17 @@ def get_contractor(slug: str) -> Optional[Dict[str, Any]]:
             "reason": "Flagged by platform — match by hand",
             "platform_flagged": True,
         })
+
+    # Bulletproof layer: attach a verified CFR citation record (title, source,
+    # verbatim text) to each deficiency row so the drill-down can expand the
+    # actual standard. Isolated + never-fabricate — resolves live so even older
+    # snapshots get citations.
+    if _citations is not None:
+        try:
+            for _rows in breakdown.values():
+                _citations.attach(_rows)
+        except Exception:
+            pass
 
     critical_count = sum(1 for v in roll["effective"].values() if v == "red")
 

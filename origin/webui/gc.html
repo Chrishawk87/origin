@@ -557,11 +557,27 @@ function renderDetail(){
   const scope=(s.trade||s.scope||'').trim();
   // prequal cards
   const plats=s.platforms||{};
-  const cards=PLAT_ORDER.filter(k=>plats[k]).map(k=>{const p=plats[k];const g=(p.grade||'—').trim()||'—';
-    return `<div class="mcard"><div class="k">${esc(p.label||k)}</div>
-      <div class="v ${gradeClass(p.grade)}">${esc(g)}</div>
-      <span class="pill ${platPill(p.status)}">${esc(p.status||'—')}</span></div>`}).join('')
-    ||'<div class="empty" style="grid-column:1/-1">No prequal platforms recorded yet.</div>';
+  // Grades the last "Run readiness" estimated, keyed by platform slug, so the
+  // numbers the GC just entered show on the card instead of an empty dash.
+  const CANON2KEY={ISN:'isnetworld',ISNETWORLD:'isnetworld',AVETTA:'avetta',VERIFORCE:'veriforce',PEC:'pec'};
+  const PLAT_LABELS={isnetworld:'ISNetworld',avetta:'Avetta',veriforce:'Veriforce',pec:'PEC'};
+  const rdGrades={};
+  const pqRep0=s.prequal_report;
+  if(pqRep0&&Array.isArray(pqRep0.assessments)){
+    pqRep0.assessments.forEach(a=>{const key=CANON2KEY[((a.platform||'')+'').toUpperCase()];
+      const g=a.estimated_grade&&a.estimated_grade.grade;
+      if(key&&g)rdGrades[key]=g;});
+  }
+  const cardKeys=PLAT_ORDER.filter(k=>plats[k]||rdGrades[k]);
+  const cards=cardKeys.map(k=>{const p=plats[k]||{};
+    const manualG=(p.grade||'').trim();
+    const g=manualG||rdGrades[k]||'—';
+    const est=(!manualG&&rdGrades[k])?' <span class="ds" style="font-size:10px;font-weight:600">est</span>':'';
+    const status=p.status||(rdGrades[k]?'Estimated':'—');
+    return `<div class="mcard"><div class="k">${esc(p.label||PLAT_LABELS[k]||k)}</div>
+      <div class="v ${gradeClass(g)}">${esc(g)}${est}</div>
+      <span class="pill ${platPill(status)}">${esc(status)}</span></div>`}).join('')
+    ||'<div class="empty" style="grid-column:1/-1">No prequal platforms recorded yet. Click <b>Run readiness</b> to estimate their grades.</div>';
   // Origin readiness estimate (last run), if any
   let pqSummary='';
   const pq=s.prequal_report;
@@ -574,7 +590,10 @@ function renderDetail(){
   }
   // safety metrics
   const coiMap={current:['COI Current','pill'],expiring:['COI Expiring','pill warn'],expired:['COI Expired','pill bad'],none:['No COI on file','pill bad']};
-  const coi=coiMap[s.coi_status]||coiMap.none;
+  let coi=coiMap[s.coi_status]||coiMap.none;
+  // If the GC confirmed COI + endorsements in readiness but no cert is uploaded
+  // yet, reflect that instead of showing a bare "No COI on file".
+  if(s.insurance_ok&&(!s.coi_status||s.coi_status==='none'))coi=['Confirmed','pill'];
   const safety=`
     <div class="mcard"><div class="k">TRIR</div><div class="v">${esc((s.trir||'—').toString())}</div><span class="pill ${(parseFloat(s.trir)||0)>3?'warn':''}">Recordable rate</span></div>
     <div class="mcard"><div class="k">EMR</div><div class="v">${esc((s.emr||'—').toString())}</div><span class="pill ${(parseFloat(s.emr)||0)>1?'warn':''}">Mod rate</span></div>
@@ -1313,11 +1332,22 @@ async function runPrequal(){
   btn.textContent=orig;btn.disabled=false;
   if(!r.ok){$('pqResult').innerHTML='<div class="empty">'+esc(r.data.error||'Readiness estimate failed.')+'</div>';return}
   const rep=r.data.report||{};
-  const s=SUBS.find(x=>x.slug===PQSUB);if(s){s.prequal_report=rep;s.prequal_metrics=metrics;s.prequal_platforms=platforms;}
+  const s=SUBS.find(x=>x.slug===PQSUB);if(s){s.prequal_report=rep;s.prequal_metrics=metrics;s.prequal_platforms=platforms;
+    if(metrics.trir!=null&&(s.trir==null||s.trir===''))s.trir=metrics.trir;
+    if(metrics.emr!=null&&(s.emr==null||s.emr===''))s.emr=metrics.emr;
+    s.insurance_ok=!!metrics.insurance_ok;}
   renderPrequal(rep);
   renderDetail();
 }
-function pqGapRow(g){
+function pqGapRow(g,onFile){
+  if(onFile){
+    // A document that closes this gap is already in the sub's vault (tagged with
+    // the gap id). Show it as satisfied instead of asking for it again.
+    return '<div class="docrow" style="flex-direction:column;align-items:stretch;gap:4px;opacity:.72">'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="dn" style="flex:1">'+esc(g.title||g.id)+'</div>'+
+      '<span class="pill">On file ✓</span></div>'+
+      '<div class="ds">Already in this sub\u2019s Documents on file — not requested again.</div></div>';
+  }
   const sev=(g.severity==='high')?'<span class="tag miss">High</span>':
     (g.severity==='medium'?'<span class="tag exp">Medium</span>':'<span class="tag">Info</span>');
   const badge=(g.status==='detected')?'<span class="pill bad">Detected</span>':'<span class="pill warn">You supply</span>';
@@ -1342,22 +1372,40 @@ async function pqFix(gapId,btn){
   btn.textContent='Added to Documents ✓';
   btn.parentNode.insertAdjacentHTML('beforeend',
     ' <span class="ds">“'+esc(r.data.title||'')+'” dropped into this sub\u2019s Documents.</span>');
-  // refresh the sub roster so the new doc shows in the Documents list
+  // refresh the sub roster so the new doc shows in the Documents list, then
+  // re-render readiness so the just-closed gap flips to "On file ✓" right away.
   await boot();
+  const s2=SUBS.find(x=>x.slug===PQSUB);
+  if(s2&&s2.prequal_report)renderPrequal(s2.prequal_report);
+  renderDetail();
 }
 function renderPrequal(rep){
   const asmts=(rep&&rep.assessments)||[];
   if(!asmts.length){$('pqResult').innerHTML='<div class="empty">No readiness result yet — run it above.</div>';return}
+  // Gaps already closed by a document on file — tagged with the gap id when the
+  // doc was built. Re-running readiness scans these so it won't re-request them.
+  const s=SUBS.find(x=>x.slug===PQSUB);
+  const onFileIds=new Set();
+  ((s&&s.documents)||[]).forEach(d=>{const gid=d&&(d.gap_id||d.health_item);if(gid)onFileIds.add(String(gid));});
+  const isOnFile=gp=>onFileIds.has(String((gp&&gp.id)||''));
   let html='';
   asmts.forEach(a=>{
     const g=(a.estimated_grade&&a.estimated_grade.grade)||'?';
-    const gc=(a.gap_counts||{});
+    const all=(a.gaps||[]);
+    const open=all.filter(gp=>!isOnFile(gp));
+    const done=all.filter(isOnFile);
+    // recompute the headline counts from what's still OUTSTANDING
+    const detected=open.filter(gp=>gp.status==='detected').length;
+    const checklist=open.filter(gp=>gp.status!=='detected').length;
+    const high=open.filter(gp=>gp.severity==='high').length;
+    const doneNote=done.length?(' · <b style="color:var(--green)">'+done.length+' on file ✓</b>'):'';
     html+='<div class="mcard" style="margin:12px 0 8px"><div style="display:flex;align-items:center;gap:10px">'+
       '<div class="k" style="flex:1">'+esc(a.platform)+'</div>'+
       '<div class="v '+gradeClass(g)+'" style="font-size:26px">'+esc(g)+'</div></div>'+
       '<div style="font-size:13.5px;font-weight:600;margin-top:6px">'+esc(a.readiness||'')+'</div>'+
-      '<div class="ds" style="margin-top:4px">'+esc((gc.detected||0)+' detected · '+(gc.checklist||0)+' you supply · '+(gc.high||0)+' high-severity')+'</div></div>';
-    (a.gaps||[]).forEach(gp=>{html+=pqGapRow(gp);});
+      '<div class="ds" style="margin-top:4px">'+esc(detected+' detected · '+checklist+' you supply · '+high+' high-severity')+doneNote+'</div></div>';
+    open.forEach(gp=>{html+=pqGapRow(gp);});
+    done.forEach(gp=>{html+=pqGapRow(gp,true);});
   });
   if(rep.caveat)html+='<div class="scopenote" style="margin-top:10px">'+esc(rep.caveat)+'</div>';
   $('pqResult').innerHTML=html;
