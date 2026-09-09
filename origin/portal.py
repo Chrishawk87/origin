@@ -3856,6 +3856,38 @@ def register_portal(app) -> None:
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
 
+    # ===================== INJURY-RISK RANKING (Feature #5) ====================
+    # Rank the acting GC's whole subcontractor roster worst-first by injury
+    # risk, blending four never-fabricate signals: self-supplied injury metrics
+    # (TRIR/DART/EMR), open corrective actions + risk band, prequal + document
+    # gaps, and expiring compliance. Deterministic + offline (see injury_risk.py).
+    # No signal is guessed: a sub with nothing on file scores 0 and is labeled
+    # "not scored". Same GC ownership + member-scope guard as every roster view.
+
+    @app.get("/portal/api/gc/injury-ranking")
+    def gc_injury_ranking(request: Request):
+        """A worst-first injury-risk ranking of the acting GC's subcontractors.
+        Serves a GC session, and the owner acting for a GC via ?gc=. Invited
+        admins see only the subs assigned to them."""
+        slug = acting_gc_slug(request)
+        if not slug:
+            return JSONResponse({"error": "not signed in"}, status_code=401)
+        try:
+            from . import injury_risk as _injury
+            allowed = _member_subs(acting_gc_member(request))
+            recs = []
+            for row in clients_for_gc(slug):
+                sslug = row.get("slug")
+                if allowed is not None and sslug not in allowed:
+                    continue
+                full = load_client(sslug)
+                if full:
+                    recs.append(full)
+            out = _injury.rank_roster(recs, bridge=_ensure_profile_for_sub)
+            return {"ok": True, **out}
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=200)
+
     # ===================== MY DOCUMENTS (GC + owner vaults) =====================
     # The GC and the Origin owner each get their own Documents vault, same shape
     # as a sub's: folders + rows, files served from the record's docs/ dir. Rows
