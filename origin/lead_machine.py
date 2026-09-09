@@ -1,10 +1,10 @@
 """Origin Lead Machine — the daily "who should I call today" brief.
 
 Lead Radar (``leadradar.py``) already finds contractors who just took a public
-compliance hit (penalty-bearing OSHA / state-OSHA / MSHA citations, plus
-Unsatisfactory/Conditional FMCSA carriers) and scores each for callability. The
-Lead Machine sits on top of that and turns the raw radar hits into a ranked,
-Houston-first *call list* — for each lead it answers, in Chris's words:
+compliance hit (penalty-bearing OSHA / state-OSHA / MSHA citations), and the
+Lead Machine adds real, penalty-bearing EPA federal enforcement on top. It turns
+those raw hits into a ranked, Houston-first *call list* — for each lead it
+answers, in Chris's words:
 
     "Here's who to call, here's their problem, here's the exact service to
      offer, and here's the 30-second pitch."
@@ -45,6 +45,7 @@ Public surface:
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import urllib.parse
@@ -204,6 +205,40 @@ _STANDARD_INFO: Dict[str, Dict[str, str]] = {
 _RECORDKEEPING = {"problem": "injury & illness recordkeeping violations",
                   "program": "OSHA 300 Recordkeeping Program"}
 
+# ---------------------------------------------------------------------------
+# EPA ECHO federal enforcement (ICIS-FE&C) — keyless, real penalty-bearing
+# environmental enforcement cases. Adds a non-OSHA "stinging citation" stream so
+# the morning list isn't padded with trucking safety-ratings. Host + toggle are
+# env-overridable; any failure degrades to an empty list (never crashes).
+#   ECHO_CASE_BASE   override the ECHO REST host/base path
+#   LEAD_MACHINE_EPA "0" to turn the EPA stream off
+# NOTE: the ECHO host can't be reached from the build sandbox (no DNS), so this
+# stream is confirmed live on Railway, not here — it fails closed until then.
+# ---------------------------------------------------------------------------
+ECHO_BASE = os.environ.get("ECHO_CASE_BASE", "https://echodata.epa.gov/echo").strip().rstrip("/")
+ECHO_ENABLED = os.environ.get("LEAD_MACHINE_EPA", "1").strip().lower() not in (
+    "0", "false", "no", "off", "")
+
+# Cited environmental statute -> plain-English problem + the program Origin sells.
+_EPA_STATUTE = {
+    "CAA": {"problem": "Clean Air Act violations",
+            "program": "Air Compliance Program"},
+    "CWA": {"problem": "Clean Water Act violations",
+            "program": "Stormwater / SPCC / Water Compliance Program"},
+    "RCRA": {"problem": "hazardous-waste (RCRA) handling violations",
+             "program": "Hazardous Waste (RCRA) Program"},
+    "TSCA": {"problem": "toxic-substance (TSCA) violations",
+             "program": "Chemical Management (TSCA) Program"},
+    "FIFRA": {"problem": "pesticide (FIFRA) violations",
+              "program": "Pesticide Compliance Program"},
+    "EPCRA": {"problem": "emergency-planning / right-to-know (EPCRA) violations",
+              "program": "EPCRA / Chemical Reporting Program"},
+    "SDWA": {"problem": "Safe Drinking Water Act violations",
+             "program": "Drinking Water Compliance Program"},
+    "CERCLA": {"problem": "hazardous-substance release (CERCLA) violations",
+               "program": "Spill Response / CERCLA Program"},
+}
+
 # NAICS 2-digit prefix -> the sector_content key we can label it with.
 _NAICS_SECTOR_KEY = {
     "11": "11", "21": "21", "22": "22", "23": "23",
@@ -294,6 +329,154 @@ def _primary_standard(standards: List[str]) -> tuple:
 
 
 # ---------------------------------------------------------------------------
+# EPA ECHO federal enforcement fetch (keyless, defensive, env-overridable)
+# ---------------------------------------------------------------------------
+
+def _rec_pick(rec: Dict[str, Any], *names: str) -> str:
+    """First non-empty value among candidate field names (schema-tolerant)."""
+    for n in names:
+        v = rec.get(n) if isinstance(rec, dict) else None
+        if v not in (None, ""):
+            return str(v).strip()
+    return ""
+
+
+def _norm_date(s: str) -> str:
+    s = (s or "").strip()
+    if not s:
+        return ""
+    for cand, fmt in ((s[:10], "%Y-%m-%d"), (s[:10], "%m/%d/%Y"),
+                      (s[:19], "%Y-%m-%dT%H:%M:%S")):
+        try:
+            return datetime.strptime(cand, fmt).strftime("%Y-%m-%d")
+        except Exception:
+            continue
+    return s[:10]
+
+
+def _epa_statute_info(raw: str):
+    s = (raw or "").upper()
+    for code, info in _EPA_STATUTE.items():
+        if code in s:
+            return code, info
+    return "", None
+
+
+def _epa_rows(payload: Any) -> List[Dict[str, Any]]:
+    if isinstance(payload, list):
+        return [r for r in payload if isinstance(r, dict)]
+    if not isinstance(payload, dict):
+        return []
+    res = payload.get("Results") if isinstance(payload.get("Results"), dict) else payload
+    for key in ("Cases", "cases", "CaseData", "results", "rows", "Facilities"):
+        val = res.get(key) if isinstance(res, dict) else None
+        if isinstance(val, list):
+            return [r for r in val if isinstance(r, dict)]
+    return []
+
+
+def _epa_qid(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    res = payload.get("Results") if isinstance(payload.get("Results"), dict) else payload
+    for key in ("QueryID", "QID", "qid", "queryid"):
+        v = res.get(key) if isinstance(res, dict) else None
+        if v:
+            return str(v)
+    return ""
+
+
+def _build_epa_lead(rec: Dict[str, Any], *, since_days: int,
+                    min_penalty: float) -> Optional[Dict[str, Any]]:
+    company = _rec_pick(rec, "DefendantEntity", "FacilityName", "PrimaryDefendant",
+                        "Defendant", "CaseName", "facility_name")
+    if not company:
+        return None
+    pen = 0.0
+    for f in ("FederalPenaltyAssessedAmt", "FedPenaltyAssessedAmt",
+              "TotalPenaltyAssessedAmt", "PenaltyAmount", "AssessedAmt",
+              "fed_penalty_assessed_amt"):
+        pen = _to_float(rec.get(f))
+        if pen:
+            break
+    if pen < float(min_penalty or 0):
+        return None
+    date = _norm_date(_rec_pick(rec, "SettlementDate", "EnfConclusionDate",
+                                "SettlementEntryDate", "LodgedDate", "settlement_date"))
+    days = _days_since(date) if date else None
+    if since_days and days is not None and days > since_days:
+        return None
+    statute_raw = _rec_pick(rec, "Statutes", "Statute", "Law", "LawSection", "statutes")
+    code, _info = _epa_statute_info(statute_raw)
+    case_no = _rec_pick(rec, "CaseNumber", "case_number", "ActivityID")
+    url = ("https://echo.epa.gov/enforcement-case-report?id=" +
+           urllib.parse.quote(case_no)) if case_no else ""
+    return {
+        "kind": "epa_enforcement",
+        "label": "EPA enforcement",
+        "company": company,
+        "authority": "EPA",
+        "penalty": pen,
+        "state": _rec_pick(rec, "State", "FacilityState", "state").upper()[:2],
+        "city": _rec_pick(rec, "FacilityCity", "City", "city"),
+        "address": _rec_pick(rec, "FacilityStreet", "Address", "street"),
+        "zip": _rec_pick(rec, "FacilityZip", "Zip", "zip"),
+        "naics": _rec_pick(rec, "NAICS", "naics"),
+        "opened": date,
+        "viol_types": [c for c in [code] if c],
+        "standards": [],
+        "num_employees": "",
+        "epa_statute": code or statute_raw,
+        "trade_match": False,
+        "url": url,
+    }
+
+
+def _epa_fetch(states: Optional[List[str]], since_days: int,
+               min_penalty: float, limit: int = 200) -> Dict[str, Any]:
+    """Pull recent penalty-bearing EPA federal enforcement cases via the ECHO
+    REST case service. Two-step (get_cases -> QID -> get_qid); tolerant of the
+    single-call shape too. Never raises — returns {ok, count, leads} or a reason."""
+    if not (ECHO_ENABLED and ECHO_BASE):
+        return {"ok": False, "reason": "disabled", "leads": []}
+    from . import leadradar as _radar
+    st = [s.strip().upper() for s in (states or []) if s.strip()]
+    params = {"output": "JSON"}
+    if st:
+        params["p_st"] = ",".join(st)
+    try:
+        meta = _radar._http_get_json(
+            ECHO_BASE + "/case_rest_services.get_cases?" +
+            urllib.parse.urlencode(params), timeout=45)
+    except Exception as exc:  # pragma: no cover
+        return {"ok": False, "reason": f"fetch failed: {exc}"[:120], "leads": []}
+    rows = _epa_rows(meta)
+    qid = _epa_qid(meta)
+    if not rows and qid:
+        page = 1
+        while len(rows) < limit and page <= 8:
+            try:
+                payload = _radar._http_get_json(
+                    ECHO_BASE + "/case_rest_services.get_qid?" +
+                    urllib.parse.urlencode({"qid": qid, "output": "JSON",
+                                            "pageno": str(page), "responseset": "100"}),
+                    timeout=45)
+            except Exception:  # pragma: no cover
+                break
+            batch = _epa_rows(payload)
+            if not batch:
+                break
+            rows.extend(batch)
+            page += 1
+    leads: List[Dict[str, Any]] = []
+    for r in rows[: limit * 3]:
+        lead = _build_epa_lead(r, since_days=since_days, min_penalty=min_penalty)
+        if lead:
+            leads.append(lead)
+    return {"ok": True, "count": len(leads), "leads": leads}
+
+
+# ---------------------------------------------------------------------------
 # Enrichment — one raw radar lead -> a call card
 # ---------------------------------------------------------------------------
 
@@ -362,6 +545,11 @@ def _services_for(lead: Dict[str, Any], info: Optional[Dict[str, str]]) -> List[
         return ["Citation analysis", "MSHA Part 46/48 training records",
                 "Corrective action plan", "Abatement evidence package",
                 "Workplace exam program", "Mock MSHA inspection"]
+    if kind == "epa_enforcement":
+        _c, einfo = _epa_statute_info(lead.get("epa_statute", ""))
+        prog = (einfo or {}).get("program", "Environmental compliance program")
+        return ["Enforcement response support", prog, "Corrective action plan",
+                "Compliance evidence package", "Environmental gap audit"]
     return _osha_services(info)
 
 
@@ -373,6 +561,11 @@ def _problem_for(lead: Dict[str, Any], info: Optional[Dict[str, str]]) -> str:
                 f"Veriforce reject")
     if kind == "msha_violation":
         return "an open MSHA violation with a proposed penalty"
+    if kind == "epa_enforcement":
+        _c, einfo = _epa_statute_info(lead.get("epa_statute", ""))
+        if einfo:
+            return f"a federal EPA enforcement action — {einfo['problem']}"
+        return "an open EPA environmental enforcement action with a penalty"
     return _osha_problem(lead, info)
 
 
@@ -404,6 +597,10 @@ def _machine_score(lead: Dict[str, Any], base: int) -> int:
     emp = _to_int(lead.get("num_employees"))
     if _needs_help_fast(lead):
         score += 8 if emp is not None else 4
+    if lead.get("kind") == "epa_enforcement":
+        # score_lead gives EPA no confirmation bonus; lift it to sit alongside
+        # OSHA/MSHA citations without outranking a core safety hit.
+        score += 12
     if penalty >= 100000:            # deprioritize the serial-violator giants
         score -= 15
     return max(0, min(100, score))
@@ -445,9 +642,9 @@ def _pitch(lead: Dict[str, Any], info: Optional[Dict[str, str]], problem: str) -
         f"cited {company} {when}for {problem} — {sev_txt}{pen_txt}. We help "
         f"contractors close these out fast: we do the citation analysis, build "
         f"the {program} and the training records, and put together the exact "
-        f"abatement evidence OSHA wants back. Most clients turn this around in "
+        f"abatement evidence {authority} wants back. Most clients turn this around in "
         f"days, not weeks. Do you have five minutes this week to walk through "
-        f"what OSHA's going to expect?"
+        f"what {authority}'s going to expect?"
     ).replace("  ", " ")
 
 
@@ -498,12 +695,28 @@ def enrich_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _gather(states: Optional[List[str]], since_days: int, min_penalty: float) -> Dict[str, Any]:
-    """One radar pass (no persistence, confirmed sources only — no news)."""
+    """One pass of the callable sources: penalty-bearing OSHA / state-OSHA / MSHA
+    citations plus EPA federal enforcement. FMCSA (trucking safety *ratings*,
+    penalty=$0) is intentionally excluded — Chris wants stinging, real-penalty
+    citations, not carrier ratings that padded the list. No persistence, no news."""
     from . import leadradar as _radar
-    return _radar.run_radar(
+    res = _radar.run_radar(
         states=states, since_days=since_days, min_penalty=min_penalty,
-        include_news=False, include_fmcsa=True, include_msha=True,
+        include_news=False, include_fmcsa=False, include_msha=True,
         target_trades_only=False, persist=False)
+    # Merge EPA federal enforcement (keyless ICIS-FE&C). Defensive: any failure
+    # leaves the OSHA/MSHA result untouched and just records the reason.
+    try:
+        epa = _epa_fetch(states, since_days, min_penalty)
+        if epa.get("ok"):
+            for lead in epa.get("leads", []):
+                lead["score"] = _radar.score_lead(lead)
+                res.setdefault("leads", []).append(lead)
+        res.setdefault("sources", {})["epa"] = {
+            k: v for k, v in epa.items() if k != "leads"}
+    except Exception as exc:  # pragma: no cover
+        res.setdefault("sources", {})["epa"] = {"ok": False, "reason": str(exc)[:120]}
+    return res
 
 
 def build_brief(*, target: int = DEFAULT_TARGET, since_days: int = DEFAULT_SINCE_DAYS,
@@ -511,8 +724,9 @@ def build_brief(*, target: int = DEFAULT_TARGET, since_days: int = DEFAULT_SINCE
                 allow_national: bool = True, persist_cache: bool = True) -> Dict[str, Any]:
     """Assemble a fresh ranked call brief. Houston-first; widens to the rest of
     Texas, then nearby states, then nationwide only as needed to reach ``target``.
-    Confirmed leads only (OSHA/state-OSHA/MSHA citations + Unsat/Conditional FMCSA
-    carriers); news is excluded because it lacks the structured call fields."""
+    Confirmed penalty-bearing leads only (OSHA/state-OSHA/MSHA citations + EPA
+    federal enforcement); FMCSA carrier ratings and news are excluded because they
+    lack a real penalty / the structured call fields."""
     from . import leadradar as _radar
 
     picked: Dict[str, Dict[str, Any]] = {}
