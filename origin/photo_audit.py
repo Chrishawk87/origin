@@ -69,6 +69,19 @@ _VISION_SYSTEM = (
 )
 
 
+# Per-provider limits for the vision call. These are the fix for the "photo
+# audit hangs until it times out" problem: without a per-request timeout, a
+# single slow/hung provider (rate-limited Gemini, a lagging endpoint) blocks the
+# whole call and the fallback chain never gets a turn. A hard per-provider leash
+# makes a slow primary fail FAST so the next brain (Claude, then GPT) can answer
+# well inside the browser's 90s budget. max_tokens is trimmed because 2000 is far
+# more than a hazard list needs and generation time scales with it.
+_VISION_TIMEOUT = 30.0   # seconds per provider before we abort it and fail over
+                         # (3 providers x 30s = 90s worst case, kept under the
+                         #  server/frontend budget so failover always completes)
+_VISION_MAX_TOKENS = 1200
+
+
 def _b64(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")
 
@@ -95,12 +108,18 @@ def _extract_json(text: str) -> Dict[str, Any]:
     return {}
 
 
-def _vision_call(provider, images: List[Tuple[bytes, str]]) -> str:
+def _vision_call(provider, images: List[Tuple[bytes, str]],
+                 timeout: float = _VISION_TIMEOUT) -> str:
     """Send images + the inspector prompt to whichever provider is configured.
 
     `images` is a list of (raw_bytes, media_type). Returns the raw model text.
     Supports Anthropic (image source blocks) and OpenAI-compatible providers
     (image_url data URIs — covers OpenAI, Gemini, Grok, Ollama vision models).
+
+    `timeout` is a HARD per-request leash (seconds). Both the Anthropic and the
+    OpenAI-compatible SDKs accept a `timeout=` on the create call; passing it here
+    means a slow or hung provider aborts on its own instead of blocking the whole
+    audit, so the caller's fallback chain can move on to the next brain.
     """
     name = getattr(provider, "name", "") or ""
     model = getattr(provider, "model", "")
@@ -125,9 +144,10 @@ def _vision_call(provider, images: List[Tuple[bytes, str]]) -> str:
         content.append({"type": "text", "text": instruction})
         resp = client.messages.create(
             model=model,
-            max_tokens=2000,
+            max_tokens=_VISION_MAX_TOKENS,
             system=_VISION_SYSTEM,
             messages=[{"role": "user", "content": content}],
+            timeout=timeout,
         )
         out = ""
         for block in resp.content:
@@ -144,11 +164,12 @@ def _vision_call(provider, images: List[Tuple[bytes, str]]) -> str:
         })
     resp = client.chat.completions.create(
         model=model,
-        max_tokens=2000,
+        max_tokens=_VISION_MAX_TOKENS,
         messages=[
             {"role": "system", "content": _VISION_SYSTEM},
             {"role": "user", "content": content},
         ],
+        timeout=timeout,
     )
     return resp.choices[0].message.content or ""
 
@@ -595,7 +616,8 @@ def _resolve_citation(hazard: Dict[str, Any],
     }
 
 
-def _vision_with_fallback(images, providers) -> Tuple[str, str]:
+def _vision_with_fallback(images, providers,
+                          timeout: float = _VISION_TIMEOUT) -> Tuple[str, str]:
     """Try each vision provider in order; return (raw_text, model_used) from the
     first that succeeds. Collect every failure so that if ALL of them fail we can
     report why.
@@ -604,6 +626,10 @@ def _vision_with_fallback(images, providers) -> Tuple[str, str]:
     Google just retired, or a provider whose key expired, or one that timed out.
     Rather than hard-failing the tool for a customer, we fall through to the next
     vision-capable brain (e.g. Claude, then GPT). Only if none work do we raise.
+
+    Each attempt is bounded by `timeout` seconds (passed down to the SDK call), so
+    a slow primary can't consume the caller's whole time budget — it aborts and
+    the next brain gets its own fresh leash.
     """
     errors: List[str] = []
     for p in providers:
@@ -611,7 +637,7 @@ def _vision_with_fallback(images, providers) -> Tuple[str, str]:
             continue
         label = f"{getattr(p, 'name', '?')}/{getattr(p, 'model', '?')}"
         try:
-            raw = _vision_call(p, images)
+            raw = _vision_call(p, images, timeout=timeout)
             if raw and raw.strip():
                 return raw, getattr(p, "model", "")
             errors.append(f"{label}: empty response")

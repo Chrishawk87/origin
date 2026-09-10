@@ -432,7 +432,7 @@
         var _co = $('coPick');
         if (_co && _co.value) { fd.append('company', _co.value); }
         var ctrl = ('AbortController' in window) ? new AbortController() : null;
-        var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 90000) : null;
+        var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 108000) : null;
         return fetch('/api/photo-audit/analyze',
                      { method:'POST', body: fd, signal: ctrl ? ctrl.signal : undefined })
           .then(function(r){

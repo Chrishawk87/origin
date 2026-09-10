@@ -1784,7 +1784,7 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                 run_in_threadpool(_photo_audit.analyze, images,
                                   provider=primary, fallbacks=fallbacks,
                                   active_authorities=active_authorities),
-                timeout=110,
+                timeout=100,
             )
             # Phase 4: if a company was named, remember the walk-through and fold
             # its findings into that company's posture (audit record + CAPAs +
