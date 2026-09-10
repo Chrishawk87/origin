@@ -1469,7 +1469,8 @@ function machineCard(l,i){
       +'<div style="font-weight:700;font-size:15px">'+(i+1)+'. '+esc(l.company||'(company unknown)')+' '
         +machineScorePill(l.score)
         +(l.needs_help_fast?' <span class="pip" style="background:#3a7">likely no safety dept</span>':'')
-        +(l.region?' <span class="pip" style="background:#667">'+esc(l.region)+'</span>':'')+'</div>'
+        +(l.region?' <span class="pip" style="background:#667">'+esc(l.region)+'</span>':'')
+        +statusPip+'</div>'
       +'<div class="hint" style="margin-top:3px">'+esc(meta.join(' \u00b7 '))+'</div>'
       +'<div style="margin-top:6px"><b>Problem:</b> '+esc(l.problem||'')
         +(l.standard?' <span class="hint">('+esc(l.standard)+(l.severity?' \u00b7 '+esc(l.severity):'')+(l.penalty?' \u00b7 '+money(l.penalty):'')+')</span>':'')+'</div>'
@@ -1485,6 +1486,7 @@ function machineCard(l,i){
         +'<button class="btn ghost sm" onclick="copyPitch('+i+',this)">Copy</button></div>'
       +'<div id="pitch'+i+'" style="margin-top:4px;font-size:13px;line-height:1.5">'+esc(l.pitch||'')+'</div>'
     +'</div>'
+    +phoneRow
     +(links.length?'<div class="hint" style="margin-top:8px">'+links.join(' \u00b7 ')+'</div>':'')
     +'</div>';
 }
