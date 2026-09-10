@@ -29,6 +29,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from . import compliance_kb as kb
@@ -636,12 +637,18 @@ def _vision_with_fallback(images, providers,
         if p is None:
             continue
         label = f"{getattr(p, 'name', '?')}/{getattr(p, 'model', '?')}"
+        _t0 = time.monotonic()
         try:
             raw = _vision_call(p, images, timeout=timeout)
+            _dt = time.monotonic() - _t0
             if raw and raw.strip():
+                print(f"[photo-audit] {label} OK in {_dt:.1f}s")
                 return raw, getattr(p, "model", "")
+            print(f"[photo-audit] {label} empty after {_dt:.1f}s")
             errors.append(f"{label}: empty response")
         except Exception as e:  # dead model / bad key / timeout — try the next one
+            _dt = time.monotonic() - _t0
+            print(f"[photo-audit] {label} FAILED after {_dt:.1f}s: {e}")
             errors.append(f"{label}: {e}")
     raise RuntimeError(
         "No available AI vision brain could analyze the photo. "
