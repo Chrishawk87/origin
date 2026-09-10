@@ -1457,6 +1457,12 @@ function machineCard(l,i){
   if(cp.maps)links.push('<a href="'+esc(cp.maps)+'" target="_blank" rel="noopener">Maps \u2197</a>');
   if(cp.osha)links.push('<a href="'+esc(cp.osha)+'" target="_blank" rel="noopener">OSHA record \u2197</a>');
   var confirmed=(l.penalty>0);
+  var statusPip=(String(l.status||'')==='CLOSED')
+    ? ' <span class="pip" style="background:#a55">case closed</span>'
+    : ' <span class="pip" style="background:#3a7">case open</span>';
+  var phoneRow=(l.phone_verified&&l.phone)
+    ? '<div style="margin-top:8px;font-weight:600">\u260e <a href="tel:'+esc(l.phone.replace(/[^0-9+]/g,''))+'">'+esc(l.phone)+'</a> <span class="hint" style="font-weight:400">(verified)</span></div>'
+    : '<div class="hint" style="margin-top:8px">\u260e No verified number \u2014 use the lookup links below</div>';
   return '<div class="card" style="margin-bottom:12px;border-left:3px solid '+(confirmed?'#e8813a':'#888')+'">'
     +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'
     +'<div style="min-width:0">'

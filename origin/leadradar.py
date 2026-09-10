@@ -383,6 +383,14 @@ def _build_osha_lead(insp: Dict[str, Any], agg: Dict[str, Any]) -> Optional[Dict
     naics = _pick(insp, "naics_code", "naics")
     activity = agg["activity_nr"]
     types = sorted(agg.get("types") or [], key=lambda t: "WRSO".find(t) if t in "WRSO" else 9)
+    # Authoritative open/closed signal: OSHA stamps close_case_date (and
+    # close_conf_date) on the inspection once the case is administratively
+    # closed. If either is present the case is CLOSED — never a live lead.
+    close_date = _pick(insp, "close_case_date", "close_conf_date", "close_date")
+    # OSHA's inspection table has no reliable phone column, but read it anyway
+    # (schema-tolerant) so any record that *does* carry one surfaces a real,
+    # verified number. Never fabricated — empty stays empty.
+    phone = _pick(insp, "phone", "estab_phone", "mail_phone", "telephone")
     lead = {
         "kind": "osha_citation",
         "label": "confirmed citation",
@@ -394,6 +402,9 @@ def _build_osha_lead(insp: Dict[str, Any], agg: Dict[str, Any]) -> Optional[Dict
         "city": _pick(insp, "site_city", "city"),
         "address": _pick(insp, "site_address", "address"),
         "zip": _pick(insp, "site_zip", "zip", "zip_code"),
+        "phone": phone,
+        "close_date": close_date,
+        "case_open": not bool(close_date),
         "opened": agg.get("issued") or _pick(insp, "open_date"),
         "activity_nr": activity,
         "citations": agg.get("citations", 0),

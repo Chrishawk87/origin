@@ -25,12 +25,18 @@ What it adds on top of the radar:
     department and most likely to buy quickly. Mega-penalty serial violators
     ($100k+) are deprioritized — they're already lawyered up. (Both learned the
     hard way from real call feedback.)
-  * **Call-prep links, never fabricated phone numbers.** OSHA's data has the
-    company, address, inspection #, cited standard, severity and penalty — but
-    NO phone number or contact name. Rather than invent one, each lead carries
-    one-click links to the OSHA establishment page and a Google / Maps lookup so
-    the number is a few seconds away.
-  * **A ready-to-read 30-second pitch** filled from the lead's own facts.
+  * **Verified phone when the record has one, never a fabricated one.** OSHA's
+    public data almost never carries a phone, so most cards show a clear
+    "no verified number — use the lookup links" flag instead of a guess; when a
+    source record *does* carry a number it's surfaced as verified. Either way
+    each lead keeps one-click links to the OSHA establishment page and a Google /
+    Maps lookup so the number is a few seconds away.
+  * **Open-case verification on every build.** A card is only shown while the
+    public record does NOT show the case closed (OSHA's close_case_date /
+    close_conf_date). Rebuilt daily / on refresh, so a case that closes drops off
+    the next list — closed cases are never handed to Chris.
+  * **A ready-to-read, human 30-second opener** (not a pitch) filled from the
+    lead's own facts.
 
 House rules (identical to the rest of Origin): deterministic, fully offline
 except the same public gov APIs the radar already uses, never-fabricate,
@@ -507,6 +513,37 @@ def _region_label(tier: int) -> str:
             3: "Out of area"}.get(tier, "")
 
 
+_PHONE_RE = re.compile(r"\d")
+
+
+def _clean_phone(raw: str) -> str:
+    """Return a verified phone only if the source string actually holds one
+    (>=10 digits). Never fabricates — anything else comes back empty."""
+    s = (raw or "").strip()
+    digits = re.sub(r"\D", "", s)
+    if len(digits) < 10:
+        return ""
+    if len(digits) == 10:
+        return f"({digits[0:3]}) {digits[3:6]}-{digits[6:]}"
+    if len(digits) == 11 and digits[0] == "1":
+        d = digits[1:]
+        return f"({d[0:3]}) {d[3:6]}-{d[6:]}"
+    return s  # already formatted / has extension — pass through as-is
+
+
+def _phone_info(lead: Dict[str, Any]) -> Dict[str, Any]:
+    """Verified phone for the card. OSHA/MSHA/EPA public data carries no reliable
+    phone column, so most leads come back with no number and a clear flag telling
+    Chris to use the one-click lookup links instead of guessing."""
+    phone = _clean_phone(lead.get("phone", ""))
+    if phone:
+        return {"phone": phone, "phone_verified": True,
+                "phone_status": "verified from the public record"}
+    return {"phone": "", "phone_verified": False,
+            "phone_status": "no verified number in the public record — "
+                            "use the lookup links"}
+
+
 def _call_prep(lead: Dict[str, Any]) -> Dict[str, str]:
     """One-click links to find the number — no fabricated phone."""
     company = (lead.get("company") or "").strip()
@@ -627,24 +664,38 @@ def _why(lead: Dict[str, Any], days: Optional[int]) -> str:
     return " \u00b7 ".join(reasons)
 
 
+def _case_is_open(lead: Dict[str, Any]) -> bool:
+    """True only when the public record does NOT show the case closed.
+
+    OSHA/MSHA citations carry ``case_open`` (derived from close_case_date /
+    close_conf_date at pull time). If that flag is explicitly False the case is
+    administratively closed — never a live lead. Sources with no closure field
+    (e.g. EPA enforcement, or a record where OSHA hasn't published a close date)
+    leave the flag unset, and we keep them: they were just pulled as recent,
+    penalty-bearing, active actions. We never *assert* closed without evidence,
+    and never *show* a case the record says is closed."""
+    if lead.get("case_open") is False:
+        return False
+    if str(lead.get("close_date") or "").strip():
+        return False
+    return True
+
+
 def _pitch(lead: Dict[str, Any], info: Optional[Dict[str, str]], problem: str) -> str:
-    company = (lead.get("company") or "your company").strip()
+    """A human, question-led opener — not a pitch. Leads with THEIR citation and
+    the clock on it, disarms ('not selling anything'), and ends on one small
+    question so the person talks instead of getting talked at."""
+    company = (lead.get("company") or "your outfit").strip()
     authority = lead.get("authority") or "OSHA"
     date = lead.get("opened") or ""
-    sev = _severity(lead)
-    pen = _to_float(lead.get("penalty"))
-    program = (info or {}).get("program", "the written program")
-    when = f"on {date} " if date else ""
-    sev_txt = f"a {sev.lower()} violation" if sev else "a violation"
-    pen_txt = f" with a ${pen:,.0f} penalty" if pen else ""
+    when = f"back on {date}" if date else "recently"
     return (
-        f"Hi, this is Chris with Origin Management Solutions. I saw {authority} "
-        f"cited {company} {when}for {problem} — {sev_txt}{pen_txt}. We help "
-        f"contractors close these out fast: we do the citation analysis, build "
-        f"the {program} and the training records, and put together the exact "
-        f"abatement evidence {authority} wants back. Most clients turn this around in "
-        f"days, not weeks. Do you have five minutes this week to walk through "
-        f"what {authority}'s going to expect?"
+        f"Hey — is this the owner? I'll keep it quick, and I'm not selling you "
+        f"anything on this call. I came across the {authority} citation at {company} "
+        f"{when}, the one for {problem}. I clean these up for a living, and I know "
+        f"that notice comes with a deadline attached that's easy to let slip. Can I "
+        f"ask you one thing — have you already got the response and abatement "
+        f"paperwork put together, or is that still sitting on your desk?"
     ).replace("  ", " ")
 
 
@@ -667,7 +718,8 @@ def enrich_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
         "authority": lead.get("authority", ""),
         "kind": lead.get("kind", ""),
         "inspection": lead.get("activity_nr", ""),
-        "status": "OPEN",
+        "status": "OPEN" if _case_is_open(lead) else "CLOSED",
+        "close_date": lead.get("close_date", ""),
         "standard": std,
         "all_standards": lead.get("standards") or [],
         "severity": _severity(lead),
@@ -680,6 +732,7 @@ def enrich_lead(lead: Dict[str, Any]) -> Dict[str, Any]:
         "why": _why(lead, days),
         "pitch": _pitch(lead, info, problem),
         "call_prep": _call_prep(lead),
+        **_phone_info(lead),
         "needs_help_fast": _needs_help_fast(lead),
         "region_tier": tier,
         "region": _region_label(tier),
@@ -738,6 +791,11 @@ def build_brief(*, target: int = DEFAULT_TARGET, since_days: int = DEFAULT_SINCE
             sources.setdefault(k, v)
         for lead in res.get("leads", []):
             if lead.get("kind") == "news_incident":
+                continue
+            # Never surface a case the public record shows closed. Re-checked on
+            # every build (todays_brief rebuilds daily / on refresh), so a case
+            # that closes since the last pull drops off the next list.
+            if not _case_is_open(lead):
                 continue
             key = _radar._lead_dedupe_key(lead)
             if key not in picked:
