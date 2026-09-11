@@ -4879,7 +4879,8 @@ def register_portal(app) -> None:
                         for k in ("radar_kind", "radar_label", "radar_authority",
                                   "radar_penalty", "radar_state", "radar_city",
                                   "radar_naics", "radar_opened", "radar_score",
-                                  "radar_priority", "radar_url", "radar_summary",
+                                  "radar_priority", "radar_url", "radar_sms_url",
+                                  "radar_summary",
                                   "radar_trade_match", "radar_address",
                                   "radar_rating", "radar_mine", "radar_dot"):
                             row[k] = d.get(k, "")

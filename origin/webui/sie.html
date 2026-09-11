@@ -1811,10 +1811,106 @@ async function abRenderWorkspace(id){
     </div>
 
     <div class="card">
+      <h2 class="sec">Client tasks &amp; access</h2>
+      <p class="sub">Assign work to the cited employer and give them a secure, no-login link for one matter. Clients can upload documents and mark tasks done — they can never verify, change status, or submit.</p>
+      <div class="grid2">
+        <label class="fld">Task type
+          <select id="abt-kind"><option value="fix">Fix the condition</option><option value="document">Produce a document</option><option value="upload">Upload evidence</option></select></label>
+        <label class="fld">Title<input id="abt-title" placeholder="e.g. Install guardrail, west roof"></label>
+      </div>
+      <label class="fld" style="display:block">Detail (optional)<input id="abt-detail" style="width:100%" placeholder="What the client needs to do"></label>
+      <div style="margin-top:6px"><button class="btn sm" onclick="abAddTask()">Add client task</button> <span id="abt-msg" class="sub"></span></div>
+      <div id="ab-tasks" style="margin-top:10px"></div>
+      <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
+        <button class="btn ghost sm" onclick="abClientLink()">Generate client access link</button>
+        <span id="ab-link-msg" class="sub"></span>
+        <div id="ab-link-box" class="hidden" style="margin-top:6px"><input id="ab-link-url" readonly style="width:78%" onclick="this.select()"> <button class="btn sm" onclick="abCopyLink()">Copy</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Submission package</h2>
+      <p class="sub">A single organized draft for your review, watermarked <b>DRAFT — FOR REVIEW</b>. Origin never files anything with OSHA — you do, then attest here.</p>
+      <div><button class="btn sm" onclick="abOpenSubmission()">Open review draft</button>
+        <button class="btn ghost sm" onclick="abMarkFiled()">Mark as filed (I filed it myself)</button>
+        <span id="ab-sub-msg" class="sub"></span></div>
+    </div>
+
+    <div class="card">
       <h2 class="sec">Notes</h2>
       <div id="ab-notes">${(rec.notes||[]).length?(rec.notes||[]).map(n=>`<div class="item"><div class="d">${esc(n.text||'')}</div><div class="sub">${esc(n.by||'')} · ${esc(fmt(n.at||n.created_at||''))}</div></div>`).join(''):'<div class="empty">No notes.</div>'}</div>
       <div style="margin-top:8px"><input id="ab-note-text" placeholder="Add a note…" style="width:70%"> <button class="btn sm" onclick="abAddNote()">Add note</button></div>
     </div>`;
+  abLoadTasks();
+}
+
+async function abLoadTasks(){
+  if(!AB_CUR) return;
+  const r = await api(`/api/abatement/matters/${AB_CUR}/tasks`);
+  const el = $('#ab-tasks'); if(!el) return;
+  const tasks = (r.ok && r.j && r.j.tasks) || [];
+  if(!tasks.length){ el.innerHTML = '<div class="sub">No client tasks yet.</div>'; return; }
+  el.innerHTML = tasks.map(t=>{
+    const st = esc(t.status||'open');
+    const pill = t.status==='verified'?'ok':(t.status==='submitted'?'md':'no');
+    const note = t.client_note?`<div class="sub">Client: ${esc(t.client_note)}</div>`:'';
+    const vbtn = (t.status==='submitted')?`<button class="btn sm" onclick="abVerifyTask('${esc(t.task_id)}')">Verify</button>`:'';
+    return `<div class="item"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div class="t">${esc(t.title||'')} <span class="pill">${esc(t.kind_label||t.kind||'')}</span></div>
+      <div><span class="pill ${pill}">${st}</span></div></div>
+      ${t.detail?`<div class="d">${esc(t.detail)}</div>`:''}${note}
+      <div style="margin-top:4px">${vbtn}</div></div>`;
+  }).join('');
+}
+
+async function abAddTask(){
+  if(!AB_CUR) return;
+  const kind=($('#abt-kind')||{}).value||'fix';
+  const title=($('#abt-title')||{}).value||'';
+  const detail=($('#abt-detail')||{}).value||'';
+  const msg=$('#abt-msg');
+  if(!title){ if(msg) msg.textContent='Enter a title.'; return; }
+  if(msg) msg.textContent='Adding…';
+  const r=await api(`/api/abatement/matters/${AB_CUR}/tasks`,{method:'POST',body:JSON.stringify({kind,title,detail})});
+  if(r.ok&&r.j&&r.j.ok){ if(msg) msg.textContent=''; $('#abt-title').value=''; $('#abt-detail').value=''; abLoadTasks(); }
+  else if(msg) msg.textContent=(r.j&&r.j.error)||'Could not add.';
+}
+
+async function abVerifyTask(id){
+  if(!AB_CUR) return;
+  const r=await api(`/api/abatement/matters/${AB_CUR}/tasks/${id}/verify`,{method:'POST',body:JSON.stringify({})});
+  if(r.ok&&r.j&&r.j.ok) abLoadTasks();
+}
+
+async function abClientLink(){
+  if(!AB_CUR) return;
+  const msg=$('#ab-link-msg'); if(msg) msg.textContent='Generating…';
+  const r=await api(`/api/abatement/matters/${AB_CUR}/client-link`,{method:'POST',body:JSON.stringify({days:14,role:'client_admin'})});
+  if(r.ok&&r.j&&r.j.url){
+    if(msg) msg.textContent='Share this link with the client. It expires in 14 days.';
+    const box=$('#ab-link-box'); if(box) box.classList.remove('hidden');
+    const url=$('#ab-link-url'); if(url) url.value=r.j.url;
+  } else if(msg){ msg.textContent=(r.j&&r.j.error)||'Could not generate link.'; }
+}
+
+function abCopyLink(){
+  const url=$('#ab-link-url'); if(!url) return;
+  url.select(); try{ document.execCommand('copy'); }catch(e){}
+  const msg=$('#ab-link-msg'); if(msg) msg.textContent='Copied to clipboard.';
+}
+
+function abOpenSubmission(){
+  if(!AB_CUR) return;
+  window.open(`/api/abatement/matters/${AB_CUR}/submission.html`,'_blank');
+}
+
+async function abMarkFiled(){
+  if(!AB_CUR) return;
+  if(!confirm('This only records that YOU filed the package with OSHA. Origin does not submit anything. Continue?')) return;
+  const msg=$('#ab-sub-msg'); if(msg) msg.textContent='Recording…';
+  const r=await api(`/api/abatement/matters/${AB_CUR}/mark-submitted`,{method:'POST',body:JSON.stringify({})});
+  if(r.ok&&r.j&&r.j.ok){ if(msg) msg.textContent='Recorded as filed (attestation only).'; abRenderWorkspace(AB_CUR); }
+  else if(msg) msg.textContent=(r.j&&r.j.error)||'Could not record.';
 }
 function abItemCard(it, evList){
   const dl=it.deadlines||{};

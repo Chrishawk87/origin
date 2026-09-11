@@ -76,6 +76,10 @@ REL_TRIGGERS = "triggers"
 REL_VIOLATES = "violates"
 REL_CITED_BY = "cited_by"
 REL_ABOUT = "about"
+# Abatement (attorney feature) relations.
+REL_HAS_ITEM = "has_item"          # matter → citation item
+REL_ABATED_BY = "abated_by"        # citation item → corrective action (capa)
+REL_EVIDENCED_BY = "evidenced_by"  # citation item → evidence
 
 
 def _now() -> str:
@@ -292,6 +296,55 @@ def rebuild_spine() -> Dict[str, Any]:
             _add_node(nodes, "finding", fid, label=rv.get("title") or "Finding")
             _add_edge(edges, _nid("review", rid), REL_ABOUT, _nid("finding", fid))
 
+    # 7. Abatement matters — the OSHA-defense feature. Each matter anchors its
+    #    citation items; each item points at the corrective actions abating it,
+    #    the evidence that documents it, and the regulatory source it cites. This
+    #    joins the attorney chain to the rest of the graph at the shared source
+    #    and capa nodes, without any matter ever being authoritative.
+    for mt in _matters():
+        mid = (mt.get("id") or "").strip()
+        if not mid:
+            continue
+        _add_node(nodes, "matter", mid,
+                  label=mt.get("client_name") or "Matter",
+                  status=mt.get("status", ""),
+                  inspection=mt.get("osha_inspection_number", ""),
+                  firm_slug=mt.get("firm_slug", ""))
+        ev_by_item = _matter_evidence_by_item(mid)
+        for it in (mt.get("citation_items") or []):
+            iid = (it.get("item_id") or "").strip()
+            if not iid:
+                continue
+            std = (it.get("standard") or "").strip()
+            _add_node(nodes, "citation_item", iid,
+                      label=std or "Citation item",
+                      classification=it.get("classification", ""),
+                      verified=bool(it.get("verified")))
+            _add_edge(edges, _nid("matter", mid), REL_HAS_ITEM,
+                      _nid("citation_item", iid))
+            if std:
+                sid = _norm_std(std)
+                _add_node(nodes, "source", sid, label=std)
+                _add_edge(edges, _nid("citation_item", iid), REL_CITED_BY,
+                          _nid("source", sid))
+            for cid in (it.get("corrective_action_ids") or []):
+                cid = (cid or "").strip()
+                if not cid:
+                    continue
+                _add_node(nodes, "capa", cid, label="CAPA")
+                _add_edge(edges, _nid("citation_item", iid), REL_ABATED_BY,
+                          _nid("capa", cid))
+            for ev in ev_by_item.get(iid, []):
+                evid = (ev.get("evidence_id") or "").strip()
+                if not evid:
+                    continue
+                _add_node(nodes, "evidence", evid,
+                          label=ev.get("original_filename") or "Evidence",
+                          verification_status=ev.get("verification_status", ""),
+                          role=ev.get("role", ""))
+                _add_edge(edges, _nid("citation_item", iid), REL_EVIDENCED_BY,
+                          _nid("evidence", evid))
+
     stats = _write_index(list(nodes.values()), list(edges.values()))
     return stats
 
@@ -389,6 +442,30 @@ def _reviews() -> List[Dict[str, Any]]:
     except Exception:
         pass
     return []
+
+
+def _matters() -> List[Dict[str, Any]]:
+    """Read every abatement matter. Isolated: if the abatement engine is
+    unavailable or errors, the spine still rebuilds without matter nodes."""
+    try:
+        from . import abatement_matter as am
+        if hasattr(am, "_load_all"):
+            return am._load_all()
+    except Exception:
+        pass
+    return []
+
+
+def _matter_evidence_by_item(matter_id: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Group a matter's evidence by citation_item_id. Isolated + best-effort."""
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    try:
+        from . import evidence_vault as ev
+        for e in ev.list_evidence(matter_id):
+            out.setdefault(e.get("citation_item_id", ""), []).append(e)
+    except Exception:
+        pass
+    return out
 
 
 # ── read side ────────────────────────────────────────────────────────────────

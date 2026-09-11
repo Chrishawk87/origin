@@ -2456,6 +2456,32 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _abi_exc:  # pragma: no cover
         print(f"[abatement_intake] disabled — registration failed: {_abi_exc}")
 
+    # ── Origin Abatement (Phase 2): roles + client access, client tasks, and the
+    # submission/package builder. All additive + isolated. Guardrails: a client
+    # can never verify, never change legal status, and never submit; every
+    # generated document is watermarked "DRAFT — FOR REVIEW"; nothing is ever
+    # transmitted to OSHA. Auth reuses portal.py's signer (no new login).
+    #   abatement_access      — 6 roles + per-matter client magic-link tokens
+    #   abatement_tasks       — client work items (fix/document/upload) + portal
+    #   abatement_submissions — DRAFT package builder + attorney "I filed it" attest
+    try:
+        from . import abatement_access as _abaccess
+        _abaccess.register_abatement_access(app)
+    except Exception as _aba_exc:  # pragma: no cover
+        print(f"[abatement_access] disabled — registration failed: {_aba_exc}")
+
+    try:
+        from . import abatement_tasks as _abtasks
+        _abtasks.register_abatement_tasks(app)
+    except Exception as _abt_exc:  # pragma: no cover
+        print(f"[abatement_tasks] disabled — registration failed: {_abt_exc}")
+
+    try:
+        from . import abatement_submissions as _absub
+        _absub.register_abatement_submissions(app)
+    except Exception as _abs_exc:  # pragma: no cover
+        print(f"[abatement_submissions] disabled — registration failed: {_abs_exc}")
+
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
     # two-way messaging now live natively inside the Client Compliance Portal

@@ -1405,7 +1405,11 @@ function radarLeadCard(l,i){
       +(l.radar_trade_match?' <span class="pip" style="background:#3a7">your trade</span>':'')+'</div>'
     +'<div class="hint" style="margin-top:2px">'+esc(meta.join(' \u00b7 '))+'</div>'
     +'<div class="hint" style="margin-top:2px">\ud83d\udce1 Lead Radar \u00b7 callability '+esc(l.radar_score||0)+'/100'+(l.ts?' \u00b7 found '+esc(l.ts):'')+'</div>'
-    +(l.radar_url?'<div class="hint" style="margin-top:2px"><a href="'+esc(l.radar_url)+'" target="_blank" rel="noopener">View source \u2197</a></div>':'')
+    +((l.radar_url||l.radar_sms_url)?'<div class="hint" style="margin-top:2px">'
+        +(l.radar_url?'<a href="'+esc(l.radar_url)+'" target="_blank" rel="noopener">'+(l.radar_kind==='fmcsa_rating'?'SAFER snapshot':'View source')+' \u2197</a>':'')
+        +(l.radar_url&&l.radar_sms_url?' \u00b7 ':'')
+        +(l.radar_sms_url?'<a href="'+esc(l.radar_sms_url)+'" target="_blank" rel="noopener">CSA / SMS scores \u2197</a>':'')
+        +'</div>':'')
     +'</div>'
     +'<div style="text-align:right"><div class="hint" style="max-width:220px">No contact captured \u2014 look up the owner and call. Pain is fresh.</div></div>'
     +'</div></div>';

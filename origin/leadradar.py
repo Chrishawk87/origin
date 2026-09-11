@@ -858,6 +858,10 @@ def _build_fmcsa_lead(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "trade_match": True,  # trucking is squarely an Origin trade
         "url": (f"https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type="
                 f"queryCarrierSnapshot&query_param=USDOT&query_string={dot}" if dot else ""),
+        # CSA/SMS BASICs view (public 5 BASICs; Crash/Hazmat hidden for property
+        # carriers without the carrier's FMCSA Portal PIN). One click off the card.
+        "sms_url": (f"https://ai.fmcsa.dot.gov/SMS/Carrier/{dot}/Overview.aspx"
+                    if dot else ""),
     }
     lead["summary"] = _fmcsa_summary(lead)
     return lead
@@ -1153,6 +1157,7 @@ def _write_lead(radar_lead: Dict[str, Any]) -> bool:
         "radar_score": radar_lead.get("score", 0),
         "radar_priority": radar_lead.get("priority", ""),
         "radar_url": radar_lead.get("url", ""),
+        "radar_sms_url": radar_lead.get("sms_url", ""),
         "radar_summary": radar_lead.get("summary", ""),
         "radar_trade_match": bool(radar_lead.get("trade_match")),
     }
