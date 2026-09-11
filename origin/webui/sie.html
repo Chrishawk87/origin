@@ -381,6 +381,11 @@
   <div class="side-brand">Regulatory intelligence</div>
   <button class="tab" data-tab="citation">Citation</button>
   <button class="tab" data-tab="brain">Brain Router</button>
+  <div class="side-brand">Abatement (attorney)</div>
+  <button class="tab" data-tab="abdash">Abatement Home</button>
+  <button class="tab" data-tab="abmatters">Matters</button>
+  <button class="tab" data-tab="abnew">New Matter</button>
+  <button class="tab" data-tab="abmatter">Matter Workspace</button>
 </aside>
 <main class="wrap">
   <!-- ══ HOME / COMMAND CENTER ══ -->
@@ -656,6 +661,72 @@
       style="width:100%;height:calc(100vh - 168px);min-height:620px;border:0;border-radius:12px;background:transparent;box-shadow:0 2px 14px rgba(0,0,0,.06)"></iframe>
   </section>
 
+  <!-- ══ ABATEMENT: HOME / DASHBOARD ══ -->
+  <section class="panel" id="p-abdash">
+    <div class="hero">
+      <h1>Abatement Command Center</h1>
+      <p>OSHA abatement intelligence &amp; evidence management for the defense of your clients. Track citation items, deadlines, corrective actions and evidence toward a submission-ready package. The attorney owns all legal strategy, conclusions and submissions — this workspace organizes the facts, it does not give legal advice.</p>
+      <div class="qa">
+        <button class="btn" onclick="showTab('abnew')">New matter</button>
+        <button class="btn ghost" onclick="showTab('abmatters')">All matters</button>
+      </div>
+    </div>
+    <div class="tiles" id="abTiles">
+      <div class="tile"><div class="n" id="ab-total">—</div><div class="l">Open matters</div></div>
+      <div class="tile hi"><div class="n" id="ab-duesoon">—</div><div class="l">Deadlines ≤7 days</div></div>
+      <div class="tile"><div class="n" id="ab-overdue">—</div><div class="l">Overdue deadlines</div></div>
+      <div class="tile"><div class="n" id="ab-review">—</div><div class="l">Items to verify</div></div>
+    </div>
+    <div class="card">
+      <h2 class="sec">Matters</h2>
+      <div id="abDashList"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="note sub" style="margin-top:8px">Deadlines shown are system-calculated workflow dates — verify against the citation/order. Readiness is an internal workflow indicator, not an OSHA determination.</div>
+  </section>
+
+  <!-- ══ ABATEMENT: MATTERS LIST ══ -->
+  <section class="panel" id="p-abmatters">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 class="sec" style="margin:0">All matters</h2>
+        <button class="btn sm" onclick="showTab('abnew')">New matter</button>
+      </div>
+      <div id="abMattersList" style="margin-top:10px"><div class="empty">Loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ══ ABATEMENT: NEW MATTER ══ -->
+  <section class="panel" id="p-abnew">
+    <div class="card">
+      <h2 class="sec">Open a new matter</h2>
+      <div class="grid2">
+        <label class="fld">Client / company name
+          <input id="ab-client" placeholder="Acme Contracting LLC">
+        </label>
+        <label class="fld">OSHA inspection number
+          <input id="ab-insp" placeholder="Optional">
+        </label>
+        <label class="fld">Citation issued date
+          <input id="ab-issued" type="date">
+        </label>
+        <label class="fld">Citation received date
+          <input id="ab-received" type="date">
+        </label>
+      </div>
+      <div class="note sub">Received date drives the contest deadline (received + 15 working days) and certification due date (+10 calendar days per 29 CFR 1903.19). Verify all dates against the citation.</div>
+      <div style="margin-top:10px"><button class="btn" id="ab-create-btn" onclick="abCreateMatter()">Create matter</button> <span id="ab-create-msg" class="sub"></span></div>
+    </div>
+    <div class="card">
+      <h2 class="sec">Then add citation items</h2>
+      <p class="sub">After creating a matter you'll land in its workspace, where you can paste the citation text to extract items (each flagged <b>AI EXTRACTED — VERIFY</b>), add items manually, attach evidence, and open corrective actions.</p>
+    </div>
+  </section>
+
+  <!-- ══ ABATEMENT: MATTER WORKSPACE ══ -->
+  <section class="panel" id="p-abmatter">
+    <div id="abmWrap"><div class="empty">Open a matter from the Matters tab.</div></div>
+  </section>
+
 </main></div>
 
 <script>
@@ -700,6 +771,10 @@ const INIT = {
   forms: ()=>{ const f=$('#fvFrame'); if(f && !f.src){ f.src=f.dataset.src+themeQS(); } },
   checklist: ()=>{ const f=$('#clFrame'); if(f && !f.src){ f.src=f.dataset.src+themeQS(); } },
   photo: ()=>{ const f=$('#paFrame'); if(f && !f.src){ f.src=f.dataset.src+themeQS(); } },
+  abdash: loadAbDash,
+  abmatters: loadAbMatters,
+  abnew: ()=>{},
+  abmatter: ()=>{},
 };
 
 // company select fill (shared) ------------------------------------------------
@@ -1612,6 +1687,261 @@ async function libLoadSaved(cid){
 function printLibDoc(){
   const fr=document.getElementById('libFrame');
   try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ window.print(); }
+}
+
+// ══ ABATEMENT (attorney command center) ═══════════════════════════════════════
+const AB_NOTLEGAL = 'Organizes facts, evidence and workflow dates. Not legal advice — the attorney owns all strategy, conclusions and submissions.';
+let AB_CUR = null;              // current matter id in the workspace
+const abStageLabel = {intake:'Intake',active:'Active',in_review:'Attorney Review',submitted:'Submitted',closed:'Closed'};
+function abStageBadge(s,label){
+  const cls={intake:'rec',active:'req',in_review:'best',submitted:'cust',closed:'rec'}[s]||'rec';
+  return `<span class="badge ${cls}">${esc(label||abStageLabel[s]||s||'—')}</span>`;
+}
+const abGapPill = st => {
+  const m={verified:['ok','Verified'],unverified:['md','Awaiting verify'],incomplete:['md','Incomplete'],
+           conflicting:['no','Conflicting'],missing:['no','No evidence']};
+  const v=m[st]||['','—']; return `<span class="pill ${v[0]}">${v[1]}</span>`;
+};
+
+async function loadAbDash(){
+  const {j} = await api('/api/abatement/dashboard');
+  $('#ab-total').textContent   = j.matters!=null?j.matters:'0';
+  const up=(j.upcoming_deadlines||[]);
+  $('#ab-duesoon').textContent = up.filter(u=>(u.days_left!=null&&u.days_left<=7)).length;
+  $('#ab-overdue').textContent = j.overdue_items!=null?j.overdue_items:'0';
+  $('#ab-review').textContent  = j.unverified_items!=null?j.unverified_items:'0';
+  const {j:jm} = await api('/api/abatement/matters');
+  abRenderMatterList($('#abDashList'), jm.items||[]);
+}
+async function loadAbMatters(){
+  const {j} = await api('/api/abatement/matters');
+  abRenderMatterList($('#abMattersList'), j.items||[]);
+}
+function abRenderMatterList(el, items){
+  if(!items.length){ el.innerHTML='<div class="empty">No matters yet. Open one from New Matter.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Client</th><th>Status</th><th>Inspection</th><th class="c">Items</th><th class="c">Unverified</th><th class="c">Overdue</th></tr></thead><tbody>${
+    items.map(m=>`<tr class="clk" onclick="openAbMatter('${esc(m.id)}')">
+      <td class="name">${esc(m.client_name||'—')}</td>
+      <td>${abStageBadge(m.status,m.status_label)}</td>
+      <td class="sub">${esc(m.osha_inspection_number||'—')}</td>
+      <td class="c">${m.citation_items||0}</td>
+      <td class="c">${m.unverified_items?'<b class="no">'+m.unverified_items+'</b>':0}</td>
+      <td class="c">${m.overdue_items?'<b class="no">'+m.overdue_items+'</b>':0}</td></tr>`).join('')}</tbody></table>`;
+}
+async function abCreateMatter(){
+  const name=$('#ab-client').value.trim();
+  const msg=$('#ab-create-msg');
+  if(!name){ msg.textContent=' Client name required.'; return; }
+  const btn=$('#ab-create-btn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Creating…';
+  const body={client_name:name, osha_inspection_number:$('#ab-insp').value.trim(),
+    citation_issued_date:$('#ab-issued').value, citation_received_date:$('#ab-received').value};
+  const {j,ok}=await api('/api/abatement/matters',{method:'POST',body:JSON.stringify(body)});
+  btn.disabled=false; btn.textContent='Create matter';
+  if(ok && j.matter){
+    $('#ab-client').value=''; $('#ab-insp').value=''; $('#ab-issued').value=''; $('#ab-received').value='';
+    msg.textContent=''; openAbMatter(j.matter.id);
+  } else { msg.textContent=' '+((j&&j.error)||'Error'); }
+}
+function openAbMatter(id){
+  AB_CUR=id;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='abmatter'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-abmatter'));
+  loaded['abmatter']=true;
+  abRenderWorkspace(id);
+}
+async function abRenderWorkspace(id){
+  const wrap=$('#abmWrap');
+  wrap.innerHTML='<div class="empty"><span class="spin"></span> Loading matter…</div>';
+  const {j:rec, ok} = await api('/api/abatement/matters/'+encodeURIComponent(id));
+  if(!ok || rec.error){ wrap.innerHTML='<div class="empty">Could not load matter.</div>'; return; }
+  const [{j:rd},{j:ev}] = await Promise.all([
+    api('/api/abatement/matters/'+encodeURIComponent(id)+'/readiness'),
+    api('/api/abatement/matters/'+encodeURIComponent(id)+'/evidence')
+  ]);
+  const items = rec.citation_items||[];
+  const evByItem={}; (ev.items||[]).forEach(e=>{ (evByItem[e.citation_item_id||'']=evByItem[e.citation_item_id||'']||[]).push(e); });
+  const score = (rd&&rd.score!=null)?rd.score:'—';
+  const band  = (rd&&rd.band)?rd.band:'—';
+  const stages=['intake','active','in_review','submitted','closed'];
+  const stageSel = `<select id="ab-status-sel">${stages.map(s=>`<option value="${s}"${s===rec.status?' selected':''}>${esc(abStageLabel[s])}</option>`).join('')}</select>`;
+
+  wrap.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <h1 style="margin:0 0 4px">${esc(rec.client_name||'Matter')}</h1>
+          <div class="sub">Inspection ${esc(rec.osha_inspection_number||'—')} · Citation issued ${esc(rec.citation_issued_date||'—')} · received ${esc(rec.citation_received_date||'—')}</div>
+          <div style="margin-top:6px">${abStageBadge(rec.status)}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="n" style="font-size:30px;font-weight:700">${score}</div>
+          <div class="l">Readiness · ${esc(band)}</div>
+        </div>
+      </div>
+      <div class="note sub" style="margin-top:8px">${esc(AB_NOTLEGAL)}</div>
+      <div class="note sub">${esc((rd&&rd.disclaimer)||'Internal workflow indicator. Not an OSHA determination.')}</div>
+      <div style="margin-top:10px">Status: ${stageSel}
+        <button class="btn sm" onclick="abSetStatus()">Update</button>
+        <button class="btn ghost sm" onclick="showTab('abmatters')">← All matters</button>
+        <span id="ab-status-msg" class="sub"></span></div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Add citation items from the citation</h2>
+      <p class="sub">Paste the citation text. Each extracted row is flagged <b>AI EXTRACTED — VERIFY</b> and stays unverified until an attorney confirms it. Nothing is auto-accepted.</p>
+      <textarea id="ab-intake-text" rows="5" placeholder="Paste OSHA citation text here…" style="width:100%"></textarea>
+      <div style="margin-top:8px"><button class="btn sm" id="ab-parse-btn" onclick="abParseIntake()">Extract items</button>
+        <button class="btn ghost sm" onclick="abToggleManual()">Add one manually</button>
+        <span id="ab-parse-msg" class="sub"></span></div>
+      <div id="ab-manual" class="hidden" style="margin-top:10px">
+        <div class="grid2">
+          <label class="fld">Standard (e.g. 1926.501(b)(1))<input id="abm-std"></label>
+          <label class="fld">Classification<input id="abm-class" placeholder="serious / repeat / willful / other"></label>
+          <label class="fld">Proposed penalty<input id="abm-pen"></label>
+          <label class="fld">Abatement date<input id="abm-abate" type="date"></label>
+        </div>
+        <label class="fld" style="display:block">Alleged condition<input id="abm-cond" style="width:100%"></label>
+        <div style="margin-top:6px"><button class="btn sm" onclick="abAddManual()">Add item</button> <span id="abm-msg" class="sub"></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Citation items <span class="chip">${items.length}</span></h2>
+      <div id="ab-items">${items.length?items.map(it=>abItemCard(it, evByItem[it.item_id]||[])).join(''):'<div class="empty">No citation items yet. Extract from the citation above or add one manually.</div>'}</div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Notes</h2>
+      <div id="ab-notes">${(rec.notes||[]).length?(rec.notes||[]).map(n=>`<div class="item"><div class="d">${esc(n.text||'')}</div><div class="sub">${esc(n.by||'')} · ${esc(fmt(n.at||n.created_at||''))}</div></div>`).join(''):'<div class="empty">No notes.</div>'}</div>
+      <div style="margin-top:8px"><input id="ab-note-text" placeholder="Add a note…" style="width:70%"> <button class="btn sm" onclick="abAddNote()">Add note</button></div>
+    </div>`;
+}
+function abItemCard(it, evList){
+  const dl=it.deadlines||{};
+  const flag = it.extraction_flag ? `<span class="pill no">${esc(it.extraction_flag)}</span>` : '';
+  const vpill = it.verified ? `<span class="pill ok">Verified by ${esc(it.verified_by||'attorney')}</span>` : `<span class="pill md">Unverified</span>`;
+  const reg = it.regulatory||{};
+  const src = reg.anchor_url ? `<div class="src">Source: <a href="${esc(reg.anchor_url)}" target="_blank">${esc(reg.title||reg.standard||it.standard)}</a>${reg.jurisdiction?' · '+esc(reg.jurisdiction):''}${reg.effective_date?' · eff. '+esc(reg.effective_date):''} · confidence ${reg.confidence!=null?reg.confidence:'—'}</div>` : '';
+  const overdue = dl.abatement_overdue ? ' <b class="no">OVERDUE</b>' : (dl.abatement_days_left!=null?` <span class="sub">(${dl.abatement_days_left}d left)</span>`:'');
+  const evRows = evList.length ? evList.map(e=>abEvidenceRow(e)).join('') : '<div class="sub">No evidence attached yet.</div>';
+  return `<div class="item" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div class="t">${esc(it.standard||'—')} ${it.classification?`<span class="pill">${esc(it.classification)}</span>`:''} ${flag}</div>
+      <div>${vpill}</div>
+    </div>
+    <div class="d">${esc(it.alleged_condition||'—')}</div>
+    ${src}
+    <div class="sub" style="margin-top:6px">
+      Abatement due: <b>${esc(dl.abatement_date||it.abatement_date||'—')}</b>${overdue} ·
+      Certification due: ${esc(dl.certification_due||'—')} ·
+      Contest deadline: ${esc(dl.contest_deadline||'—')}
+    </div>
+    <div class="src">${esc(dl.disclaimer||'System-calculated workflow date — verify against citation/order.')}</div>
+    <div style="margin-top:8px">
+      ${it.verified?'':`<button class="btn sm" onclick="abVerifyItem('${esc(it.item_id)}')">Mark verified</button>`}
+      <button class="btn ghost sm" onclick="abOpenCA('${esc(it.item_id)}')">Open corrective action</button>
+    </div>
+    <div style="margin-top:10px;border-top:1px solid var(--line,#eee);padding-top:8px">
+      <div class="sub" style="font-weight:600">Evidence</div>
+      ${evRows}
+      <div style="margin-top:8px">
+        <input type="file" id="abfile-${esc(it.item_id)}">
+        <select id="abrole-${esc(it.item_id)}"><option value="before">Before</option><option value="after">After</option><option value="supporting">Supporting</option></select>
+        <input id="abcap-${esc(it.item_id)}" placeholder="Caption (optional)" style="width:180px">
+        <button class="btn sm" onclick="abUploadEv('${esc(it.item_id)}')">Upload</button>
+        <span id="abup-${esc(it.item_id)}" class="sub"></span>
+      </div>
+    </div>
+  </div>`;
+}
+function abEvidenceRow(e){
+  const st=e.verification_status||'unverified';
+  const badge = e.conflicting ? '<span class="pill no">Conflicting</span>'
+    : st==='verified' ? '<span class="pill ok">Verified</span>' : '<span class="pill md">Unverified</span>';
+  const ai = e.ai_observation ? `<div class="src">AI observation: ${esc(e.ai_observation)} — ${esc(e.ai_disclaimer||'Potential hazard only; requires human verification.')}</div>` : '';
+  return `<div class="item" style="margin:6px 0">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div><a href="/api/abatement/matters/${esc(AB_CUR)}/evidence/${esc(e.evidence_id)}/file" target="_blank">${esc(e.original_filename||e.evidence_id)}</a>
+        <span class="chip">${esc(e.role||'')}</span> ${badge}</div>
+      <div>${st==='verified'?'':`<button class="btn sm" onclick="abVerifyEv('${esc(e.evidence_id)}')">Verify</button>`}
+        <button class="btn ghost sm" onclick="abConflictEv('${esc(e.evidence_id)}')">${e.conflicting?'Clear conflict':'Flag conflict'}</button></div>
+    </div>
+    ${e.caption?`<div class="sub">${esc(e.caption)}</div>`:''}
+    ${ai}
+  </div>`;
+}
+async function abSetStatus(){
+  const v=$('#ab-status-sel').value;
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/status',{method:'POST',body:JSON.stringify({status:v,by:'attorney'})});
+  $('#ab-status-msg').textContent = (ok&&j.ok)?' Updated.':' '+((j&&j.error)||'Error');
+  if(ok&&j.ok) abRenderWorkspace(AB_CUR);
+}
+async function abParseIntake(){
+  const text=($('#ab-intake-text').value||'').trim();
+  const msg=$('#ab-parse-msg');
+  if(!text){ msg.textContent=' Paste citation text first.'; return; }
+  const btn=$('#ab-parse-btn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Reading…';
+  const {ok,j}=await api('/api/abatement/intake/parse-and-add/'+encodeURIComponent(AB_CUR),{method:'POST',body:JSON.stringify({text})});
+  btn.disabled=false; btn.textContent='Extract items';
+  const n=(j&&(j.added||(j.items&&j.items.length)))||0;
+  msg.textContent = ok ? ` Added ${n} item(s) — each flagged for verification.` : ' '+((j&&j.error)||'Error');
+  if(ok) abRenderWorkspace(AB_CUR);
+}
+function abToggleManual(){ $('#ab-manual').classList.toggle('hidden'); }
+async function abAddManual(){
+  const std=$('#abm-std').value.trim();
+  if(!std){ $('#abm-msg').textContent=' Standard required.'; return; }
+  const body={standard:std, classification:$('#abm-class').value.trim(), proposed_penalty:$('#abm-pen').value.trim(),
+    abatement_date:$('#abm-abate').value, alleged_condition:$('#abm-cond').value.trim()};
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item',{method:'POST',body:JSON.stringify(body)});
+  $('#abm-msg').textContent = (ok&&j.ok)?' Added.':' '+((j&&j.error)||'Error');
+  if(ok&&j.ok) abRenderWorkspace(AB_CUR);
+}
+async function abVerifyItem(iid){
+  if(!confirm('Confirm you have verified this citation item against the citation? This records attorney verification.')) return;
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item/'+encodeURIComponent(iid)+'/verify',{method:'POST',body:JSON.stringify({by:'attorney'})});
+  if(ok&&j.ok) abRenderWorkspace(AB_CUR); else alert((j&&j.error)||'Error');
+}
+async function abOpenCA(iid){
+  const txt=prompt('Describe the corrective action to open for this citation item:');
+  if(txt==null) return;
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item/'+encodeURIComponent(iid)+'/corrective-action',{method:'POST',body:JSON.stringify({corrective_action:txt,by:'attorney'})});
+  if(ok&&j.ok){ abRenderWorkspace(AB_CUR); } else alert((j&&j.error)||'Error');
+}
+async function abUploadEv(iid){
+  const f=document.getElementById('abfile-'+iid);
+  const stat=document.getElementById('abup-'+iid);
+  if(!f.files||!f.files.length){ stat.textContent=' Choose a file.'; return; }
+  stat.innerHTML='<span class="spin"></span> Uploading…';
+  const fd=new FormData();
+  fd.append('file', f.files[0]);
+  fd.append('citation_item_id', iid);
+  fd.append('role', document.getElementById('abrole-'+iid).value);
+  fd.append('caption', document.getElementById('abcap-'+iid).value||'');
+  fd.append('by','attorney');
+  try{
+    const r=await fetch('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/evidence',{method:'POST',credentials:'same-origin',body:fd});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok) abRenderWorkspace(AB_CUR); else stat.textContent=' '+((j&&j.error)||'Error');
+  }catch(e){ stat.textContent=' '+String(e); }
+}
+async function abVerifyEv(eid){
+  if(!confirm('Confirm you have reviewed this evidence and it accurately shows the condition? This records human verification.')) return;
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/evidence/'+encodeURIComponent(eid)+'/verify',{method:'POST',body:JSON.stringify({by:'attorney',status:'verified'})});
+  if(ok&&j.ok) abRenderWorkspace(AB_CUR); else alert((j&&j.error)||'Error');
+}
+async function abConflictEv(eid){
+  const note=prompt('Flag this evidence as conflicting (leave blank to clear the flag). Optional note:');
+  const conflicting = note!==null && note!=='__clear__';
+  // simple toggle: prompt cancel = no-op; empty string = flag with no note
+  if(note===null) return;
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/evidence/'+encodeURIComponent(eid)+'/conflict',{method:'POST',body:JSON.stringify({conflicting:true,note:note,by:'attorney'})});
+  if(ok&&j.ok) abRenderWorkspace(AB_CUR); else alert((j&&j.error)||'Error');
+}
+async function abAddNote(){
+  const t=$('#ab-note-text').value.trim(); if(!t) return;
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/note',{method:'POST',body:JSON.stringify({text:t,by:'attorney'})});
+  if(ok&&j.ok) abRenderWorkspace(AB_CUR);
 }
 
 // ══ boot ════════════════════════════════════════════════════════════════════
