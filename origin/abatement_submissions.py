@@ -30,6 +30,7 @@ House rules: deterministic, offline, file-based, isolated + non-fatal.
 from __future__ import annotations
 
 import html
+import re
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple
@@ -84,6 +85,169 @@ def _corrective_actions(item: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
+# ── Library documents as abatement proof (written programs / JSAs / training) ──
+# For document-type citations the proof of abatement IS a document — the written
+# program, the job hazard analysis, or the training requirement — not a photo.
+# The attorney attaches LIGHT references to Origin's own library on the citation
+# item (in abatement_matter). Here we resolve those references to their FULL
+# CURRENT text from the live library at package-build time. Never-fabricate: if
+# the library has no body for a reference, we render a plain note, never invented
+# content.
+def _sector_for_matter(rec: Dict[str, Any]) -> Optional[str]:
+    """The client's industry sector, so library programs/JSAs render sector-
+    specific. None when the client has no company profile (library still renders
+    its generic body)."""
+    try:
+        from . import company_profile as _cp
+        scope = _cp.scope(rec.get("client_id", "") or "")
+        if scope:
+            return scope.get("sector")
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_library_doc(doc: Dict[str, Any], sector: Optional[str] = None) -> Dict[str, Any]:
+    """Resolve one attached library reference to its full current body. Returns a
+    render-ready dict; `available` is False (with a note) when the library has no
+    body — nothing is ever fabricated."""
+    kind = (doc.get("kind") or "").strip().lower()
+    doc_id = (doc.get("doc_id") or "").strip()
+    standard = (doc.get("standard") or "").strip()
+    out = {
+        "ref_id": doc.get("ref_id", ""),
+        "kind": kind,
+        "doc_id": doc_id,
+        "standard": standard,
+        "title": doc.get("title", "") or "",
+        "classification": doc.get("classification", "") or "",
+        "added_by": doc.get("added_by", ""),
+        "added_at": doc.get("added_at", ""),
+        "available": False,
+        "body_markdown": "",
+        "body_html": "",
+        "note": "",
+    }
+    try:
+        from . import compliance_kb as _kb
+        from . import compliance_jha as _jha
+    except Exception as exc:  # pragma: no cover
+        out["note"] = f"Library unavailable: {exc}"
+        return out
+
+    if kind == "program":
+        md = _kb.render_program(doc_id, sector)
+        if md:
+            out["available"] = True
+            out["body_markdown"] = md
+            if not out["title"]:
+                out["title"] = (_kb.get(doc_id) or {}).get("title", "") or doc_id
+        else:
+            out["note"] = "This written program is not in the Origin library yet."
+    elif kind == "jsa":
+        if _jha.has_jha(doc_id):
+            out["available"] = True
+            out["body_html"] = _jha.render_jha(doc_id, sector) or ""
+            if not out["title"]:
+                out["title"] = _jha.jha_title(doc_id)
+        else:
+            out["note"] = "No job hazard analysis in the library for this standard."
+    elif kind == "training":
+        tr = _kb.training_requirement(standard or doc_id)
+        if tr:
+            out["available"] = True
+            out["body_markdown"] = tr.get("training_requirement", "")
+            if not out["title"]:
+                out["title"] = tr.get("standard_title", "") or "Training requirement"
+        else:
+            out["note"] = "No verbatim OSHA training mandate is on file for this section."
+    else:
+        out["note"] = "Unknown library document type."
+    return out
+
+
+def library_suggestions(matter_id: str, item_id: str) -> Dict[str, Any]:
+    """Auto-match: the library programs/JSAs/training that fit a citation item's
+    cited standard. Deterministic — driven by program_engine.build_for_standard,
+    which never invents a document. Excludes anything already attached."""
+    rec = _mm.get(matter_id)
+    if not rec:
+        return {"ok": False, "error": "not found"}
+    item = next((it for it in rec.get("citation_items", [])
+                 if it.get("item_id") == item_id), None)
+    if not item:
+        return {"ok": False, "error": "item not found"}
+    standard = item.get("standard", "") or ""
+    sector = _sector_for_matter(rec)
+    already = {(d.get("kind"), d.get("doc_id")) for d in item.get("library_docs", []) or []}
+
+    entry = None
+    try:
+        from . import program_engine as _pe
+        if standard:
+            entry = _pe.build_for_standard(standard, sector)
+    except Exception:
+        entry = None
+
+    suggestions: List[Dict[str, Any]] = []
+    if entry:
+        eid = entry.get("id", "") or ""
+        citation = entry.get("citation", "") or standard
+        title = entry.get("title", "") or citation
+        prog = entry.get("program", {}) or {}
+        if eid and prog.get("available") and ("program", eid) not in already:
+            suggestions.append({
+                "kind": "program", "doc_id": eid, "standard": citation, "title": title,
+                "classification": prog.get("classification", ""),
+                "why": "Written program matched to this cited standard."})
+        tr = entry.get("training", {}) or {}
+        if tr.get("verbatim_mandate") and ("training", citation) not in already:
+            suggestions.append({
+                "kind": "training", "doc_id": citation, "standard": citation,
+                "title": (title + " — training") if title else "Training requirement",
+                "classification": tr.get("classification", ""),
+                "why": "OSHA training mandate for this cited standard."})
+        jsa = entry.get("jsa", {}) or {}
+        if eid and jsa.get("available") and ("jsa", eid) not in already:
+            suggestions.append({
+                "kind": "jsa", "doc_id": eid, "standard": citation, "title": title,
+                "classification": jsa.get("classification", ""),
+                "why": "Job hazard analysis for this cited standard."})
+
+    return {"ok": True, "matter_id": matter_id, "item_id": item_id,
+            "standard": standard, "sector": sector, "suggestions": suggestions}
+
+
+def library_browse(query: str = "", limit: int = 20) -> Dict[str, Any]:
+    """Manual browse/search of the whole Origin library, so the attorney can
+    attach any program/JSA/training — not only the auto-matched standard. Shows
+    what bodies each standard actually has in the library."""
+    q = (query or "").strip()
+    try:
+        from . import compliance_kb as _kb
+        from . import compliance_jha as _jha
+    except Exception as exc:  # pragma: no cover
+        return {"ok": False, "error": f"library unavailable: {exc}", "results": []}
+    try:
+        recs = _kb.search(q, limit=limit) if q else _kb.all_records()[:limit]
+    except Exception:
+        recs = []
+    results: List[Dict[str, Any]] = []
+    for r in recs:
+        eid = r.get("id", "") or ""
+        citation = r.get("citation", "") or ""
+        results.append({
+            "id": eid,
+            "citation": citation,
+            "title": r.get("title", ""),
+            "category": r.get("category", ""),
+            "program_available": bool(eid) and _kb.render_program(eid) is not None,
+            "jsa_available": bool(eid) and _jha.has_jha(eid),
+            "training_available": bool(citation) and _kb.training_requirement(citation) is not None,
+        })
+    return {"ok": True, "query": q, "count": len(results), "results": results}
+
+
 def build_package(matter_id: str) -> Dict[str, Any]:
     """Assemble the full review package for a matter. Read-only; never mutates."""
     rec = _mm.get(matter_id)
@@ -99,9 +263,12 @@ def build_package(matter_id: str) -> Dict[str, Any]:
     for e in ev_all:
         ev_by_item.setdefault(e.get("citation_item_id", ""), []).append(e)
 
+    sector = _sector_for_matter(rec)
     items_out: List[Dict[str, Any]] = []
     for it in rec.get("citation_items", []):
         iid = it.get("item_id", "")
+        lib_docs = [_resolve_library_doc(d, sector)
+                    for d in it.get("library_docs", []) or []]
         items_out.append({
             "item_id": iid,
             "standard": it.get("standard", ""),
@@ -114,6 +281,7 @@ def build_package(matter_id: str) -> Dict[str, Any]:
             "requirement": it.get("requirement", {}),
             "deadlines": it.get("deadlines", {}),
             "corrective_actions": _corrective_actions(it),
+            "library_docs": lib_docs,
             "evidence": ev_by_item.get(iid, []),
         })
 
@@ -137,6 +305,7 @@ def build_package(matter_id: str) -> Dict[str, Any]:
             "status": rec.get("status", ""),
             "status_label": _mm.MATTER_STAGE_LABELS.get(rec.get("status", ""), rec.get("status", "")),
         },
+        "sector": sector,
         "items": items_out,
         "readiness": ready,
         "certification_draft": _certification_fields(rec),
@@ -248,6 +417,44 @@ def _evidence_html(matter_id: str, ev: List[Dict[str, Any]]) -> str:
     return "".join(blocks)
 
 
+def _md_html(md: str) -> str:
+    """Markdown → HTML using the shared converter (falls back gracefully if the
+    markdown package isn't installed, so bodies never render as raw source)."""
+    try:
+        from .compliance import _md_to_html
+        return _md_to_html(md or "")
+    except Exception:
+        return "<pre style='white-space:pre-wrap'>" + _esc(md or "") + "</pre>"
+
+
+_KIND_LABEL = {"program": "Written program", "jsa": "Job hazard analysis (JSA)",
+               "training": "Training requirement"}
+
+
+def _library_docs_html(lib_docs: List[Dict[str, Any]]) -> str:
+    """Render attached library documents (written programs / JSAs / training) as
+    FULL TEXT inline under a citation item — this is the abatement proof for
+    document-type violations."""
+    if not lib_docs:
+        return ""
+    blocks: List[str] = []
+    for d in lib_docs:
+        label = _KIND_LABEL.get(d.get("kind", ""), "Library document")
+        head = (f"<div class='lib-head'><b>{_esc(d.get('title') or d.get('doc_id'))}</b>"
+                f" <span class='lib-kind'>{_esc(label)}</span>"
+                f"{(' · ' + _esc(d.get('classification'))) if d.get('classification') else ''}"
+                f"{(' · ' + _esc(d.get('standard'))) if d.get('standard') else ''}</div>")
+        if not d.get("available"):
+            body = f"<p class='lib-note'><i>{_esc(d.get('note') or 'Not available in the library.')}</i></p>"
+        elif d.get("body_html"):
+            body = f"<div class='lib-body'>{d['body_html']}</div>"
+        else:
+            body = f"<div class='lib-body'>{_md_html(d.get('body_markdown', ''))}</div>"
+        blocks.append(f"<div class='lib-doc'>{head}{body}</div>")
+    return ("<div class='sub'>Abatement documentation from library</div>"
+            "<div class='lib-list'>" + "".join(blocks) + "</div>")
+
+
 def render_html(pkg: Dict[str, Any]) -> str:
     if not pkg.get("ok"):
         return "<!doctype html><meta charset=utf-8><p>Matter not found.</p>"
@@ -277,6 +484,7 @@ def render_html(pkg: Dict[str, Any]) -> str:
             Contest deadline: {_esc(dl.get('contest_deadline') or '—')}
             <div class="tiny">{_esc(dl.get('disclaimer') or _mm.DEADLINE_DISCLAIMER)}</div></div>
           <div class="sub">Corrective actions</div><ul>{ca_html}</ul>
+          {_library_docs_html(it.get('library_docs', []) or [])}
           <div class="sub">Evidence</div><div class="ev-list">{ev_html}</div>
         </div>""")
 
@@ -305,6 +513,17 @@ def render_html(pkg: Dict[str, Any]) -> str:
   .ev-photo figcaption{{margin-top:6px;}}
   .ev-doc{{margin:3px 0;font-size:13px;}}
   .ev-none{{color:#888;font-size:12px;}}
+  .lib-list{{margin:4px 0;}}
+  .lib-doc{{border:1px solid #cfe0d6;background:#f6fbf8;border-radius:8px;
+            padding:10px 12px;margin:8px 0;page-break-inside:avoid;break-inside:avoid;}}
+  .lib-head{{font-size:13px;margin-bottom:4px;}}
+  .lib-kind{{color:#137a3a;font-size:11px;font-weight:600;}}
+  .lib-note{{color:#a06a00;font-size:12px;}}
+  .lib-body{{font-size:12.5px;line-height:1.5;}}
+  .lib-body h1,.lib-body h2,.lib-body h3{{font-size:13.5px;margin:8px 0 3px;}}
+  .lib-body table{{border-collapse:collapse;width:100%;font-size:11.5px;}}
+  .lib-body td,.lib-body th{{border:1px solid #cbd5cf;padding:3px 5px;text-align:left;}}
+  .lib-body ul{{margin:3px 0 3px 18px;}}
   .stamp{{font-size:11px;color:#333;line-height:1.4;}}
   .stamp.muted{{color:#888;}}
   .ok{{color:#137a3a;font-weight:600;}} .warn{{color:#a06a00;}}
@@ -572,6 +791,83 @@ def _photo_flowable(matter_id: str, e: Dict[str, Any], width: float, sty):
     return KeepTogether(flow)
 
 
+def _inline_pdf(t: str) -> str:
+    """Escape a text run for reportlab Paragraph and convert markdown emphasis to
+    the <b>/<i> tags Paragraph understands."""
+    t = (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
+    t = re.sub(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", r"<i>\1</i>", t)
+    return t
+
+
+def _html_block_text(h: str) -> str:
+    """Flatten a block of HTML (a rendered JSA table) into readable plain lines,
+    keeping row/cell structure so the JSA stays legible in the PDF."""
+    if not h:
+        return ""
+    x = re.sub(r"(?is)<\s*br\s*/?>", "\n", h)
+    x = re.sub(r"(?is)</(p|div|tr|h[1-6]|li|table|thead|tbody|ul|ol)>", "\n", x)
+    x = re.sub(r"(?is)<\s*li[^>]*>", "- ", x)
+    x = re.sub(r"(?is)</t[dh]>", " | ", x)
+    x = re.sub(r"(?is)<[^>]+>", "", x)
+    x = html.unescape(x)
+    lines = [ln.strip(" |").strip() for ln in x.splitlines()]
+    return "\n".join(ln for ln in lines if ln)
+
+
+def _md_to_flowables(text: str, sty, *, from_html: bool = False) -> List[Any]:
+    """Convert a markdown (or flattened-HTML) body into reportlab flowables:
+    headings, bullets, and paragraphs. Never raises."""
+    from reportlab.platypus import Paragraph
+    flow: List[Any] = []
+    body = _html_block_text(text) if from_html else (text or "")
+    if body.lstrip().startswith("---"):
+        parts = body.split("---", 2)
+        if len(parts) == 3:
+            body = parts[2]
+    for raw in body.splitlines():
+        s = raw.strip()
+        if not s:
+            continue
+        m = re.match(r"^(#{1,6})\s+(.*)$", s)
+        if m:
+            flow.append(Paragraph("<b>" + _inline_pdf(m.group(2)) + "</b>", sty["body"]))
+            continue
+        m = re.match(r"^[-*+]\s+(.*)$", s)
+        if m:
+            flow.append(Paragraph("• " + _inline_pdf(m.group(1)), sty["body"]))
+            continue
+        try:
+            flow.append(Paragraph(_inline_pdf(s), sty["body"]))
+        except Exception:
+            flow.append(Paragraph(_esc(s), sty["body"]))
+    return flow
+
+
+def _library_docs_flowables(lib_docs: List[Dict[str, Any]], sty) -> List[Any]:
+    """Flowables for the attached library documents (full-text abatement proof)."""
+    from reportlab.platypus import Paragraph, Spacer
+    flow: List[Any] = []
+    if not lib_docs:
+        return flow
+    flow.append(Paragraph("Abatement documentation from library", sty["h2"]))
+    for d in lib_docs:
+        label = _KIND_LABEL.get(d.get("kind", ""), "Library document")
+        head = (f"<b>{_esc(d.get('title') or d.get('doc_id'))}</b> — {_esc(label)}"
+                f"{(' · ' + _esc(d.get('classification'))) if d.get('classification') else ''}"
+                f"{(' · ' + _esc(d.get('standard'))) if d.get('standard') else ''}")
+        flow.append(Paragraph(head, sty["body"]))
+        if not d.get("available"):
+            flow.append(Paragraph(_esc(d.get("note") or "Not available in the library."),
+                                  sty["muted"]))
+        elif d.get("body_html"):
+            flow.extend(_md_to_flowables(d.get("body_html", ""), sty, from_html=True))
+        else:
+            flow.extend(_md_to_flowables(d.get("body_markdown", ""), sty))
+        flow.append(Spacer(1, 6))
+    return flow
+
+
 def render_pdf_package(matter_id: str) -> Dict[str, Any]:
     """Render the abatement package as a real PDF, embedding every evidence photo
     with its time/GPS/seal stamp. Returns {ok, pdf, filename} or {ok:False,error}."""
@@ -636,6 +932,8 @@ def render_pdf_package(matter_id: str) -> Dict[str, Any]:
                     sty["body"]))
         flow.append(KeepTogether(block))
         flow.append(Spacer(1, 4))
+        for f in _library_docs_flowables(it.get("library_docs", []) or [], sty):
+            flow.append(f)
         ev = it.get("evidence", []) or []
         photos = [e for e in ev if (e.get("kind") == "photo" or e.get("classification") == "photo")]
         docs = [e for e in ev if e not in photos]
@@ -851,3 +1149,56 @@ def register_abatement_submissions(app) -> None:
                      by=a.get("name") or a["role"])
         return {"ok": True, "matter": rec, "note": "Marked as filed (attestation only). "
                 "Origin did not submit anything to OSHA."}
+
+    # ── Library documents as abatement proof (programs / JSAs / training) ──────
+    @app.get("/api/abatement/matters/{matter_id}/items/{item_id}/library/suggestions")
+    def ab_lib_suggestions(matter_id: str, item_id: str):
+        out = library_suggestions(matter_id, item_id)
+        if not out.get("ok"):
+            return JSONResponse(out, status_code=404)
+        return out
+
+    @app.get("/api/abatement/library/browse")
+    def ab_lib_browse(q: str = "", limit: int = 20):
+        try:
+            lim = max(1, min(50, int(limit)))
+        except Exception:
+            lim = 20
+        return library_browse(q, limit=lim)
+
+    @app.post("/api/abatement/matters/{matter_id}/items/{item_id}/library")
+    def ab_lib_attach(matter_id: str, item_id: str, request: Request,
+                      body: dict = Body(default=None)):
+        a = _access.resolve_actor(request)
+        if a["kind"] != "firm" or not _access.can(a["role"], "manage"):
+            return JSONResponse(
+                {"error": "Only firm staff can attach library documents."},
+                status_code=403)
+        p = body if isinstance(body, dict) else {}
+        item = _mm.attach_library_doc(
+            matter_id, item_id,
+            kind=(p.get("kind") or ""), doc_id=(p.get("doc_id") or ""),
+            standard=(p.get("standard") or ""), title=(p.get("title") or ""),
+            classification=(p.get("classification") or ""),
+            by=a.get("name") or a["role"])
+        if item is None:
+            return JSONResponse(
+                {"error": "Could not attach — check matter, item, kind (program/jsa/training) and doc_id."},
+                status_code=400)
+        return {"ok": True, "item_id": item_id,
+                "library_docs": item.get("library_docs", [])}
+
+    @app.post("/api/abatement/matters/{matter_id}/items/{item_id}/library/remove")
+    def ab_lib_remove(matter_id: str, item_id: str, request: Request,
+                      body: dict = Body(default=None)):
+        a = _access.resolve_actor(request)
+        if a["kind"] != "firm" or not _access.can(a["role"], "manage"):
+            return JSONResponse(
+                {"error": "Only firm staff can remove library documents."},
+                status_code=403)
+        p = body if isinstance(body, dict) else {}
+        item = _mm.remove_library_doc(matter_id, item_id, (p.get("ref_id") or ""))
+        if item is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return {"ok": True, "item_id": item_id,
+                "library_docs": item.get("library_docs", [])}

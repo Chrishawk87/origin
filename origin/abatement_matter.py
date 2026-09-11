@@ -395,6 +395,73 @@ def link_corrective_action(matter_id: str, item_id: str, capa_id: str) -> Option
     return None
 
 
+# ── library documents (written programs / JSAs / training) as abatement proof ──
+# For document-type citations (no written program, no LOTO, missing HazCom, no
+# JSA), the proof of abatement IS a document — the written program, the job
+# hazard analysis, or the training record — not a photo. These functions attach
+# LIGHT references to Origin's own library onto a citation item. The full text is
+# resolved and rendered at package-build time from the live library, so the
+# document is never copied/frozen and never fabricated: if the library has no
+# body for a ref, nothing is invented.
+LIBRARY_DOC_KINDS = ("program", "jsa", "training")
+
+
+def attach_library_doc(matter_id: str, item_id: str, *, kind: str, doc_id: str,
+                       standard: str = "", title: str = "", classification: str = "",
+                       by: str = "attorney") -> Optional[Dict[str, Any]]:
+    """Attach a reference to a library document (written program, JSA, or training
+    requirement) to a citation item as abatement documentation. Deduplicated by
+    (kind, doc_id). Returns the updated item, or None if the matter/item is not
+    found or the kind is invalid."""
+    kind = (kind or "").strip().lower()
+    if kind not in LIBRARY_DOC_KINDS:
+        return None
+    doc_id = (doc_id or "").strip()
+    if not doc_id:
+        return None
+    rec = get(matter_id)
+    if not rec:
+        return None
+    for it in rec.get("citation_items", []):
+        if it.get("item_id") == item_id:
+            docs = it.setdefault("library_docs", [])
+            if any(d.get("kind") == kind and d.get("doc_id") == doc_id for d in docs):
+                return it  # already attached — idempotent
+            docs.append({
+                "ref_id": "ld-" + uuid.uuid4().hex[:8],
+                "kind": kind,
+                "doc_id": doc_id,
+                "standard": (standard or it.get("standard", "") or "").strip(),
+                "title": (title or "").strip(),
+                "classification": (classification or "").strip(),
+                "added_by": by,
+                "added_at": _now(),
+            })
+            rec["updated_at"] = _now()
+            save(rec)
+            return it
+    return None
+
+
+def remove_library_doc(matter_id: str, item_id: str, ref_id: str) -> Optional[Dict[str, Any]]:
+    """Detach a previously-attached library document from a citation item."""
+    ref_id = (ref_id or "").strip()
+    rec = get(matter_id)
+    if not rec:
+        return None
+    for it in rec.get("citation_items", []):
+        if it.get("item_id") == item_id:
+            docs = it.get("library_docs", []) or []
+            new_docs = [d for d in docs if d.get("ref_id") != ref_id]
+            if len(new_docs) == len(docs):
+                return it  # nothing removed
+            it["library_docs"] = new_docs
+            rec["updated_at"] = _now()
+            save(rec)
+            return it
+    return None
+
+
 def set_status(matter_id: str, status: str, *, by: str = "") -> Optional[Dict[str, Any]]:
     rec = get(matter_id)
     if not rec:

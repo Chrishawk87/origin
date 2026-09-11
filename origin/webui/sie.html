@@ -1947,6 +1947,16 @@ function abItemCard(it, evList){
       <button class="btn ghost sm" onclick="abOpenCA('${esc(it.item_id)}')">Open corrective action</button>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--line,#eee);padding-top:8px">
+      <div class="sub" style="font-weight:600">Abatement documentation from library
+        <span class="sub" style="font-weight:400">— written program / JSA / training as proof of abatement</span></div>
+      <div id="ablib-${esc(it.item_id)}">${abLibRenderDocs(it.item_id, it.library_docs||[])}</div>
+      <div style="margin-top:6px">
+        <button class="btn sm" onclick="abLibSuggest('${esc(it.item_id)}')">Suggest from cited standard</button>
+        <button class="btn ghost sm" onclick="abLibBrowseOpen('${esc(it.item_id)}')">Browse library</button>
+      </div>
+      <div id="ablib-panel-${esc(it.item_id)}"></div>
+    </div>
+    <div style="margin-top:10px;border-top:1px solid var(--line,#eee);padding-top:8px">
       <div class="sub" style="font-weight:600">Evidence</div>
       ${evRows}
       <div style="margin-top:8px">
@@ -1958,6 +1968,66 @@ function abItemCard(it, evList){
       </div>
     </div>
   </div>`;
+}
+// ── Library documents as abatement proof (programs / JSAs / training) ─────────
+const AB_LIBKIND={program:'Written program',jsa:'JSA',training:'Training'};
+const AB_LIB_CACHE={};   // item_id -> candidate list currently shown in its panel
+function abLibRenderDocs(iid, docs){
+  docs=docs||[];
+  if(!docs.length) return '<div class="sub">None attached. Attach a written program, JSA, or training requirement as the abatement proof for this citation.</div>';
+  return docs.map(d=>`<div class="src" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:3px 0">
+    <span>📄 <b>${esc(d.title||d.doc_id)}</b> <span class="pill">${esc(AB_LIBKIND[d.kind]||d.kind)}</span>${d.classification?' · '+esc(d.classification):''}${d.standard?' · '+esc(d.standard):''}</span>
+    <button class="btn ghost sm" onclick="abLibRemove('${esc(iid)}','${esc(d.ref_id)}')">Remove</button>
+  </div>`).join('');
+}
+function abLibResultRow(iid, i, x){
+  return `<div class="src" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:3px 0">
+    <span>➕ <b>${esc(x.title||x.doc_id)}</b> <span class="pill">${esc(AB_LIBKIND[x.kind]||x.kind)}</span>${x.classification?' · '+esc(x.classification):''}${x.why?'<div class="sub">'+esc(x.why)+'</div>':''}</span>
+    <button class="btn sm" onclick="abLibAttach('${esc(iid)}',${i})">Attach</button>
+  </div>`;
+}
+async function abLibSuggest(iid){
+  const panel=document.getElementById('ablib-panel-'+iid);
+  if(panel) panel.innerHTML='<div class="sub">Finding library matches for the cited standard…</div>';
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/suggestions`);
+  if(!(r.ok&&r.j&&r.j.ok)){ if(panel) panel.innerHTML='<div class="sub">Could not load suggestions.</div>'; return; }
+  const s=r.j.suggestions||[]; AB_LIB_CACHE[iid]=s;
+  if(!s.length){ if(panel) panel.innerHTML=`<div class="sub" style="margin-top:6px">No exact library match for <b>${esc(r.j.standard||'this standard')}</b>. Use “Browse library” to attach any document.</div>`; return; }
+  if(panel) panel.innerHTML='<div class="sub" style="margin-top:6px;font-weight:600">Suggested for '+esc(r.j.standard||'')+'</div>'+s.map((x,i)=>abLibResultRow(iid,i,x)).join('');
+}
+function abLibBrowseOpen(iid){
+  const panel=document.getElementById('ablib-panel-'+iid);
+  if(panel) panel.innerHTML=`<div style="margin-top:6px">
+    <input id="ablibq-${esc(iid)}" placeholder="Search programs / JSAs / training (e.g. lockout, fall protection)" style="width:60%"
+           onkeydown="if(event.key==='Enter')abLibBrowseSearch('${esc(iid)}')">
+    <button class="btn sm" onclick="abLibBrowseSearch('${esc(iid)}')">Search</button>
+    <div id="ablibres-${esc(iid)}" class="sub" style="margin-top:6px">Type a term and search.</div>
+  </div>`;
+}
+async function abLibBrowseSearch(iid){
+  const q=((document.getElementById('ablibq-'+iid)||{}).value)||'';
+  const res=document.getElementById('ablibres-'+iid); if(res) res.textContent='Searching…';
+  const r=await api(`/api/abatement/library/browse?q=${encodeURIComponent(q)}&limit=20`);
+  if(!(r.ok&&r.j&&r.j.ok)){ if(res) res.textContent='Could not search the library.'; return; }
+  const cands=[];
+  (r.j.results||[]).forEach(rec=>{
+    if(rec.program_available) cands.push({kind:'program',doc_id:rec.id,standard:rec.citation,title:rec.title,classification:'',why:rec.citation});
+    if(rec.training_available) cands.push({kind:'training',doc_id:rec.citation,standard:rec.citation,title:(rec.title||rec.citation)+' — training',classification:'',why:rec.citation});
+    if(rec.jsa_available) cands.push({kind:'jsa',doc_id:rec.id,standard:rec.citation,title:rec.title,classification:'',why:rec.citation});
+  });
+  AB_LIB_CACHE[iid]=cands;
+  if(res) res.innerHTML = cands.length ? cands.map((x,i)=>abLibResultRow(iid,i,x)).join('') : 'No attachable documents matched that search.';
+}
+async function abLibAttach(iid, idx){
+  const cand=(AB_LIB_CACHE[iid]||[])[idx]; if(!cand) return;
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library`,{method:'POST',
+    body:JSON.stringify({kind:cand.kind,doc_id:cand.doc_id,standard:cand.standard||'',title:cand.title||'',classification:cand.classification||''})});
+  if(r.ok&&r.j&&r.j.ok){ const el=document.getElementById('ablib-'+iid); if(el) el.innerHTML=abLibRenderDocs(iid, r.j.library_docs); }
+  else { alert((r.j&&r.j.error)||'Could not attach the document.'); }
+}
+async function abLibRemove(iid, refId){
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/remove`,{method:'POST',body:JSON.stringify({ref_id:refId})});
+  if(r.ok&&r.j&&r.j.ok){ const el=document.getElementById('ablib-'+iid); if(el) el.innerHTML=abLibRenderDocs(iid, r.j.library_docs); }
 }
 function abFmtWhen(s){ if(!s) return '—'; try{ const d=new Date(s); if(!isNaN(d)) return d.toLocaleString(); }catch(e){} return s; }
 const AB_DOCTYPE_LABEL = {certificate_of_insurance:'Certificate of Insurance', waste_manifest:'Hazardous waste manifest',
