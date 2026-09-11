@@ -2407,6 +2407,14 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _brain = None
         print(f"[brain_router] disabled — registration failed: {_brain_exc}")
 
+    # ── FMCSA carrier one-pager (QCMobile): SAFER snapshot + CSA/SMS BASICs +
+    # drafted corrective-action plan from a USDOT number. Needs FMCSA_WEB_KEY. ──
+    try:
+        from . import fmcsa_snapshot as _fmcsa
+        _fmcsa.register_fmcsa_snapshot(app)
+    except Exception as _fmcsa_exc:  # pragma: no cover
+        print(f"[fmcsa_snapshot] disabled — registration failed: {_fmcsa_exc}")
+
     # ── Form Vault (Screen 3): official-government-form auto-fill engine ──────
     # A worker's short answers are projected onto the real form's field layout
     # (MSHA 5000-23, OSHA 300A, USACE AHA) deterministically — no LLM — and the
@@ -2419,6 +2427,34 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
     except Exception as _fv_exc:  # pragma: no cover
         _formvault = None
         print(f"[form_vault] disabled — registration failed: {_fv_exc}")
+
+    # ── Origin Abatement (Phase 1 core spine): OSHA abatement intelligence +
+    # evidence management for OSHA-defense attorneys. NOT an AI lawyer — every
+    # deadline is a workflow date to verify, every readiness number is an internal
+    # indicator, every extracted field is flagged for human verification, and the
+    # regulatory brain (never an LLM) is the source of truth. The generalized
+    # engine: SOURCE → FACT/CONDITION → REQUIREMENT → ACTION → EVIDENCE →
+    # VERIFICATION → DECISION. Three isolated + non-fatal modules:
+    #   abatement_matter  — Matter + Citation Item + deadlines + regulatory map + readiness
+    #   evidence_vault    — durable evidence store + gap analysis + human verification
+    #   abatement_intake  — citation extraction (VERIFY-flagged, never source of truth)
+    try:
+        from . import abatement_matter as _abmatter
+        _abmatter.register_abatement_matter(app)
+    except Exception as _abm_exc:  # pragma: no cover
+        print(f"[abatement_matter] disabled — registration failed: {_abm_exc}")
+
+    try:
+        from . import evidence_vault as _evvault
+        _evvault.register_evidence_vault(app)
+    except Exception as _ev_exc:  # pragma: no cover
+        print(f"[evidence_vault] disabled — registration failed: {_ev_exc}")
+
+    try:
+        from . import abatement_intake as _abintake
+        _abintake.register_abatement_intake(app)
+    except Exception as _abi_exc:  # pragma: no cover
+        print(f"[abatement_intake] disabled — registration failed: {_abi_exc}")
 
     # ── RETIRED: the parallel Postgres "/platform" build ──
     # The GC tier (owner → general contractor → subcontractor), logos, and
