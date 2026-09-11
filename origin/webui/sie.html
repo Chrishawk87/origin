@@ -1835,8 +1835,10 @@ async function abRenderWorkspace(id){
       <h2 class="sec">Submission package</h2>
       <p class="sub">A single organized draft for your review, watermarked <b>DRAFT — FOR REVIEW</b>. Origin never files anything with OSHA — you do, then attest here.</p>
       <div><button class="btn sm" onclick="abOpenSubmission()">Open review draft</button>
+        <button class="btn sm" onclick="abOpenNotice()">Notice of Intent to Contest</button>
         <button class="btn ghost sm" onclick="abMarkFiled()">Mark as filed (I filed it myself)</button>
         <span id="ab-sub-msg" class="sub"></span></div>
+      <p class="sub">The Notice of Intent to Contest is the document that <b>precedes</b> abatement — the 15-working-day contest window. Origin drafts a blank skeleton with the earliest deadline surfaced; you decide what to contest, complete it, sign and file.</p>
     </div>
 
     <div class="card">
@@ -1905,6 +1907,10 @@ function abCopyLink(){
 function abOpenSubmission(){
   if(!AB_CUR) return;
   window.open(`/api/abatement/matters/${AB_CUR}/submission.html`,'_blank');
+}
+function abOpenNotice(){
+  if(!AB_CUR) return;
+  window.open(`/api/abatement/matters/${AB_CUR}/notice-of-intent.html`,'_blank');
 }
 
 async function abMarkFiled(){
