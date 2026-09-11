@@ -33,6 +33,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# FastAPI form/file types MUST be at module scope: under `from __future__ import
+# annotations` route hints are strings that FastAPI resolves against module
+# globals. A function-local import leaves them undefined at request time
+# (PydanticUserError: not fully defined).
+from fastapi import UploadFile, File, Form  # noqa: E402
+
 try:
     from starlette.requests import Request
 except Exception:  # pragma: no cover
