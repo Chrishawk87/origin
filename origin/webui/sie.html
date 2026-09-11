@@ -347,9 +347,12 @@
 </head>
 <body>
 <header class="brand">
-  <div>
-    <div class="word">ORIGIN<span>.</span></div>
-    <div class="tag" style="margin-top:6px">Safety Intelligence Engine</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <img id="brandLogo" alt="" style="display:none;height:40px;width:auto;max-width:150px;border-radius:6px;background:#fff;padding:2px"/>
+    <div>
+      <div class="word" id="brandWord">ORIGIN<span>.</span></div>
+      <div class="tag" id="brandTag" style="margin-top:6px">Safety Intelligence Engine</div>
+    </div>
   </div>
   <nav>
     <a href="/admin">Admin</a>
@@ -1951,11 +1954,49 @@ function abItemCard(it, evList){
   </div>`;
 }
 function abFmtWhen(s){ if(!s) return '—'; try{ const d=new Date(s); if(!isNaN(d)) return d.toLocaleString(); }catch(e){} return s; }
+const AB_DOCTYPE_LABEL = {certificate_of_insurance:'Certificate of Insurance', waste_manifest:'Hazardous waste manifest',
+  training_certificate:'Training certificate', document:'Document', photo:'Photo'};
+const AB_FIELD_LABEL = {insured:'Insured', carrier:'Carrier', policy_number:'Policy number',
+  effective_date:'Effective date', expiration_date:'Expiration date', each_occurrence_limit:'Each-occurrence limit',
+  general_aggregate_limit:'General aggregate', manifest_tracking_number:'Manifest tracking #',
+  epa_id_numbers:'EPA ID number(s)', generator:'Generator', transporter:'Transporter',
+  designated_facility:'Designated facility', trainee_name:'Trainee', course:'Course', completed_date:'Completed'};
+// Render what the document reader pulled from a client-uploaded file. Every value
+// is flagged AI EXTRACTED — VERIFY; the attorney confirms it. Photos and unreadable
+// scans show an honest "no text to read" note instead of guessed values.
+function abExtractionBlock(x){
+  if(!x || typeof x!=='object') return '';
+  if(x.readable===false){
+    if(x.doc_type==='photo') return '';  // a photo has no text; nothing to surface
+    return `<div class="src" style="margin-top:6px;border-left:3px solid var(--md,#8a94a6);padding-left:8px">
+      📄 Document reader: ${esc(x.note||'No readable text — enter values manually.')}</div>`;
+  }
+  if(!x.readable) return '';
+  const dt = AB_DOCTYPE_LABEL[x.doc_type] || 'Document';
+  const fields = x.fields||{};
+  const keys = Object.keys(fields);
+  let rows = '';
+  if(keys.length){
+    rows = '<table style="border-collapse:collapse;margin:4px 0;font-size:12px">' + keys.map(k=>{
+      const lbl = AB_FIELD_LABEL[k] || k.replace(/_/g,' ');
+      const v = (fields[k]&&fields[k].value)||'';
+      return `<tr><td style="padding:2px 10px 2px 0;color:var(--sub,#8a94a6)">${esc(lbl)}</td>`
+           + `<td style="padding:2px 0"><b>${esc(v)}</b></td></tr>`;
+    }).join('') + '</table>';
+  }
+  const preview = x.text_preview ? `<details style="margin-top:4px"><summary class="sub" style="cursor:pointer">Show raw text read (${esc(x.char_count||0)} chars)</summary><div class="sub" style="white-space:pre-wrap;max-height:160px;overflow:auto;margin-top:4px">${esc(x.text_preview)}</div></details>` : '';
+  return `<div class="src" style="margin-top:6px;border-left:3px solid var(--orange,#E8551F);padding-left:8px">
+      <div><b>📄 Read from this document — ${esc(dt)}</b> <span class="pill no">AI EXTRACTED — VERIFY</span></div>
+      ${keys.length?rows:'<div class="sub">No structured fields recognized; see raw text below.</div>'}
+      ${preview}
+    </div>`;
+}
 function abEvidenceRow(e){
   const st=e.verification_status||'unverified';
   const badge = e.conflicting ? '<span class="pill no">Conflicting</span>'
     : st==='verified' ? '<span class="pill ok">Verified</span>' : '<span class="pill md">Unverified</span>';
   const ai = e.ai_observation ? `<div class="src">AI observation: ${esc(e.ai_observation)} — ${esc(e.ai_disclaimer||'Potential hazard only; requires human verification.')}</div>` : '';
+  const extracted = abExtractionBlock(e.extraction);
   const a = e.audit||{};
   const fileUrl = `/api/abatement/matters/${esc(AB_CUR)}/evidence/${esc(e.evidence_id)}/file`;
   const thumb = (e.kind==='photo')
@@ -1982,6 +2023,7 @@ function abEvidenceRow(e){
         </div>
         ${e.caption?`<div class="sub">${esc(e.caption)}</div>`:''}
         ${ai}
+        ${extracted}
         ${audit}
       </div>
     </div>
@@ -2113,6 +2155,40 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').cat
     e.preventDefault();
     apply(window.ORIGIN_THEME === "light" ? "dark" : "light", true);
   });
+})();
+
+/* ══ Tenant branding: paint THIS firm's name/logo/accent across the console ══
+   so a GC or attorney sees their own brand — the same as their parent
+   dashboard — instead of the generic Origin wordmark. Owner sees Origin. ══ */
+(function(){
+  fetch("/sie/api/whoami", {credentials:"same-origin"})
+    .then(function(r){ return r.json(); })
+    .then(function(w){
+      if(!w || !w.ok) return;
+      if(!w.is_owner && w.name && w.name !== "Origin"){
+        var word = document.getElementById("brandWord");
+        if(word) word.textContent = w.name;
+        var tag = document.getElementById("brandTag");
+        if(tag) tag.textContent = "Safety Intelligence \u00b7 powered by Origin";
+        try{ document.title = w.name + " \u2014 Safety Intelligence"; }catch(e){}
+      }
+      if(w.logo_url){
+        var img = document.getElementById("brandLogo");
+        if(img){
+          img.onerror = function(){ this.style.display = "none"; };
+          img.onload  = function(){ this.style.display = "block"; };
+          img.src = w.logo_url;
+        }
+      }
+      if(w.brand_primary){
+        try{
+          var root = document.documentElement.style;
+          root.setProperty("--orange", w.brand_primary);
+          root.setProperty("--orange2", w.brand_primary);
+        }catch(e){}
+      }
+    })
+    .catch(function(){});
 })();
 
 /* ══ Front-door controls: sign out + copyable temporary access link ══════════ */

@@ -538,10 +538,23 @@ def register_abatement_tasks(app) -> None:
             gps=_vault._parse_gps(gps), captured_at=captured_at,
             capture_source=(capture_source or "in_app_camera"),
             device=_vault._ua(request), client_ip=_vault._ip(request))
+        # If the client uploaded a document (not a live photo), read it so the
+        # attorney sees what it says without re-keying. Extraction is stored
+        # OUTSIDE the sealed audit block and every field is flagged VERIFY. Never
+        # fatal — a read failure must not lose the uploaded evidence.
+        extraction = None
+        if rec.get("kind") != "photo":
+            try:
+                from . import abatement_ocr as _ocr
+                extraction = _ocr.read_document(content, file.filename or "upload")
+                _vault.attach_extraction(mid, rec["evidence_id"], extraction)
+            except Exception:
+                extraction = None
         return {"ok": True, "evidence_id": rec["evidence_id"],
                 "captured_at": rec.get("audit", {}).get("captured_at", ""),
                 "gps": rec.get("audit", {}).get("gps"),
-                "sealed": bool(rec.get("audit", {}).get("seal"))}
+                "sealed": bool(rec.get("audit", {}).get("seal")),
+                "extraction": extraction}
 
     @app.post("/api/abatement/client/tasks/{task_id}/submit")
     def ab_client_submit(task_id: str, request: Request, body: dict = Body(default=None)):

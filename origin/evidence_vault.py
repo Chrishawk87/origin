@@ -353,6 +353,31 @@ def store_evidence_b64(matter_id: str, *, data_b64: str, filename: str,
     return store_evidence(matter_id, content=raw, filename=filename, **kw)
 
 
+def attach_extraction(matter_id: str, evidence_id: str,
+                      extraction: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Attach a document-reader result (see abatement_ocr.read_document) to an
+    evidence record. Stored DELIBERATELY OUTSIDE the sealed audit block: extraction
+    is derived, mutable, VERIFY-flagged data — it is NOT an immutable capture fact,
+    so it must never change the seal. The seal keeps protecting the original bytes,
+    the capture time, GPS and uploader; the reader's guesses live alongside it and
+    the attorney confirms them. Returns the updated record, or None if not found."""
+    items = _read_index(matter_id)
+    for i, r in enumerate(items):
+        if r.get("evidence_id") == evidence_id:
+            r["extraction"] = extraction or {}
+            r.setdefault("chain_of_custody", []).append({
+                "event": "document_read",
+                "at": _now(),
+                "by": "system",
+                "detail": ("Document text read for the attorney's review "
+                           "(AI EXTRACTED — VERIFY). Sealed audit block unchanged."),
+            })
+            items[i] = r
+            _write_index(matter_id, items)
+            return r
+    return None
+
+
 # ── verification (human-in-the-loop) ────────────────────────────────────────────
 def verify_evidence(matter_id: str, evidence_id: str, *, by: str = "attorney",
                     status: str = "verified") -> Optional[Dict[str, Any]]:

@@ -1671,6 +1671,35 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
             return sie_html.read_text(encoding="utf-8")
         return "<h1>Safety Intelligence Engine</h1><p>Console page missing.</p>"
 
+    @app.get("/sie/api/whoami")
+    def sie_whoami(request: Request):
+        """Branding + identity for the SIE console header, so a GC or attorney
+        tenant sees THEIR OWN name, logo, and accent color across the whole
+        console — the same brand as their parent dashboard. Owner/global sees
+        the Origin brand. Resolves the tenant itself (this path is outside the
+        /api gate that normally sets request.state.sie_gc_slug)."""
+        slug = _gc_slug_ok(request)
+        is_owner = (_admin_session_ok(request)
+                    or (bool(token) and request.query_params.get("token") == token)
+                    or (not token and not slug))
+        if is_owner:
+            # An owner previewing a specific tenant via ?gc=<slug> sees that brand.
+            slug = (request.query_params.get("gc") or "").strip() or None
+        out = {"ok": True, "is_owner": bool(is_owner), "slug": slug or "",
+               "name": "Origin", "brand_primary": "", "logo_url": ""}
+        if slug:
+            try:
+                from . import portal as _portal
+                rec = _portal.load_gc(slug)
+                if rec:
+                    out["name"] = rec.get("name") or "Origin"
+                    out["brand_primary"] = rec.get("brand_primary") or ""
+                    if rec.get("logo"):
+                        out["logo_url"] = "/portal/api/gc/%s/logo" % slug
+            except Exception:
+                pass
+        return out
+
     # The prior multi-tab console is preserved verbatim at /sie-classic so no
     # existing workflow (companies / programs / prequal / audits / review /
     # training) is lost when the new Command Center dashboard takes over /sie.
