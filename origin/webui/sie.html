@@ -1950,21 +1950,51 @@ function abItemCard(it, evList){
     </div>
   </div>`;
 }
+function abFmtWhen(s){ if(!s) return '—'; try{ const d=new Date(s); if(!isNaN(d)) return d.toLocaleString(); }catch(e){} return s; }
 function abEvidenceRow(e){
   const st=e.verification_status||'unverified';
   const badge = e.conflicting ? '<span class="pill no">Conflicting</span>'
     : st==='verified' ? '<span class="pill ok">Verified</span>' : '<span class="pill md">Unverified</span>';
   const ai = e.ai_observation ? `<div class="src">AI observation: ${esc(e.ai_observation)} — ${esc(e.ai_disclaimer||'Potential hazard only; requires human verification.')}</div>` : '';
+  const a = e.audit||{};
+  const fileUrl = `/api/abatement/matters/${esc(AB_CUR)}/evidence/${esc(e.evidence_id)}/file`;
+  const thumb = (e.kind==='photo')
+    ? `<a href="${fileUrl}" target="_blank"><img src="${fileUrl}" alt="evidence" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line,#ccc);background:#0c1526"></a>`
+    : `<a href="${fileUrl}" target="_blank" class="chip">📄 open file</a>`;
+  const gps = (a.gps&&a.gps.lat!=null)
+    ? `<a href="https://maps.google.com/?q=${esc(a.gps.lat)},${esc(a.gps.lng)}" target="_blank">📍 ${esc(a.gps.lat)}, ${esc(a.gps.lng)}</a>${a.gps.accuracy_m!=null?` (±${esc(a.gps.accuracy_m)}m)`:''}`
+    : '<span class="sub">no GPS on this file</span>';
+  const sealed = a.seal ? '<span class="pill ok">🔒 Sealed</span>' : '<span class="pill md">unsealed</span>';
+  const sha = e.sha256 ? esc(e.sha256).slice(0,16)+'…' : '—';
+  const audit = `<div class="src" style="margin-top:6px;line-height:1.6">
+      ${sealed} · Captured <b>${esc(abFmtWhen(a.captured_at))}</b> <span class="sub">(${esc(a.captured_at_source||'—')})</span> · ${gps}<br>
+      SHA-256 <code>${sha}</code> · <button class="btn ghost sm" onclick="abCheckIntegrity('${esc(e.evidence_id)}')">Check integrity</button>
+      <span id="abint-${esc(e.evidence_id)}" class="sub"></span>
+    </div>`;
   return `<div class="item" style="margin:6px 0">
-    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <div><a href="/api/abatement/matters/${esc(AB_CUR)}/evidence/${esc(e.evidence_id)}/file" target="_blank">${esc(e.original_filename||e.evidence_id)}</a>
-        <span class="chip">${esc(e.role||'')}</span> ${badge}</div>
-      <div>${st==='verified'?'':`<button class="btn sm" onclick="abVerifyEv('${esc(e.evidence_id)}')">Verify</button>`}
-        <button class="btn ghost sm" onclick="abConflictEv('${esc(e.evidence_id)}')">${e.conflicting?'Clear conflict':'Flag conflict'}</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div>${thumb}</div>
+      <div style="flex:1;min-width:180px">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div><b>${esc(e.original_filename||e.evidence_id)}</b> <span class="chip">${esc(e.role||'')}</span> ${badge}</div>
+          <div>${st==='verified'?'':`<button class="btn sm" onclick="abVerifyEv('${esc(e.evidence_id)}')">Verify</button>`}
+            <button class="btn ghost sm" onclick="abConflictEv('${esc(e.evidence_id)}')">${e.conflicting?'Clear conflict':'Flag conflict'}</button></div>
+        </div>
+        ${e.caption?`<div class="sub">${esc(e.caption)}</div>`:''}
+        ${ai}
+        ${audit}
+      </div>
     </div>
-    ${e.caption?`<div class="sub">${esc(e.caption)}</div>`:''}
-    ${ai}
   </div>`;
+}
+async function abCheckIntegrity(eid){
+  const el=document.getElementById('abint-'+eid); if(el) el.textContent=' checking…';
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/evidence/'+encodeURIComponent(eid)+'/audit');
+  if(!ok||!j||!j.integrity){ if(el) el.textContent=' could not check'; return; }
+  const i=j.integrity;
+  if(el) el.innerHTML = i.tamper_evident_ok
+    ? ' <span class="pill ok">✓ Intact — seal valid & file unaltered</span>'
+    : ' <span class="pill no">⚠ Integrity check failed</span>';
 }
 async function abSetStatus(){
   const v=$('#ab-status-sel').value;

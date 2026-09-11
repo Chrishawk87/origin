@@ -235,10 +235,20 @@ _CLIENT_PAGE = """<!doctype html>
     border:1px solid var(--line); background:#0c1526; color:var(--ink); font-size:14px; }
   .btn{ margin-top:10px; padding:11px 16px; border:0; border-radius:10px;
         background:var(--accent); color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
+  .btn.cam{ display:block; width:100%; text-align:center; font-size:16px; padding:14px; }
+  .btn.ghost{ background:transparent; border:1px solid var(--line); color:var(--ink); font-weight:600; }
   .btn[disabled]{ opacity:.5; }
   .msg{ font-size:13px; margin-top:8px; color:var(--ok); }
   .empty{ color:var(--muted); text-align:center; padding:30px 0; }
   .done{ opacity:.7; }
+  .thumbs{ display:flex; flex-wrap:wrap; gap:10px; margin:10px 0; }
+  .thumb{ width:100px; }
+  .thumb img{ width:100px; height:100px; object-fit:cover; border-radius:10px;
+    border:1px solid var(--line); background:#0c1526; display:block; }
+  .audit{ font-size:10px; color:var(--muted); margin-top:3px; line-height:1.35; }
+  .seal{ color:var(--ok); font-weight:700; }
+  .hide{ position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+  .filename{ font-size:12px; color:var(--muted); margin-top:6px; }
 </style></head>
 <body><div class="wrap">
   <div class="word">ORIGIN<span>.</span></div>
@@ -254,6 +264,27 @@ _CLIENT_PAGE = """<!doctype html>
   function api(path,opts){return fetch(path,Object.assign({credentials:"same-origin"},opts||{}))
     .then(function(r){return r.json().then(function(j){return {ok:r.ok,status:r.status,j:j};});});}
 
+  function fmtWhen(s){ if(!s) return ""; try{ var d=new Date(s); if(!isNaN(d)) return d.toLocaleString(); }catch(e){} return s; }
+
+  function thumbs(ev){
+    if(!ev||!ev.length) return "";
+    var h='<div class="thumbs">';
+    ev.forEach(function(e){
+      var isImg=(e.kind==="photo");
+      var seal=e.sealed?'<span class="seal">&#128274; Sealed</span>':'';
+      var when=e.captured_at?(' &middot; '+esc(fmtWhen(e.captured_at))):'';
+      var gps=(e.gps&&e.gps.lat!=null)?('<br>&#128205; '+esc(e.gps.lat)+', '+esc(e.gps.lng)):'';
+      var vr=(e.verification_status==="verified")?'<br>&#10003; Verified by attorney':'';
+      h+='<div class="thumb">';
+      if(isImg){ h+='<a href="'+esc(e.file_url)+'" target="_blank"><img src="'+esc(e.file_url)+'" alt="evidence"></a>'; }
+      else { h+='<a class="filename" href="'+esc(e.file_url)+'" target="_blank">&#128196; '+esc(e.original_filename||"file")+'</a>'; }
+      h+='<div class="audit">'+seal+when+gps+vr+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    return h;
+  }
+
   function card(t){
     var done = (t.status==="verified"||t.status==="closed");
     var can = !done;
@@ -263,37 +294,77 @@ _CLIENT_PAGE = """<!doctype html>
     if(t.detail) h+='<div class="detail">'+esc(t.detail)+'</div>';
     h+='<div style="margin:8px 0"><span class="pill '+esc(t.status)+'">'+esc(t.status)+'</span></div>';
     if(t.client_note) h+='<div class="detail"><b>Your note:</b> '+esc(t.client_note)+'</div>';
+    h+=thumbs(t.evidence);
     if(can){
-      h+='<label>Attach a document or photo (optional)</label>';
-      h+='<input type="file" id="f-'+esc(t.task_id)+'">';
+      // Rear-camera capture on phones. Each photo is date-stamped, GPS-located,
+      // and sealed into a tamper-evident audit trail the moment it's uploaded.
+      h+='<input class="hide" type="file" accept="image/*" capture="environment" id="cam-'+esc(t.task_id)+'" onchange="fileChosen(\\''+esc(t.task_id)+'\\',\\'cam\\')">';
+      h+='<input class="hide" type="file" id="doc-'+esc(t.task_id)+'" onchange="fileChosen(\\''+esc(t.task_id)+'\\',\\'doc\\')">';
+      h+='<button class="btn cam" onclick="document.getElementById(\\'cam-'+esc(t.task_id)+'\\').click()">&#128247; Take photo of the completed fix</button>';
+      h+='<button class="btn ghost" onclick="document.getElementById(\\'doc-'+esc(t.task_id)+'\\').click()">Attach a document instead</button>';
+      h+='<div class="filename" id="chosen-'+esc(t.task_id)+'"></div>';
       h+='<label>Add a note for your attorney (optional)</label>';
-      h+='<textarea id="n-'+esc(t.task_id)+'" rows="2" placeholder="e.g. Guard installed 9/12, photo attached"></textarea>';
-      h+='<button class="btn" onclick="submitTask(\\''+esc(t.task_id)+'\\')">Mark done & send to attorney</button>';
+      h+='<textarea id="n-'+esc(t.task_id)+'" rows="2" placeholder="e.g. Guardrail installed 9/12"></textarea>';
+      h+='<button class="btn" onclick="submitTask(\\''+esc(t.task_id)+'\\')">Mark done &amp; send to attorney</button>';
       h+='<div class="msg" id="m-'+esc(t.task_id)+'"></div>';
     }
     h+='</div>';
     return h;
   }
 
+  // Which input holds the pending file for a task, and its intended role.
+  var pending={};
+  window.fileChosen=function(id,which){
+    var inp=document.getElementById((which==="cam"?"cam-":"doc-")+id);
+    if(!inp||!inp.files||!inp.files.length){ return; }
+    pending[id]={input:inp, role:(which==="cam"?"after":"supporting")};
+    var lbl=document.getElementById("chosen-"+id);
+    if(lbl) lbl.textContent="Ready to send: "+inp.files[0].name;
+  };
+
+  // Grab a live GPS fix at the moment of capture. Non-blocking: if the client
+  // denies location or it times out, we still upload (GPS just won't be stamped).
+  function getGeo(){
+    return new Promise(function(resolve){
+      if(!navigator.geolocation){ resolve(""); return; }
+      var done=false;
+      var t=setTimeout(function(){ if(!done){ done=true; resolve(""); } }, 8000);
+      navigator.geolocation.getCurrentPosition(function(p){
+        if(done) return; done=true; clearTimeout(t);
+        resolve(JSON.stringify({lat:p.coords.latitude, lng:p.coords.longitude, accuracy:p.coords.accuracy}));
+      }, function(){ if(!done){ done=true; clearTimeout(t); resolve(""); } },
+      {enableHighAccuracy:true, timeout:7000, maximumAge:0});
+    });
+  }
+
   window.submitTask=function(id){
     var msg=document.getElementById("m-"+id);
     var note=(document.getElementById("n-"+id)||{}).value||"";
-    var fileInput=document.getElementById("f-"+id);
-    var btn=document.querySelector("#c-"+id+" .btn"); if(btn) btn.disabled=true;
-    msg.textContent="Sending…";
-    var evPromise=Promise.resolve([]);
-    if(fileInput && fileInput.files && fileInput.files.length){
-      var fd=new FormData(); fd.append("file",fileInput.files[0]);
-      fd.append("caption",note);
-      evPromise=api("/api/abatement/client/upload",{method:"POST",body:fd})
-        .then(function(r){return (r.j&&r.j.evidence_id)?[r.j.evidence_id]:[];});
-    }
-    evPromise.then(function(evIds){
+    var btn=document.querySelector("#c-"+id+" .btn:not(.cam):not(.ghost)"); if(btn) btn.disabled=true;
+    msg.textContent="Getting location…";
+    var p=pending[id];
+    var upload;
+    if(p && p.input && p.input.files && p.input.files.length){
+      upload=getGeo().then(function(geo){
+        msg.textContent="Uploading & sealing…";
+        var fd=new FormData();
+        fd.append("file",p.input.files[0]);
+        fd.append("caption",note);
+        fd.append("role",p.role);
+        fd.append("capture_source", p.role==="after"?"in_app_camera":"in_app_upload");
+        fd.append("captured_at", new Date().toISOString());
+        if(geo) fd.append("gps",geo);
+        return api("/api/abatement/client/upload",{method:"POST",body:fd})
+          .then(function(r){return (r.j&&r.j.evidence_id)?[r.j.evidence_id]:[];});
+      });
+    } else { upload=Promise.resolve([]); }
+    upload.then(function(evIds){
+      msg.textContent="Sending to attorney…";
       return api("/api/abatement/client/tasks/"+id+"/submit",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({note:note,evidence_ids:evIds})});
     }).then(function(r){
-      if(r.ok&&r.j&&r.j.ok){ load(); }
+      if(r.ok&&r.j&&r.j.ok){ delete pending[id]; load(); }
       else { msg.textContent=(r.j&&r.j.error)||"Could not send."; if(btn)btn.disabled=false; }
     }).catch(function(){ msg.textContent="Network error."; if(btn)btn.disabled=false; });
   };
@@ -388,6 +459,26 @@ def register_abatement_tasks(app) -> None:
     def ab_client_page():
         return HTMLResponse(_CLIENT_PAGE, headers=_NO_STORE)
 
+    def _ev_view(e: Dict[str, Any]) -> Dict[str, Any]:
+        """The safe, client-facing shape of an evidence record (their own matter).
+        Exposes the audit facts that make it deposition-ready, hides nothing
+        sensitive — it's the client's own upload."""
+        a = e.get("audit", {}) or {}
+        return {
+            "evidence_id": e.get("evidence_id", ""),
+            "citation_item_id": e.get("citation_item_id", ""),
+            "kind": e.get("kind", ""),
+            "role": e.get("role", ""),
+            "original_filename": e.get("original_filename", ""),
+            "caption": e.get("caption", ""),
+            "verification_status": e.get("verification_status", "unverified"),
+            "file_url": f"/api/abatement/client/evidence/{e.get('evidence_id','')}/file",
+            "captured_at": a.get("captured_at", ""),
+            "gps": a.get("gps"),
+            "sha256": e.get("sha256", ""),
+            "sealed": bool(a.get("seal")),
+        }
+
     @app.get("/api/abatement/client/matter")
     def ab_client_matter(request: Request):
         mid = _access.client_scope_matter(request)
@@ -396,26 +487,61 @@ def register_abatement_tasks(app) -> None:
         rec = _mm.get(mid)
         if not rec:
             return JSONResponse({"error": "matter not found"}, status_code=404)
+        # Group the client's own uploaded evidence by task so photos are visible.
+        ev_by_task: Dict[str, List[Dict[str, Any]]] = {}
+        all_ev = {e.get("evidence_id"): e for e in _vault.list_evidence(mid)}
+        tasks = list_tasks(mid)
+        for t in tasks:
+            shown = [all_ev[i] for i in (t.get("evidence_ids") or []) if i in all_ev]
+            ev_by_task[t["task_id"]] = [_ev_view(e) for e in shown]
         return {"ok": True, "matter_id": mid,
                 "client_name": rec.get("client_name", ""),
                 "osha_inspection_number": rec.get("osha_inspection_number", ""),
                 "disclaimer": CLIENT_DISCLAIMER,
-                "tasks": [_view(t) for t in list_tasks(mid)]}
+                "tasks": [dict(_view(t), evidence=ev_by_task.get(t["task_id"], []))
+                          for t in tasks]}
+
+    @app.get("/api/abatement/client/evidence/{evidence_id}/file")
+    def ab_client_evidence_file(evidence_id: str, request: Request):
+        # A client may only fetch files that belong to their own token matter.
+        mid = _access.client_scope_matter(request)
+        if not mid:
+            return JSONResponse({"error": "no client session"}, status_code=401)
+        data, rec = _vault.get_file(mid, evidence_id)
+        if data is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        import mimetypes
+        from fastapi.responses import Response
+        ctype = mimetypes.guess_type(rec.get("original_filename", ""))[0] or "application/octet-stream"
+        return Response(content=data, media_type=ctype, headers=_NO_STORE)
 
     @app.post("/api/abatement/client/upload")
     async def ab_client_upload(request: Request, file: UploadFile = File(...),
                                caption: str = Form(""),
-                               citation_item_id: str = Form("")):
+                               citation_item_id: str = Form(""),
+                               role: str = Form("after"),
+                               gps: str = Form(""),
+                               captured_at: str = Form(""),
+                               capture_source: str = Form("")):
         mid = _access.client_scope_matter(request)
         if not mid:
             return JSONResponse({"error": "no client session"}, status_code=401)
         content = await file.read()
-        rec = _vault.store_evidence(mid, content=content,
-                                    filename=file.filename or "upload",
-                                    citation_item_id=citation_item_id,
-                                    role="supporting", caption=caption, by="client")
-        # Client uploads land as UNVERIFIED — only the firm can verify.
-        return {"ok": True, "evidence_id": rec["evidence_id"]}
+        # A photo of a corrected hazard is "after" evidence by default; a plain
+        # document upload can pass role=supporting. Client uploads always land
+        # UNVERIFIED — only the firm can verify. The audit block (hash + capture
+        # time + GPS + device) is sealed at write time so the trail is tamper-evident.
+        rec = _vault.store_evidence(
+            mid, content=content, filename=file.filename or "upload",
+            citation_item_id=citation_item_id,
+            role=(role or "after"), caption=caption, by="client",
+            gps=_vault._parse_gps(gps), captured_at=captured_at,
+            capture_source=(capture_source or "in_app_camera"),
+            device=_vault._ua(request), client_ip=_vault._ip(request))
+        return {"ok": True, "evidence_id": rec["evidence_id"],
+                "captured_at": rec.get("audit", {}).get("captured_at", ""),
+                "gps": rec.get("audit", {}).get("gps"),
+                "sealed": bool(rec.get("audit", {}).get("seal"))}
 
     @app.post("/api/abatement/client/tasks/{task_id}/submit")
     def ab_client_submit(task_id: str, request: Request, body: dict = Body(default=None)):

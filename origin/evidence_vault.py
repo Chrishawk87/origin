@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import re
 import uuid
@@ -110,20 +111,163 @@ def _norm_role(role: str) -> str:
     return r if r in ROLES else "supporting"
 
 
+# ── tamper-evident seal + chain of custody ───────────────────────────────────────
+# Every evidence file gets an immutable audit block sealed with an HMAC keyed on
+# the deployment secret. The seal signs the facts that make the file admissible —
+# its content hash, when/where it was captured, who uploaded it — so any later
+# edit to the record (or a swap of the underlying file) is detectable. This is the
+# "tamper-proof, date-stamped, GPS-located audit trail" the abatement record needs.
+def _seal_secret() -> bytes:
+    try:
+        from . import portal as _p
+        if getattr(_p, "SECRET", None):
+            return str(_p.SECRET).encode()
+    except Exception:
+        pass
+    import os as _os
+    return (_os.environ.get("ORIGIN_PORTAL_SECRET") or "origin-abatement-seal").encode()
+
+
+def _seal_fields(rec: Dict[str, Any]) -> Dict[str, Any]:
+    """The exact, canonical subset of a record that the seal protects."""
+    a = rec.get("audit", {}) or {}
+    return {
+        "evidence_id": rec.get("evidence_id", ""),
+        "matter_id": rec.get("matter_id", ""),
+        "sha256": rec.get("sha256", ""),
+        "bytes": rec.get("bytes", 0),
+        "captured_at": a.get("captured_at", ""),
+        "gps": a.get("gps") or None,
+        "uploaded_at": rec.get("uploaded_at", ""),
+        "uploaded_by": rec.get("uploaded_by", ""),
+    }
+
+
+def _seal(fields: Dict[str, Any]) -> str:
+    body = json.dumps(fields, separators=(",", ":"), sort_keys=True).encode()
+    return hmac.new(_seal_secret(), body, hashlib.sha256).hexdigest()
+
+
+def _dms_to_decimal(val, ref) -> Optional[float]:
+    """Convert an EXIF (deg, min, sec) rational triple + hemisphere ref to a
+    signed decimal degree. Best-effort; returns None on any malformed input."""
+    try:
+        d, m, s = float(val[0]), float(val[1]), float(val[2])
+        dec = d + m / 60.0 + s / 3600.0
+        if str(ref).strip().upper() in ("S", "W"):
+            dec = -dec
+        return round(dec, 6)
+    except Exception:
+        return None
+
+
+def _exif_gps_time(content: bytes):
+    """Best-effort EXIF read for GPS coordinates + original capture time. Uses
+    Pillow only if it's importable; returns (gps_dict_or_None, iso_time_or_"").
+    Never raises — device geolocation is the primary GPS source, EXIF corroborates."""
+    try:
+        import io
+        from PIL import Image, ExifTags  # type: ignore
+        img = Image.open(io.BytesIO(content or b""))
+        raw = img._getexif() or {}
+        if not raw:
+            return None, ""
+        tags = {ExifTags.TAGS.get(k, k): v for k, v in raw.items()}
+        captured = ""
+        dto = tags.get("DateTimeOriginal") or tags.get("DateTimeDigitized") or tags.get("DateTime")
+        if dto:
+            try:
+                captured = datetime.strptime(str(dto), "%Y:%m:%d %H:%M:%S").isoformat()
+            except Exception:
+                captured = str(dto)
+        gps = None
+        gi = tags.get("GPSInfo")
+        if gi:
+            g = {ExifTags.GPSTAGS.get(k, k): v for k, v in gi.items()}
+            lat = _dms_to_decimal(g.get("GPSLatitude"), g.get("GPSLatitudeRef"))
+            lng = _dms_to_decimal(g.get("GPSLongitude"), g.get("GPSLongitudeRef"))
+            if lat is not None and lng is not None:
+                gps = {"lat": lat, "lng": lng, "source": "exif"}
+        return gps, captured
+    except Exception:
+        return None, ""
+
+
+def _parse_gps(raw: str) -> Optional[Dict[str, Any]]:
+    """Parse a client-supplied GPS payload (JSON string or 'lat,lng'). Best-effort."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    try:
+        obj = json.loads(s)
+        if isinstance(obj, dict) and obj.get("lat") is not None:
+            return obj
+    except Exception:
+        pass
+    try:
+        parts = s.split(",")
+        if len(parts) >= 2:
+            return {"lat": float(parts[0]), "lng": float(parts[1])}
+    except Exception:
+        pass
+    return None
+
+
+def _ua(request) -> str:
+    try:
+        return (request.headers.get("user-agent") or "")[:400]
+    except Exception:
+        return ""
+
+
+def _ip(request) -> str:
+    try:
+        xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+        if xff:
+            return xff
+        return getattr(getattr(request, "client", None), "host", "") or ""
+    except Exception:
+        return ""
+
+
 # ── ingest ──────────────────────────────────────────────────────────────────────
 def store_evidence(matter_id: str, *, content: bytes, filename: str,
                    citation_item_id: str = "", role: str = "supporting",
                    kind: str = "", caption: str = "", by: str = "",
-                   ai_observation: str = "") -> Dict[str, Any]:
+                   ai_observation: str = "",
+                   gps: Optional[Dict[str, Any]] = None, captured_at: str = "",
+                   capture_source: str = "", device: str = "",
+                   client_ip: str = "") -> Dict[str, Any]:
     """Persist one evidence file for a matter. The original bytes are written
     unmodified; the stored name is content-addressed so an upload never clobbers
-    an existing before/after file. Returns the evidence record."""
+    an existing before/after file. A sealed, immutable **audit block** and a
+    chain-of-custody entry are attached: content hash, capture time, GPS, device
+    and uploader — signed so tampering is detectable. Returns the evidence record."""
     matter_dir = _matter_dir(matter_id)
-    sha = hashlib.sha256(content or b"").hexdigest()
+    raw = content or b""
+    sha = hashlib.sha256(raw).hexdigest()
     ext = Path(filename or "").suffix.lower()
     ev_id = "ev-" + uuid.uuid4().hex[:10]
     stored_name = f"{ev_id}{ext}"
-    (matter_dir / stored_name).write_bytes(content or b"")
+    (matter_dir / stored_name).write_bytes(raw)
+
+    now = _now()
+    # Build the audit facts. Device geolocation (captured live at the moment the
+    # photo is taken) is the primary GPS; EXIF GPS, when present, corroborates.
+    dev_gps = None
+    if isinstance(gps, dict) and gps.get("lat") is not None and gps.get("lng") is not None:
+        try:
+            dev_gps = {"lat": round(float(gps["lat"]), 6),
+                       "lng": round(float(gps["lng"]), 6),
+                       "accuracy_m": (round(float(gps["accuracy"]), 1)
+                                      if gps.get("accuracy") is not None else None),
+                       "source": "device"}
+        except Exception:
+            dev_gps = None
+    exif_gps, exif_time = _exif_gps_time(raw)
+    primary_gps = dev_gps or exif_gps
+    captured = exif_time or (captured_at or "").strip() or now
+    captured_src = "exif" if exif_time else ("device" if (captured_at or "").strip() else "server")
 
     rec = {
         "evidence_id": ev_id,
@@ -136,7 +280,7 @@ def store_evidence(matter_id: str, *, content: bytes, filename: str,
         "classification": _classify(filename, kind),
         "caption": (caption or "").strip(),
         "sha256": sha,
-        "bytes": len(content or b""),
+        "bytes": len(raw),
         "verification_status": "unverified",
         "verified_by": "",
         "verified_at": "",
@@ -146,12 +290,60 @@ def store_evidence(matter_id: str, *, content: bytes, filename: str,
         "ai_observation": (ai_observation or "").strip(),
         "ai_disclaimer": VISION_DISCLAIMER if ai_observation else "",
         "uploaded_by": by or "",
-        "uploaded_at": _now(),
+        "uploaded_at": now,
+        "audit": {
+            "sha256": sha,
+            "hash_algo": "SHA-256",
+            "bytes": len(raw),
+            "captured_at": captured,
+            "captured_at_source": captured_src,
+            "gps": primary_gps,
+            "gps_source": (primary_gps or {}).get("source", "") if primary_gps else "",
+            "exif_gps": exif_gps,
+            "uploaded_at": now,
+            "uploaded_by": by or "",
+            "device": (device or "")[:400],
+            "client_ip": (client_ip or "").strip(),
+            "capture_source": (capture_source or "").strip(),
+            "seal_alg": "HMAC-SHA256",
+        },
+        "chain_of_custody": [{
+            "event": "captured_uploaded",
+            "at": now,
+            "by": by or "",
+            "detail": "Original file received, content-hashed, and audit record sealed.",
+        }],
     }
+    # Seal LAST, over the finalized audit facts.
+    rec["audit"]["seal"] = _seal(_seal_fields(rec))
     items = _read_index(matter_id)
     items.insert(0, rec)
     _write_index(matter_id, items)
     return rec
+
+
+def verify_integrity(matter_id: str, evidence_id: str) -> Dict[str, Any]:
+    """Recompute the file hash and re-check the seal. This is what makes the trail
+    deposition-ready: it proves the stored bytes and the sealed facts are unchanged."""
+    data, rec = get_file(matter_id, evidence_id)
+    if rec is None:
+        return {"found": False}
+    file_present = data is not None
+    file_hash = hashlib.sha256(data).hexdigest() if file_present else ""
+    file_matches = bool(file_present and file_hash == rec.get("sha256"))
+    seal = (rec.get("audit") or {}).get("seal", "")
+    seal_valid = bool(seal) and hmac.compare_digest(seal, _seal(_seal_fields(rec)))
+    return {
+        "found": True,
+        "evidence_id": evidence_id,
+        "file_present": file_present,
+        "file_hash": file_hash,
+        "stored_hash": rec.get("sha256", ""),
+        "file_hash_matches": file_matches,
+        "sealed": bool(seal),
+        "seal_valid": seal_valid,
+        "tamper_evident_ok": bool(seal_valid and file_matches),
+    }
 
 
 def store_evidence_b64(matter_id: str, *, data_b64: str, filename: str,
@@ -171,6 +363,15 @@ def verify_evidence(matter_id: str, evidence_id: str, *, by: str = "attorney",
             r["verification_status"] = st
             r["verified_by"] = by if st == "verified" else ""
             r["verified_at"] = _now() if st == "verified" else ""
+            # Append to the chain of custody. The sealed audit block is NOT
+            # touched (it protects capture facts, not review state), so the seal
+            # stays valid across verification.
+            r.setdefault("chain_of_custody", []).append({
+                "event": "verified" if st == "verified" else "unverified",
+                "at": _now(), "by": by or "",
+                "detail": ("Firm marked evidence verified after review."
+                           if st == "verified" else "Verification cleared."),
+            })
             items[i] = r
             _write_index(matter_id, items)
             return r
@@ -289,18 +490,24 @@ def register_evidence_vault(app) -> None:
     from fastapi.responses import JSONResponse, Response
 
     @app.post("/api/abatement/matters/{matter_id}/evidence")
-    async def ev_upload(matter_id: str,
+    async def ev_upload(matter_id: str, request: Request,
                         file: UploadFile = File(...),
                         citation_item_id: str = Form(""),
                         role: str = Form("supporting"),
                         caption: str = Form(""),
-                        by: str = Form("")):
+                        by: str = Form(""),
+                        gps: str = Form(""),
+                        captured_at: str = Form(""),
+                        capture_source: str = Form("")):
         try:
             content = await file.read()
             rec = store_evidence(matter_id, content=content,
                                  filename=file.filename or "upload",
                                  citation_item_id=citation_item_id, role=role,
-                                 caption=caption, by=by)
+                                 caption=caption, by=by,
+                                 gps=_parse_gps(gps), captured_at=captured_at,
+                                 capture_source=capture_source,
+                                 device=_ua(request), client_ip=_ip(request))
             return {"ok": True, "evidence": rec}
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=200)
@@ -352,6 +559,18 @@ def register_evidence_vault(app) -> None:
         if not rec:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"ok": True, "evidence": rec}
+
+    @app.get("/api/abatement/matters/{matter_id}/evidence/{evidence_id}/audit")
+    def ev_audit(matter_id: str, evidence_id: str):
+        for r in _read_index(matter_id):
+            if r.get("evidence_id") == evidence_id:
+                return {"ok": True, "audit": r.get("audit", {}),
+                        "chain_of_custody": r.get("chain_of_custody", []),
+                        "integrity": verify_integrity(matter_id, evidence_id),
+                        "disclaimer": ("Workflow audit record. Establishes when/where/by-whom "
+                                       "the file was captured and that it is unaltered; it is not "
+                                       "a legal determination.")}
+        return JSONResponse({"error": "not found"}, status_code=404)
 
     @app.get("/api/abatement/matters/{matter_id}/gap-analysis")
     def ev_gap(matter_id: str):
