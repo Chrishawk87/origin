@@ -443,6 +443,65 @@ def attach_library_doc(matter_id: str, item_id: str, *, kind: str, doc_id: str,
     return None
 
 
+def get_library_doc(matter_id: str, item_id: str, ref_id: str) -> Optional[Dict[str, Any]]:
+    """Return the attached-library-doc reference dict, or None."""
+    ref_id = (ref_id or "").strip()
+    rec = get(matter_id)
+    if not rec:
+        return None
+    for it in rec.get("citation_items", []):
+        if it.get("item_id") == item_id:
+            for d in it.get("library_docs", []) or []:
+                if d.get("ref_id") == ref_id:
+                    return d
+    return None
+
+
+def rename_library_doc(matter_id: str, item_id: str, ref_id: str,
+                       title: str) -> Optional[Dict[str, Any]]:
+    """Change the display title of an attached library document. Returns the
+    updated ref dict, or None if not found."""
+    ref_id = (ref_id or "").strip()
+    rec = get(matter_id)
+    if not rec:
+        return None
+    for it in rec.get("citation_items", []):
+        if it.get("item_id") == item_id:
+            for d in it.get("library_docs", []) or []:
+                if d.get("ref_id") == ref_id:
+                    d["title"] = (title or "").strip()
+                    rec["updated_at"] = _now()
+                    save(rec)
+                    return d
+    return None
+
+
+def set_library_doc_body(matter_id: str, item_id: str, ref_id: str,
+                         body: str) -> Optional[Dict[str, Any]]:
+    """Store an attorney-edited body override on an attached library document, so
+    the edited copy (not the blank master) is what renders in the package. Pass an
+    empty string to clear the override and revert to the library master."""
+    ref_id = (ref_id or "").strip()
+    rec = get(matter_id)
+    if not rec:
+        return None
+    for it in rec.get("citation_items", []):
+        if it.get("item_id") == item_id:
+            for d in it.get("library_docs", []) or []:
+                if d.get("ref_id") == ref_id:
+                    b = body if isinstance(body, str) else ""
+                    if b.strip():
+                        d["body_override"] = b
+                        d["edited_at"] = _now()
+                    else:
+                        d.pop("body_override", None)
+                        d.pop("edited_at", None)
+                    rec["updated_at"] = _now()
+                    save(rec)
+                    return d
+    return None
+
+
 def remove_library_doc(matter_id: str, item_id: str, ref_id: str) -> Optional[Dict[str, Any]]:
     """Detach a previously-attached library document from a citation item."""
     ref_id = (ref_id or "").strip()
@@ -460,6 +519,54 @@ def remove_library_doc(matter_id: str, item_id: str, ref_id: str) -> Optional[Di
             save(rec)
             return it
     return None
+
+
+# ── document fill values (auto-fill the written programs / JSAs / training) ─────
+# The library documents ship with {{TOKEN}} placeholders (company name, address,
+# effective date, program administrator, etc.). These are the client-specific
+# values the attorney enters ONCE per matter; they are substituted into every
+# attached document at package-build and at view/edit time. Stored on the matter
+# so they persist and never bleed across matters.
+FILL_FIELDS = (
+    "company_name", "company_address", "effective_date",
+    "program_administrator", "admin_title", "admin_phone",
+    "admin_email", "scope",
+)
+
+
+def default_fill(rec: Dict[str, Any]) -> Dict[str, str]:
+    """Best-effort starting values for a matter's document fill, so nothing
+    renders as a raw {{TOKEN}}. Only the company name is known for certain (the
+    client on the matter); everything else starts blank for the attorney."""
+    f = dict.fromkeys(FILL_FIELDS, "")
+    f.update({k: str(v) for k, v in (rec.get("fill") or {}).items() if k in FILL_FIELDS})
+    if not f.get("company_name"):
+        f["company_name"] = rec.get("client_name", "") or ""
+    if not f.get("effective_date"):
+        f["effective_date"] = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    return f
+
+
+def get_fill(matter_id: str) -> Dict[str, str]:
+    rec = get(matter_id)
+    return default_fill(rec) if rec else dict.fromkeys(FILL_FIELDS, "")
+
+
+def set_fill(matter_id: str, fields: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """Save the attorney-entered document fill values on the matter. Only known
+    fields are stored; blanks are allowed (they clear a value)."""
+    rec = get(matter_id)
+    if not rec:
+        return None
+    cur = dict(rec.get("fill") or {})
+    for k in FILL_FIELDS:
+        if k in (fields or {}):
+            v = fields[k]
+            cur[k] = (v or "").strip() if isinstance(v, str) else v
+    rec["fill"] = cur
+    rec["updated_at"] = _now()
+    save(rec)
+    return default_fill(rec)
 
 
 def set_status(matter_id: str, status: str, *, by: str = "") -> Optional[Dict[str, Any]]:
@@ -753,6 +860,20 @@ def register_abatement_matter(app) -> None:
         if not rec:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"ok": True, "matter": rec}
+
+    @app.get("/api/abatement/matters/{matter_id}/fill")
+    def ab_get_fill(matter_id: str):
+        if not get(matter_id):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return {"ok": True, "fill": get_fill(matter_id), "fields": list(FILL_FIELDS)}
+
+    @app.post("/api/abatement/matters/{matter_id}/fill")
+    def ab_set_fill(matter_id: str, body: dict = Body(default=None)):
+        p = body if isinstance(body, dict) else {}
+        f = set_fill(matter_id, p.get("fill") if isinstance(p.get("fill"), dict) else p)
+        if f is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return {"ok": True, "fill": f}
 
     @app.get("/api/abatement/matters/{matter_id}/readiness")
     def ab_readiness(matter_id: str):

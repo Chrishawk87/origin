@@ -652,6 +652,21 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         except Exception:
             return False
 
+    def _partner_slug_ok(request):
+        """The slug of the white-label SIE partner whose session cookie this
+        request carries, or None. Mirrors _gc_slug_ok exactly — a partner is a
+        first-class abatement tenant scoped by its own slug (see sie_partners.py).
+        Its own cookie, so this never interferes with owner/GC/client sessions."""
+        try:
+            from . import portal as _portal
+            cookie = getattr(_portal, "SIE_PARTNER_COOKIE", "origin_sie_partner")
+            p = _portal._unsign(request.cookies.get(cookie, ""))
+            if p and p.get("role") == "sie_partner":
+                return (p.get("slug") or "").strip() or None
+        except Exception:
+            pass
+        return None
+
     # The tenant-scoped SIE surface a logged-in GC may reach. Everything else
     # under /api stays owner-only. Safe-by-default: a path must match here to be
     # reachable by a GC at all, and any company_id it names must be one the GC
@@ -797,6 +812,20 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                 request.state.sie_owner = True
                 request.state.sie_gc_slug = (request.query_params.get("gc") or "").strip() or None
             else:
+                # White-label SIE partner (see sie_partners.py): a first-class
+                # abatement tenant. Its whole surface is the Abatement API plus
+                # its own /api/sie-partner/self* branding routes, every one of
+                # which self-scopes by firm_slug == sie_gc_slug — so a partner
+                # can only ever touch its OWN matters. Checked BEFORE the GC path
+                # and gated on the partner cookie, so the GC branch is untouched.
+                partner_slug = _partner_slug_ok(request)
+                if partner_slug:
+                    if not (path.startswith("/api/abatement")
+                            or path.startswith("/api/sie-partner/self")):
+                        return JSONResponse({"error": "forbidden"}, status_code=403)
+                    request.state.sie_owner = False
+                    request.state.sie_gc_slug = partner_slug
+                    return await call_next(request)
                 # Not the owner. A logged-in GC gets a tenant-scoped slice of the
                 # SIE; anyone else is refused. The SIE console (/sie) is reached
                 # by an owner/admin via their portal admin SESSION cookie — honored
@@ -1655,7 +1684,8 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         # a signed-in client belongs in their own scoped portal; everyone else
         # is sent to the /sie sign-in screen.
         from starlette.responses import RedirectResponse
-        authed = _admin_session_ok(request) or bool(_gc_slug_ok(request))
+        authed = (_admin_session_ok(request) or bool(_gc_slug_ok(request))
+                  or bool(_partner_slug_ok(request)))
         if not authed and token and (request.query_params.get("token") == token):
             authed = True   # legacy owner access token still opens the console
         if not authed:
@@ -1678,16 +1708,13 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         console — the same brand as their parent dashboard. Owner/global sees
         the Origin brand. Resolves the tenant itself (this path is outside the
         /api gate that normally sets request.state.sie_gc_slug)."""
-        slug = _gc_slug_ok(request)
-        is_owner = (_admin_session_ok(request)
-                    or (bool(token) and request.query_params.get("token") == token)
-                    or (not token and not slug))
-        if is_owner:
-            # An owner previewing a specific tenant via ?gc=<slug> sees that brand.
-            slug = (request.query_params.get("gc") or "").strip() or None
-        out = {"ok": True, "is_owner": bool(is_owner), "slug": slug or "",
-               "name": "Origin", "brand_primary": "", "logo_url": ""}
-        if slug:
+        def _base(role, is_owner, slug=""):
+            return {"ok": True, "role": role, "is_owner": bool(is_owner),
+                    "slug": slug or "", "name": "Origin", "brand_primary": "",
+                    "brand_secondary": "", "theme": "dark", "tagline": "",
+                    "logo_url": ""}
+
+        def _paint_gc(out, slug):
             try:
                 from . import portal as _portal
                 rec = _portal.load_gc(slug)
@@ -1698,7 +1725,52 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
                         out["logo_url"] = "/portal/api/gc/%s/logo" % slug
             except Exception:
                 pass
-        return out
+            return out
+
+        # 1) Owner — admin cookie, or a matching ?token=, sees the Origin brand and
+        #    the owner-only management surface (e.g. the SIE Partners tab).
+        if (_admin_session_ok(request)
+                or (bool(token) and request.query_params.get("token") == token)):
+            # An owner previewing a specific tenant via ?gc=<slug> sees that brand.
+            preview = (request.query_params.get("gc") or "").strip() or None
+            out = _base("owner", True, preview or "")
+            if preview:
+                _paint_gc(out, preview)
+            return out
+
+        # 2) GC tenant — its own name/logo/accent across the console.
+        slug = _gc_slug_ok(request)
+        if slug:
+            return _paint_gc(_base("gc", False, slug), slug)
+
+        # 3) White-label SIE partner tenant — a first-class firm with its own
+        #    brand (name/primary/secondary/theme/tagline). Never owner.
+        pslug = _partner_slug_ok(request)
+        if pslug:
+            out = _base("sie_partner", False, pslug)
+            try:
+                from . import sie_partners as _sp
+                rec = _sp.load_partner(pslug)
+                if rec:
+                    pv = _sp.public_view(rec)
+                    out["name"] = pv.get("brand_name") or pv.get("name") or "Origin"
+                    out["brand_primary"] = pv.get("brand_primary") or ""
+                    out["brand_secondary"] = pv.get("brand_secondary") or ""
+                    out["theme"] = pv.get("theme") or "dark"
+                    out["tagline"] = pv.get("tagline") or ""
+            except Exception:
+                pass
+            return out
+
+        # 4) Contractor (client) session.
+        if _client_session_ok(request):
+            return _base("client", False, "")
+
+        # 5) Open/dev instance with no access token configured = owner (unchanged
+        #    from the original fail-open behavior for local runs).
+        if not token:
+            return _base("owner", True, "")
+        return _base("anon", False, "")
 
     # The prior multi-tab console is preserved verbatim at /sie-classic so no
     # existing workflow (companies / programs / prequal / audits / review /
@@ -2269,6 +2341,16 @@ def create_app(config: Optional[Config] = None, engine: Optional[Engine] = None,
         _sie_gate.register_sie_gate(app)
     except Exception as _sie_gate_exc:  # pragma: no cover
         print(f"[sie_gate] disabled — registration failed: {_sie_gate_exc}")
+
+    # ── White-label SIE partners (owner-created tenant firms) ──
+    # Owner CRUD + partner self-service branding. Isolated + non-fatal; a
+    # partner's matters are scoped by the abatement store's firm_slug, so a
+    # bug here can never leak one partner's data into another (see sie_partners.py).
+    try:
+        from . import sie_partners as _sie_partners
+        _sie_partners.register_sie_partners(app)
+    except Exception as _sie_partners_exc:  # pragma: no cover
+        print(f"[sie_partners] disabled — registration failed: {_sie_partners_exc}")
 
     # ── ISN Upload Tracker (abatement status ladder) ──
     # Additive overlay on the portal's own client.json; isolated + non-fatal.

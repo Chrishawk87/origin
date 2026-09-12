@@ -260,6 +260,7 @@ _CLIENT_PAGE = """<!doctype html>
 <script>
 (function(){
   var listEl=document.getElementById("list");
+  var TASKS={};  // task_id -> task record, so uploads can carry the citation link
   function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}
   function api(path,opts){return fetch(path,Object.assign({credentials:"same-origin"},opts||{}))
     .then(function(r){return r.json().then(function(j){return {ok:r.ok,status:r.status,j:j};});});}
@@ -353,6 +354,9 @@ _CLIENT_PAGE = """<!doctype html>
         fd.append("role",p.role);
         fd.append("capture_source", p.role==="after"?"in_app_camera":"in_app_upload");
         fd.append("captured_at", new Date().toISOString());
+        // Link the proof to the citation item so it lands in that item's evidence
+        // field and renders in the abatement package (not "No evidence attached").
+        fd.append("citation_item_id", (TASKS[id]&&TASKS[id].citation_item_id)||"");
         if(geo) fd.append("gps",geo);
         return api("/api/abatement/client/upload",{method:"POST",body:fd})
           .then(function(r){return (r.j&&r.j.evidence_id)?[r.j.evidence_id]:[];});
@@ -380,6 +384,7 @@ _CLIENT_PAGE = """<!doctype html>
       document.getElementById("msub").textContent=r.j.osha_inspection_number?("OSHA inspection "+r.j.osha_inspection_number):"";
       document.getElementById("disc").textContent=r.j.disclaimer||"";
       var tasks=r.j.tasks||[];
+      TASKS={}; tasks.forEach(function(t){ TASKS[t.task_id]=t; });
       if(!tasks.length){ listEl.innerHTML='<div class="empty">No tasks assigned yet. Your attorney will add items here.</div>'; return; }
       listEl.innerHTML=tasks.map(card).join("");
     });

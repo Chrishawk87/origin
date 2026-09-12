@@ -147,6 +147,15 @@ def _firm_actor(request) -> Optional[Dict[str, Any]]:
         return {"kind": "firm", "role": ATTORNEY,
                 "firm_slug": (g.get("slug") or "").strip() or None,
                 "matter_id": None, "name": ""}
+    # White-label SIE partner (see sie_partners.py): a first-class firm tenant.
+    # The partner runs its own book of matters, so it gets full firm-admin
+    # authority — but ONLY over matters stamped with its own slug (the abatement
+    # store already scopes every matter by firm_slug == sie_gc_slug).
+    sp = P._unsign(ck.get(getattr(P, "SIE_PARTNER_COOKIE", "origin_sie_partner"), ""))
+    if sp and sp.get("role") == "sie_partner":
+        return {"kind": "firm", "role": LAW_FIRM_ADMIN,
+                "firm_slug": (sp.get("slug") or "").strip() or None,
+                "matter_id": None, "name": ""}
     return None
 
 

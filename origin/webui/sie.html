@@ -389,6 +389,8 @@
   <button class="tab" data-tab="abmatters">Matters</button>
   <button class="tab" data-tab="abnew">New Matter</button>
   <button class="tab" data-tab="abmatter">Matter Workspace</button>
+  <div class="side-brand" id="side-partners" style="display:none">Owner</div>
+  <button class="tab" id="tab-partners" data-tab="partners" style="display:none">SIE Partners</button>
 </aside>
 <main class="wrap">
   <!-- ══ HOME / COMMAND CENTER ══ -->
@@ -730,6 +732,40 @@
     <div id="abmWrap"><div class="empty">Open a matter from the Matters tab.</div></div>
   </section>
 
+  <!-- ══ SIE PARTNERS (owner only) ══ -->
+  <section class="panel" id="p-partners">
+    <div class="hero">
+      <h1>White-label SIE partners</h1>
+      <p>Create a partner firm the same way you create a GC. Each partner signs in at <b>/sie</b> with their email + PIN, runs their own book of abatement matters that never bleed into another partner's, and can restyle their dashboard with their own brand.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Create a partner</h2>
+      <div class="grid2">
+        <label class="fld">Partner name
+          <input id="sp-name" placeholder="e.g. Alpha Safety Group">
+        </label>
+        <label class="fld">Login email
+          <input id="sp-email" type="email" placeholder="partner@example.com">
+        </label>
+        <label class="fld">Temporary PIN <span class="sub">(optional — defaults to 1234)</span>
+          <input id="sp-pin" placeholder="4–6 digits">
+        </label>
+        <label class="fld">Brand color <span class="sub">(optional)</span>
+          <input id="sp-color" type="color" value="#1E7A46" style="width:64px;height:40px;padding:2px">
+        </label>
+      </div>
+      <div class="note sub">The partner uses this email + PIN to sign in at /sie. Their matters, deadlines, evidence and documents are scoped to their own firm and never appear in another partner's console.</div>
+      <div style="margin-top:10px"><button class="btn" id="sp-create" onclick="spCreate()">Create partner</button>
+        <span id="sp-createMsg" class="sub" style="margin-left:10px"></span></div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Partners <span id="sp-count" class="sub"></span></h2>
+      <div id="sp-list"><div class="empty">Loading…</div></div>
+    </div>
+  </section>
+
 </main></div>
 
 <script>
@@ -778,6 +814,7 @@ const INIT = {
   abmatters: loadAbMatters,
   abnew: ()=>{},
   abmatter: ()=>{},
+  partners: loadPartners,
 };
 
 // company select fill (shared) ------------------------------------------------
@@ -1809,6 +1846,22 @@ async function abRenderWorkspace(id){
     </div>
 
     <div class="card">
+      <h2 class="sec">Company details for auto-fill</h2>
+      <p class="sub">Enter this client's details once. Every written program, JSA, and training document you attach is auto-filled with these values — company name, address, effective date, program administrator, and scope of work — the same way it works for GCs. Values stay on this matter and never bleed into another client's documents.</p>
+      <div class="grid2">
+        <label class="fld">Company name<input id="abfill-company_name"></label>
+        <label class="fld">Company address<input id="abfill-company_address"></label>
+        <label class="fld">Effective date<input id="abfill-effective_date" placeholder="e.g. 2026-09-11"></label>
+        <label class="fld">Program administrator<input id="abfill-program_administrator"></label>
+        <label class="fld">Administrator title<input id="abfill-admin_title"></label>
+        <label class="fld">Administrator phone<input id="abfill-admin_phone"></label>
+        <label class="fld">Administrator email<input id="abfill-admin_email"></label>
+      </div>
+      <label class="fld" style="display:block">Scope of work<input id="abfill-scope" style="width:100%" placeholder="e.g. Commercial roofing — fall protection, ladder safety"></label>
+      <div style="margin-top:6px"><button class="btn sm" onclick="abSaveFill()">Save company details</button> <span id="abfill-msg" class="sub"></span></div>
+    </div>
+
+    <div class="card">
       <h2 class="sec">Citation items <span class="chip">${items.length}</span></h2>
       <div id="ab-items">${items.length?items.map(it=>abItemCard(it, evByItem[it.item_id]||[])).join(''):'<div class="empty">No citation items yet. Extract from the citation above or add one manually.</div>'}</div>
     </div>
@@ -1847,6 +1900,23 @@ async function abRenderWorkspace(id){
       <div style="margin-top:8px"><input id="ab-note-text" placeholder="Add a note…" style="width:70%"> <button class="btn sm" onclick="abAddNote()">Add note</button></div>
     </div>`;
   abLoadTasks();
+  abLoadFill();
+}
+
+const AB_FILL_FIELDS=['company_name','company_address','effective_date','program_administrator','admin_title','admin_phone','admin_email','scope'];
+async function abLoadFill(){
+  if(!AB_CUR) return;
+  const r=await api(`/api/abatement/matters/${AB_CUR}/fill`);
+  const f=(r.ok&&r.j&&r.j.fill)||{};
+  AB_FILL_FIELDS.forEach(k=>{ const el=document.getElementById('abfill-'+k); if(el) el.value=f[k]||''; });
+}
+async function abSaveFill(){
+  if(!AB_CUR) return;
+  const msg=$('#abfill-msg'); if(msg) msg.textContent='Saving…';
+  const fill={}; AB_FILL_FIELDS.forEach(k=>{ const el=document.getElementById('abfill-'+k); if(el) fill[k]=el.value||''; });
+  const r=await api(`/api/abatement/matters/${AB_CUR}/fill`,{method:'POST',body:JSON.stringify({fill})});
+  if(r.ok&&r.j&&r.j.ok){ if(msg) msg.textContent='Saved. New documents you attach will auto-fill with these details.'; }
+  else { if(msg) msg.textContent=(r.j&&r.j.error)||'Could not save.'; }
 }
 
 async function abLoadTasks(){
@@ -1976,8 +2046,13 @@ function abLibRenderDocs(iid, docs){
   docs=docs||[];
   if(!docs.length) return '<div class="sub">None attached. Attach a written program, JSA, or training requirement as the abatement proof for this citation.</div>';
   return docs.map(d=>`<div class="src" style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:3px 0">
-    <span>📄 <b>${esc(d.title||d.doc_id)}</b> <span class="pill">${esc(AB_LIBKIND[d.kind]||d.kind)}</span>${d.classification?' · '+esc(d.classification):''}${d.standard?' · '+esc(d.standard):''}</span>
-    <button class="btn ghost sm" onclick="abLibRemove('${esc(iid)}','${esc(d.ref_id)}')">Remove</button>
+    <span>📄 <b>${esc(d.title||d.doc_id)}</b> <span class="pill">${esc(AB_LIBKIND[d.kind]||d.kind)}</span>${d.body_override?' <span class="pill ok">Edited</span>':''}${d.classification?' · '+esc(d.classification):''}${d.standard?' · '+esc(d.standard):''}</span>
+    <span style="white-space:nowrap">
+      <button class="btn sm" onclick="abLibView('${esc(iid)}','${esc(d.ref_id)}')">View</button>
+      <button class="btn ghost sm" onclick="abLibPrint('${esc(iid)}','${esc(d.ref_id)}')">Print</button>
+      <button class="btn ghost sm" onclick="abLibRename('${esc(iid)}','${esc(d.ref_id)}','${esc((d.title||d.doc_id||'').replace(/'/g,"\\'"))}')">Rename</button>
+      <button class="btn ghost sm" onclick="abLibRemove('${esc(iid)}','${esc(d.ref_id)}')">Remove</button>
+    </span>
   </div>`).join('');
 }
 function abLibResultRow(iid, i, x){
@@ -2028,6 +2103,69 @@ async function abLibAttach(iid, idx){
 async function abLibRemove(iid, refId){
   const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/remove`,{method:'POST',body:JSON.stringify({ref_id:refId})});
   if(r.ok&&r.j&&r.j.ok){ const el=document.getElementById('ablib-'+iid); if(el) el.innerHTML=abLibRenderDocs(iid, r.j.library_docs); }
+}
+// View / edit an attached library doc in an inline editor (opens the resolved,
+// company-filled body; edits save as a per-matter override — never touch the master).
+async function abLibView(iid, refId){
+  const panel=document.getElementById('ablib-panel-'+iid);
+  if(panel) panel.innerHTML='<div class="sub">Opening document…</div>';
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/${encodeURIComponent(refId)}`);
+  if(!(r.ok&&r.j&&r.j.ok)){ if(panel) panel.innerHTML='<div class="sub">Could not open the document.</div>'; return; }
+  const d=r.j;
+  if(!d.available){ if(panel) panel.innerHTML=`<div class="sub" style="margin-top:6px">${esc(d.note||'No library body is on file for this document.')}</div>`; return; }
+  const body = d.editable_body || d.body_markdown || '';
+  if(panel) panel.innerHTML=`<div style="margin-top:8px;border:1px solid var(--line,#ddd);border-radius:8px;padding:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <b>${esc(d.title||'Document')}</b>
+      <span class="sub">${d.edited?'Editing your saved copy':'Editing from the library master'} · auto-filled with company details</span>
+    </div>
+    <textarea id="ablibedit-${esc(iid)}" rows="18" style="width:100%;margin-top:8px;font-family:ui-monospace,Menlo,monospace;font-size:12px">${esc(body)}</textarea>
+    <div style="margin-top:6px">
+      <button class="btn sm" onclick="abLibSave('${esc(iid)}','${esc(refId)}')">Save on site</button>
+      <button class="btn ghost sm" onclick="abLibRevert('${esc(iid)}','${esc(refId)}')">Revert to library master</button>
+      <button class="btn ghost sm" onclick="document.getElementById('ablib-panel-'+'${esc(iid)}').innerHTML=''">Close</button>
+      <span id="ablibedit-msg-${esc(iid)}" class="sub"></span>
+    </div>
+  </div>`;
+}
+async function abLibSave(iid, refId){
+  const ta=document.getElementById('ablibedit-'+iid); if(!ta) return;
+  const msg=document.getElementById('ablibedit-msg-'+iid); if(msg) msg.textContent='Saving…';
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/${encodeURIComponent(refId)}/save`,
+    {method:'POST',body:JSON.stringify({body:ta.value})});
+  if(r.ok&&r.j&&r.j.ok){ if(msg) msg.textContent='Saved.'; await abLibReload(iid); }
+  else { if(msg) msg.textContent=(r.j&&r.j.error)||'Could not save.'; }
+}
+async function abLibRevert(iid, refId){
+  if(!confirm('Discard your edits and revert this document to the current library master?')) return;
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/${encodeURIComponent(refId)}/save`,
+    {method:'POST',body:JSON.stringify({body:''})});
+  if(r.ok&&r.j&&r.j.ok){ await abLibReload(iid); const p=document.getElementById('ablib-panel-'+iid); if(p) p.innerHTML=''; }
+}
+async function abLibRename(iid, refId, cur){
+  const t=prompt('Rename this document:', cur||''); if(t==null) return;
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/${encodeURIComponent(refId)}/rename`,
+    {method:'POST',body:JSON.stringify({title:t})});
+  if(r.ok&&r.j&&r.j.ok){ await abLibReload(iid); }
+  else { alert((r.j&&r.j.error)||'Could not rename.'); }
+}
+async function abLibPrint(iid, refId){
+  const r=await api(`/api/abatement/matters/${AB_CUR}/items/${iid}/library/${encodeURIComponent(refId)}`);
+  if(!(r.ok&&r.j&&r.j.ok&&r.j.available)){ alert('No printable body on file for this document.'); return; }
+  const d=r.j;
+  const w=window.open('','_blank'); if(!w){ alert('Allow pop-ups to print.'); return; }
+  const bodyHtml = d.body_html ? d.body_html : '<pre style="white-space:pre-wrap;font-family:Georgia,serif">'+esc(d.body_markdown||d.editable_body||'')+'</pre>';
+  w.document.write(`<html><head><title>${esc(d.title||'Document')}</title>
+    <style>body{font-family:Georgia,serif;max-width:820px;margin:32px auto;padding:0 24px;color:#111;line-height:1.5}h1{font-size:20px}</style>
+    </head><body><h1>${esc(d.title||'Document')}</h1>${bodyHtml}</body></html>`);
+  w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
+}
+// Reload just one item's attached-docs list after an edit/rename.
+async function abLibReload(iid){
+  const r=await api(`/api/abatement/matters/${AB_CUR}`);
+  if(!(r.ok&&r.j)) return;
+  const it=(r.j.citation_items||[]).find(x=>x.item_id===iid); if(!it) return;
+  const el=document.getElementById('ablib-'+iid); if(el) el.innerHTML=abLibRenderDocs(iid, it.library_docs||[]);
 }
 function abFmtWhen(s){ if(!s) return '—'; try{ const d=new Date(s); if(!isNaN(d)) return d.toLocaleString(); }catch(e){} return s; }
 const AB_DOCTYPE_LABEL = {certificate_of_insurance:'Certificate of Insurance', waste_manifest:'Hazardous waste manifest',
@@ -2188,6 +2326,73 @@ async function abAddNote(){
   if(ok&&j.ok) abRenderWorkspace(AB_CUR);
 }
 
+// ══ SIE PARTNERS (owner only) ═══════════════════════════════════════════════
+async function loadPartners(){
+  const box = $('#sp-list'); if(!box) return;
+  box.innerHTML = '<div class="empty">Loading…</div>';
+  const {ok,j} = await api('/api/sie-partner/list');
+  if(!ok){ box.innerHTML = '<div class="empty">'+esc((j&&j.error)||'Could not load partners.')+'</div>'; return; }
+  const list = (j&&j.partners)||[];
+  const cnt = $('#sp-count'); if(cnt) cnt.textContent = list.length ? '('+list.length+')' : '';
+  if(!list.length){ box.innerHTML = '<div class="empty">No partners yet. Create one above.</div>'; return; }
+  box.innerHTML = list.map(function(p){
+    const color = p.brand_primary || '#1E7A46';
+    const s = esc(p.slug);
+    return '<div class="item" data-slug="'+s+'">'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      +   '<span style="width:14px;height:14px;border-radius:4px;display:inline-block;background:'+esc(color)+';border:1px solid rgba(0,0,0,.25)"></span>'
+      +   '<div class="t" style="flex:1">'+esc(p.brand_name||p.name)+'</div>'
+      +   '<span class="badge rec">'+(p.matter_count||0)+' matter'+((p.matter_count===1)?'':'s')+'</span>'
+      + '</div>'
+      + '<div class="d">'+esc(p.email||'no email')+' · signs in at /sie'+(p.has_pin?'':' · <b>no PIN set</b>')+'</div>'
+      + '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      +   '<input type="color" value="'+esc(color)+'" class="sp-rowcolor" style="width:52px;height:34px;padding:2px">'
+      +   '<button class="btn sm" onclick="spBrand(\''+s+'\',this)">Save brand color</button>'
+      +   '<button class="btn ghost sm" onclick="spResetPin(\''+s+'\',this)">Reset PIN</button>'
+      +   '<span class="sub sp-rowmsg" style="margin-left:4px"></span>'
+      + '</div></div>';
+  }).join('');
+}
+
+async function spCreate(){
+  const name = ($('#sp-name').value||'').trim();
+  const email = ($('#sp-email').value||'').trim();
+  const pin = ($('#sp-pin').value||'').trim();
+  const color = ($('#sp-color').value||'').trim();
+  const msg = $('#sp-createMsg');
+  if(!name){ msg.textContent = 'Enter a partner name.'; return; }
+  const btn = $('#sp-create'); btn.disabled = true; msg.textContent = 'Creating…';
+  const {ok,j} = await api('/api/sie-partner/create',{method:'POST',
+    body:JSON.stringify({name:name,email:email,pin:pin,brand_primary:color})});
+  btn.disabled = false;
+  if(!ok||!j.ok){ msg.textContent = (j&&j.error)||'Could not create partner.'; return; }
+  const shownPin = j.temp_pin || pin || '(unchanged)';
+  msg.innerHTML = 'Created. Login PIN: <b>'+esc(shownPin)+'</b> — give this to the partner.';
+  $('#sp-name').value=''; $('#sp-email').value=''; $('#sp-pin').value='';
+  loadPartners();
+}
+
+async function spResetPin(slug, btn){
+  const row = btn.closest('.item'); const m = row.querySelector('.sp-rowmsg');
+  const pin = prompt('New PIN for this partner (4–6 digits). Leave blank for 1234:', '');
+  if(pin === null) return;
+  btn.disabled = true; m.textContent = 'Resetting…';
+  const {ok,j} = await api('/api/sie-partner/'+encodeURIComponent(slug)+'/pin',{method:'POST',
+    body:JSON.stringify({pin:(pin||'').trim()})});
+  btn.disabled = false;
+  m.innerHTML = (ok&&j.ok) ? 'New PIN: <b>'+esc(j.temp_pin)+'</b>' : esc((j&&j.error)||'Failed.');
+}
+
+async function spBrand(slug, btn){
+  const row = btn.closest('.item'); const m = row.querySelector('.sp-rowmsg');
+  const color = (row.querySelector('.sp-rowcolor')||{}).value || '';
+  btn.disabled = true; m.textContent = 'Saving…';
+  const {ok,j} = await api('/api/sie-partner/'+encodeURIComponent(slug)+'/branding',{method:'POST',
+    body:JSON.stringify({brand_primary:color})});
+  btn.disabled = false;
+  m.textContent = (ok&&j.ok) ? 'Saved.' : ((j&&j.error)||'Failed.');
+}
+
 // ══ boot ════════════════════════════════════════════════════════════════════
 renderHome();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
@@ -2226,6 +2431,10 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').cat
   // Apply saved theme on load (default dark = no class).
   apply(window.ORIGIN_THEME, false);
 
+  // A white-label partner who saved a light dashboard gets it applied on load
+  // (see the whoami branding block). Persist so it stays their default.
+  window.applyPartnerTheme = function(){ apply("light", true); };
+
   var themeLink = document.getElementById("navTheme");
   if(themeLink) themeLink.addEventListener("click", function(e){
     e.preventDefault();
@@ -2240,12 +2449,20 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').cat
   fetch("/sie/api/whoami", {credentials:"same-origin"})
     .then(function(r){ return r.json(); })
     .then(function(w){
-      if(!w || !w.ok) return;
+      if(!w || !w.authenticated) return;
+      // Owner sees the "SIE Partners" management tab; tenants never do.
+      if(w.is_owner){
+        var pt = document.getElementById("tab-partners");
+        if(pt) pt.style.display = "";
+        var ph = document.getElementById("side-partners");
+        if(ph) ph.style.display = "";
+      }
       if(!w.is_owner && w.name && w.name !== "Origin"){
         var word = document.getElementById("brandWord");
         if(word) word.textContent = w.name;
         var tag = document.getElementById("brandTag");
-        if(tag) tag.textContent = "Safety Intelligence \u00b7 powered by Origin";
+        if(tag) tag.textContent = (w.tagline && w.tagline.trim())
+          ? w.tagline : "Safety Intelligence \u00b7 powered by Origin";
         try{ document.title = w.name + " \u2014 Safety Intelligence"; }catch(e){}
       }
       if(w.logo_url){
@@ -2260,8 +2477,13 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').cat
         try{
           var root = document.documentElement.style;
           root.setProperty("--orange", w.brand_primary);
-          root.setProperty("--orange2", w.brand_primary);
+          root.setProperty("--orange2", w.brand_secondary || w.brand_primary);
         }catch(e){}
+      }
+      // A partner who chose a light dashboard gets it applied on load.
+      if(w.role === "sie_partner" && w.theme === "light"
+         && window.ORIGIN_THEME !== "light"){
+        try{ if(typeof applyPartnerTheme === "function") applyPartnerTheme(); }catch(e){}
       }
     })
     .catch(function(){});

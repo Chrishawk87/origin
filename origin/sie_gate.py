@@ -184,6 +184,13 @@ def register_sie_gate(app) -> None:
         p = _portal._unsign(request.cookies.get(_portal.CLIENT_COOKIE, ""))
         return bool(p and p.get("role") == "client")
 
+    def _partner_slug(request) -> Optional[str]:
+        cookie = getattr(_portal, "SIE_PARTNER_COOKIE", "origin_sie_partner")
+        p = _portal._unsign(request.cookies.get(cookie, ""))
+        if p and p.get("role") == "sie_partner":
+            return (p.get("slug") or "").strip() or None
+        return None
+
     def _secure(request) -> bool:
         # Railway terminates TLS at its edge; honor the forwarded-proto header so
         # cookies still get Secure on real HTTPS visitors (same as portal._secure).
@@ -201,8 +208,8 @@ def register_sie_gate(app) -> None:
     # ── the sign-in page ──────────────────────────────────────────────────
     @app.get("/sie/login", response_class=HTMLResponse)
     def sie_login_page(request: Request):
-        # Already signed in as owner/GC? Skip the form.
-        if _admin_ok(request) or _gc_slug(request):
+        # Already signed in as owner/GC/partner? Skip the form.
+        if _admin_ok(request) or _gc_slug(request) or _partner_slug(request):
             return RedirectResponse("/sie", status_code=302)
         if _client_ok(request):
             return RedirectResponse("/portal", status_code=302)
@@ -287,6 +294,27 @@ def register_sie_gate(app) -> None:
                             max_age=_portal.SESSION_TTL, secure=_secure(request))
             return resp
 
+        # (3b) White-label SIE partner (email + PIN) — lands in the /sie console
+        #      scoped to that partner's OWN abatement matters by firm_slug, and
+        #      styled with the partner's own brand. Its own cookie, so nothing
+        #      else in the app is affected.
+        try:
+            from . import sie_partners as _sp
+            partner = _sp.find_partner_by_email(email)
+        except Exception:
+            _sp, partner = None, None
+        if (partner and partner.get("pin_hash")
+                and _portal.verify_pin(partner["slug"], secret, partner["pin_hash"])):
+            _portal._login_clear(key)
+            resp = JSONResponse({"ok": True, "role": "sie_partner", "redirect": "/sie",
+                                 "name": partner.get("name", "")})
+            cookie = getattr(_portal, "SIE_PARTNER_COOKIE", "origin_sie_partner")
+            resp.set_cookie(cookie,
+                            _portal._session("sie_partner", partner["slug"]),
+                            httponly=True, samesite="lax",
+                            max_age=_portal.SESSION_TTL, secure=_secure(request))
+            return resp
+
         # (4) Contractor / client (email + PIN) — their own scoped portal view.
         rec = _portal.find_by_email(email)
         if (rec and rec.get("pin_hash")
@@ -356,18 +384,40 @@ def register_sie_gate(app) -> None:
     @app.get("/sie/api/whoami")
     def sie_whoami(request: Request):
         if _admin_ok(request):
-            return {"authenticated": True, "role": "owner"}
+            return {"authenticated": True, "role": "owner", "is_owner": True}
         gc = _gc_slug(request)
         if gc:
-            return {"authenticated": True, "role": "gc", "slug": gc}
+            return {"authenticated": True, "role": "gc", "slug": gc,
+                    "is_owner": False}
+        partner = _partner_slug(request)
+        if partner:
+            # Hand the console this partner's white-label so it can recolor and
+            # rename itself. Best-effort: a missing record still authenticates.
+            out = {"authenticated": True, "role": "sie_partner",
+                   "slug": partner, "is_owner": False}
+            try:
+                from . import sie_partners as _sp
+                rec = _sp.load_partner(partner)
+                if rec:
+                    pv = _sp.public_view(rec)
+                    out["name"] = pv.get("brand_name") or pv.get("name") or ""
+                    out["brand_primary"] = pv.get("brand_primary") or ""
+                    out["brand_secondary"] = pv.get("brand_secondary") or ""
+                    out["theme"] = pv.get("theme") or "dark"
+                    out["tagline"] = pv.get("tagline") or ""
+            except Exception:
+                pass
+            return out
         if _client_ok(request):
-            return {"authenticated": True, "role": "client"}
+            return {"authenticated": True, "role": "client", "is_owner": False}
         return {"authenticated": False}
 
     # ── sign out (clears every session cookie this app issues) ───────────────
     @app.post("/sie/api/logout")
     def sie_logout():
         resp = JSONResponse({"ok": True, "redirect": "/sie/login"})
-        for c in (_portal.ADMIN_COOKIE, _portal.GC_COOKIE, _portal.CLIENT_COOKIE):
+        cookies = [_portal.ADMIN_COOKIE, _portal.GC_COOKIE, _portal.CLIENT_COOKIE]
+        cookies.append(getattr(_portal, "SIE_PARTNER_COOKIE", "origin_sie_partner"))
+        for c in cookies:
             resp.delete_cookie(c, path="/")
         return resp

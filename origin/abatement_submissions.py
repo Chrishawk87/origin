@@ -107,7 +107,42 @@ def _sector_for_matter(rec: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _resolve_library_doc(doc: Dict[str, Any], sector: Optional[str] = None) -> Dict[str, Any]:
+# Map a matter's fill values (abatement_matter.FILL_FIELDS) onto the {{TOKEN}}
+# placeholders the library programs / JSAs carry. An empty value renders as a
+# fill-in rule ("__________") instead of a raw {{TOKEN}}, so a package is never
+# ugly and the attorney can see exactly what still needs completing.
+_FILL_TOKEN_MAP = {
+    "COMPANY_NAME": "company_name",
+    "COMPANY_ADDRESS": "company_address",
+    "EFFECTIVE_DATE": "effective_date",
+    "PROGRAM_ADMINISTRATOR": "program_administrator",
+    "ADMIN_TITLE": "admin_title",
+    "ADMIN_PHONE": "admin_phone",
+    "ADMIN_EMAIL": "admin_email",
+    "SCOPE": "scope",
+    "SIGNATURE_NAME": "program_administrator",
+    "SIGNATURE_TITLE": "admin_title",
+}
+_BLANK_RULE = "__________"
+
+
+def apply_fill(body: str, fill: Optional[Dict[str, str]]) -> str:
+    """Substitute a matter's fill values into a document body's {{TOKEN}}s.
+    Any token without a value becomes a fill-in rule, and any leftover unknown
+    {{TOKEN}} is also blanked — a rendered package never shows raw placeholders."""
+    if not body:
+        return body or ""
+    fill = fill or {}
+    for token, key in _FILL_TOKEN_MAP.items():
+        val = (fill.get(key) or "").strip()
+        body = body.replace("{{" + token + "}}", val or _BLANK_RULE)
+    # Blank any remaining {{...}} placeholder so nothing raw leaks into the PDF.
+    body = re.sub(r"\{\{[A-Z0-9_]+\}\}", _BLANK_RULE, body)
+    return body
+
+
+def _resolve_library_doc(doc: Dict[str, Any], sector: Optional[str] = None,
+                         fill: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """Resolve one attached library reference to its full current body. Returns a
     render-ready dict; `available` is False (with a note) when the library has no
     body — nothing is ever fabricated."""
@@ -163,6 +198,22 @@ def _resolve_library_doc(doc: Dict[str, Any], sector: Optional[str] = None) -> D
             out["note"] = "No verbatim OSHA training mandate is on file for this section."
     else:
         out["note"] = "Unknown library document type."
+    # Attorney-edited copy wins: if this matter saved a body_override for the ref,
+    # render that verbatim instead of the library master (still fill-substituted).
+    override = doc.get("body_override")
+    if isinstance(override, str) and override.strip():
+        out["available"] = True
+        out["edited"] = True
+        out["note"] = ""
+        out["body_markdown"] = override
+        out["body_html"] = ""
+    # Substitute the matter's client-specific fill values into the {{TOKEN}}
+    # placeholders so the package renders a completed document, not raw markers.
+    if out["available"]:
+        if out.get("body_markdown"):
+            out["body_markdown"] = apply_fill(out["body_markdown"], fill)
+        if out.get("body_html"):
+            out["body_html"] = apply_fill(out["body_html"], fill)
     return out
 
 
@@ -264,10 +315,14 @@ def build_package(matter_id: str) -> Dict[str, Any]:
         ev_by_item.setdefault(e.get("citation_item_id", ""), []).append(e)
 
     sector = _sector_for_matter(rec)
+    try:
+        fill = _mm.default_fill(rec)
+    except Exception:
+        fill = None
     items_out: List[Dict[str, Any]] = []
     for it in rec.get("citation_items", []):
         iid = it.get("item_id", "")
-        lib_docs = [_resolve_library_doc(d, sector)
+        lib_docs = [_resolve_library_doc(d, sector, fill)
                     for d in it.get("library_docs", []) or []]
         items_out.append({
             "item_id": iid,
@@ -569,15 +624,17 @@ def render_html(pkg: Dict[str, Any]) -> str:
 
 
 # ── Notice of Intent to Contest (the document that precedes abatement) ───────────
-def _notice_of_intent_fields(rec: Dict[str, Any]) -> Dict[str, Any]:
+def _notice_of_intent_fields(rec: Dict[str, Any], fill: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Blank-field skeleton of a Notice of Intent to Contest letter. Every legal
     decision — WHAT is contested (citation items, penalties, and/or abatement
     dates), and the signature — is left for the attorney. Origin fills only the
     factual identifiers already on the matter and never asserts a legal position."""
+    fill = fill or {}
     return {
         "to": "OSHA Area Director",              # attorney confirms the correct office
         "area_office": "",                       # attorney completes (address)
-        "employer_name": rec.get("client_name", ""),
+        "employer_name": fill.get("company_name") or rec.get("client_name", ""),
+        "employer_address": fill.get("company_address", ""),
         "inspection_number": rec.get("osha_inspection_number", ""),
         "citation_issued_date": rec.get("citation_issued_date", ""),
         "citation_received_date": rec.get("citation_received_date", ""),
@@ -592,8 +649,10 @@ def _notice_of_intent_fields(rec: Dict[str, Any]) -> Dict[str, Any]:
                       "penalt(ies) / the abatement date(s) — attorney to specify] "
                       "issued in connection with the referenced inspection. "
                       "[Attorney to review, complete, and sign.]"),
-        "signatory_name": "",                    # attorney/employer completes
-        "signatory_title": "",
+        "signatory_name": fill.get("program_administrator", ""),
+        "signatory_title": fill.get("admin_title", ""),
+        "signatory_phone": fill.get("admin_phone", ""),
+        "signatory_email": fill.get("admin_email", ""),
         "date_signed": "",
         "note": ("DRAFT skeleton — verify the 15-working-day contest deadline "
                  "against the citation/order before relying on it."),
@@ -628,6 +687,11 @@ def build_notice(matter_id: str) -> Dict[str, Any]:
     # The earliest contest deadline governs the whole citation — surface it.
     earliest = min(contest_deadlines) if contest_deadlines else ""
 
+    try:
+        fill = _mm.default_fill(rec)
+    except Exception:
+        fill = None
+
     return {
         "ok": True,
         "kind": "notice_of_intent_to_contest",
@@ -648,7 +712,8 @@ def build_notice(matter_id: str) -> Dict[str, Any]:
         "earliest_contest_deadline": earliest,
         "deadline_disclaimer": _mm.DEADLINE_DISCLAIMER,
         "items": items,
-        "letter": _notice_of_intent_fields(rec),
+        "fill": fill or {},
+        "letter": _notice_of_intent_fields(rec, fill),
         "built_at": _now(),
     }
 
@@ -825,6 +890,16 @@ def _md_to_flowables(text: str, sty, *, from_html: bool = False) -> List[Any]:
         parts = body.split("---", 2)
         if len(parts) == 3:
             body = parts[2]
+    if not from_html:
+        # Shipped program templates embed an HTML letterhead (<table class="oms-lh">,
+        # <div class="oms-rule">) at the top of otherwise-markdown bodies. Flatten
+        # those tags to text so they never leak into the PDF as literal markup,
+        # while preserving the markdown heading/bullet/blank-line structure below.
+        body = re.sub(r"(?is)<\s*br\s*/?>", "\n", body)
+        body = re.sub(r"(?is)</(td|th)>", " ", body)
+        body = re.sub(r"(?is)</(tr|table|div|p|h[1-6])>", "\n", body)
+        body = re.sub(r"(?is)<[^>]+>", "", body)
+        body = html.unescape(body)
     for raw in body.splitlines():
         s = raw.strip()
         if not s:
@@ -990,34 +1065,102 @@ def render_pdf_notice(matter_id: str) -> Dict[str, Any]:
         from reportlab.lib.pagesizes import LETTER
         from reportlab.lib.units import inch
         from reportlab.platypus import (
-            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
         )
     except Exception as exc:
         return {"ok": False, "error": f"reportlab unavailable: {exc}"}
 
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     sty = _pdf_styles()
     colors = sty["colors"]
     m = notice["matter"]
     lt = notice.get("letter", {}) or {}
+    _blank = "______________________"
+
+    # Local letter styles — a real business-letter look, not a stack of labels.
+    lh_name = ParagraphStyle("lh_name", parent=sty["title"], fontSize=15, leading=18,
+                             alignment=TA_CENTER, spaceAfter=1)
+    lh_addr = ParagraphStyle("lh_addr", parent=sty["muted"], fontSize=9, leading=12,
+                             alignment=TA_CENTER, spaceAfter=1)
+    lh_kick = ParagraphStyle("lh_kick", parent=sty["muted"], fontSize=8.5, leading=11,
+                             alignment=TA_CENTER)
+    letter_body = ParagraphStyle("lb", parent=sty["body"], fontSize=10, leading=15,
+                                 spaceAfter=8)
+    right = ParagraphStyle("rt", parent=sty["body"], fontSize=10, leading=14,
+                           alignment=TA_RIGHT)
+
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=LETTER,
-                            leftMargin=0.9 * inch, rightMargin=0.9 * inch,
+                            leftMargin=1.0 * inch, rightMargin=1.0 * inch,
                             topMargin=0.7 * inch, bottomMargin=0.8 * inch,
                             title=f"{notice.get('title')} (DRAFT) — {m.get('client_name','')}")
     flow: List[Any] = []
+
+    # ── Letterhead ──────────────────────────────────────────────────────────
     flow.append(Paragraph(f"<font color='#b00020'><b>{_esc(notice.get('watermark'))}</b></font>",
                           sty["red"]))
-    flow.append(Paragraph(f"{_esc(notice.get('title'))} — {_esc(m.get('client_name'))}", sty["title"]))
-    flow.append(Paragraph(_esc(notice.get("notice_disclaimer")), sty["banner"]))
-    flow.append(Paragraph(_esc(notice.get("disclaimer")), sty["banner"]))
-    flow.append(Spacer(1, 6))
+    flow.append(Spacer(1, 4))
+    flow.append(Paragraph(_esc(lt.get("employer_name") or "[Company name]"), lh_name))
+    if lt.get("employer_address"):
+        flow.append(Paragraph(_esc(lt.get("employer_address")), lh_addr))
+    flow.append(Paragraph("NOTICE OF INTENT TO CONTEST", lh_kick))
+    flow.append(Spacer(1, 4))
+    flow.append(HRFlowable(width="100%", thickness=1.1, color=sty["_accent"]))
+    flow.append(Spacer(1, 10))
+
+    # ── Date + recipient block ──────────────────────────────────────────────
+    flow.append(Paragraph(_esc(lt.get("date_signed") or _blank), right))
+    flow.append(Spacer(1, 8))
+    flow.append(Paragraph(_esc(lt.get("to")), letter_body))
+    flow.append(Paragraph("U.S. Department of Labor — OSHA", sty["body"]))
     flow.append(Paragraph(
-        f"<b>Earliest contest deadline on file:</b> "
-        f"{_esc(notice.get('earliest_contest_deadline') or '— none computed —')} "
-        f"— {_esc(notice.get('deadline_disclaimer'))}", sty["red"]))
+        f"Area Office: {_esc(lt.get('area_office') or _blank + '  (attorney completes)')}",
+        sty["body"]))
     flow.append(Spacer(1, 8))
 
-    flow.append(Paragraph("Citation items", sty["h2"]))
+    # ── Re line ─────────────────────────────────────────────────────────────
+    flow.append(Paragraph(
+        f"<b>RE:</b>&nbsp; Notice of Intent to Contest — Inspection No. "
+        f"<b>{_esc(lt.get('inspection_number') or _blank)}</b>", letter_body))
+    ref_bits = (
+        f"Employer: {_esc(lt.get('employer_name') or _blank)} &nbsp;|&nbsp; "
+        f"Citation issued: {_esc(lt.get('citation_issued_date') or _blank)} &nbsp;|&nbsp; "
+        f"Received: {_esc(lt.get('citation_received_date') or _blank)} &nbsp;|&nbsp; "
+        f"Citation No(s): {_esc(lt.get('citation_numbers') or _blank + ' (attorney completes)')}")
+    flow.append(Paragraph(ref_bits, sty["muted"]))
+    flow.append(Spacer(1, 6))
+
+    # ── Contest-deadline callout ────────────────────────────────────────────
+    dl_box = Table([[Paragraph(
+        f"<b>Earliest contest deadline on file:</b> "
+        f"{_esc(notice.get('earliest_contest_deadline') or '— none computed —')}<br/>"
+        f"<font size=8>{_esc(notice.get('deadline_disclaimer'))}</font>", sty["red"])]],
+        colWidths=[doc.width])
+    dl_box.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.8, sty["_red"]),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.Color(0.99, 0.93, 0.94)),
+        ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    flow.append(dl_box)
+    flow.append(Spacer(1, 12))
+
+    # ── Salutation + body ───────────────────────────────────────────────────
+    flow.append(Paragraph("Dear Area Director:", letter_body))
+    flow.append(Paragraph(_esc(lt.get("statement")), letter_body))
+
+    flow.append(Paragraph("<b>The employer intends to contest the following (attorney to specify):</b>",
+                          sty["body"]))
+    flow.append(Spacer(1, 3))
+    for label in ("The Citation(s) and Notification of Penalty",
+                  "The proposed penalt(ies)",
+                  "The abatement date(s)"):
+        flow.append(Paragraph(f"[ &nbsp; ]&nbsp;&nbsp; {_esc(label)}", sty["body"]))
+    flow.append(Spacer(1, 12))
+
+    # ── Citation-items reference table ──────────────────────────────────────
+    flow.append(Paragraph("Citation items on file", sty["h2"]))
     data = [["Standard", "Classification", "Contest deadline"]]
     for i in notice.get("items", []):
         data.append([i.get("standard", ""), i.get("classification", ""),
@@ -1035,33 +1178,25 @@ def render_pdf_notice(matter_id: str) -> Dict[str, Any]:
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     flow.append(t)
-    flow.append(Spacer(1, 10))
+    flow.append(Spacer(1, 18))
 
-    flow.append(Paragraph("Draft letter", sty["h2"]))
-    flow.append(Paragraph(f"To: {_esc(lt.get('to'))}", sty["body"]))
-    flow.append(Paragraph(
-        f"Area office: {_esc(lt.get('area_office') or '________________________ (attorney completes)')}",
-        sty["body"]))
-    flow.append(Spacer(1, 4))
-    flow.append(Paragraph(
-        f"Re: Notice of Intent to Contest — Inspection No. "
-        f"{_esc(lt.get('inspection_number') or '________')}", sty["body"]))
-    flow.append(Paragraph(
-        f"Employer: {_esc(lt.get('employer_name') or '________')} · "
-        f"Citation issued: {_esc(lt.get('citation_issued_date') or '________')} · "
-        f"Received: {_esc(lt.get('citation_received_date') or '________')}", sty["body"]))
-    flow.append(Paragraph("Citation number(s): ________ (attorney completes)", sty["body"]))
-    flow.append(Spacer(1, 6))
-    flow.append(Paragraph(_esc(lt.get("statement")), sty["body"]))
-    flow.append(Spacer(1, 6))
-    flow.append(Paragraph(
-        "Contesting (attorney to check): &nbsp; [ ] Citation(s) &nbsp; "
-        "[ ] Proposed penalt(ies) &nbsp; [ ] Abatement date(s)", sty["body"]))
-    flow.append(Spacer(1, 10))
-    flow.append(Paragraph("Signatory: ________________________  (name / title)", sty["body"]))
-    flow.append(Paragraph("Date: ____________", sty["body"]))
-    flow.append(Spacer(1, 10))
+    # ── Signature block ─────────────────────────────────────────────────────
+    flow.append(Paragraph("Respectfully submitted,", letter_body))
+    flow.append(Spacer(1, 22))
+    flow.append(HRFlowable(width="45%", thickness=0.6, color=sty["_muted"], hAlign="LEFT"))
+    flow.append(Paragraph(_esc(lt.get("signatory_name") or _blank), sty["body"]))
+    flow.append(Paragraph(_esc(lt.get("signatory_title") or "Title"), sty["muted"]))
+    flow.append(Paragraph(_esc(lt.get("employer_name") or ""), sty["muted"]))
+    contact = " · ".join(x for x in (lt.get("signatory_phone"), lt.get("signatory_email")) if x)
+    if contact:
+        flow.append(Paragraph(_esc(contact), sty["muted"]))
+    flow.append(Paragraph(f"Date: {_esc(lt.get('date_signed') or _blank)}", sty["muted"]))
+    flow.append(Spacer(1, 16))
+
+    flow.append(HRFlowable(width="100%", thickness=0.5, color=colors.Color(0.8, 0.84, 0.89)))
     flow.append(Paragraph(_esc(lt.get("note")), sty["muted"]))
+    flow.append(Paragraph(_esc(notice.get("notice_disclaimer")), sty["muted"]))
+    flow.append(Paragraph(_esc(notice.get("disclaimer")), sty["muted"]))
     flow.append(Paragraph(f"Compiled {_esc(notice.get('built_at'))}. {_esc(notice.get('draft_notice'))}",
                           sty["muted"]))
 
@@ -1202,3 +1337,57 @@ def register_abatement_submissions(app) -> None:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"ok": True, "item_id": item_id,
                 "library_docs": item.get("library_docs", [])}
+
+    @app.get("/api/abatement/matters/{matter_id}/items/{item_id}/library/{ref_id}")
+    def ab_lib_view(matter_id: str, item_id: str, ref_id: str):
+        """Resolve one attached doc to its current editable body (attorney edit wins,
+        then fill-substituted). Used by the View button to open for editing."""
+        ref = _mm.get_library_doc(matter_id, item_id, ref_id)
+        if ref is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        rec = _mm.get(matter_id) or {}
+        fill = _mm.default_fill(rec)
+        resolved = _resolve_library_doc(ref, _sector_for_matter(rec), fill)
+        # The raw override (unsubstituted) is what the editor should load so the
+        # attorney keeps working from their own copy; fall back to resolved master.
+        raw = ref.get("body_override")
+        editable = raw if isinstance(raw, str) and raw.strip() else resolved.get("body_markdown", "")
+        return {"ok": True, "ref_id": ref_id,
+                "title": resolved.get("title", ""),
+                "kind": resolved.get("kind", ""),
+                "available": resolved.get("available", False),
+                "edited": bool(ref.get("body_override")),
+                "note": resolved.get("note", ""),
+                "body_markdown": resolved.get("body_markdown", ""),
+                "body_html": resolved.get("body_html", ""),
+                "editable_body": editable}
+
+    @app.post("/api/abatement/matters/{matter_id}/items/{item_id}/library/{ref_id}/rename")
+    def ab_lib_rename(matter_id: str, item_id: str, ref_id: str, request: Request,
+                      body: dict = Body(default=None)):
+        a = _access.resolve_actor(request)
+        if a["kind"] != "firm" or not _access.can(a["role"], "manage"):
+            return JSONResponse(
+                {"error": "Only firm staff can rename library documents."},
+                status_code=403)
+        p = body if isinstance(body, dict) else {}
+        ref = _mm.rename_library_doc(matter_id, item_id, ref_id, (p.get("title") or "").strip())
+        if ref is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return {"ok": True, "ref_id": ref_id, "title": ref.get("title", "")}
+
+    @app.post("/api/abatement/matters/{matter_id}/items/{item_id}/library/{ref_id}/save")
+    def ab_lib_save(matter_id: str, item_id: str, ref_id: str, request: Request,
+                    body: dict = Body(default=None)):
+        """Save an attorney-edited body. Empty body clears the override and reverts
+        to the live library master."""
+        a = _access.resolve_actor(request)
+        if a["kind"] != "firm" or not _access.can(a["role"], "manage"):
+            return JSONResponse(
+                {"error": "Only firm staff can edit library documents."},
+                status_code=403)
+        p = body if isinstance(body, dict) else {}
+        ref = _mm.set_library_doc_body(matter_id, item_id, ref_id, p.get("body") or "")
+        if ref is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return {"ok": True, "ref_id": ref_id, "edited": bool(ref.get("body_override"))}

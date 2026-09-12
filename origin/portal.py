@@ -121,6 +121,10 @@ ADMIN_PASSWORD = (os.environ.get("ORIGIN_ADMIN_PASSWORD")
 CLIENT_COOKIE = "origin_portal"
 ADMIN_COOKIE = "origin_admin"
 GC_COOKIE = "origin_gc"
+# White-label SIE partner session (see sie_partners.py). Its own cookie so it
+# never collides with the owner/GC/client sessions above — existing flows read
+# only their own cookie and are untouched by the addition of this one.
+SIE_PARTNER_COOKIE = "origin_sie_partner"
 SESSION_TTL = 60 * 60 * 12  # 12 hours
 
 # The admin console's sections. A staff member's `perms` is a subset of these
