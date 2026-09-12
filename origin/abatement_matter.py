@@ -295,6 +295,16 @@ def _norm_class(c: str) -> str:
     return c or ""
 
 
+def _norm_standard(s: str) -> str:
+    """Canonical key for a cited standard so duplicates collapse regardless of how
+    they were typed. '29 CFR 1910.1200', '1910.1200', '1910.1200(a)' all differ by
+    surface form; this strips CFR/spaces/case so add-item can catch a repeat."""
+    s = (s or "").strip().lower()
+    for junk in ("29 cfr", "cfr", "§", " "):
+        s = s.replace(junk, "")
+    return s.strip("().-")
+
+
 # ── Matter CRUD ────────────────────────────────────────────────────────────────
 def create_matter(*, client_name: str, firm_slug: str = "", client_id: str = "",
                   osha_inspection_number: str = "", citation_issued_date: str = "",
@@ -820,6 +830,17 @@ def register_abatement_matter(app) -> None:
         p = body if isinstance(body, dict) else {}
         if not p.get("standard"):
             return JSONResponse({"error": "standard is required"}, status_code=400)
+        rec = get(matter_id)
+        if not rec:
+            return JSONResponse({"error": "matter not found"}, status_code=404)
+        # Duplicate guard: the same cited standard should be ONE citation item, not
+        # two identical items (which would each render their own Suggest button).
+        want = _norm_standard(p.get("standard"))
+        if want:
+            for ex in rec.get("citation_items", []):
+                if _norm_standard(ex.get("standard")) == want:
+                    return {"ok": True, "item": ex, "duplicate": True,
+                            "message": f"{ex.get('standard')} is already a citation item on this matter."}
         it = add_citation_item(matter_id, p, extracted=bool(p.get("extracted")))
         if not it:
             return JSONResponse({"error": "matter not found"}, status_code=404)

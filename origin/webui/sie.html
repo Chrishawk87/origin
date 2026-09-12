@@ -2276,6 +2276,7 @@ async function abAddManual(){
   const body={standard:std, classification:$('#abm-class').value.trim(), proposed_penalty:$('#abm-pen').value.trim(),
     abatement_date:$('#abm-abate').value, alleged_condition:$('#abm-cond').value.trim()};
   const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item',{method:'POST',body:JSON.stringify(body)});
+  if(ok&&j&&j.duplicate){ $('#abm-msg').textContent=' '+(j.message||'That standard is already a citation item.'); return; }
   $('#abm-msg').textContent = (ok&&j.ok)?' Added.':' '+((j&&j.error)||'Error');
   if(ok&&j.ok) abRenderWorkspace(AB_CUR);
 }

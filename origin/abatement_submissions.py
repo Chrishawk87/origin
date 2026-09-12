@@ -30,6 +30,7 @@ House rules: deterministic, offline, file-based, isolated + non-fatal.
 from __future__ import annotations
 
 import html
+import json
 import re
 from datetime import datetime, timezone
 from io import BytesIO
@@ -545,7 +546,38 @@ def render_html(pkg: Dict[str, Any]) -> str:
 
     ready = pkg.get("readiness", {}) or {}
     cert = pkg.get("certification_draft", {}) or {}
+
+    # ── Documents-on-file manifest (drives the GC-style interactive viewer) ──────
+    # Built from the RAW matter so every entry carries its real ref_id/item_id,
+    # which the View/Edit/Auto-fill/Print buttons need to hit the live endpoints.
+    _KIND_LBL = {"program": "Written program", "jsa": "Job hazard analysis (JSA)",
+                 "training": "Training requirement"}
+    raw_rec = _mm.get(mid) or {}
+    docs_manifest: List[Dict[str, Any]] = []
+    for it in raw_rec.get("citation_items", []) or []:
+        iid = it.get("item_id") or ""
+        std = it.get("standard") or ""
+        for d in (it.get("library_docs") or []):
+            docs_manifest.append({
+                "item_id": iid,
+                "ref_id": d.get("ref_id") or "",
+                "title": d.get("title") or d.get("doc_id") or "Library document",
+                "kind_label": _KIND_LBL.get(d.get("kind", ""), "Library document"),
+                "standard": d.get("standard") or std,
+                "classification": d.get("classification") or "",
+                "edited": bool(d.get("body_override")),
+            })
+    fill_now = _mm.get_fill(mid) if hasattr(_mm, "get_fill") else {}
+    manifest_json = json.dumps({
+        "mid": mid,
+        "docs": docs_manifest,
+        "fill": fill_now,
+        "fill_fields": list(getattr(_mm, "FILL_FIELDS", ())),
+        "client": m.get("client_name") or "",
+    }).replace("</", "<\\/")
+
     return f"""<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Abatement package (DRAFT) — {_esc(m.get('client_name'))}</title>
 <style>
   body{{font:14px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;max-width:800px;margin:24px auto;padding:0 16px;}}
@@ -586,7 +618,49 @@ def render_html(pkg: Dict[str, Any]) -> str:
   .toolbar{{margin:10px 0;}}
   .toolbar a{{display:inline-block;background:#111;color:#fff;text-decoration:none;
               padding:7px 12px;border-radius:6px;font-size:12px;margin-right:8px;}}
-  @media print{{.toolbar{{display:none;}}}}
+  /* ── GC-style document manager ─────────────────────────────────────────── */
+  :root{{--brand:#0d5c3f;--brand2:#0a4a33;}}
+  .tabs{{display:flex;gap:6px;margin:14px 0 6px;border-bottom:1px solid #e2e2e2;}}
+  .tab{{padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:#555;
+        border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;}}
+  .tab.on{{color:var(--brand);background:#f3faf6;border-color:#d7ece1;}}
+  .pane{{display:none;}} .pane.on{{display:block;}}
+  .dm{{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start;}}
+  @media(max-width:720px){{.dm{{grid-template-columns:1fr;}}}}
+  .dm-list{{border:1px solid #e2e2e2;border-radius:10px;overflow:hidden;}}
+  .dm-list h3{{margin:0;font-size:12px;letter-spacing:.4px;text-transform:uppercase;
+               color:#fff;background:var(--brand);padding:10px 12px;}}
+  .dm-row{{padding:10px 12px;border-top:1px solid #eee;cursor:pointer;}}
+  .dm-row:hover{{background:#f6fbf8;}} .dm-row.on{{background:#eef7f1;}}
+  .dm-row .t{{font-weight:600;font-size:13px;}}
+  .dm-row .s{{color:#667;font-size:11px;margin-top:2px;}}
+  .dm-row .edited{{color:#a06a00;font-size:11px;font-weight:600;}}
+  .dm-empty{{padding:14px 12px;color:#888;font-size:12px;}}
+  .dm-view{{border:1px solid #e2e2e2;border-radius:10px;min-height:340px;}}
+  .dv-head{{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;
+            padding:16px 18px;border-radius:10px 10px 0 0;}}
+  .dv-head .brand{{font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.85;}}
+  .dv-head .title{{font-size:18px;font-weight:700;margin-top:2px;}}
+  .dv-head .sub{{font-size:12px;opacity:.9;margin-top:3px;}}
+  .dv-bar{{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid #eee;
+           background:#fafafa;}}
+  .dv-bar button{{border:1px solid #cfe0d6;background:#fff;color:#0d5c3f;font-weight:600;
+                  font-size:12px;padding:7px 12px;border-radius:7px;cursor:pointer;}}
+  .dv-bar button.primary{{background:var(--brand);color:#fff;border-color:var(--brand);}}
+  .dv-bar button:disabled{{opacity:.45;cursor:default;}}
+  .dv-body{{padding:16px 18px;font-size:13px;line-height:1.55;}}
+  .dv-body table{{border-collapse:collapse;width:100%;font-size:12px;}}
+  .dv-body td,.dv-body th{{border:1px solid #cbd5cf;padding:4px 6px;text-align:left;}}
+  .dv-body textarea{{width:100%;min-height:360px;font:13px/1.5 ui-monospace,Menlo,monospace;
+                     border:1px solid #cbd5cf;border-radius:8px;padding:10px;}}
+  .dv-placeholder{{padding:40px 18px;color:#888;text-align:center;font-size:13px;}}
+  .fillgrid{{display:grid;grid-template-columns:1fr 1fr;gap:10px;}}
+  @media(max-width:520px){{.fillgrid{{grid-template-columns:1fr;}}}}
+  .fillgrid label{{font-size:11px;color:#556;display:block;margin-bottom:3px;font-weight:600;}}
+  .fillgrid input{{width:100%;padding:7px 9px;border:1px solid #cbd5cf;border-radius:7px;font-size:13px;}}
+  .dv-msg{{font-size:12px;color:#137a3a;padding:0 18px 12px;}}
+  @media print{{.toolbar,.tabs,.dm-list,.dv-bar,.no-print{{display:none;}}
+    .dm{{grid-template-columns:1fr;}} .dm-view{{border:none;}}}}
 </style></head><body>
 <div class="wm">{_esc(pkg.get('watermark'))}</div>
 <h1>OSHA Abatement Package — {_esc(m.get('client_name'))}</h1>
@@ -594,6 +668,38 @@ def render_html(pkg: Dict[str, Any]) -> str:
   <a href="/api/abatement/matters/{_esc(mid)}/submission.pdf">Download package PDF</a>
   <a href="/api/abatement/matters/{_esc(mid)}/notice-of-intent.html">Notice of Intent to Contest</a>
 </div>
+
+<div class="tabs no-print">
+  <div class="tab on" id="tab-docs" onclick="showTab('docs')">Documents on file</div>
+  <div class="tab" id="tab-pkg" onclick="showTab('pkg')">Full package</div>
+</div>
+
+<div id="pane-docs" class="pane on">
+  <div class="dm">
+    <div class="dm-list">
+      <h3>Documents on file</h3>
+      <div id="dmList"></div>
+    </div>
+    <div class="dm-view">
+      <div id="dvHead" class="dv-head" style="display:none">
+        <div class="brand" id="dvBrand">Origin Abatement</div>
+        <div class="title" id="dvTitle"></div>
+        <div class="sub" id="dvSub"></div>
+      </div>
+      <div id="dvBar" class="dv-bar no-print" style="display:none">
+        <button id="btnAuto" class="primary" onclick="autofillView()">Auto-fill</button>
+        <button id="btnFill" onclick="openFill()">Fill in details</button>
+        <button id="btnEdit" onclick="editView()">Edit</button>
+        <button id="btnSave" onclick="saveEdit()" style="display:none">Save</button>
+        <button id="btnPrint" onclick="printDoc()">Print</button>
+      </div>
+      <div id="dvMsg" class="dv-msg"></div>
+      <div id="dvBody" class="dv-body"><div class="dv-placeholder">Select a document on the left to view it, auto-fill the company details, edit, or print — the same tools you have on the GC page.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="pane-pkg" class="pane">
 <div class="banner"><b>{_esc(pkg.get('watermark'))}.</b> {_esc(pkg.get('draft_notice'))}</div>
 <div class="banner">{_esc(pkg.get('disclaimer'))}</div>
 <p>Inspection: <b>{_esc(m.get('osha_inspection_number') or '—')}</b> ·
@@ -620,6 +726,143 @@ def render_html(pkg: Dict[str, Any]) -> str:
 </table>
 
 <div class="foot">Compiled {_esc(pkg.get('built_at'))}. {_esc(pkg.get('draft_notice'))}</div>
+</div><!-- /pane-pkg -->
+
+<script>
+const M = {manifest_json};
+let CUR = null;      // current doc entry
+let LOADED = null;   // last GET payload for CUR
+let FILL = Object.assign({{}}, M.fill||{{}});
+const $ = s => document.querySelector(s);
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}}[c]));
+
+function showTab(name){{
+  ['docs','pkg'].forEach(n=>{{
+    document.getElementById('tab-'+n).classList.toggle('on', n===name);
+    document.getElementById('pane-'+n).classList.toggle('on', n===name);
+  }});
+}}
+
+function renderList(){{
+  const host = $('#dmList');
+  if(!M.docs || !M.docs.length){{
+    host.innerHTML = '<div class="dm-empty">No library documents attached yet. Attach written programs / JSAs / training to a citation item in the workspace and they will appear here.</div>';
+    return;
+  }}
+  host.innerHTML = M.docs.map((d,i)=>
+    '<div class="dm-row" id="row-'+i+'" onclick="viewDoc('+i+')">'+
+      '<div class="t">'+esc(d.title)+(d.edited?' <span class="edited">· edited</span>':'')+'</div>'+
+      '<div class="s">'+esc(d.kind_label)+(d.standard?(' · '+esc(d.standard)):'')+(d.classification?(' · '+esc(d.classification)):'')+'</div>'+
+    '</div>').join('');
+}}
+
+async function viewDoc(i){{
+  const d = M.docs[i]; if(!d) return;
+  CUR = Object.assign({{idx:i}}, d);
+  document.querySelectorAll('.dm-row').forEach(r=>r.classList.remove('on'));
+  const row = document.getElementById('row-'+i); if(row) row.classList.add('on');
+  $('#dvHead').style.display=''; $('#dvBar').style.display='';
+  $('#btnSave').style.display='none';
+  $('#dvTitle').textContent = d.title;
+  $('#dvSub').textContent = [d.kind_label, d.standard, M.client].filter(Boolean).join('  ·  ');
+  $('#dvMsg').textContent='';
+  $('#dvBody').innerHTML = '<div class="dv-placeholder">Loading…</div>';
+  try{{
+    const r = await fetch('/api/abatement/matters/'+encodeURIComponent(M.mid)+
+      '/items/'+encodeURIComponent(d.item_id)+'/library/'+encodeURIComponent(d.ref_id),
+      {{credentials:'same-origin'}});
+    const j = await r.json();
+    LOADED = j;
+    if(!j.ok){{ $('#dvBody').innerHTML='<div class="dv-placeholder">'+esc(j.error||'Could not load.')+'</div>'; return; }}
+    $('#dvBody').innerHTML = j.body_html || ('<pre style="white-space:pre-wrap">'+esc(j.body_markdown||'')+'</pre>');
+  }}catch(e){{ $('#dvBody').innerHTML='<div class="dv-placeholder">Network error.</div>'; }}
+}}
+
+// Auto-fill = re-resolve the doc with the matter's saved company details applied.
+async function autofillView(){{
+  if(!CUR) return;
+  await viewDoc(CUR.idx);
+  $('#dvMsg').textContent = 'Company details applied. Use “Fill in details” to change them.';
+}}
+
+function openFill(){{
+  $('#btnSave').style.display='none';
+  $('#dvMsg').textContent='';
+  const fields = (M.fill_fields&&M.fill_fields.length)?M.fill_fields:Object.keys(FILL);
+  const label = k => k.replace(/_/g,' ').replace(/\\b\\w/g,c=>c.toUpperCase());
+  $('#dvBody').innerHTML =
+    '<div class="fillgrid">'+fields.map(k=>
+      '<div><label>'+esc(label(k))+'</label>'+
+      '<input id="f-'+k+'" value="'+esc(FILL[k]||'')+'"></div>').join('')+'</div>'+
+    '<div style="margin-top:12px"><button class="primary" onclick="saveFill()" '+
+      'style="border:1px solid var(--brand);background:var(--brand);color:#fff;font-weight:600;padding:8px 14px;border-radius:7px;cursor:pointer">Save details</button></div>';
+}}
+
+async function saveFill(){{
+  const fields = (M.fill_fields&&M.fill_fields.length)?M.fill_fields:Object.keys(FILL);
+  const out = {{}}; fields.forEach(k=>{{ const el=document.getElementById('f-'+k); if(el) out[k]=el.value; }});
+  try{{
+    const r = await fetch('/api/abatement/matters/'+encodeURIComponent(M.mid)+'/fill',
+      {{method:'POST',credentials:'same-origin',headers:{{'Content-Type':'application/json'}},
+       body:JSON.stringify({{fill:out}})}});
+    const j = await r.json();
+    if(j.ok){{ FILL = j.fill||out; $('#dvMsg').textContent='Details saved.'; if(CUR) autofillView(); }}
+    else {{ $('#dvMsg').textContent = j.error||'Could not save.'; }}
+  }}catch(e){{ $('#dvMsg').textContent='Network error.'; }}
+}}
+
+function editView(){{
+  if(!CUR || !LOADED) return;
+  $('#btnSave').style.display='';
+  $('#dvMsg').textContent='Editing your copy — Save keeps it on this matter; clearing everything reverts to the library master.';
+  $('#dvBody').innerHTML = '<textarea id="dvEdit"></textarea>';
+  $('#dvEdit').value = (LOADED.editable_body!=null?LOADED.editable_body:(LOADED.body_markdown||''));
+}}
+
+async function saveEdit(){{
+  if(!CUR) return;
+  const body = ($('#dvEdit')||{{}}).value || '';
+  try{{
+    const r = await fetch('/api/abatement/matters/'+encodeURIComponent(M.mid)+
+      '/items/'+encodeURIComponent(CUR.item_id)+'/library/'+encodeURIComponent(CUR.ref_id)+'/save',
+      {{method:'POST',credentials:'same-origin',headers:{{'Content-Type':'application/json'}},
+       body:JSON.stringify({{body:body}})}});
+    const j = await r.json();
+    if(j.ok){{ M.docs[CUR.idx].edited = !!j.edited; $('#dvMsg').textContent='Saved.'; renderList();
+               const row=document.getElementById('row-'+CUR.idx); if(row) row.classList.add('on');
+               viewDoc(CUR.idx); }}
+    else {{ $('#dvMsg').textContent = j.error||'Could not save.'; }}
+  }}catch(e){{ $('#dvMsg').textContent='Network error.'; }}
+}}
+
+function printDoc(){{
+  if(!LOADED) {{ window.print(); return; }}
+  const brand = $('#dvBrand').textContent||'Origin Abatement';
+  const w = window.open('', '_blank');
+  w.document.write('<!doctype html><meta charset=utf-8><title>'+esc(CUR.title)+'</title>'+
+    '<style>body{{font:14px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 18px;color:#111}}'+
+    'h1{{font-size:18px}} .b{{color:#0d5c3f;text-transform:uppercase;letter-spacing:1px;font-size:12px}}'+
+    'table{{border-collapse:collapse;width:100%}} td,th{{border:1px solid #cbd5cf;padding:4px 6px}}</style>'+
+    '<div class="b">'+esc(brand)+'</div><h1>'+esc(CUR.title)+'</h1>'+
+    '<div style="color:#667;font-size:12px;margin-bottom:10px">'+esc([CUR.standard,M.client].filter(Boolean).join('  ·  '))+'</div>'+
+    (LOADED.body_html||('<pre style="white-space:pre-wrap">'+esc(LOADED.body_markdown||'')+'</pre>')));
+  w.document.close(); w.focus(); setTimeout(()=>{{try{{w.print();}}catch(e){{}}}},250);
+}}
+
+// Apply firm branding (name + color) so the viewer looks like the branded GC page.
+(async function brand(){{
+  try{{
+    const r = await fetch('/sie/api/whoami', {{credentials:'same-origin'}});
+    const j = await r.json();
+    const b = (j&&j.branding)||{{}};
+    if(b.brand_primary){{ document.documentElement.style.setProperty('--brand', b.brand_primary); }}
+    if(b.brand_secondary){{ document.documentElement.style.setProperty('--brand2', b.brand_secondary); }}
+    if(b.name){{ $('#dvBrand').textContent = b.name; }}
+  }}catch(e){{}}
+}})();
+
+renderList();
+</script>
 </body></html>"""
 
 
