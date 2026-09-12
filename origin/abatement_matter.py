@@ -147,8 +147,16 @@ def reg_lookup(standard: str) -> Dict[str, Any]:
     # Jurisdiction is inferred from the citation part deterministically, never guessed.
     juris = ""
     cit = (base.get("citation") or standard or "").strip()
+    # Classify by CFR title FIRST (a 40 CFR body still resolves as kind='verbatim',
+    # so the kind-based OSHA branch must come last or EPA/MSHA get mislabeled).
     if base.get("kind") == "fmcsa" or "49 CFR" in cit:
         juris = "Federal — DOT/FMCSA"
+    elif base.get("kind") == "epa" or "40 CFR" in cit:
+        juris = "Federal — EPA"
+    elif "30 CFR" in cit:
+        juris = "Federal — MSHA"
+    elif "43 CFR" in cit:
+        juris = "Federal — BLM/DOI"
     elif "29 CFR" in cit or base.get("kind") in ("verbatim", "training", "osha"):
         juris = "Federal — OSHA"
     elif cit:
@@ -186,18 +194,34 @@ def abatement_requirement(standard: str, reg: Optional[Dict[str, Any]] = None) -
     reg = reg or reg_lookup(standard)
     ref_std = ABATEMENT_STANDARD
     ref = reg_lookup(ref_std)
-    return {
-        "standard": reg.get("standard") or standard,
-        "requirement": (
+    is_osha = "OSHA" in (reg.get("jurisdiction") or "")
+    std_txt = reg.get("standard") or standard
+    if is_osha:
+        req = (
             f"Correct the cited condition to bring the workplace into compliance "
-            f"with {reg.get('standard') or standard}. Under {ref_std}, the employer "
-            f"generally must (a) complete abatement by the abatement date, and "
-            f"(b) submit abatement certification — with abatement documentation for "
-            f"certain violations, and a tag for movable equipment. The attorney "
-            f"confirms which certification/documentation obligations apply."
-        ),
-        "anchor_standard": ref.get("standard") or ref_std,
-        "anchor_url": ref.get("url", ""),
+            f"with {std_txt}. Under {ref_std}, the employer generally must "
+            f"(a) complete abatement by the abatement date, and (b) submit abatement "
+            f"certification — with abatement documentation for certain violations, and "
+            f"a tag for movable equipment. The attorney confirms which "
+            f"certification/documentation obligations apply."
+        )
+        anchor_std, anchor_url = (ref.get("standard") or ref_std), ref.get("url", "")
+    else:
+        # Non-OSHA agencies (EPA/MSHA/DOT/etc) do not certify under 1903.19; the
+        # abatement obligation is defined by the cited rule itself.
+        req = (
+            f"Correct the cited condition to bring the operation into compliance with "
+            f"{std_txt}, and retain records/documentation demonstrating the correction "
+            f"({reg.get('jurisdiction') or 'the citing agency'} governs the abatement "
+            f"and any reporting deadlines). The attorney confirms the applicable "
+            f"correction and documentation obligations for this standard."
+        )
+        anchor_std, anchor_url = std_txt, reg.get("url", "")
+    return {
+        "standard": std_txt,
+        "requirement": req,
+        "anchor_standard": anchor_std,
+        "anchor_url": anchor_url,
         "note": DISCLAIMER_NOT_LEGAL,
     }
 
@@ -631,6 +655,135 @@ def open_corrective_action(matter_id: str, item_id: str, *,
     return capa_rec
 
 
+def corrective_action_suggestions(matter_id: str, item_id: str) -> Dict[str, Any]:
+    """Grounded, agency-aware corrective actions OSHA/EPA/DOT/MSHA require to abate
+    one cited standard. Deterministic — every suggestion is derived from the
+    regulatory corpus (abatement_requirement + the matched written program /
+    training mandate / JSA) and the certification obligation. Never invents a
+    corrective action: when the corpus can't resolve the standard, only the
+    generic correct-and-document step (grounded on the abatement rule) is offered.
+
+    Returns {ok, standard, jurisdiction, suggestions:[{title,text,source,kind}]}.
+    The UI renders these as one-click "Add" buttons alongside a free-text box."""
+    rec = get(matter_id)
+    if not rec:
+        return {"ok": False, "error": "not found", "suggestions": []}
+    item = next((it for it in rec.get("citation_items", [])
+                 if it.get("item_id") == item_id), None)
+    if not item:
+        return {"ok": False, "error": "item not found", "suggestions": []}
+
+    standard = (item.get("standard") or "").strip()
+    reg = item.get("regulatory") or reg_lookup(standard)
+    juris = reg.get("jurisdiction") or ""
+    agency = juris.split("—")[-1].strip() if "—" in juris else (juris or "the citing agency")
+    req = item.get("requirement") or abatement_requirement(standard, reg)
+
+    out: List[Dict[str, Any]] = []
+    seen = set()
+
+    def _add(title: str, text: str, source: str, kind: str):
+        key = (text or "").strip().lower()
+        if not key or key in seen:
+            return
+        seen.add(key)
+        out.append({"title": title, "text": text.strip(), "source": source, "kind": kind})
+
+    # 1. The primary abatement obligation — correct the cited condition. Grounded
+    #    on the requirement engine (the cited rule + the abatement rule chain).
+    if req.get("requirement"):
+        _add(f"Correct the cited condition — {standard or 'cited standard'}",
+             req["requirement"], reg.get("standard") or standard or "abatement requirement",
+             "correct")
+
+    # 2. Library documents matched to this standard become concrete corrective
+    #    actions (implement the written program / deliver training / adopt the JSA).
+    #    Deterministic via the submissions library matcher; excludes nothing here so
+    #    the attorney sees the full required document set for the standard.
+    try:
+        from . import abatement_submissions as _subs
+        lib = _subs.library_suggestions(matter_id, item_id)
+        for s in (lib.get("suggestions") or []):
+            k = s.get("kind")
+            t = s.get("title") or s.get("standard") or ""
+            cit = s.get("standard") or standard
+            if k == "program":
+                _add(f"Implement written program — {t}",
+                     f"Adopt and implement the written {t} program and train affected "
+                     f"employees on it, as required to correct and maintain compliance "
+                     f"with {cit}.", cit, "program")
+            elif k == "training":
+                _add(f"Deliver required training — {cit}",
+                     f"Deliver the training required by {cit} to all affected employees "
+                     f"and retain signed training/attendance records as abatement proof.",
+                     cit, "training")
+            elif k == "jsa":
+                _add(f"Adopt job hazard analysis — {t}",
+                     f"Complete and adopt the job hazard analysis for {t} covering the "
+                     f"cited task, and brief affected crews before the work resumes.",
+                     cit, "jsa")
+    except Exception:
+        pass
+
+    # 3. The certification / documentation step — how the correction is proven to
+    #    the agency. OSHA certifies under 1903.19; other agencies retain records.
+    is_osha = "OSHA" in juris
+    if is_osha:
+        _add("Certify abatement to OSHA (29 CFR 1903.19)",
+             "Complete the correction by the abatement date, then submit abatement "
+             "certification to the Area Director — with abatement documentation for "
+             "serious/willful/repeat items and an abatement tag on any moved equipment "
+             "(29 CFR 1903.19). Attorney confirms which certification/documentation "
+             "obligations apply.", "29 CFR 1903.19", "certify")
+    else:
+        _add(f"Document the correction for {agency}",
+             f"Complete the correction and retain dated records/photos demonstrating it. "
+             f"{agency} governs the abatement and any reporting deadlines for this "
+             f"standard — attorney confirms the applicable filing/reporting obligation.",
+             reg.get("standard") or standard or "citing agency", "certify")
+
+    # 4. Evidence step — dated proof the correction happened, feeds the Vault.
+    _add("Capture dated evidence of the correction",
+         "Photograph the corrected condition with a date/time stamp (and GPS where "
+         "available) and file it to the matter's Evidence Vault so the corrective "
+         "action is verifiable in the submission package.",
+         "Origin Abatement workflow", "evidence")
+
+    return {"ok": True, "matter_id": matter_id, "item_id": item_id,
+            "standard": standard, "jurisdiction": juris, "suggestions": out}
+
+
+def list_item_corrective_actions(matter_id: str, item_id: str) -> Dict[str, Any]:
+    """Resolve a citation item's linked CAPAs into compact views for the card.
+    Read-only; a missing/deleted CAPA id is skipped (never fabricated)."""
+    rec = get(matter_id)
+    if not rec:
+        return {"ok": False, "error": "not found", "actions": []}
+    item = next((it for it in rec.get("citation_items", [])
+                 if it.get("item_id") == item_id), None)
+    if not item:
+        return {"ok": False, "error": "item not found", "actions": []}
+    from . import capa as _capa
+    actions: List[Dict[str, Any]] = []
+    for cid in item.get("corrective_action_ids", []) or []:
+        try:
+            capa_rec = _capa.get(cid)
+        except Exception:
+            capa_rec = None
+        if not capa_rec:
+            continue
+        actions.append({
+            "id": capa_rec.get("id", ""),
+            "title": capa_rec.get("title", ""),
+            "corrective_action": capa_rec.get("corrective_action", ""),
+            "stage": capa_rec.get("stage", ""),
+            "stage_label": _capa.STAGE_LABELS.get(capa_rec.get("stage", ""), ""),
+            "abatement_date": capa_rec.get("abatement_date", ""),
+            "created_at": capa_rec.get("created_at", ""),
+        })
+    return {"ok": True, "matter_id": matter_id, "item_id": item_id, "actions": actions}
+
+
 # ── READINESS (composed from the Evidence Vault gap state) ──────────────────────
 def readiness(matter_id: str) -> Dict[str, Any]:
     """Abatement Readiness Score for a matter. Delegates the per-item evidence gap
@@ -864,6 +1017,28 @@ def register_abatement_matter(app) -> None:
         if not capa_rec:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"ok": True, "capa": capa_rec}
+
+    @app.get("/api/abatement/matters/{matter_id}/citation-item/{item_id}/corrective-action/suggestions")
+    def ab_ca_suggestions(matter_id: str, item_id: str):
+        try:
+            r = corrective_action_suggestions(matter_id, item_id)
+        except Exception as exc:
+            return JSONResponse({"ok": False, "error": str(exc), "suggestions": []},
+                                status_code=200)
+        if not r.get("ok"):
+            return JSONResponse(r, status_code=404 if r.get("error") == "not found" else 200)
+        return r
+
+    @app.get("/api/abatement/matters/{matter_id}/citation-item/{item_id}/corrective-actions")
+    def ab_ca_list(matter_id: str, item_id: str):
+        try:
+            r = list_item_corrective_actions(matter_id, item_id)
+        except Exception as exc:
+            return JSONResponse({"ok": False, "error": str(exc), "actions": []},
+                                status_code=200)
+        if not r.get("ok"):
+            return JSONResponse(r, status_code=404 if r.get("error") == "not found" else 200)
+        return r
 
     @app.post("/api/abatement/matters/{matter_id}/status")
     def ab_status(matter_id: str, body: dict = Body(default=None)):

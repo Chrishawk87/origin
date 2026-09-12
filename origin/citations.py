@@ -134,8 +134,42 @@ def cite(reg: str) -> Dict[str, object]:
         )
         return out
 
-    # 6. Nothing in the KB — never fabricate.
+    # 6. EPA environmental layer — resolves rule NAMES and 40 CFR references that
+    #    aren't verbatim CFR sections (e.g. "RCRA 90/180-Day Rule", "SPCC",
+    #    "40 CFR 112"). Only consulted when the string looks environmental, so a
+    #    stray token can't false-match. Grounded in the EPA reference records.
+    if _looks_epa(reg):
+        hits = _safe(kb.epa_search, reg) or []
+        if hits:
+            rec = hits[0]
+            out.update(
+                ok=True,
+                kind="epa",
+                citation=rec.get("citation") or reg,
+                title=rec.get("title") or "",
+                url=rec.get("url") or rec.get("source") or "",
+                part=rec.get("part") or "",
+                verbatim=rec.get("summary") or "",
+            )
+            return out
+
+    # 7. Nothing in the KB — never fabricate.
     return out
+
+
+_EPA_SIGNALS = (
+    "epa", "rcra", "cwa", "caa", "cercla", "spcc", "npdes", "swppp",
+    "stormwater", "epcra", "sdwa", "uic", " opa", "clean air", "clean water",
+    "hazardous waste", "40 cfr", "tier ii", "tier 2", "ldar", "oooo",
+    "reportable quantity", "generator", "underground injection", "methane",
+)
+
+
+def _looks_epa(reg: str) -> bool:
+    """True when a citation string is environmental enough to consult the EPA
+    layer. Keeps the EPA fallback from false-matching OSHA/DOT strings."""
+    s = (reg or "").lower()
+    return any(sig in s for sig in _EPA_SIGNALS)
 
 
 def attach(items, *, key: str = "citation", into: str = "citation_record"):

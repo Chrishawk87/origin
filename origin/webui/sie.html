@@ -1732,6 +1732,7 @@ function printLibDoc(){
 // ══ ABATEMENT (attorney command center) ═══════════════════════════════════════
 const AB_NOTLEGAL = 'Organizes facts, evidence and workflow dates. Not legal advice — the attorney owns all strategy, conclusions and submissions.';
 let AB_CUR = null;              // current matter id in the workspace
+const AB_CA_SUG = {};          // cached corrective-action suggestions per item_id
 const abStageLabel = {intake:'Intake',active:'Active',in_review:'Attorney Review',submitted:'Submitted',closed:'Closed'};
 function abStageBadge(s,label){
   const cls={intake:'rec',active:'req',in_review:'best',submitted:'cust',closed:'rec'}[s]||'rec';
@@ -1901,6 +1902,7 @@ async function abRenderWorkspace(id){
     </div>`;
   abLoadTasks();
   abLoadFill();
+  (items||[]).forEach(it=>abCALoad(it.item_id));
 }
 
 const AB_FILL_FIELDS=['company_name','company_address','effective_date','program_administrator','admin_title','admin_phone','admin_email','scope'];
@@ -2014,7 +2016,16 @@ function abItemCard(it, evList){
     <div class="src">${esc(dl.disclaimer||'System-calculated workflow date — verify against citation/order.')}</div>
     <div style="margin-top:8px">
       ${it.verified?'':`<button class="btn sm" onclick="abVerifyItem('${esc(it.item_id)}')">Mark verified</button>`}
-      <button class="btn ghost sm" onclick="abOpenCA('${esc(it.item_id)}')">Open corrective action</button>
+    </div>
+    <div style="margin-top:10px;border-top:1px solid var(--line,#eee);padding-top:8px">
+      <div class="sub" style="font-weight:600">Corrective actions
+        <span class="sub" style="font-weight:400">— what ${esc(((it.regulatory||{}).jurisdiction||'the agency').replace('Federal — ','')||'the agency')} requires to abate this citation</span></div>
+      <div id="abca-${esc(it.item_id)}"><div class="sub">Loading…</div></div>
+      <div style="margin-top:6px">
+        <button class="btn sm" onclick="abCASuggest('${esc(it.item_id)}')">Suggest required corrective actions</button>
+        <button class="btn ghost sm" onclick="abCAAddCustom('${esc(it.item_id)}')">Add custom action</button>
+      </div>
+      <div id="abca-panel-${esc(it.item_id)}"></div>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--line,#eee);padding-top:8px">
       <div class="sub" style="font-weight:600">Abatement documentation from library
@@ -2285,11 +2296,46 @@ async function abVerifyItem(iid){
   const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item/'+encodeURIComponent(iid)+'/verify',{method:'POST',body:JSON.stringify({by:'attorney'})});
   if(ok&&j.ok) abRenderWorkspace(AB_CUR); else alert((j&&j.error)||'Error');
 }
-async function abOpenCA(iid){
+// ── Corrective actions (per citation item) ──────────────────────────────────
+async function abCALoad(iid){
+  const box=document.getElementById('abca-'+iid); if(!box) return;
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item/'+encodeURIComponent(iid)+'/corrective-actions');
+  const actions=(ok&&j&&j.actions)||[];
+  if(!actions.length){ box.innerHTML='<div class="sub">No corrective actions opened yet.</div>'; return; }
+  box.innerHTML=actions.map(a=>`<div class="item" style="margin-bottom:6px">
+    <div class="t">${esc(a.title||'Corrective action')} ${a.stage_label?`<span class="pill">${esc(a.stage_label)}</span>`:''}</div>
+    <div class="d">${esc(a.corrective_action||'')}</div>
+    ${a.abatement_date?`<div class="sub">Abatement due: ${esc(a.abatement_date)}</div>`:''}
+  </div>`).join('');
+}
+async function abCASuggest(iid){
+  const panel=document.getElementById('abca-panel-'+iid); if(!panel) return;
+  panel.innerHTML='<div class="sub"><span class="spin"></span> Finding required corrective actions…</div>';
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item/'+encodeURIComponent(iid)+'/corrective-action/suggestions');
+  if(!ok||!j||!j.ok){ panel.innerHTML='<div class="sub">'+esc((j&&j.error)||'Could not load suggestions.')+'</div>'; return; }
+  const sug=j.suggestions||[];
+  if(!sug.length){ panel.innerHTML='<div class="sub">Nothing in the regulatory corpus resolved this standard — add a custom corrective action below. Nothing is fabricated.</div>'; return; }
+  AB_CA_SUG[iid]=sug;
+  panel.innerHTML='<div class="sub" style="margin:6px 0;font-weight:600">Required for '+esc(j.jurisdiction||'this citation')+' — click Add to open a corrective action:</div>'
+    + sug.map((s,i)=>`<div class="item" style="margin-bottom:6px">
+        <div class="t">${esc(s.title||'')} ${s.source?`<span class="pill">${esc(s.source)}</span>`:''}</div>
+        <div class="d">${esc(s.text||'')}</div>
+        <div style="margin-top:6px"><button class="btn sm" onclick="abCAAdd('${esc(iid)}',${i})">Add this action</button></div>
+      </div>`).join('');
+}
+async function abCAAdd(iid, idx){
+  const sug=(AB_CA_SUG[iid]||[])[idx]; if(!sug) return;
+  await abCAPost(iid, sug.text);
+}
+async function abCAAddCustom(iid){
   const txt=prompt('Describe the corrective action to open for this citation item:');
-  if(txt==null) return;
-  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item/'+encodeURIComponent(iid)+'/corrective-action',{method:'POST',body:JSON.stringify({corrective_action:txt,by:'attorney'})});
-  if(ok&&j.ok){ abRenderWorkspace(AB_CUR); } else alert((j&&j.error)||'Error');
+  if(txt==null || !txt.trim()) return;
+  await abCAPost(iid, txt.trim());
+}
+async function abCAPost(iid, text){
+  const {ok,j}=await api('/api/abatement/matters/'+encodeURIComponent(AB_CUR)+'/citation-item/'+encodeURIComponent(iid)+'/corrective-action',{method:'POST',body:JSON.stringify({corrective_action:text,by:'attorney'})});
+  if(ok&&j&&j.ok){ const p=document.getElementById('abca-panel-'+iid); if(p) p.innerHTML=''; abCALoad(iid); }
+  else alert((j&&j.error)||'Error');
 }
 async function abUploadEv(iid){
   const f=document.getElementById('abfile-'+iid);
